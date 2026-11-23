@@ -1,0 +1,12 @@
+[package]
+name = "quill-app"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "Quill's editor controller: keys, commands, menus and the text-mode painter, shared by every build"
+
+[dependencies]
+quill-core = { path = "../quill-core" }
+quill-formats = { path = "../quill-formats" }
+quill-grid = { path = "../quill-grid" }

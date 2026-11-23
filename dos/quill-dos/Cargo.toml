@@ -18,3 +18,6 @@ path = "src/main.rs"
 [dependencies]
 rt = { path = "../rt" }
 quill-grid = { path = "../../crates/quill-grid" }
+quill-app = { path = "../../crates/quill-app" }
+quill-formats = { path = "../../crates/quill-formats" }
+quill-heap = { path = "../../crates/quill-heap" }

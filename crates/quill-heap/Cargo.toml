@@ -1,0 +1,10 @@
+[package]
+name = "quill-heap"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "A Store over heap blocks, for builds with a flat heap (host, DOS, Win32)"
+
+[dependencies]
+quill-core = { path = "../quill-core" }

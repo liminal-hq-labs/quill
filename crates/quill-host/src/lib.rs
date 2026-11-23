@@ -4,10 +4,10 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 pub mod docs;
-pub mod measure;
 pub mod png;
 pub mod render;
+pub mod script;
 pub mod store;
 
-pub use measure::GridMeasure;
+pub use quill_grid::GridMeasure;
 pub use store::HostStore;

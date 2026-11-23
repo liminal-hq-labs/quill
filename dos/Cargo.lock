@@ -3,16 +3,49 @@
 version = 4
 
 [[package]]
+name = "quill-app"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+ "quill-formats",
+ "quill-grid",
+]
+
+[[package]]
+name = "quill-core"
+version = "0.0.0"
+
+[[package]]
 name = "quill-dos"
 version = "0.0.0"
 dependencies = [
+ "quill-app",
+ "quill-formats",
  "quill-grid",
+ "quill-heap",
  "rt",
+]
+
+[[package]]
+name = "quill-formats"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
 ]
 
 [[package]]
 name = "quill-grid"
 version = "0.0.0"
+dependencies = [
+ "quill-core",
+]
+
+[[package]]
+name = "quill-heap"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+]
 
 [[package]]
 name = "rt"

@@ -11,7 +11,9 @@ name = "quill-render"
 path = "src/bin/quill-render.rs"
 
 [dependencies]
+quill-heap = { path = "../quill-heap" }
 quill-grid = { path = "../quill-grid" }
+quill-app = { path = "../quill-app" }
 quill-core = { path = "../quill-core" }
 quill-formats = { path = "../quill-formats" }
 

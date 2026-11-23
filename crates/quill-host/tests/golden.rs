@@ -160,3 +160,72 @@ proptest! {
 		prop_assert!(prev_end + 1 >= d.body.len(), "the last line reaches the paragraph mark");
 	}
 }
+
+fn m1_scenario() -> (quill_host::script::MemFiles, String) {
+	let mut files = quill_host::script::MemFiles::default();
+	files.files.insert(
+		"PLAIN.QLD".into(),
+		std::fs::read(root().join("tests/docs/plain.qld")).unwrap(),
+	);
+	let keys = quill_host::script::parse_script(
+		&std::fs::read_to_string(root().join("tests/scenarios/m1-edit.keys")).unwrap(),
+	);
+	let mut frames = String::new();
+	quill_host::script::play(&mut files, &keys, &mut frames);
+	(files, frames)
+}
+
+#[test]
+fn m1_edit_script_matches_its_golden_screens_and_file() {
+	let (files, frames) = m1_scenario();
+	compare("tests/golden/screens/m1-edit.frames.txt", &frames);
+	let saved = &files.files["PLAIN.QLD"];
+	let file = root().join("tests/golden/files/m1-edit.qld");
+	if std::env::var_os("QUILL_UPDATE_GOLDEN").is_some() {
+		std::fs::write(&file, saved).unwrap();
+		return;
+	}
+	assert_eq!(&std::fs::read(&file).unwrap(), saved);
+}
+
+proptest! {
+	#![proptest_config(ProptestConfig::with_cases(100))]
+
+	// Any keys, in any order, leave a document that ends in a paragraph mark, a caret inside it, and a screen that paints.
+	#[test]
+	fn random_keys_never_break_the_document(codes in proptest::collection::vec(0u8..24, 0..120)) {
+		use quill_app::Key;
+		let mut s = HostStore::new();
+		let mut files = quill_host::script::MemFiles::default();
+		files.files.insert("PLAIN.QLD".into(), std::fs::read(root().join("tests/docs/plain.qld")).unwrap());
+		let mut app = quill_app::App::new();
+		app.reset(&mut s).unwrap();
+		let mut g = quill_grid::Grid::<25>::new(0);
+		for c in codes {
+			let k = match c {
+				0..=7 => Key::Char(b'a' + c),
+				8 => Key::Enter,
+				9 => Key::Backspace,
+				10 => Key::Delete,
+				11 => Key::Left,
+				12 => Key::Right,
+				13 => Key::Up,
+				14 => Key::Down,
+				15 => Key::Home,
+				16 => Key::End,
+				17 => Key::PageDown,
+				18 => Key::PageUp,
+				19 => Key::Ctrl(b'z'),
+				20 => Key::Ctrl(b'y'),
+				21 => Key::Tab,
+				22 => Key::CtrlEnd,
+				_ => Key::CtrlHome,
+			};
+			app.key(&mut s, &mut files, k);
+			quill_app::draw(&app, &s, &mut g);
+			let body = &app.doc().body;
+			prop_assert!(!body.is_empty());
+			prop_assert_eq!(body.read_byte(&s, body.len() - 1), Some(0x0D));
+		}
+	}
+}
