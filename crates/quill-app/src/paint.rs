@@ -77,7 +77,7 @@ const EDIT: [Item; 2] = [
 	item("Undo", "Ctrl+Z", Command::Undo),
 	item("Redo", "Ctrl+Y", Command::Redo),
 ];
-const CHARACTER: [Item; 7] = [
+const CHARACTER: [Item; 8] = [
 	item("Regular", "F5", Command::Regular),
 	item("Bold", "Ctrl+B", Command::Bold),
 	item("Italic", "Ctrl+I", Command::Italic),
@@ -85,8 +85,9 @@ const CHARACTER: [Item; 7] = [
 	item("Strikethrough", "", Command::Strike),
 	item("Superscript", "", Command::Super),
 	item("Subscript", "", Command::Sub),
+	item("Fonts...", "", Command::Fonts),
 ];
-const PARAGRAPH: [Item; 11] = [
+const PARAGRAPH: [Item; 12] = [
 	item("Left", "Ctrl+L", Command::Align(0)),
 	item("Centred", "Ctrl+E", Command::Align(1)),
 	item("Right", "Ctrl+R", Command::Align(2)),
@@ -95,6 +96,7 @@ const PARAGRAPH: [Item; 11] = [
 	item("Numbering", "", Command::Numbering),
 	item("Increase Level", "", Command::LevelUp),
 	item("Decrease Level", "", Command::LevelDown),
+	item("Tabs...", "", Command::Tabs),
 	item("Single Space", "", Command::Spacing(0)),
 	item("1\u{bd} Space", "", Command::Spacing(1)),
 	item("Double Space", "", Command::Spacing(2)),
@@ -501,6 +503,46 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 				crate::find::Focus::Replace => Some((24 + st.wlen, 11)),
 				_ => None,
 			};
+		}
+		Mode::Form(f) => {
+			let h = f.n + 4;
+			dialog(
+				g,
+				8,
+				62,
+				h,
+				if f.kind == crate::form::FormKind::Fonts {
+					b" Fonts "
+				} else {
+					b" Tabs "
+				},
+			);
+			let mut cur = None;
+			for (i, r) in f.rows.iter().take(f.n).enumerate() {
+				let y = 10 + i;
+				let a = if i == f.focus { SELECTED } else { attr::CHROME };
+				match r.kind {
+					0 => {
+						g.text(10, y, r.label.as_bytes(), attr::CHROME);
+						g.fill(30, y, 14, 1, b' ', 0x07);
+						g.text(30, y, r.text.get(..r.len).unwrap_or(&[]), 0x07);
+						if i == f.focus {
+							cur = Some((30 + r.len, y));
+						}
+					}
+					1 => {
+						g.text(10, y, r.label.as_bytes(), attr::CHROME);
+						let v = r.names.get(usize::from(r.val)).copied().unwrap_or("");
+						g.text(30, y, v.as_bytes(), a);
+					}
+					2 => {
+						g.text(10, y, if r.val == 1 { b"[x]" } else { b"[ ]" }, a);
+						g.text(14, y, r.label.as_bytes(), attr::CHROME);
+					}
+					_ => g.text(10, y, r.label.as_bytes(), a),
+				}
+			}
+			cursor = cur;
 		}
 		Mode::Confirm(_) => {
 			dialog(g, 8, 62, 7, b" Quill ");

@@ -220,6 +220,12 @@ fn m2_headers_script_matches_its_golden_screens() {
 }
 
 #[test]
+fn m2_dialogs_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("m2-dialogs");
+	compare("tests/golden/screens/m2-dialogs.frames.txt", &frames);
+}
+
+#[test]
 fn m2_letter_in_the_mono_scheme_matches_its_golden_screens() {
 	let (_, frames) = scenario("m2-mono");
 	compare("tests/golden/screens/m2-mono.frames.txt", &frames);
