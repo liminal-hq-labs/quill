@@ -4,7 +4,7 @@ Each decision is numbered and stays here even when superseded, with a note on wh
 
 | # | Decision | Choice | Alternatives considered | Why |
 |---|---|---|---|---|
-| D1 | Home | A Liminal HQ Labs experiment in `liminal-hq-labs/quill16`, public from the first commit | — | Try the idea in the open before it earns a place in Liminal HQ |
+| D1 | Home | A Liminal HQ Labs experiment in `liminal-hq-labs/quill`, public from the first commit | — | Try the idea in the open before it earns a place in Liminal HQ |
 | D2 | Licence | `Apache-2.0 OR MIT` | — | House licence, compatible with both ecosystems |
 | D3 | Dependency updates | No Dependabot configuration until the project opts in | — | Labs repositories stay quiet by default. See the [Labs charter](https://github.com/liminal-hq-labs/.github/blob/main/docs/labs-charter.md#dependabot-is-opt-in) |
 | D4 | Win16 floor | Windows 3.1 in 386 Enhanced mode on a 386 or later; no Windows 3.0, Standard mode or real mode | Support Standard mode on a 286 | The Rust `code16` target uses 32-bit registers through prefixes, so it needs a 386, and Enhanced mode gives stable selectors for moveable memory and demand-loaded segments. Standard mode would double the testing for very few machines |
