@@ -272,3 +272,20 @@ proptest! {
 		}
 	}
 }
+
+#[test]
+fn captured_metrics_lay_the_letter_out_as_windows_me_did() {
+	// tests/golden/layout/letter.windows-me.txt is what QUILL32.EXE /LINES wrote on the Windows ME VM, with the fonts
+	// ME has; the table is what /CAPTURE read there. Same widths in, so the host must break the same lines.
+	let table =
+		std::fs::read_to_string(root().join("tests/metrics/screen96-windows-me.txt")).unwrap();
+	let mut m = quill_host::CapturedMeasure::parse(&table).unwrap();
+	let mut s = HostStore::new();
+	let rtf = std::fs::read(root().join("tests/docs/letter.rtf")).unwrap();
+	let mut d = Doc::new();
+	quill_formats::rtf::read(&mut d, &mut s, &mut SliceSource::new(&rtf)).unwrap();
+	let dump = text_dump(&d, &s, &mut m, "windows-96", StoryKind::Body);
+	let want =
+		std::fs::read_to_string(root().join("tests/golden/layout/letter.windows-me.txt")).unwrap();
+	assert_eq!(want.replace("\r\n", "\n"), dump);
+}

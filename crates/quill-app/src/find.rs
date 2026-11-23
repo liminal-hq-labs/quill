@@ -5,6 +5,8 @@
 
 use quill_core::store::Store;
 
+use quill_core::layout::Measure;
+
 use crate::{label, App, Mode};
 
 /// Longest text in a find or replace field.
@@ -105,7 +107,7 @@ fn same(a: u8, b: u8, case: bool) -> bool {
 	}
 }
 
-impl App {
+impl<M: Measure + Clone> App<M> {
 	/// The position of the next match at or after `from` and before `limit` (a match must end by `limit`).
 	fn search<S: Store + ?Sized>(
 		&self,

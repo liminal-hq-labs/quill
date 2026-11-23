@@ -235,7 +235,8 @@ pub fn to_units(twips: i32, res: u16) -> i32 {
 	v.div_euclid(2880) as i32
 }
 
-fn font_ref<S: Store + ?Sized>(doc: &Doc, s: &S, cfmt: u16) -> (FontRef, u8, CFmt) {
+/// The font and vertical position a character format asks for, and the format itself.
+pub fn font_ref<S: Store + ?Sized>(doc: &Doc, s: &S, cfmt: u16) -> (FontRef, u8, CFmt) {
 	let cf = doc
 		.cfmts
 		.get(s, cfmt)
@@ -537,4 +538,137 @@ where
 		}
 	});
 	(total, dec.unwrap_or(total))
+}
+
+/// Calls `f(position, character, x, width, leader, cfmt)` for each character of a laid-out line, with the x a character is drawn at
+/// (from the left margin, the line's alignment included). Tabs take the width layout gave them, so a painter and the layout agree.
+pub fn walk_line<S, M, F>(doc: &Doc, s: &S, m: &mut M, kind: StoryKind, line: &Line, mut f: F)
+where
+	S: Store + ?Sized,
+	M: Measure + ?Sized,
+	F: FnMut(u32, u8, i32, i32, u8, u16),
+{
+	let text = doc.story(kind);
+	let (rx, _) = m.resolution();
+	let total = text.len();
+	let end = para_end(text, s, line.start, total);
+	let mark = end
+		.checked_sub(1)
+		.filter(|p| text.read_byte(s, *p) == Some(0x0D));
+	let pf = mark
+		.and_then(|p| text.pfmt_at(s, p))
+		.and_then(|i| doc.pfmts.get(s, i))
+		.unwrap_or(PFmt::DEFAULT);
+	let stops = Stops::for_para(doc, s, &pf, rx);
+	let mut cache = FontCache::new();
+	let mut x = line.x;
+	text.for_each_run(s, line.start, line.len, |at, piece| {
+		let (fr, _, _) = font_ref(doc, s, piece.cfmt);
+		let slot = cache.slot(m, &fr);
+		let mut buf = [0u8; 64];
+		let mut done = 0u32;
+		while done < piece.len {
+			let take = (piece.len - done).min(64) as usize;
+			let Some(b) = buf.get_mut(..take) else {
+				return;
+			};
+			text.read_piece(s, &piece, done, b);
+			for (i, &c) in b.iter().enumerate() {
+				let p = at + done + i as u32;
+				let (w, leader) = if c == 0x09 {
+					let cur = line.indent + (x - line.x);
+					let stop = stops.next(cur);
+					let (seg, dec) = if stop.kind == 0 {
+						(0, 0)
+					} else {
+						segment(doc, s, &mut cache, m, p + 1, end)
+					};
+					(tab_advance(&stop, cur, seg, dec), stop.leader)
+				} else if c == 0x01 {
+					(cache.width(slot, b'8') * 2, 0)
+				} else {
+					(cache.width(slot, c), 0)
+				};
+				f(p, c, x, w, leader, piece.cfmt);
+				x += w;
+			}
+			done += take as u32;
+		}
+	});
+}
+
+/// Writes a story's layout as text: a header, then one line per line box with its text after a bar. The host's goldens and the Windows
+/// builds' self-checks both use it, so they can be compared byte for byte.
+pub fn dump_story<S, M, W>(
+	doc: &Doc,
+	s: &S,
+	m: &mut M,
+	name: &str,
+	kind: StoryKind,
+	w: &mut W,
+) -> core::fmt::Result
+where
+	S: Store + ?Sized,
+	M: Measure + ?Sized,
+	W: core::fmt::Write,
+{
+	let (rx, ry) = m.resolution();
+	writeln!(w, "# quill layout dump 1")?;
+	writeln!(w, "# measure {name}, {rx} x {ry} units per inch")?;
+	let text = doc.story(kind);
+	let (mut lines, mut chars) = (0u32, 0u32);
+	let pages = layout_story(doc, s, m, kind, |l| {
+		lines += 1;
+		chars = chars.max(l.start + l.len);
+	});
+	writeln!(
+		w,
+		"# {} characters, {} lines, {} pages",
+		text.len(),
+		lines,
+		pages
+	)?;
+	let mut result = Ok(());
+	layout_story(doc, s, m, kind, |l| {
+		if result.is_err() {
+			return;
+		}
+		result = write_line(text, s, l, w);
+	});
+	result
+}
+
+fn write_line<S: Store + ?Sized, W: core::fmt::Write>(
+	text: &crate::doc::StoryText,
+	s: &S,
+	l: &Line,
+	w: &mut W,
+) -> core::fmt::Result {
+	write!(
+		w,
+		"page {} y {} para {} line {} start {} len {} x {} width {} ascent {} descent {} | ",
+		l.page, l.y, l.para, l.line, l.start, l.len, l.x, l.width, l.ascent, l.descent
+	)?;
+	let mut at = 0u32;
+	let mut buf = [0u8; 64];
+	while at < l.len {
+		let take = ((l.len - at) as usize).min(64);
+		let Some(b) = buf.get_mut(..take) else {
+			break;
+		};
+		let n = text.read(s, l.start + at, b);
+		if n == 0 {
+			break;
+		}
+		for &c in b.iter().take(n) {
+			w.write_char(match c {
+				0x09 => '\u{2192}',
+				0x0b => '\u{21b5}',
+				0x20..=0x7e => char::from(c),
+				_ => '.',
+			})?;
+		}
+		at += n as u32;
+	}
+	writeln!(w)
 }
