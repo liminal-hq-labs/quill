@@ -18,7 +18,7 @@
 
 ## Project status
 
-Quill is a [Liminal HQ Labs](https://github.com/liminal-hq-labs) experiment: A small rich-text word processor for Windows 3.1, written in Rust. It is **experimental**, so interfaces, file formats and behaviour may change between any two commits. `SPEC.md` is the source of truth for behaviour, and `docs/decisions.md` records why. The [Labs charter](https://github.com/liminal-hq-labs/.github/blob/main/docs/labs-charter.md) covers what that status means and how a project graduates.
+Quill is a [Liminal HQ Labs](https://github.com/liminal-hq-labs) experiment: one word processor for DOS, Windows 3.1 and Windows 95, written in Rust, and the companion application to the *Cross-compiling to the past* blog series. It is **experimental**, so interfaces, file formats and behaviour may change between any two commits. `SPEC.md` is the source of truth for behaviour, and `docs/decisions.md` records why. The [Labs charter](https://github.com/liminal-hq-labs/.github/blob/main/docs/labs-charter.md) covers what that status means and how a project graduates.
 
 ## Spelling and writing
 
@@ -62,6 +62,7 @@ Quill is a [Liminal HQ Labs](https://github.com/liminal-hq-labs) experiment: A s
 - **Merge commits only.** No squash and no rebase merges. Branches are deleted on merge.
 - **Never** push, tag, publish or dispatch workflows unless asked.
 - **Never** run `git add -A` or `git commit -a`, because checkouts may be shared. Stage explicit paths.
+- **Never** remove files with wildcard patterns (no `rm` with globs, no `find -delete` with patterns). Name each path explicitly; patterns trip the owner's approval dialog.
 - Prefer the `gh` CLI for GitHub work.
 - Planning files such as `PLAN.md` stay out of git.
 
@@ -89,8 +90,10 @@ Use `#` comments for shell, YAML, TOML and Dockerfiles, and an XML comment for S
 
 ## Architecture rules
 
-<!-- The few rules that keep the design honest, for example "core first: the library has no UI dependency" or "all I/O is async". Delete this comment when the first rule lands. -->
-
+- **Core first.** The portable crates (`quill-core`, `quill-formats`, `quill-image`, `quill-inflate`, `quill-spell`, `quill-app`, `quill-grid`) never name a platform. Anything Windows or DOS comes in through a trait.
+- **No `alloc`, no floats, no panics in portable crates.** Document-sized data goes through `Store`; layout is integer; fallible work returns `Result`. Clippy enforces it.
+- **One file format.** Only `quill-formats` reads or writes documents, and every build saves the same bytes for the same document.
+- **Win32 and DOS lead, Win16 follows.** Windows UI lands on Win32 first and editing behaviour on DOS text mode first; Win16 ports a working design (D34, D37).
 - **SPEC first.** A change to behaviour, interfaces, settings or defaults updates `SPEC.md` in the same change.
 
 ## Testing
@@ -115,7 +118,9 @@ State exactly what was and was not run when reporting results.
 README.md SPEC.md AGENTS.md CLAUDE.md LICENSE-APACHE LICENSE-MIT
 .editorconfig .markdownlint.jsonc .gitignore rustfmt.toml
 assets/        hero banner
-docs/          decisions and project notes
+docs/          architecture, decisions, roadmap, toolchain needs, testing, documentation plan, hero brief
 scripts/       header check, banner check and its Chromium text-fit harness
 .github/       CI workflow, issue and pull request templates, release notes configuration
 ```
+
+Planned, as the roadmap adds them: `crates/` (portable crates and host tools), `win16/`, `win9x/` and `dos/` (one workspace per platform), `help/`, `dict/`, `fuzz/`, `installer/` and `tests/`. See [docs/architecture.md](docs/architecture.md#crates-and-workspaces).

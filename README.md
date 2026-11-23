@@ -1,6 +1,6 @@
 # Quill
 
-<p align="center"><img src="assets/hero.svg" alt="Quill — A small rich-text word processor for Windows 3.1, written in Rust" width="100%"></p>
+<p align="center"><img src="assets/hero.svg" alt="Quill — one word processor for DOS, Windows 3.1 and Windows 95, written in Rust" width="100%"></p>
 
 <p align="center">
   <a href="https://github.com/liminal-hq-labs/quill16/actions/workflows/ci.yml"><img src="https://github.com/liminal-hq-labs/quill16/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
@@ -8,30 +8,38 @@
   <img src="https://img.shields.io/badge/licence-Apache--2.0%20OR%20MIT-3fb950" alt="Licence: Apache-2.0 OR MIT">
 </p>
 
-A small rich-text word processor for Windows 3.1, written in Rust.
+One word processor for DOS, Windows 3.1 and Windows 95, written in Rust.
 
-<!-- Pitch: two or three sentences on what it does and why someone would want it. Plain words, no feature list. -->
+Quill is a small rich-text word processor for the PCs of 1992 to 2000: fonts, lists, tab stops, headers and footers, pictures, a spelling checker and a real WinHelp help file, in a program that fits on a floppy and runs in 4 MB. It is built in 2026 with modern Rust and no C compiler, and one shared core drives all three versions, so a letter typed in blue-screen DOS opens with its fonts on Windows 3.1 and in LibreOffice today. Quill is the companion application to the *Cross-compiling to the past* series on the Liminal HQ blog, which explains the toolchains it is built with.
 
-> **Status:** experimental. <!-- Say what works today, what doesn't yet, and whether there are releases. -->
+> **Status:** experimental, and in the planning stage. The design is written ([SPEC.md](SPEC.md), [architecture](docs/architecture.md), [roadmap](docs/roadmap.md)); no Quill code exists yet. The toolchains it builds on are proven separately: Rust programs already run on Windows 3.11 (the Liminal Installer's Win16 spike), Windows ME (`win9x-rust`) and DOS (Desk). There are no releases.
 
 ## What it's for
 
-<!-- Three to five bullets, each a real situation where someone reaches for it. -->
-
-- …
+- Writing a letter on a period PC, or in DOSBox-X, and printing it with the fonts Windows 3.1 came with.
+- Opening the same document on DOS, Windows 3.1 and Windows 95 without converting anything.
+- Carrying an RTF from a 1990s machine to a modern word processor, pictures and page numbers included.
+- Reading how one Rust core becomes three programs for three very different machines.
 
 ## Install and run
 
-<!-- The shortest path from nothing to running it. Packages first if there are any, then from source. -->
+Nothing to install yet. When v1 ships, it comes as 1.44 MB floppy images, one per platform, each with its own installer ([release disks](docs/roadmap.md#release-disks)).
 
 ```sh
-# …
+# Planned, once the workspace exists:
+cargo test                       # the portable core, on the host
+cargo run -p quill-host --bin quill-render -- tests/docs/letter.rtf --png out/
 ```
 
 ## Documentation
 
-- [SPEC.md](SPEC.md) — behaviour and interfaces
+- [SPEC.md](SPEC.md) — what Quill does, on each platform
+- [docs/architecture.md](docs/architecture.md) — how it is built
+- [docs/roadmap.md](docs/roadmap.md) — milestones and how each is checked
 - [docs/decisions.md](docs/decisions.md) — decisions and why
+- [docs/toolchain-needs.md](docs/toolchain-needs.md) — what the Win16, Win32 and DOS toolchains must provide
+- [docs/testing.md](docs/testing.md) — from host tests to Windows 3.11 in DOSBox-X
+- [docs/documentation-plan.md](docs/documentation-plan.md) — screenshots, diagrams and the capstone post
 - [AGENTS.md](AGENTS.md) — contributor and agent rules
 
 ## Contributing
@@ -44,4 +52,4 @@ Quill is a [Liminal HQ Labs](https://github.com/liminal-hq-labs) experiment. Exp
 
 ## Licence
 
-Licensed under either of the [Apache License, Version 2.0](LICENSE-APACHE) or the [MIT licence](LICENSE-MIT), at your option.
+Licensed under either of the [Apache License, Version 2.0](LICENSE-APACHE) or the [MIT licence](LICENSE-MIT), at your option. The DOS graphics faces are Desk's, under the SIL Open Font License 1.1; the spelling dictionaries are built from SCOWL, whose notice they carry.
