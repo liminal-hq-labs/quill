@@ -10,6 +10,7 @@ dependencies = [
  "quill-formats",
  "quill-grid",
  "quill-image",
+ "quill-inflate",
 ]
 
 [[package]]

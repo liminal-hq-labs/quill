@@ -169,6 +169,10 @@ pub enum Command {
 	Picture,
 	/// File > Print.
 	Print,
+	/// File > Print Preview (Windows builds only).
+	Preview,
+	/// File > Print Setup (Windows builds only).
+	PrintSetup,
 	/// File > one of the recent files (0 to 3).
 	Recent(u8),
 	/// Find > Find.
@@ -425,6 +429,11 @@ impl<M: Measure + Clone> App<M> {
 	) -> bool {
 		self.set_name(name);
 		self.do_save(s, f)
+	}
+
+	/// Puts a message on the status line.
+	pub fn set_message(&mut self, text: &str) {
+		self.msg.set(text);
 	}
 
 	/// The message the last command left for the status line.
@@ -1195,6 +1204,9 @@ impl<M: Measure + Clone> App<M> {
 					buf: [0; NAME_MAX],
 					len: 0,
 				}
+			}
+			Command::Preview | Command::PrintSetup => {
+				self.msg.set("That is not available in this version.")
 			}
 			Command::Print => {
 				self.mode = Mode::Prompt {

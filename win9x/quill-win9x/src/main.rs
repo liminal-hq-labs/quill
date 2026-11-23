@@ -123,7 +123,10 @@ struct Shell {
 	/// The commands behind the menu items, by menu id.
 	cmds: Vec<Command>,
 	store: HeapStore,
+	screen_dc: Handle,
 	pics: gdi::PicCache,
+	/// The print preview, when it is showing: the first page shown, and whether two pages are.
+	preview: Option<(u32, bool)>,
 	files: Win32Files,
 	cw: i32,
 	ch: i32,
@@ -325,6 +328,111 @@ extern "system" {
 	fn GetSaveFileNameA(ofn: *mut OpenFileNameA) -> i32;
 }
 
+/// The common Print dialog's structure (packed, as Win32 declares it).
+#[repr(C, packed(1))]
+struct PrintDlgA {
+	size: u32,
+	owner: Handle,
+	dev_mode: Handle,
+	dev_names: Handle,
+	dc: Handle,
+	flags: u32,
+	from_page: u16,
+	to_page: u16,
+	min_page: u16,
+	max_page: u16,
+	copies: u16,
+	instance: Handle,
+	cust_data: isize,
+	print_hook: *const c_void,
+	setup_hook: *const c_void,
+	print_template: *const u8,
+	setup_template: *const u8,
+	print_res: Handle,
+	setup_res: Handle,
+}
+
+#[link(name = "comdlg32", kind = "raw-dylib", import_name_type = "undecorated")]
+extern "system" {
+	fn PrintDlgA(pd: *mut PrintDlgA) -> i32;
+}
+
+/// Shows the common Print dialog's setup page (`flags` PD_PRINTSETUP) and releases what it returns.
+unsafe fn print_dialog(hwnd: Handle, flags: u32) -> bool {
+	let mut pd = PrintDlgA {
+		size: 66,
+		owner: hwnd,
+		dev_mode: null_mut(),
+		dev_names: null_mut(),
+		dc: null_mut(),
+		flags,
+		from_page: 0,
+		to_page: 0,
+		min_page: 0,
+		max_page: 0,
+		copies: 1,
+		instance: null_mut(),
+		cust_data: 0,
+		print_hook: null(),
+		setup_hook: null(),
+		print_template: null(),
+		setup_template: null(),
+		print_res: null_mut(),
+		setup_res: null_mut(),
+	};
+	PrintDlgA(&mut pd) != 0
+}
+
+/// Prints the document: through the common Print dialog (`ask`), or on the default printer without asking. `output` sends the job to a
+/// file. Returns false when there was no printer or the job did not start.
+unsafe fn print_job(hwnd: Handle, sh: &Shell, ask: bool, output: Option<&[u8]>) -> bool {
+	// PD_RETURNDC, PD_USEDEVMODECOPIESANDCOLLATE, PD_NOSELECTION; the dialog is skipped with PD_RETURNDEFAULT.
+	let mut flags = 0x0100 | 0x0004_0000 | 0x0004;
+	if !ask {
+		flags |= 0x0400;
+	}
+	let pages = gdi::page_count(&sh.app, &sh.store, sh.screen_dc, 96).min(9999) as u16;
+	let mut pd = PrintDlgA {
+		size: 66,
+		owner: hwnd,
+		dev_mode: null_mut(),
+		dev_names: null_mut(),
+		dc: null_mut(),
+		flags,
+		from_page: 1,
+		to_page: pages,
+		min_page: 1,
+		max_page: pages,
+		copies: 1,
+		instance: null_mut(),
+		cust_data: 0,
+		print_hook: null(),
+		setup_hook: null(),
+		print_template: null(),
+		setup_template: null(),
+		print_res: null_mut(),
+		setup_res: null_mut(),
+	};
+	if PrintDlgA(&mut pd) == 0 || pd.dc.is_null() {
+		return false;
+	}
+	let dc = pd.dc;
+	let (mut from, mut to) = (1u32, u32::MAX);
+	// PD_PAGENUMS: the range the user chose.
+	if pd.flags & 0x0002 != 0 {
+		from = u32::from(pd.from_page);
+		to = u32::from(pd.to_page);
+	}
+	let title: Vec<u8> = if sh.app.name().is_empty() {
+		b"(Untitled)".to_vec()
+	} else {
+		sh.app.name().to_vec()
+	};
+	let ok = gdi::print_document(dc, &sh.app, &sh.store, &title, output, from, to);
+	DeleteDC(dc);
+	ok
+}
+
 /// Shows the common Open or Save As dialog and returns the chosen path.
 unsafe fn file_dialog(hwnd: Handle, save: bool) -> Option<Vec<u8>> {
 	let mut file = [0u8; 260];
@@ -390,6 +498,16 @@ unsafe fn menu_command(hwnd: Handle, id: usize) {
 				sh.app.save_as(&mut sh.store, &mut sh.files, &path);
 			}
 		}
+		Command::Preview if !sh.grid => sh.preview = Some((1, false)),
+		Command::PrintSetup if !sh.grid => {
+			// The common dialog's setup page: choose the printer and paper.
+			print_dialog(hwnd, 0x0040);
+		}
+		Command::Print if !sh.grid => {
+			if !print_job(hwnd, sh, true, None) {
+				sh.app.set_message("Quill could not print.");
+			}
+		}
 		_ => sh.app.command(&mut sh.store, &mut sh.files, c),
 	}
 	retitle(hwnd, sh);
@@ -412,6 +530,26 @@ unsafe fn retitle(hwnd: Handle, sh: &Shell) {
 
 unsafe fn press(hwnd: Handle, k: Key) {
 	if let Some(sh) = shell() {
+		if let Some((first, two)) = sh.preview {
+			let (_, _, pages) = gdi::preview_pages(&sh.app, &sh.store, sh.screen_dc);
+			let step = if two { 2 } else { 1 };
+			match k {
+				Key::Esc => sh.preview = None,
+				Key::PageDown | Key::Down | Key::Right if first + step <= pages => sh.preview = Some((first + step, two)),
+				Key::PageUp | Key::Up | Key::Left => sh.preview = Some((first.saturating_sub(step).max(1), two)),
+				Key::Home | Key::CtrlHome => sh.preview = Some((1, two)),
+				Key::End | Key::CtrlEnd => sh.preview = Some((pages, two)),
+				Key::Char(b'T' | b't') => sh.preview = Some((first, !two)),
+				Key::Char(b'P' | b'p') | Key::Ctrl(b'p') => {
+					if !print_job(hwnd, sh, true, None) {
+						sh.app.set_message("Quill could not print.");
+					}
+				}
+				_ => {}
+			}
+			InvalidateRect(hwnd, null(), 0);
+			return;
+		}
 		sh.app.key(&mut sh.store, &mut sh.files, k);
 		retitle(hwnd, sh);
 		InvalidateRect(hwnd, null(), 0);
@@ -447,6 +585,35 @@ unsafe fn paint(hwnd: Handle) {
 			right: r.right,
 			bottom: r.bottom - sh.ch,
 		};
+		if let Some((first, two)) = sh.preview {
+			let pages = gdi::paint_preview(dc, area, &sh.app, &sh.store, sh.screen_dc, first, two, &mut sh.pics);
+			SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
+			let mut line = alloc::format!(
+				"Print Preview: page {first} of {pages}   PgUp PgDn: page   T: one or two pages   P: print   Esc: close"
+			)
+			.into_bytes();
+			line.truncate(200);
+			SetBkMode(dc, OPAQUE);
+			SetBkColor(dc, 0x00AA_AAAA);
+			SetTextColor(dc, 0);
+			ExtTextOutA(
+				dc,
+				0,
+				r.bottom - sh.ch,
+				ETO_OPAQUE,
+				&Rect {
+					left: 0,
+					top: r.bottom - sh.ch,
+					right: r.right,
+					bottom: r.bottom,
+				},
+				line.as_ptr(),
+				line.len() as u32,
+				null(),
+			);
+			EndPaint(hwnd, ps.as_ptr());
+			return;
+		}
 		let rows = gdi::paint_page(dc, area, &sh.app, &sh.store, &mut sh.pics);
 		SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
 		sh.app.set_rows(rows);
@@ -544,7 +711,11 @@ fn capture(dc: Handle) -> String {
 	let mut out = String::from(
 		"# quill captured metrics 1: face|half points|flags (1 bold, 2 italic)|ascent|descent|leading|widths of 32 to 255\n",
 	);
-	let mut m = GdiMeasure { dc, grid: false };
+	let mut m = GdiMeasure {
+		dc,
+		grid: false,
+		dpi: 96,
+	};
 	for (face, family) in [("Times New Roman", 1u8), ("Arial", 2), ("Courier New", 3)] {
 		for size in [16u16, 18, 20, 22, 24, 28, 32, 36, 40, 48] {
 			for flags in 0..4u16 {
@@ -616,6 +787,7 @@ pub extern "C" fn start() -> ! {
 	let mut app = alloc::boxed::Box::new(App::with_measure(GdiMeasure {
 		dc: screen_dc,
 		grid: text_view,
+		dpi: 96,
 	}));
 	let _ = app.reset(&mut store);
 	let mut files = Win32Files;
@@ -624,6 +796,9 @@ pub extern "C" fn start() -> ! {
 	let mut play_file: Option<Vec<u8>> = None;
 	let mut dump_file: Option<Vec<u8>> = None;
 	let mut hold = false;
+	let mut print_now = false;
+	let mut preview_start = false;
+	let mut print_to: Option<Vec<u8>> = None;
 	let mut it = argv.iter().skip(1);
 	let mut scripted_open: Option<Vec<u8>> = None;
 	while let Some(a) = it.next() {
@@ -633,6 +808,9 @@ pub extern "C" fn start() -> ! {
 			b"/HOLD" => hold = true,
 			b"/PLAY" => play_file = it.next().cloned(),
 			b"/DUMP" => dump_file = it.next().cloned(),
+			b"/P" => print_now = true,
+			b"/PREVIEW" => preview_start = true,
+			b"/PO" => print_to = it.next().cloned(),
 			b"/LINES" | b"/CAPTURE" => {
 				it.next();
 			}
@@ -703,6 +881,7 @@ pub extern "C" fn start() -> ! {
 		let mut m = GdiMeasure {
 			dc: screen_dc,
 			grid: false,
+			dpi: 96,
 		};
 		let _ = quill_core::layout::dump_story(
 			app.doc(),
@@ -722,7 +901,9 @@ pub extern "C" fn start() -> ! {
 		grid: text_view,
 		cmds: Vec::new(),
 		store,
+		screen_dc,
 		pics: gdi::PicCache::new(),
+		preview: preview_start.then_some((1, false)),
 		files,
 		cw: 8,
 		ch: 16,
@@ -732,6 +913,13 @@ pub extern "C" fn start() -> ! {
 	// SAFETY: single-threaded start-up; the boxes live for the whole process.
 	unsafe {
 		SHELL = alloc::boxed::Box::into_raw(sh);
+		if print_now || print_to.is_some() {
+			// `/P FILE` prints on the default printer and exits; `/PO OUT` sends the job to a file instead of the port.
+			let ok = SHELL
+				.as_ref()
+				.is_some_and(|s| print_job(null_mut(), s, false, print_to.as_deref()));
+			ExitProcess(if ok { 0 } else { 1 });
+		}
 		if playing {
 			PLAY = alloc::boxed::Box::into_raw(alloc::boxed::Box::new(Play {
 				keys,
