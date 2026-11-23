@@ -76,6 +76,13 @@ fn plain_page_map_matches_the_png_golden() {
 }
 
 #[test]
+fn hello_screen_matches_its_golden() {
+	let mut text = String::new();
+	quill_grid::hello::<25>().dump(1, &mut text).unwrap();
+	compare("tests/golden/screens/hello.80x25.txt", &text);
+}
+
+#[test]
 fn qld_round_trip_is_byte_stable() {
 	let mut s = HostStore::new();
 	let bytes = std::fs::read(root().join("tests/docs/plain.qld")).unwrap();

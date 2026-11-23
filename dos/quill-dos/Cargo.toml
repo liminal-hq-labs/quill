@@ -1,0 +1,20 @@
+# QUILLDOS.EXE: Quill for DOS.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-dos"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Quill for DOS"
+license = "Apache-2.0 OR MIT"
+
+[[bin]]
+name = "quill-dos"
+path = "src/main.rs"
+
+[dependencies]
+rt = { path = "../rt" }
+quill-grid = { path = "../../crates/quill-grid" }
