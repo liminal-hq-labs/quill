@@ -226,6 +226,13 @@ fn m2_dialogs_script_matches_its_golden_screens() {
 }
 
 #[test]
+fn m4_about_script_matches_its_golden_screens_and_settings() {
+	let (files, frames) = scenario("m4-about");
+	compare("tests/golden/screens/m4-about.frames.txt", &frames);
+	compare_bytes("tests/golden/files/m4-quill.ini", &files.files["QUILL.INI"]);
+}
+
+#[test]
 fn m2_letter_in_the_mono_scheme_matches_its_golden_screens() {
 	let (_, frames) = scenario("m2-mono");
 	compare("tests/golden/screens/m2-mono.frames.txt", &frames);

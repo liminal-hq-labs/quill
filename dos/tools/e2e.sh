@@ -67,6 +67,7 @@ run_scenario m2-letter OUT.RTF m2-letter.rtf
 run_scenario m2-mono - -
 run_scenario m2-find - -
 run_scenario m2-dialogs - -
+run_scenario m4-about QUILL.INI m4-quill.ini
 run_scenario m2-headers - -
 run_scenario m2-lists - -
 echo "e2e: ok"

@@ -48,6 +48,8 @@ fn main() -> i32 {
 		rt::println!("Quill: there is not enough memory.");
 		return 1;
 	}
+	app.load_settings(&mut files);
+	app.set_about("Host test run");
 	let args = env::args();
 	for a in &args {
 		if a.eq_ignore_ascii_case("/mono") || a.eq_ignore_ascii_case("-mono") {
@@ -66,6 +68,7 @@ fn main() -> i32 {
 			show(&app, &store, &mut dump, &mut n);
 		}
 	}
+	app.save_settings(&mut files);
 	if let Some(f) = &mut dump {
 		let _ = f.write_all(b"=== end ===\n");
 	}

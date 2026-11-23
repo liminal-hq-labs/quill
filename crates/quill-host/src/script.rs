@@ -106,6 +106,8 @@ pub fn play(files: &mut MemFiles, script: &Script, frames: &mut String) {
 	let mut s = HostStore::new();
 	let mut app = App::new();
 	app.reset(&mut s).unwrap();
+	app.load_settings(files);
+	app.set_about("Host test run");
 	if script.mono {
 		app.set_scheme(quill_app::Scheme::Mono);
 	}
@@ -125,5 +127,6 @@ pub fn play(files: &mut MemFiles, script: &Script, frames: &mut String) {
 			break;
 		}
 	}
+	app.save_settings(files);
 	let _ = writeln!(frames, "=== end ===");
 }

@@ -55,6 +55,9 @@
 			{ "text": "First Page Footer", "id": 137 },
 			{ "text": "Different First Page", "id": 138 },
 			{ "text": "Return to Document", "id": 139 }
+		] },
+		{ "title": "Help", "items": [
+			{ "text": "About Quill...", "id": 140 }
 		] }
 	]
 }
