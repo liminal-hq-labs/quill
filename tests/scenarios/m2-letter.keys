@@ -3,15 +3,15 @@
 @copy letter.rtf
 @open LETTER.RTF
 f8 right right right right right    # select "Quill" in the title
-f10 right right down down enter     # Character > Italic
+f10 right right right right down down enter     # Character > Italic
 esc
 down down down                      # into the paragraph of mixed formats
 home f8 right right right right right right right
-f10 right right down enter          # Character > Bold
-f10 right right down down down enter  # Character > Underline
+f10 right right right right down enter          # Character > Bold
+f10 right right right right down down down enter  # Character > Underline
 esc
 insert x y insert                   # overtype two letters, then insert mode again
-f10 right right right down down enter  # Paragraph > Right
+f10 right right right right right down down enter  # Paragraph > Right
 f10 right down enter                # Edit > Redo (nothing to redo)
 f10 right enter                     # Edit > Undo (the alignment)
 f10 down down down enter            # File > Save As...

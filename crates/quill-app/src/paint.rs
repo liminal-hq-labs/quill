@@ -47,6 +47,25 @@ const fn item(label: &'static str, accel: &'static str, command: Command) -> Ite
 	}
 }
 
+const FIND: [Item; 3] = [
+	item("Find...", "Ctrl+F", Command::Find),
+	item("Find Next", "F3", Command::FindNext),
+	item("Replace...", "Ctrl+H", Command::Replace),
+];
+const INSERT: [Item; 4] = [
+	item("Page Number", "", Command::Field(1)),
+	item("Page Count", "", Command::Field(2)),
+	item("Date", "", Command::Field(3)),
+	item("File Name", "", Command::Field(4)),
+];
+const DOCUMENT: [Item; 6] = [
+	item("Header", "", Command::View(1)),
+	item("Footer", "", Command::View(2)),
+	item("First Page Header", "", Command::View(3)),
+	item("First Page Footer", "", Command::View(4)),
+	item("Different First Page", "", Command::FirstPage),
+	item("Return to Document", "", Command::View(0)),
+];
 const FILE: [Item; 5] = [
 	item("New", "Ctrl+N", Command::New),
 	item("Open...", "Ctrl+O", Command::Open),
@@ -67,11 +86,15 @@ const CHARACTER: [Item; 7] = [
 	item("Superscript", "", Command::Super),
 	item("Subscript", "", Command::Sub),
 ];
-const PARAGRAPH: [Item; 7] = [
+const PARAGRAPH: [Item; 11] = [
 	item("Left", "Ctrl+L", Command::Align(0)),
 	item("Centred", "Ctrl+E", Command::Align(1)),
 	item("Right", "Ctrl+R", Command::Align(2)),
 	item("Justified", "Ctrl+J", Command::Align(3)),
+	item("Bullets", "", Command::Bullets),
+	item("Numbering", "", Command::Numbering),
+	item("Increase Level", "", Command::LevelUp),
+	item("Decrease Level", "", Command::LevelDown),
 	item("Single Space", "", Command::Spacing(0)),
 	item("1\u{bd} Space", "", Command::Spacing(1)),
 	item("Double Space", "", Command::Spacing(2)),
@@ -81,8 +104,11 @@ pub(crate) fn menu_items(menu: u8) -> &'static [Item] {
 	match menu {
 		0 => &FILE,
 		1 => &EDIT,
+		2 => &INSERT,
+		3 => &FIND,
 		4 => &CHARACTER,
 		5 => &PARAGRAPH,
+		6 => &DOCUMENT,
 		_ => &[],
 	}
 }
@@ -218,11 +244,51 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 	let caret = app.caret_line(s);
 	let caret_page = caret.map_or(1, |(_, l)| l.page);
 	let mut ln_in_page = 0u32;
+	let mut counters = [[0u32; 9]; 4];
 	let mut cursor = None;
 	app.lines(s, |i, l| {
 		if let Some((ci, _)) = caret {
 			if l.page == caret_page && i <= ci {
 				ln_in_page += 1;
+			}
+		}
+		if l.line == 0 {
+			let pf = app.para_pfmt(s, l.start);
+			if pf.flags & 5 != 0 {
+				let lvl = usize::from(pf.level.min(8));
+				let list = usize::from(pf.list).min(3);
+				let def = app.doc.lists.get(s, pf.list).unwrap_or_default();
+				let lv = def.levels.get(lvl).copied().unwrap_or_default();
+				let mut label = [0u8; 16];
+				let mut n = 0;
+				if pf.flags & 1 != 0 {
+					label[0] = 0x07;
+					n = 1;
+				} else {
+					if let Some(c) = counters.get_mut(list) {
+						let cur = c.get(lvl).copied().unwrap_or(0);
+						let next = if cur == 0 || pf.flags & 8 != 0 {
+							u32::from(lv.start.max(1))
+						} else {
+							cur + 1
+						};
+						if let Some(slot) = c.get_mut(lvl) {
+							*slot = next;
+						}
+						for deeper in c.iter_mut().skip(lvl + 1) {
+							*deeper = 0;
+						}
+						n = number_label(lv.style, next, &mut label);
+					}
+				}
+				let first = quill_core::layout::to_units(pf.left + pf.first, 10).max(0) as usize;
+				let top = app.top;
+				if l_visible(i, top, text_rows) {
+					let row = 1 + (i - top) as usize;
+					for (k, b) in label.iter().take(n).enumerate() {
+						g.put(margin + first + k, row, *b, attr::TEXT);
+					}
+				}
 			}
 		}
 		let top = app.top;
@@ -251,7 +317,20 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 					g.put(col + k, row, fill, a);
 				}
 			} else if c == 0x01 {
-				g.put(col, row, 0xB0, a);
+				let letter = match app.doc.body.object_at(s, p).map(|v| v >> 16) {
+					Some(1) => b'P',
+					Some(2) => b'N',
+					Some(3) => b'D',
+					Some(4) => b'F',
+					_ => 0,
+				};
+				if letter == 0 {
+					g.put(col, row, 0xB0, a);
+					g.put(col + 1, row, 0xB0, a);
+				} else {
+					g.put(col, row, b'{', a);
+					g.put(col + 1, row, letter, a);
+				}
 			} else {
 				g.put(col, row, ansi_to_cp437(c), a);
 			}
@@ -278,6 +357,21 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 	let mut st = Row::new();
 	if app.msg.is_empty() {
 		st.s(" ");
+		match app.view {
+			1 => {
+				st.s("[Header] ");
+			}
+			2 => {
+				st.s("[Footer] ");
+			}
+			3 => {
+				st.s("[First header] ");
+			}
+			4 => {
+				st.s("[First footer] ");
+			}
+			_ => {}
+		}
 		if app.name_len == 0 {
 			st.s("(Untitled)");
 		} else {
@@ -315,7 +409,7 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 			st.s("   Mod");
 		}
 	} else {
-		st.s(" ").s(app.msg);
+		st.s(" ").bytes(app.msg.bytes());
 	}
 	g.text(0, last, st.buf.get(..COLS).unwrap_or(&[]), attr::CHROME);
 
@@ -353,6 +447,60 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 			g.text(24, 12, b"< OK >", attr::CHROME);
 			g.text(40, 12, b"< Cancel >", attr::CHROME);
 			cursor = Some((21 + len, 10));
+		}
+		Mode::Find(st) => {
+			let h = if st.replace { 11 } else { 9 };
+			dialog(
+				g,
+				8,
+				62,
+				h,
+				if st.replace { b" Replace " } else { b" Find " },
+			);
+			let bx = |on: bool| if on { b"[x]" } else { b"[ ]" };
+			g.text(10, 10, b"Find what:", attr::CHROME);
+			g.fill(24, 10, 34, 1, b' ', 0x07);
+			g.text(24, 10, st.find.get(..st.flen).unwrap_or(&[]), 0x07);
+			let mut y = 11;
+			if st.replace {
+				g.text(10, 11, b"Replace with:", attr::CHROME);
+				g.fill(24, 11, 34, 1, b' ', 0x07);
+				g.text(24, 11, st.with.get(..st.wlen).unwrap_or(&[]), 0x07);
+				y = 12;
+			}
+			g.text(10, y, bx(st.case), attr::CHROME);
+			g.text(14, y, b"Match case", attr::CHROME);
+			g.text(30, y, bx(st.word), attr::CHROME);
+			g.text(34, y, b"Match whole word only", attr::CHROME);
+			let by = y + 2;
+			let mut x = 10;
+			let buttons: &[(&[u8], crate::find::Focus)] = if st.replace {
+				&[
+					(b"< Find Next >", crate::find::Focus::FindNext),
+					(b"< Replace >", crate::find::Focus::ReplaceOne),
+					(b"< Replace All >", crate::find::Focus::ReplaceAll),
+					(b"< Close >", crate::find::Focus::Close),
+				]
+			} else {
+				&[
+					(b"< Find Next >", crate::find::Focus::FindNext),
+					(b"< Close >", crate::find::Focus::Close),
+				]
+			};
+			for (t, f) in buttons {
+				let a = if st.focus == *f {
+					SELECTED
+				} else {
+					attr::CHROME
+				};
+				g.text(x, by, t, a);
+				x += t.len() + 2;
+			}
+			cursor = match st.focus {
+				crate::find::Focus::Find => Some((24 + st.flen, 10)),
+				crate::find::Focus::Replace => Some((24 + st.wlen, 11)),
+				_ => None,
+			};
 		}
 		Mode::Confirm(_) => {
 			dialog(g, 8, 62, 7, b" Quill ");
@@ -397,4 +545,74 @@ fn shadow<const ROWS: usize>(g: &mut Grid<ROWS>, x: usize, y: usize, w: usize, h
 			g.put(xx, y + h, c.ch, 0x08);
 		}
 	}
+}
+
+fn l_visible(i: u32, top: u32, rows: usize) -> bool {
+	i >= top && ((i - top) as usize) < rows
+}
+
+/// Writes the label of number `n` in `style` (0 `1.`, 1 `1)`, 2 `a.`, 3 `a)`, 4 `i.`, 5 `A.`, 6 `I.`, 7 `1.`) and returns its length.
+fn number_label(style: u8, n: u32, out: &mut [u8; 16]) -> usize {
+	let mut len = 0;
+	let mut put = |b: u8| {
+		if let Some(slot) = out.get_mut(len) {
+			*slot = b;
+			len += 1;
+		}
+	};
+	match style {
+		2 | 3 | 5 => {
+			let base = if style == 5 { b'A' } else { b'a' };
+			put(base + ((n.max(1) - 1) % 26) as u8);
+		}
+		4 | 6 => {
+			let mut v = n.clamp(1, 3999);
+			for (val, sym) in [
+				(1000, "m"),
+				(900, "cm"),
+				(500, "d"),
+				(400, "cd"),
+				(100, "c"),
+				(90, "xc"),
+				(50, "l"),
+				(40, "xl"),
+				(10, "x"),
+				(9, "ix"),
+				(5, "v"),
+				(4, "iv"),
+				(1, "i"),
+			] {
+				while v >= val {
+					for b in sym.bytes() {
+						put(if style == 6 {
+							b.to_ascii_uppercase()
+						} else {
+							b
+						});
+					}
+					v -= val;
+				}
+			}
+		}
+		_ => {
+			let mut digits = [0u8; 10];
+			let mut i = digits.len();
+			let mut v = n;
+			loop {
+				i -= 1;
+				if let Some(d) = digits.get_mut(i) {
+					*d = b'0' + (v % 10) as u8;
+				}
+				v /= 10;
+				if v == 0 {
+					break;
+				}
+			}
+			for b in digits.get(i..).unwrap_or(&[]) {
+				put(*b);
+			}
+		}
+	}
+	put(if style == 1 || style == 3 { b')' } else { b'.' });
+	len
 }

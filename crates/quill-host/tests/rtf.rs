@@ -135,3 +135,55 @@ proptest! {
 		prop_assert_eq!(text_of(&s, &d), text_of(&s, &d2));
 	}
 }
+
+#[test]
+fn lists_round_trip_in_the_word_6_form() {
+	let mut s = HostStore::new();
+	let d = read(
+		&mut s,
+		&std::fs::read(root().join("tests/docs/lists.rtf")).unwrap(),
+	)
+	.unwrap();
+	let first = write(&s, &d);
+	let text = String::from_utf8_lossy(&first).to_string();
+	assert!(text.contains("\\pnlvlblt"), "{text}");
+	assert!(text.contains("\\pnlvlbody\\pndec\\pnstart1"));
+	let d2 = read(&mut s, &first).unwrap();
+	assert_eq!(String::from_utf8_lossy(&write(&s, &d2)), text);
+	assert_eq!(text_of(&s, &d2), text_of(&s, &d));
+}
+
+#[test]
+fn headers_footers_and_fields_round_trip() {
+	use quill_core::doc::StoryKind;
+	let mut s = HostStore::new();
+	let d = read(
+		&mut s,
+		&std::fs::read(root().join("tests/docs/headers.rtf")).unwrap(),
+	)
+	.unwrap();
+	let story = |d: &Doc, s: &HostStore, k: StoryKind| {
+		let t = d.story(k);
+		let mut b = vec![0u8; t.len() as usize];
+		t.read(s, 0, &mut b);
+		b
+	};
+	assert_eq!(story(&d, &s, StoryKind::Header), b"Page \x01\r");
+	assert_eq!(story(&d, &s, StoryKind::Footer), b"Quill test document\r");
+	assert_eq!(d.header.object_at(&s, 5), Some(1 << 16));
+	assert_eq!(d.page.flags & 1, 1);
+	let first = write(&s, &d);
+	let d2 = read(&mut s, &first).unwrap();
+	assert_eq!(story(&d2, &s, StoryKind::Header), b"Page \x01\r");
+	assert_eq!(
+		String::from_utf8_lossy(&write(&s, &d2)),
+		String::from_utf8_lossy(&first)
+	);
+	// The native format keeps them too.
+	let mut out = VecSink(Vec::new());
+	quill_formats::qld::write(&d, &s, &mut out).unwrap();
+	let mut d3 = Doc::new();
+	quill_formats::qld::read(&mut d3, &mut s, &mut SliceSource::new(&out.0)).unwrap();
+	assert_eq!(story(&d3, &s, StoryKind::Footer), b"Quill test document\r");
+	assert_eq!(d3.header.object_at(&s, 5), Some(1 << 16));
+}

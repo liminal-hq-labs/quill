@@ -14,9 +14,10 @@
 	clippy::indexing_slicing
 )]
 
+mod find;
 mod paint;
 
-use quill_core::doc::{cflag, CFmt, Doc, PFmt};
+use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
 use quill_core::layout::{layout_story, tab_advance, Line, Stops};
 use quill_core::store::Store;
 use quill_core::Error;
@@ -132,6 +133,26 @@ pub enum Command {
 	Undo,
 	/// Edit > Redo.
 	Redo,
+	/// Paragraph > Bullets.
+	Bullets,
+	/// Paragraph > Numbering.
+	Numbering,
+	/// Paragraph > Increase Level.
+	LevelUp,
+	/// Paragraph > Decrease Level.
+	LevelDown,
+	/// Document > Header, Footer, First Page Header or First Page Footer (1 to 4), or back to the body (0).
+	View(u8),
+	/// Insert > Page Number, Page Count, Date or File Name (1 to 4).
+	Field(u8),
+	/// Document > Different First Page.
+	FirstPage,
+	/// Find > Find.
+	Find,
+	/// Find > Find Next.
+	FindNext,
+	/// Find > Replace.
+	Replace,
 	/// Character > Regular.
 	Regular,
 	/// Character > Bold.
@@ -153,6 +174,52 @@ pub enum Command {
 }
 
 const NAME_MAX: usize = 64;
+
+/// The one-line message shown in the status line until the next key.
+#[derive(Copy, Clone)]
+pub(crate) struct Msg {
+	buf: [u8; 96],
+	len: usize,
+}
+
+impl Msg {
+	const fn new() -> Self {
+		Msg {
+			buf: [0; 96],
+			len: 0,
+		}
+	}
+	fn clear(&mut self) {
+		self.len = 0;
+	}
+	fn push(&mut self, b: &[u8]) {
+		for &c in b {
+			if let Some(slot) = self.buf.get_mut(self.len) {
+				*slot = c;
+				self.len += 1;
+			}
+		}
+	}
+	pub(crate) fn set(&mut self, t: &str) {
+		self.clear();
+		self.push(t.as_bytes());
+	}
+	/// A message with a quoted text in it: `a` + `"text"` + `c`.
+	pub(crate) fn set_quoted(&mut self, a: &str, text: &[u8], c: &str) {
+		self.clear();
+		self.push(a.as_bytes());
+		self.push(b"\"");
+		self.push(text);
+		self.push(b"\"");
+		self.push(c.as_bytes());
+	}
+	pub(crate) fn is_empty(&self) -> bool {
+		self.len == 0
+	}
+	pub(crate) fn bytes(&self) -> &[u8] {
+		self.buf.get(..self.len).unwrap_or(&[])
+	}
+}
 
 /// Undo step labels.
 pub mod label {
@@ -185,6 +252,7 @@ pub(crate) enum Mode {
 		len: usize,
 	},
 	Confirm(Command),
+	Find(find::FindState),
 }
 
 /// The editor.
@@ -199,7 +267,7 @@ pub struct App {
 	pub(crate) mode: Mode,
 	typing: bool,
 	quit: bool,
-	pub(crate) msg: &'static str,
+	pub(crate) msg: Msg,
 	pending: Option<Command>,
 	/// The other end of the selection, when there is one.
 	pub(crate) anchor: Option<u32>,
@@ -208,6 +276,11 @@ pub struct App {
 	pub(crate) scheme: Scheme,
 	/// The format the next typed character takes, chosen with no selection.
 	typing_fmt: Option<u16>,
+	/// The story being edited: 0 body, 1 header, 2 footer, 3 first header, 4 first footer. The active story lives in `doc.body`.
+	pub(crate) view: u8,
+	saved_view: (u32, u32),
+	/// The last search, for Find Next.
+	pub(crate) last_find: Option<find::FindState>,
 	/// The format the document was opened in: 0 native, 1 RTF, 2 text.
 	fmt: u8,
 }
@@ -232,7 +305,7 @@ impl App {
 			mode: Mode::Edit,
 			typing: false,
 			quit: false,
-			msg: "",
+			msg: Msg::new(),
 			pending: None,
 			anchor: None,
 			extend: false,
@@ -240,6 +313,9 @@ impl App {
 			scheme: Scheme::Colour,
 			typing_fmt: None,
 			fmt: 0,
+			last_find: None,
+			view: 0,
+			saved_view: (0, 0),
 		}
 	}
 
@@ -448,6 +524,9 @@ impl App {
 					}
 				}
 				(tab_advance(&stop, rel, seg, dec), stop.leader)
+			} else if c == 0x01 {
+				// A field is two columns wide, as layout measures it.
+				(2, 0)
 			} else {
 				(1, 0)
 			};
@@ -600,10 +679,10 @@ impl App {
 				self.caret += 1;
 				self.modified = true;
 			}
-			Err(Error::NoMemory) => {
-				self.msg = "There is not enough memory to complete this operation."
-			}
-			Err(_) => self.msg = "The document is too large for Quill.",
+			Err(Error::NoMemory) => self
+				.msg
+				.set("There is not enough memory to complete this operation."),
+			Err(_) => self.msg.set("The document is too large for Quill."),
 		}
 		if c == 0x0D {
 			self.end_typing();
@@ -638,8 +717,58 @@ impl App {
 		}
 	}
 
+	/// Swaps the story being edited into `doc.body` (or back), so every editing command works on it unchanged.
+	fn swap_view<S: Store + ?Sized>(&mut self, s: &mut S, kind: StoryKind) {
+		match kind {
+			StoryKind::Body => {}
+			StoryKind::Header => core::mem::swap(&mut self.doc.body, &mut self.doc.header),
+			StoryKind::Footer => core::mem::swap(&mut self.doc.body, &mut self.doc.footer),
+			StoryKind::FirstHeader => {
+				core::mem::swap(&mut self.doc.body, &mut self.doc.first_header)
+			}
+			StoryKind::FirstFooter => {
+				core::mem::swap(&mut self.doc.body, &mut self.doc.first_footer)
+			}
+		}
+		let _ = s;
+	}
+
+	fn set_view<S: Store + ?Sized>(&mut self, s: &mut S, to: u8) {
+		let cur = StoryKind::from_u8(self.view).unwrap_or(StoryKind::Body);
+		if self.view != 0 {
+			// Back to the body: a story holding only its paragraph mark is empty.
+			if self.doc.body.len() == 1 && self.doc.body.read_byte(s, 0) == Some(0x0D) {
+				self.doc.body.clear(s);
+			}
+			self.swap_view(s, cur);
+			let (c, t) = self.saved_view;
+			self.caret = c;
+			self.top = t;
+		}
+		self.anchor = None;
+		self.view = 0;
+		if to != 0 {
+			self.saved_view = (self.caret, self.top);
+			let k = StoryKind::from_u8(to).unwrap_or(StoryKind::Header);
+			self.swap_view(s, k);
+			if self.doc.body.is_empty() {
+				let _ = self.doc.body.load(s, b"\r", 0, 0);
+			}
+			self.view = to;
+			self.caret = 0;
+			self.top = 0;
+		}
+	}
+
 	fn run<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, c: Command) {
 		self.end_typing();
+		if self.view != 0
+			&& matches!(
+				c,
+				Command::New | Command::Open | Command::Save | Command::SaveAs | Command::Exit
+			) {
+			self.set_view(s, 0);
+		}
 		match c {
 			Command::New | Command::Open | Command::Exit
 				if self.modified && self.pending != Some(c) =>
@@ -650,7 +779,8 @@ impl App {
 				self.pending = None;
 				self.doc.reset(s);
 				if self.reset(s).is_err() {
-					self.msg = "There is not enough memory to complete this operation.";
+					self.msg
+						.set("There is not enough memory to complete this operation.");
 				}
 			}
 			Command::Open => {
@@ -742,6 +872,97 @@ impl App {
 			),
 			Command::Align(a) => self.para_command(s, |p| PFmt { align: a, ..p }),
 			Command::Spacing(n) => self.para_command(s, |p| PFmt { spacing: n, ..p }),
+			Command::Bullets | Command::Numbering => {
+				let bullet = c == Command::Bullets;
+				let mut def = ListDef::default();
+				for (i, lv) in def.levels.iter_mut().enumerate() {
+					*lv = ListLevel {
+						style: 0,
+						start: 1,
+						indent: 360 * (i as i32 + 1),
+					};
+				}
+				let li = self.doc.lists.intern(s, def).unwrap_or(0);
+				self.para_command(s, move |p| {
+					let bit = if bullet { 1 } else { 4 };
+					if p.flags & bit != 0 {
+						PFmt {
+							flags: p.flags & !5,
+							left: 0,
+							first: 0,
+							level: 0,
+							..p
+						}
+					} else {
+						let fresh = p.left == 0;
+						PFmt {
+							flags: (p.flags & !5) | bit,
+							list: li,
+							left: if fresh { 360 } else { p.left },
+							first: if fresh { -360 } else { p.first },
+							..p
+						}
+					}
+				});
+			}
+			Command::LevelUp | Command::LevelDown => {
+				let up = c == Command::LevelUp;
+				self.para_command(s, move |p| {
+					if p.flags & 5 == 0 {
+						return p;
+					}
+					let level = if up {
+						(p.level + 1).min(8)
+					} else {
+						p.level.saturating_sub(1)
+					};
+					let left = if up {
+						p.left + 360
+					} else {
+						(p.left - 360).max(360)
+					};
+					PFmt { level, left, ..p }
+				});
+			}
+			Command::View(n) => self.set_view(s, n),
+			Command::FirstPage => {
+				self.doc.page.flags ^= 1;
+				self.modified = true;
+			}
+			Command::Field(k) if self.view != 0 => {
+				let t = &self.doc.body;
+				let cf = if self.caret > 0 {
+					t.cfmt_at(s, self.caret - 1)
+				} else {
+					t.cfmt_at(s, 0)
+				}
+				.unwrap_or(0);
+				let pf = self.para_pfmt(s, self.caret);
+				let _ = pf;
+				let pfi = self
+					.para_mark(s, self.caret)
+					.and_then(|m| self.doc.body.pfmt_at(s, m))
+					.unwrap_or(0);
+				if self
+					.doc
+					.body
+					.insert_object(s, self.caret, u32::from(k) << 16, cf, pfi, label::TYPING)
+					.is_ok()
+				{
+					self.caret += 1;
+					self.modified = true;
+				}
+			}
+			Command::Field(_) => {}
+			Command::Find => self.open_find(false),
+			Command::Replace => self.open_find(true),
+			Command::FindNext => {
+				if let Some(st) = self.last_find {
+					self.find_next(s, &st);
+				} else {
+					self.open_find(false);
+				}
+			}
 			Command::Undo => {
 				if self.doc.body.undo(s).unwrap_or(false) {
 					self.modified = true;
@@ -857,6 +1078,14 @@ impl App {
 		self.modified = true;
 	}
 
+	/// The paragraph format of the paragraph holding `pos`.
+	pub(crate) fn para_pfmt<S: Store + ?Sized>(&self, s: &S, pos: u32) -> PFmt {
+		self.para_mark(s, pos)
+			.and_then(|m| self.doc.body.pfmt_at(s, m))
+			.and_then(|i| self.doc.pfmts.get(s, i))
+			.unwrap_or(PFmt::DEFAULT)
+	}
+
 	/// The position where the paragraph holding `pos` starts.
 	fn para_start<S: Store + ?Sized>(&self, s: &S, pos: u32) -> u32 {
 		let t = &self.doc.body;
@@ -888,7 +1117,7 @@ impl App {
 				true
 			}
 			Err(_) => {
-				self.msg = "Quill cannot save the file.";
+				self.msg.set("Quill cannot save the file.");
 				self.pending = None;
 				false
 			}
@@ -897,11 +1126,12 @@ impl App {
 
 	/// Handles one key.
 	pub fn key<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, k: Key) {
-		self.msg = "";
+		self.msg.set("");
 		match self.mode {
 			Mode::Edit => self.key_edit(s, f, k),
 			Mode::Menu { menu, item } => self.key_menu(s, f, k, menu, item),
 			Mode::Prompt { kind, buf, len } => self.key_prompt(s, f, k, kind, buf, len),
+			Mode::Find(st) => self.key_find(s, k, st),
 			Mode::Confirm(c) => match k {
 				Key::Char(b'y' | b'Y') => {
 					self.mode = Mode::Edit;
@@ -993,7 +1223,23 @@ impl App {
 		match k {
 			Key::Char(c) => self.insert(s, c),
 			Key::Tab => self.insert(s, 0x09),
-			Key::Enter => self.insert(s, 0x0D),
+			Key::Enter => {
+				let pf = self.para_pfmt(s, self.caret);
+				let empty = self.doc.body.read_byte(s, self.caret) == Some(0x0D)
+					&& (self.caret == 0
+						|| self.doc.body.read_byte(s, self.caret - 1) == Some(0x0D));
+				if pf.flags & 5 != 0 && empty && self.selection().is_none() {
+					self.para_command(s, |p| PFmt {
+						flags: p.flags & !5,
+						left: 0,
+						first: 0,
+						level: 0,
+						..p
+					});
+				} else {
+					self.insert(s, 0x0D);
+				}
+			}
 			Key::Backspace if self.selection().is_some() => self.delete(s, self.caret),
 			Key::Backspace if self.caret > 0 => self.delete(s, self.caret - 1),
 			Key::Delete if self.selection().is_some() => self.delete(s, self.caret),
@@ -1025,6 +1271,9 @@ impl App {
 			}
 			Key::Insert => self.overtype = !self.overtype,
 			Key::F(5) => self.run(s, f, Command::Regular),
+			Key::F(3) => self.run(s, f, Command::FindNext),
+			Key::Ctrl(b'f') => self.run(s, f, Command::Find),
+			Key::Ctrl(b'h') => self.run(s, f, Command::Replace),
 			Key::F(10) => {
 				self.end_typing();
 				self.mode = Mode::Menu { menu: 0, item: 0 };
@@ -1138,7 +1387,7 @@ impl App {
 						let mut n = [0u8; NAME_MAX];
 						n.get_mut(..len).unwrap_or(&mut []).copy_from_slice(name);
 						if self.open(s, f, n.get(..len).unwrap_or(&[])).is_err() {
-							self.msg = "Quill cannot open that file.";
+							self.msg.set("Quill cannot open that file.");
 						}
 					}
 					Prompt::SaveAs => {
