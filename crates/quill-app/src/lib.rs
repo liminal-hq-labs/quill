@@ -15,6 +15,7 @@
 )]
 
 mod find;
+mod form;
 mod paint;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
@@ -147,6 +148,18 @@ pub enum Command {
 	Field(u8),
 	/// Document > Different First Page.
 	FirstPage,
+	/// Edit > Cut.
+	Cut,
+	/// Edit > Copy.
+	Copy,
+	/// Edit > Paste.
+	Paste,
+	/// Edit > Select All.
+	SelectAll,
+	/// Character > Fonts.
+	Fonts,
+	/// Paragraph > Tabs.
+	Tabs,
 	/// Find > Find.
 	Find,
 	/// Find > Find Next.
@@ -240,6 +253,7 @@ pub(crate) enum Prompt {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
+#[allow(clippy::large_enum_variant)] // one value lives in the app; boxing would need an allocator
 pub(crate) enum Mode {
 	Edit,
 	Menu {
@@ -253,6 +267,7 @@ pub(crate) enum Mode {
 	},
 	Confirm(Command),
 	Find(find::FindState),
+	Form(form::Form),
 }
 
 /// The editor.
@@ -279,6 +294,9 @@ pub struct App {
 	/// The story being edited: 0 body, 1 header, 2 footer, 3 first header, 4 first footer. The active story lives in `doc.body`.
 	pub(crate) view: u8,
 	saved_view: (u32, u32),
+	/// The clipboard: text only, until Quill exits.
+	pub(crate) clip: [u8; 2048],
+	pub(crate) clip_len: usize,
 	/// The last search, for Find Next.
 	pub(crate) last_find: Option<find::FindState>,
 	/// The format the document was opened in: 0 native, 1 RTF, 2 text.
@@ -314,6 +332,8 @@ impl App {
 			typing_fmt: None,
 			fmt: 0,
 			last_find: None,
+			clip: [0; 2048],
+			clip_len: 0,
 			view: 0,
 			saved_view: (0, 0),
 		}
@@ -954,6 +974,11 @@ impl App {
 				}
 			}
 			Command::Field(_) => {}
+			Command::Cut | Command::Copy | Command::Paste | Command::SelectAll => {
+				self.clip_command(s, c)
+			}
+			Command::Fonts => self.open_fonts(s),
+			Command::Tabs => self.open_tabs(),
 			Command::Find => self.open_find(false),
 			Command::Replace => self.open_find(true),
 			Command::FindNext => {
@@ -1132,6 +1157,7 @@ impl App {
 			Mode::Menu { menu, item } => self.key_menu(s, f, k, menu, item),
 			Mode::Prompt { kind, buf, len } => self.key_prompt(s, f, k, kind, buf, len),
 			Mode::Find(st) => self.key_find(s, k, st),
+			Mode::Form(fm) => self.key_form(s, k, fm),
 			Mode::Confirm(c) => match k {
 				Key::Char(b'y' | b'Y') => {
 					self.mode = Mode::Edit;
@@ -1282,6 +1308,10 @@ impl App {
 			Key::Ctrl(b'o') => self.run(s, f, Command::Open),
 			Key::Ctrl(b'n') => self.run(s, f, Command::New),
 			Key::Ctrl(b'q') => self.run(s, f, Command::Exit),
+			Key::Ctrl(b'x') => self.run(s, f, Command::Cut),
+			Key::Ctrl(b'c') => self.run(s, f, Command::Copy),
+			Key::Ctrl(b'v') => self.run(s, f, Command::Paste),
+			Key::Ctrl(b'a') => self.run(s, f, Command::SelectAll),
 			Key::Ctrl(b'z') => self.run(s, f, Command::Undo),
 			Key::Ctrl(b'y') => self.run(s, f, Command::Redo),
 			Key::Ctrl(b'b') => self.run(s, f, Command::Bold),

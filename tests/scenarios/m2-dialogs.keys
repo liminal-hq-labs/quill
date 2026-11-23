@@ -1,0 +1,18 @@
+# M2: Fonts dialog on a selection, a tab stop set from the Tabs dialog, then cut, paste and undo.
+@copy plain.qld
+@open PLAIN.QLD
+f8 right right right right right
+f10 right right right right down down down down down down down enter    # Character > Fonts...
+down tab bspace bspace 1 8 tab space tab space tab tab tab enter          # Arial, 18, bold, italic, OK
+esc
+down down home
+f10 right right right right right down down down down down down down down enter   # Paragraph > Tabs...
+1 period 5 tab tab down tab enter tab tab tab enter                       # a left tab with dots at 1.5, then Close
+tab x                                                                      # a tab to the new stop
+f10 right down down enter                                                  # Edit > Cut (no selection: nothing)
+home f8 right right right right
+f10 right down down enter                                                  # Edit > Cut
+end f10 right down down down down enter                                    # Edit > Paste
+f10 right enter                                                            # Edit > Undo
+f10 down down down down enter
+n
