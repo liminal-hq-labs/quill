@@ -164,6 +164,8 @@ pub enum Command {
 	Tabs,
 	/// Help > About Quill.
 	About,
+	/// File > Print.
+	Print,
 	/// File > one of the recent files (0 to 3).
 	Recent(u8),
 	/// Find > Find.
@@ -256,6 +258,7 @@ pub mod label {
 pub(crate) enum Prompt {
 	Open,
 	SaveAs,
+	Print,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -1138,6 +1141,13 @@ impl<M: Measure + Clone> App<M> {
 			Command::Fonts => self.open_fonts(s),
 			Command::Tabs => self.open_tabs(),
 			Command::About => self.mode = Mode::About,
+			Command::Print => {
+				self.mode = Mode::Prompt {
+					kind: Prompt::Print,
+					buf: [0; NAME_MAX],
+					len: 0,
+				}
+			}
 			Command::Recent(n) => {
 				let mut name = [0u8; NAME_MAX];
 				let len = self.recent_len.get(usize::from(n)).copied().unwrap_or(0);
@@ -1480,6 +1490,7 @@ impl<M: Measure + Clone> App<M> {
 			}
 			Key::Ctrl(b's') => self.run(s, f, Command::Save),
 			Key::Ctrl(b'o') => self.run(s, f, Command::Open),
+			Key::Ctrl(b'p') => self.run(s, f, Command::Print),
 			Key::Ctrl(b'n') => self.run(s, f, Command::New),
 			Key::Ctrl(b'q') => self.run(s, f, Command::Exit),
 			Key::Ctrl(b'x') => self.run(s, f, Command::Cut),
@@ -1604,6 +1615,11 @@ impl<M: Measure + Clone> App<M> {
 					Prompt::SaveAs => {
 						self.set_name(name);
 						self.do_save(s, f);
+					}
+					Prompt::Print => {
+						if !self.print_text(s, f, name) {
+							self.msg.set("Quill cannot print to that file.");
+						}
 					}
 				}
 				return;

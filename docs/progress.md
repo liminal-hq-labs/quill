@@ -77,6 +77,9 @@ Run with `win16/tools/run-w31.sh` (DOSBox-X 2025.02.01 in Docker, Xvfb, `machine
 
 ## Blocked
 
+- **Pending: the Windows ME VM.** The owner is using it interactively, so no further VM run was started. Waiting on it: the GDI print and preview checks (PostScript to a file, rendered by Ghostscript), the About box and print scenarios on ME, and the justification screenshot. The VM was last left powered off, restored to the snapshot "before quill gdi" (taken before the GDI tests), audio driver back at its original value (default).
+- **T2 (multi-segment code).** Not started: the veneer pass, the linker script generator and the indirect-call table are a project of their own. The jump-table fault could not be reproduced with synthetic code in `win16/` (LLVM chose compare chains for every `match` tried), so its cause is still unknown; `win16/tools/check_branches.py` fails the build if a jump table ever appears. Because T2 and the 64 KB code segment come first, **M5 and M6 (Win16 bring-up and the full Win16 editor) are blocked on T2.**
+
 Nothing is blocked by the machine. These were not started, in roadmap order, for lack of time in this run:
 
 - **The rest of M3 and M4 (Win32).** Needs T3 first: `rust-win9x` copied from `~/source/win9x-rust` with provenance, the `.res` writer, the import allowlist and the instruction scan, then the Windows ME VM and Wine harnesses. `quill-app`, `quill-heap` and the file formats are ready for it; only the platform layer is missing. The ME VM rules in the task (snapshots, audio none, no builds inside) still apply when it is used.

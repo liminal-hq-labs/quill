@@ -233,6 +233,21 @@ fn m4_about_script_matches_its_golden_screens_and_settings() {
 }
 
 #[test]
+fn m4_print_scripts_match_their_golden_pages() {
+	for (name, golden) in [
+		("m4-print", "letter.print.txt"),
+		("m4-print-headers", "headers.print.txt"),
+	] {
+		let (files, frames) = scenario(name);
+		compare(&format!("tests/golden/screens/{name}.frames.txt"), &frames);
+		compare_bytes(
+			&format!("tests/golden/files/{golden}"),
+			&files.files["OUT.PRN"],
+		);
+	}
+}
+
+#[test]
 fn m2_letter_in_the_mono_scheme_matches_its_golden_screens() {
 	let (_, frames) = scenario("m2-mono");
 	compare("tests/golden/screens/m2-mono.frames.txt", &frames);
