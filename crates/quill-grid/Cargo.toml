@@ -5,3 +5,6 @@ edition = "2021"
 license = "Apache-2.0 OR MIT"
 publish = false
 description = "Quill's text-mode screens: a grid of CP437 cells with attributes, shared by DOS and the host goldens"
+
+[dependencies]
+quill-core = { path = "../quill-core" }

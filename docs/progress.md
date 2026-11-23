@@ -13,6 +13,7 @@ What is built, how it was shown to work, what is blocked and what was assumed. U
 
 | Step | State | Notes |
 |---|---|---|
+| M1 DOS text editor | Done | `QUILLDOS.EXE` opens, edits and saves a document; its screens and saved file equal the host's |
 | T1 Register probes | Done for Windows 3.11 at the fast profile | `win16/` copied from `rust-win16` with provenance; two-task probe program; findings below. Wine, the 386SX profile and Windows ME not run |
 | T4 DOS foundation | Done | `dos/` copied with `dos/PROVENANCE.md`; `QUILLDOS.EXE` draws the `quill-grid` hello screen and `dos/tools/e2e.sh` compares it with the host golden |
 | M0 Foundations | Done on the host, with two items open | The workspace, `Store` and `FarVec`, the piece table with undo, the document, layout, the `.QLD` reader and writer, `quill-render`. The fuzz smoke job is not set up (needs nightly and `cargo-fuzz`); the property tests include damaged-file and random-byte inputs in its place |
@@ -30,6 +31,15 @@ What is built, how it was shown to work, what is blocked and what was assumed. U
 
 - `make dos` (or `dos/tools/e2e.sh`) builds `QUILLDOS.EXE` (about 34 KB, CWSDPMI inside) with the pinned toolchain and no C compiler, runs it under headless DOSBox Staging 0.83.0 at `cputype = 486`, and compares the screen it read back from video memory (B8000h) with `tests/golden/screens/hello.80x25.txt`: identical, characters and attributes.
 - The DOS side needs `-Zbuild-std` through `RUSTC_BOOTSTRAP=1`, as Desk does; it is not part of `make validate`, which stays host-only.
+
+### M1
+
+`dos/tools/e2e.sh` builds `QUILLDOS.EXE` (about 96 KB), copies `tests/docs/plain.qld` to a scratch drive and types `tests/scenarios/m1-edit.keys` into headless DOSBox Staging with `AUTOTYPE`: F10, File > Open, the name, text typed at the start of the centred title, Enter (splitting the paragraph), cursor keys, a letter and a Backspace, File > Save, File > Exit. The program writes every screen it shows, read back from B8000h, and the run is compared with the host's play of the same keys through the same `quill-app` code:
+
+- all 35 frames equal `tests/golden/screens/m1-edit.frames.txt`, character for character and attribute for attribute;
+- the saved `PLAIN.QLD` is byte-identical to `tests/golden/files/m1-edit.qld`.
+
+What M1 does not have yet: selection, overtype, find, formats beyond what a file carries, the other menus (the bar shows them, only File and Edit open), the ruler, and the temporary-file save (D66).
 
 ### T1
 

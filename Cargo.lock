@@ -90,6 +90,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-app"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+ "quill-formats",
+ "quill-grid",
+]
+
+[[package]]
 name = "quill-core"
 version = "0.0.0"
 dependencies = [
@@ -109,15 +118,27 @@ dependencies = [
 [[package]]
 name = "quill-grid"
 version = "0.0.0"
+dependencies = [
+ "quill-core",
+]
+
+[[package]]
+name = "quill-heap"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+]
 
 [[package]]
 name = "quill-host"
 version = "0.0.0"
 dependencies = [
  "proptest",
+ "quill-app",
  "quill-core",
  "quill-formats",
  "quill-grid",
+ "quill-heap",
 ]
 
 [[package]]

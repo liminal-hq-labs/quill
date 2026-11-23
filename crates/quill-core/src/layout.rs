@@ -139,6 +139,8 @@ pub struct Line {
 	pub len: u32,
 	/// Where the line starts across, from the left margin (indent and alignment included).
 	pub x: i32,
+	/// The indent alone: tab stops count from here, whatever the alignment shift.
+	pub indent: i32,
 	/// Width of the content, trailing spaces excluded.
 	pub width: i32,
 	/// Tallest ascent.
@@ -362,6 +364,7 @@ where
 				start: line_start,
 				len: line_end - line_start,
 				x: x0 + shift,
+				indent: x0,
 				width: lw,
 				ascent: la,
 				descent: ld,

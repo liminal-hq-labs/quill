@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds QUILLDOS.EXE, runs it under headless DOSBox and compares its screen dumps with the host's goldens.
+# Builds QUILLDOS.EXE, plays the editing script into it under headless DOSBox and compares its screens and its saved file with the host's.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -26,11 +26,20 @@ fail() { echo "e2e: FAIL: $*" >&2; exit 1; }
 
 export DOS_ENV='QUILL_DUMP=D:\DUMP.TXT'
 export DOS_KEEP="$WORK/keep"
+# The editing script. The same key tokens the host plays (tests/scenarios/m1-edit.keys) go in through AUTOTYPE.
+DISK="$WORK/disk"
+mkdir -p "$DISK"
+cp "$HERE/dist/QUILLDOS.EXE" "$DISK/"
+cp "$ROOT/tests/docs/plain.qld" "$DISK/PLAIN.QLD"
+keys="$(sed 's/#.*//' "$ROOT/tests/scenarios/m1-edit.keys" | tr -s ' \n\t' ' ' | sed 's/^ //; s/ $//')"
+export DOS_AUTOTYPE="-w 2 -p 0.3 $keys"
+export DOS_TIMEOUT=120
 rc=0
-"$HERE/tools/dosrun.sh" "$HERE/dist" QUILLDOS.EXE > "$WORK/out.txt" || rc=$?
-[ "$rc" = 0 ] || fail "QUILLDOS.EXE exited with $rc"
-[ -f "$WORK/keep/DUMP.TXT" ] || fail "no screen dump"
-tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/dump.txt"
-diff -u "$ROOT/tests/golden/screens/hello.80x25.txt" "$WORK/dump.txt" || fail "the hello screen differs from its golden"
-echo "e2e: hello screen matches its golden"
+"$HERE/tools/dosrun.sh" "$DISK" QUILLDOS.EXE > "$WORK/m1.out" || rc=$?
+[ "$rc" = 0 ] || fail "QUILLDOS.EXE exited with $rc in the editing script"
+tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/m1-frames.txt"
+diff -u "$ROOT/tests/golden/screens/m1-edit.frames.txt" "$WORK/m1-frames.txt" > "$WORK/m1.diff" || { head -60 "$WORK/m1.diff" >&2; fail "the editing script's screens differ from the host's"; }
+echo "e2e: editing script: every screen matches the host's, character for character and attribute for attribute"
+cmp "$DISK/PLAIN.QLD" "$ROOT/tests/golden/files/m1-edit.qld" || fail "the saved PLAIN.QLD differs from the host's"
+echo "e2e: editing script: the saved .QLD is byte-identical to the host's"
 echo "e2e: ok"

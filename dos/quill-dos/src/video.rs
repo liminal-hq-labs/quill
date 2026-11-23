@@ -98,14 +98,6 @@ pub fn cursor(at: Option<(u8, u8)>) {
 	}
 }
 
-/// Waits for a key through BIOS INT 16h.
-pub fn wait_key() {
-	let ax: u32;
-	// SAFETY: INT 16h AH=00h is a BIOS service with register arguments only.
-	unsafe { asm!("int 0x16", inout("eax") 0u32 => ax) };
-	let _ = ax;
-}
-
 /// Reads the screen back from video memory, so a dump shows what is on the screen and not what the program meant to draw.
 pub fn read_back<const ROWS: usize>() -> Grid<ROWS> {
 	let vram = screen();

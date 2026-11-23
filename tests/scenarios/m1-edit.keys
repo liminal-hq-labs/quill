@@ -1,0 +1,8 @@
+# M1: open plain.qld through the File menu, type at the start, split the paragraph, move, delete, save and exit.
+# The same tokens go to DOSBox's AUTOTYPE and to the host's script player.
+f10 down enter                  # File > Open...
+p l a i n period q l d enter    # the file name
+h e l l o space enter           # typed at the start of the centred title, then Enter splits it
+down down z bspace           # onto the next paragraph, a letter and back out
+f10 down down enter             # File > Save
+f10 down down down down enter   # File > Exit
