@@ -6,6 +6,8 @@
 use quill_core::doc::{cflag, CFmt, Font, PFmt, TabSet, TabStop, MAX_STOPS, NO_TABS};
 use quill_core::store::Store;
 
+use quill_core::layout::Measure;
+
 use crate::{label, App, Command, Key, Mode};
 
 const FONT_NAMES: [&str; 3] = ["Times New Roman", "Arial", "Courier New"];
@@ -125,7 +127,7 @@ fn parse_inches(r: &Row) -> Option<i32> {
 	whole.checked_mul(1440)?.checked_add(frac * 1440 / 100)
 }
 
-impl App {
+impl<M: Measure + Clone> App<M> {
 	pub(crate) fn open_fonts<S: Store + ?Sized>(&mut self, s: &S) {
 		let t = &self.doc.body;
 		let at = if self.caret > 0 { self.caret - 1 } else { 0 };

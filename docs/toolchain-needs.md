@@ -12,7 +12,7 @@ Priorities: **P0** blocks the first milestone that uses the platform, **P1** blo
 | `link.ld` (code segment 1 and data segment 2, both at offset 0, 16 reserved bytes first in data) | Spike | One code segment only |
 | Runtime `src/lib.rs`: task entry through `InitTask`, `export_proc!` wrapper, `cs!`, selector helpers, one-byte far read, `Log` | Spike | Enough for dialogs and a window |
 | `gen_imports.py` and `imports.tbl` (64 KERNEL, USER and GDI imports by ordinal, Pascal convention, stubs that save EBX, ESI, EDI and reload ES) | Spike | Grows by table row |
-| `ne_pack.py` (NE header, segment table, imports, entry table, selector fixups, dialog, string and raw resources from JSON) and `ne_dump.py` | Spike | One code segment; no menus, icons or bitmaps |
+| `ne_pack.py` (NE header, segment table, imports, entry table, selector fixups, dialog, string, raw and icon resources from JSON) and `ne_dump.py` | Spike | One code segment; no menus or bitmaps |
 | Register probes (`probe.rs`): EBX, ESI, EDI, EBP and ESP across `GetVersion`, `GlobalAlloc`, `PeekMessage` and `Yield` | Spike | Showed Windows 3.11 clobbers high halves, hence the saving stubs. Yielding and interrupt cases not yet probed |
 | `win9x-rust`: `i686-pc-windows-msvc`, `target-cpu=pentium`, `lld-link` with `/NODEFAULTLIB`, `/ENTRY:start`, `/SUBSYSTEM:WINDOWS,4.0`, `/FIXED`; `raw-dylib` ANSI imports; `memcpy` shims | `~/source/win9x-rust` | Runs on the Windows ME VM; no resources |
 | Desk `dos/`: `dos-elf.json` (i486, x87), `link.ld`, `rt` (DPMI, heap, INT 21h, keyboard, timer, VGA, panic), `elf2go32.py`, `dosrun.sh` | Desk; copied into the Liminal Installer's `dos/` | Proven by Desk and the installer's `SETUP.EXE` |
@@ -22,7 +22,7 @@ Priorities: **P0** blocks the first milestone that uses the platform, **P1** blo
 | Pri | Need | For | Notes |
 |---|---|---|---|
 | P0 | Runtime as a library crate with a stable API, and the build script as a reusable tool | M5, T0 | Today it is a spike crate with bins inside |
-| P0 | Resource types in the packer: `RT_MENU`, `RT_ACCELERATOR`, `RT_ICON` with `RT_GROUP_ICON`, `RT_CURSOR` with `RT_GROUP_CURSOR`, `RT_BITMAP`, `RT_VERSION`; reading `.ico`, `.cur` and `.bmp` files | T0 | Menus and accelerators from the `quill-app` tree via JSON |
+| P0 | Resource types in the packer: `RT_MENU`, `RT_ACCELERATOR`, `RT_ICON` with `RT_GROUP_ICON` (done), `RT_CURSOR` with `RT_GROUP_CURSOR`, `RT_BITMAP`, `RT_VERSION`; reading `.ico`, `.cur` and `.bmp` files | T0 | Menus and accelerators from the `quill-app` tree via JSON |
 | P0 | Generated Rust constants for resource and command IDs | T0 | So code and resources cannot drift |
 | P0 | Size report per build: each segment against its budget, DGROUP statics, stack and heap, resources, file size; non-zero exit past a budget | T0 | CI gate |
 | P0 | Register probes for yielding calls: `GetMessage` while a second task runs, `DialogBox`, `SendMessage` to another task's window, a long loop under timer interrupts; FS and GS before and after | T1 | The top risk. Result decides whether stubs need to save more |

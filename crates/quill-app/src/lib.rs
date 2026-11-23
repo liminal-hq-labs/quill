@@ -17,17 +17,18 @@
 mod find;
 mod form;
 mod paint;
+mod print;
 pub mod script;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
-use quill_core::layout::{layout_story, tab_advance, Line, Stops};
+use quill_core::layout::{layout_story, Line, Measure};
 use quill_core::store::Store;
 use quill_core::Error;
 use quill_formats::io::{Sink, Source};
 use quill_formats::{qld, rtf, text, FormatError};
 use quill_grid::GridMeasure;
 
-pub use paint::{draw, Cursor};
+pub use paint::{draw, line_label, menu_items, menu_title, Cursor, Item, ListCounters, MENU_COUNT};
 
 /// A key, as the platform decodes it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -161,6 +162,12 @@ pub enum Command {
 	Fonts,
 	/// Paragraph > Tabs.
 	Tabs,
+	/// Help > About Quill.
+	About,
+	/// File > Print.
+	Print,
+	/// File > one of the recent files (0 to 3).
+	Recent(u8),
 	/// Find > Find.
 	Find,
 	/// Find > Find Next.
@@ -251,6 +258,7 @@ pub mod label {
 pub(crate) enum Prompt {
 	Open,
 	SaveAs,
+	Print,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -267,12 +275,17 @@ pub(crate) enum Mode {
 		len: usize,
 	},
 	Confirm(Command),
+	About,
 	Find(find::FindState),
 	Form(form::Form),
 }
 
 /// The editor.
-pub struct App {
+pub struct App<M: Measure + Clone = GridMeasure> {
+	/// The device the document is laid out for.
+	pub(crate) measure: M,
+	/// Lines the view shows at once (23 on an 80 by 25 screen); the shell sets it.
+	pub(crate) rows: usize,
 	pub(crate) doc: Doc,
 	pub(crate) caret: u32,
 	pub(crate) top: u32,
@@ -300,6 +313,13 @@ pub struct App {
 	pub(crate) clip_len: usize,
 	/// The last search, for Find Next.
 	pub(crate) last_find: Option<find::FindState>,
+	/// What the platform adds to the About box (the mode and the free memory).
+	pub(crate) about: Msg,
+	/// The date the Date field prints as (the platform fills it in).
+	pub(crate) date: Msg,
+	/// The four most recent files, most recent first.
+	pub(crate) recent: [[u8; NAME_MAX]; 4],
+	pub(crate) recent_len: [usize; 4],
 	/// The format the document was opened in: 0 native, 1 RTF, 2 text.
 	fmt: u8,
 }
@@ -310,10 +330,19 @@ impl Default for App {
 	}
 }
 
-impl App {
-	/// An app with no document yet; call `reset`.
+impl App<GridMeasure> {
+	/// An app laid out for the DOS text screen, with no document yet; call `reset`.
 	pub const fn new() -> Self {
+		Self::with_measure(GridMeasure)
+	}
+}
+
+impl<M: Measure + Clone> App<M> {
+	/// An app laid out for `measure`, with no document yet; call `reset`.
+	pub const fn with_measure(measure: M) -> Self {
 		App {
+			measure,
+			rows: paint::TEXT_ROWS,
 			doc: Doc::new(),
 			caret: 0,
 			top: 0,
@@ -333,6 +362,10 @@ impl App {
 			typing_fmt: None,
 			fmt: 0,
 			last_find: None,
+			about: Msg::new(),
+			date: Msg::new(),
+			recent: [[0; NAME_MAX]; 4],
+			recent_len: [0; 4],
 			clip: [0; 2048],
 			clip_len: 0,
 			view: 0,
@@ -350,6 +383,77 @@ impl App {
 		self.mode = Mode::Edit;
 		self.typing = false;
 		Ok(())
+	}
+
+	/// Sets how many lines the view shows at once, for paging and scrolling.
+	pub fn set_rows(&mut self, rows: usize) {
+		self.rows = rows.max(1);
+	}
+
+	/// The caret position in the active story.
+	pub fn caret(&self) -> u32 {
+		self.caret
+	}
+
+	/// The index of the first line shown.
+	pub fn top_line(&self) -> u32 {
+		self.top
+	}
+
+	/// True when no menu, dialog or prompt of the app's own is open.
+	pub fn editing(&self) -> bool {
+		self.mode == Mode::Edit
+	}
+
+	/// Runs a command, as a menu does.
+	pub fn command<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, c: Command) {
+		self.msg.clear();
+		self.run(s, f, c);
+		self.scroll(s);
+	}
+
+	/// Saves under a new name, as Save As does.
+	pub fn save_as<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		name: &[u8],
+	) -> bool {
+		self.set_name(name);
+		self.do_save(s, f)
+	}
+
+	/// The message the last command left for the status line.
+	pub fn message(&self) -> &[u8] {
+		self.msg.bytes()
+	}
+
+	/// Calls `f(index, line)` for each line of the body (or the story being edited), laid out for the app's device.
+	pub fn for_each_line<S: Store + ?Sized>(&self, s: &S, f: impl FnMut(u32, &Line)) {
+		self.lines(s, f);
+	}
+
+	/// Calls `f(position, character, x, width, leader, character format)` for each character of a line.
+	pub fn walk_chars<S: Store + ?Sized>(
+		&self,
+		s: &S,
+		line: &Line,
+		f: impl FnMut(u32, u8, i32, i32, u8, u16),
+	) {
+		quill_core::layout::walk_line(
+			&self.doc,
+			s,
+			&mut self.measure.clone(),
+			quill_core::doc::StoryKind::Body,
+			line,
+			f,
+		);
+	}
+
+	/// The index of the line holding the caret, the line, and the caret's x within it.
+	pub fn caret_xy<S: Store + ?Sized>(&self, s: &S) -> Option<(u32, Line, i32)> {
+		let (i, l) = self.caret_line(s)?;
+		Some((i, l, self.x_of(s, &l, self.caret)))
 	}
 
 	/// Chooses the attribute scheme.
@@ -389,6 +493,95 @@ impl App {
 		}
 	}
 
+	/// Puts the current file at the front of the recent list.
+	fn push_recent(&mut self) {
+		let name = self.name;
+		let len = self.name_len;
+		if len == 0 {
+			return;
+		}
+		let cur = name.get(..len).unwrap_or(&[]);
+		// Drop an earlier entry for the same file, then shift the rest down.
+		let mut last = 3;
+		for i in 0..4 {
+			if self.recent_len.get(i).copied() == Some(len)
+				&& self.recent.get(i).and_then(|r| r.get(..len)) == Some(cur)
+			{
+				last = i;
+			}
+		}
+		for i in (1..=last).rev() {
+			let prev = self.recent.get(i - 1).copied().unwrap_or([0; NAME_MAX]);
+			let pl = self.recent_len.get(i - 1).copied().unwrap_or(0);
+			if let (Some(d), Some(dl)) = (self.recent.get_mut(i), self.recent_len.get_mut(i)) {
+				*d = prev;
+				*dl = pl;
+			}
+		}
+		if let (Some(d), Some(dl)) = (self.recent.first_mut(), self.recent_len.first_mut()) {
+			*d = name;
+			*dl = len;
+		}
+	}
+
+	/// Reads `QUILL.INI` (the [Recent] section) through `f`; a missing file is fine.
+	pub fn load_settings<F: Files>(&mut self, f: &mut F) {
+		let Some(mut r) = f.open(b"QUILL.INI") else {
+			return;
+		};
+		let mut buf = [0u8; 512];
+		let n = r.read(&mut buf);
+		let text = buf.get(..n).unwrap_or(&[]);
+		for line in text.split(|b| *b == b'\n') {
+			let line = line.strip_suffix(b"\r").unwrap_or(line);
+			for i in 0..4usize {
+				let key = [b'F', b'i', b'l', b'e', b'1' + i as u8, b'='];
+				if let Some(v) = line.strip_prefix(&key[..]) {
+					let len = v.len().min(NAME_MAX);
+					if let (Some(d), Some(dl)) =
+						(self.recent.get_mut(i), self.recent_len.get_mut(i))
+					{
+						for (x, y) in d.iter_mut().zip(v.iter().take(len)) {
+							*x = *y;
+						}
+						*dl = len;
+					}
+				}
+			}
+		}
+	}
+
+	/// Writes `QUILL.INI`: the recent files, as the SPEC's `[Recent] File1` to `File4`.
+	pub fn save_settings<F: Files>(&self, f: &mut F) {
+		let Some(mut w) = f.create(b"QUILL.INI") else {
+			return;
+		};
+		let _ = w.write(b"[Recent]\r\n");
+		for i in 0..4usize {
+			let len = self.recent_len.get(i).copied().unwrap_or(0);
+			if len == 0 {
+				continue;
+			}
+			let _ = w.write(&[b'F', b'i', b'l', b'e', b'1' + i as u8, b'=']);
+			let _ = w.write(self.recent.get(i).and_then(|r| r.get(..len)).unwrap_or(&[]));
+			let _ = w.write(b"\r\n");
+		}
+		f.close(w);
+	}
+
+	/// Sets the platform's line of the About box (the mode and the free memory).
+	pub fn set_about(&mut self, text: &str) {
+		self.about.set(text);
+	}
+
+	/// The recent files, for a native menu.
+	pub fn recent_files(&self) -> impl Iterator<Item = &[u8]> {
+		(0..4).filter_map(|i| {
+			let len = self.recent_len.get(i).copied().filter(|l| *l > 0)?;
+			self.recent.get(i)?.get(..len)
+		})
+	}
+
 	/// Opens a file by content (a RIFF `QLD1` header is native, anything else is plain text) into a fresh document, and
 	/// keeps the current one when it cannot be read.
 	pub fn open<S: Store + ?Sized, F: Files>(
@@ -421,6 +614,7 @@ impl App {
 		self.modified = false;
 		self.typing = false;
 		self.set_name(name);
+		self.push_recent();
 		self.fmt = if native {
 			0
 		} else if rich {
@@ -453,6 +647,7 @@ impl App {
 			_ => qld::write(&self.doc, s, &mut w)?,
 		}
 		self.fmt = kind;
+		self.push_recent();
 		if !f.close(w) {
 			return Err(FormatError::Write);
 		}
@@ -465,7 +660,7 @@ impl App {
 		layout_story(
 			&self.doc,
 			s,
-			&mut GridMeasure,
+			&mut self.measure.clone(),
 			quill_core::doc::StoryKind::Body,
 			|l| {
 				f(i, l);
@@ -511,49 +706,14 @@ impl App {
 		line: &Line,
 		mut f: impl FnMut(u32, u8, i32, i32, u8),
 	) {
-		let pf = self
-			.para_mark(s, line.start)
-			.and_then(|m| self.doc.body.pfmt_at(s, m))
-			.and_then(|i| self.doc.pfmts.get(s, i))
-			.unwrap_or(PFmt::DEFAULT);
-		let stops = Stops::for_para(&self.doc, s, &pf, 10);
-		let mut buf = [0u8; 256];
-		let want = (line.len as usize).min(buf.len());
-		let n = buf
-			.get_mut(..want)
-			.map_or(0, |b| self.doc.body.read(s, line.start, b));
-		let mut x = line.x;
-		for i in 0..n {
-			let c = buf.get(i).copied().unwrap_or(b' ');
-			let rel = line.indent + (x - line.x);
-			let (w, leader) = if c == 0x09 {
-				let stop = stops.next(rel);
-				let (mut seg, mut dec, mut seen_dot) = (0, 0, false);
-				if stop.kind != 0 {
-					for &d in buf.get(i + 1..n).unwrap_or(&[]) {
-						if d == 0x09 || d == 0x0B {
-							break;
-						}
-						if d == b'.' && !seen_dot {
-							seen_dot = true;
-							dec = seg;
-						}
-						seg += 1;
-					}
-					if !seen_dot {
-						dec = seg;
-					}
-				}
-				(tab_advance(&stop, rel, seg, dec), stop.leader)
-			} else if c == 0x01 {
-				// A field is two columns wide, as layout measures it.
-				(2, 0)
-			} else {
-				(1, 0)
-			};
-			f(line.start + i as u32, c, x, w, leader);
-			x += w;
-		}
+		quill_core::layout::walk_line(
+			&self.doc,
+			s,
+			&mut self.measure.clone(),
+			quill_core::doc::StoryKind::Body,
+			line,
+			|p, c, x, w, l, _| f(p, c, x, w, l),
+		);
 	}
 
 	/// The x of position `pos` in `line`.
@@ -754,7 +914,7 @@ impl App {
 		let _ = s;
 	}
 
-	fn set_view<S: Store + ?Sized>(&mut self, s: &mut S, to: u8) {
+	pub(crate) fn set_view<S: Store + ?Sized>(&mut self, s: &mut S, to: u8) {
 		let cur = StoryKind::from_u8(self.view).unwrap_or(StoryKind::Body);
 		if self.view != 0 {
 			// Back to the body: a story holding only its paragraph mark is empty.
@@ -980,6 +1140,24 @@ impl App {
 			}
 			Command::Fonts => self.open_fonts(s),
 			Command::Tabs => self.open_tabs(),
+			Command::About => self.mode = Mode::About,
+			Command::Print => {
+				self.mode = Mode::Prompt {
+					kind: Prompt::Print,
+					buf: [0; NAME_MAX],
+					len: 0,
+				}
+			}
+			Command::Recent(n) => {
+				let mut name = [0u8; NAME_MAX];
+				let len = self.recent_len.get(usize::from(n)).copied().unwrap_or(0);
+				if let Some(src) = self.recent.get(usize::from(n)) {
+					name = *src;
+				}
+				if len > 0 && self.open(s, f, name.get(..len).unwrap_or(&[])).is_err() {
+					self.msg.set("Quill cannot open that file.");
+				}
+			}
 			Command::Find => self.open_find(false),
 			Command::Replace => self.open_find(true),
 			Command::FindNext => {
@@ -1157,6 +1335,11 @@ impl App {
 			Mode::Edit => self.key_edit(s, f, k),
 			Mode::Menu { menu, item } => self.key_menu(s, f, k, menu, item),
 			Mode::Prompt { kind, buf, len } => self.key_prompt(s, f, k, kind, buf, len),
+			Mode::About => {
+				if matches!(k, Key::Enter | Key::Esc | Key::Char(b' ')) {
+					self.mode = Mode::Edit;
+				}
+			}
 			Mode::Find(st) => self.key_find(s, k, st),
 			Mode::Form(fm) => self.key_form(s, k, fm),
 			Mode::Confirm(c) => match k {
@@ -1197,7 +1380,7 @@ impl App {
 				self.want_x = -1;
 			}
 			Dir::Up | Dir::Down | Dir::PageUp | Dir::PageDown => {
-				let page = paint::TEXT_ROWS as i32 - 1;
+				let page = self.rows as i32 - 1;
 				let delta = match d {
 					Dir::Up => -1,
 					Dir::Down => 1,
@@ -1307,6 +1490,7 @@ impl App {
 			}
 			Key::Ctrl(b's') => self.run(s, f, Command::Save),
 			Key::Ctrl(b'o') => self.run(s, f, Command::Open),
+			Key::Ctrl(b'p') => self.run(s, f, Command::Print),
 			Key::Ctrl(b'n') => self.run(s, f, Command::New),
 			Key::Ctrl(b'q') => self.run(s, f, Command::Exit),
 			Key::Ctrl(b'x') => self.run(s, f, Command::Cut),
@@ -1335,7 +1519,12 @@ impl App {
 		item: u8,
 	) {
 		let items = paint::menu_items(menu);
-		let n = items.len() as u8;
+		let recents = if menu == 0 {
+			self.recent_files().count() as u8
+		} else {
+			0
+		};
+		let n = items.len() as u8 + recents;
 		let total = paint::MENU_COUNT;
 		// The next menu that has items, going left or right round the bar.
 		let step = |from: u8, right: bool| {
@@ -1382,6 +1571,8 @@ impl App {
 				self.mode = Mode::Edit;
 				if let Some(it) = items.get(usize::from(item)) {
 					self.run(s, f, it.command);
+				} else if menu == 0 {
+					self.run(s, f, Command::Recent(item - items.len() as u8));
 				}
 			}
 			_ => {}
@@ -1425,6 +1616,11 @@ impl App {
 						self.set_name(name);
 						self.do_save(s, f);
 					}
+					Prompt::Print => {
+						if !self.print_text(s, f, name) {
+							self.msg.set("Quill cannot print to that file.");
+						}
+					}
 				}
 				return;
 			}
@@ -1438,7 +1634,7 @@ impl App {
 		let Some((idx, _)) = self.caret_line(s) else {
 			return;
 		};
-		let rows = paint::TEXT_ROWS as u32;
+		let rows = self.rows as u32;
 		if idx < self.top {
 			self.top = idx;
 		} else if idx >= self.top + rows {

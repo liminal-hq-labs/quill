@@ -24,6 +24,10 @@ path = "src/lib.rs"
 name = "probe"
 path = "examples/probe/main.rs"
 
+[[bin]]
+name = "icontest"
+path = "examples/icontest/main.rs"
+
 [profile.release]
 opt-level = "z"
 lto = true

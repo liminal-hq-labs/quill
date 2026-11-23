@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use quill_core::layout::Measure;
 use quill_core::store::Store;
 use quill_grid::{ansi_to_cp437, attr, Grid, COLS};
 
@@ -17,6 +18,11 @@ pub const MENU_COUNT: u8 = 8;
 
 const MENU_BAR: &[u8] = b" File  Edit  Insert  Find  Character  Paragraph  Document  Help";
 const MENU_COLS: [usize; 8] = [1, 7, 13, 21, 27, 38, 49, 59];
+/// The title of menu `menu`.
+pub fn menu_title(menu: u8) -> &'static [u8] {
+	MENU_TITLES.get(usize::from(menu)).copied().unwrap_or(b"")
+}
+
 const MENU_TITLES: [&[u8]; 8] = [
 	b"File",
 	b"Edit",
@@ -66,11 +72,13 @@ const DOCUMENT: [Item; 6] = [
 	item("Different First Page", "", Command::FirstPage),
 	item("Return to Document", "", Command::View(0)),
 ];
-const FILE: [Item; 5] = [
+const HELP: [Item; 1] = [item("About Quill...", "", Command::About)];
+const FILE: [Item; 6] = [
 	item("New", "Ctrl+N", Command::New),
 	item("Open...", "Ctrl+O", Command::Open),
 	item("Save", "Ctrl+S", Command::Save),
 	item("Save As...", "", Command::SaveAs),
+	item("Print...", "Ctrl+P", Command::Print),
 	item("Exit", "Ctrl+Q", Command::Exit),
 ];
 const EDIT: [Item; 2] = [
@@ -102,7 +110,8 @@ const PARAGRAPH: [Item; 12] = [
 	item("Double Space", "", Command::Spacing(2)),
 ];
 
-pub(crate) fn menu_items(menu: u8) -> &'static [Item] {
+/// The items of menu `menu` (0 File to 7 Help); empty for a menu that has none yet.
+pub fn menu_items(menu: u8) -> &'static [Item] {
 	match menu {
 		0 => &FILE,
 		1 => &EDIT,
@@ -111,6 +120,7 @@ pub(crate) fn menu_items(menu: u8) -> &'static [Item] {
 		4 => &CHARACTER,
 		5 => &PARAGRAPH,
 		6 => &DOCUMENT,
+		7 => &HELP,
 		_ => &[],
 	}
 }
@@ -225,8 +235,8 @@ impl Row {
 }
 
 /// Paints the whole screen and returns where the hardware cursor belongs (none while a menu is open).
-pub fn draw<S: Store + ?Sized, const ROWS: usize>(
-	app: &App,
+pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
+	app: &App<M>,
 	s: &S,
 	g: &mut Grid<ROWS>,
 ) -> Option<Cursor> {
@@ -246,7 +256,7 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 	let caret = app.caret_line(s);
 	let caret_page = caret.map_or(1, |(_, l)| l.page);
 	let mut ln_in_page = 0u32;
-	let mut counters = [[0u32; 9]; 4];
+	let mut counters: ListCounters = [[0u32; 9]; 4];
 	let mut cursor = None;
 	app.lines(s, |i, l| {
 		if let Some((ci, _)) = caret {
@@ -254,42 +264,11 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 				ln_in_page += 1;
 			}
 		}
-		if l.line == 0 {
-			let pf = app.para_pfmt(s, l.start);
-			if pf.flags & 5 != 0 {
-				let lvl = usize::from(pf.level.min(8));
-				let list = usize::from(pf.list).min(3);
-				let def = app.doc.lists.get(s, pf.list).unwrap_or_default();
-				let lv = def.levels.get(lvl).copied().unwrap_or_default();
-				let mut label = [0u8; 16];
-				let mut n = 0;
-				if pf.flags & 1 != 0 {
-					label[0] = 0x07;
-					n = 1;
-				} else {
-					if let Some(c) = counters.get_mut(list) {
-						let cur = c.get(lvl).copied().unwrap_or(0);
-						let next = if cur == 0 || pf.flags & 8 != 0 {
-							u32::from(lv.start.max(1))
-						} else {
-							cur + 1
-						};
-						if let Some(slot) = c.get_mut(lvl) {
-							*slot = next;
-						}
-						for deeper in c.iter_mut().skip(lvl + 1) {
-							*deeper = 0;
-						}
-						n = number_label(lv.style, next, &mut label);
-					}
-				}
-				let first = quill_core::layout::to_units(pf.left + pf.first, 10).max(0) as usize;
-				let top = app.top;
-				if l_visible(i, top, text_rows) {
-					let row = 1 + (i - top) as usize;
-					for (k, b) in label.iter().take(n).enumerate() {
-						g.put(margin + first + k, row, *b, attr::TEXT);
-					}
+		if let Some((label, n, first)) = line_label(app, s, l, &mut counters, 10) {
+			if l_visible(i, app.top, text_rows) {
+				let row = 1 + (i - app.top) as usize;
+				for (k, b) in label.iter().take(n).enumerate() {
+					g.put(margin + first + k, row, *b, attr::TEXT);
 				}
 			}
 		}
@@ -384,7 +363,14 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 			.s(" Ln ")
 			.dec(ln_in_page)
 			.s(" Col ");
-		let col = caret.map_or(1, |(_, l)| app.x_of(s, &l, app.caret) + 1);
+		// Col counts columns on the text screen and characters on a device with finer units.
+		let col = caret.map_or(1, |(_, l)| {
+			if app.measure.resolution().0 > 10 {
+				(app.caret - l.start) as i32 + 1
+			} else {
+				app.x_of(s, &l, app.caret) + 1
+			}
+		});
 		st.dec(col as u32).s("   ");
 		let t = &app.doc.body;
 		let cf = if app.caret > 0 {
@@ -421,8 +407,30 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 			let items = menu_items(menu);
 			let col = MENU_COLS.get(usize::from(menu)).copied().unwrap_or(1) - 1;
 			let w = 26;
-			g.fill(col, 1, w, items.len() + 2, b' ', attr::CHROME);
-			g.frame(col, 1, w, items.len() + 2, attr::CHROME);
+			let recents = if menu == 0 {
+				app.recent_files().count()
+			} else {
+				0
+			};
+			let rows = items.len() + recents;
+			g.fill(col, 1, w, rows + 2, b' ', attr::CHROME);
+			g.frame(col, 1, w, rows + 2, attr::CHROME);
+			for (k, name) in app.recent_files().enumerate() {
+				let i = items.len() + k;
+				let a = if i == usize::from(item) {
+					SELECTED
+				} else {
+					attr::CHROME
+				};
+				g.fill(col + 1, 2 + i, w - 2, 1, b' ', a);
+				g.put(col + 2, 2 + i, b'1' + k as u8, a);
+				g.text(
+					col + 4,
+					2 + i,
+					name.get(..name.len().min(w - 6)).unwrap_or(&[]),
+					a,
+				);
+			}
 			for (i, it) in items.iter().enumerate() {
 				let a = if i == usize::from(item) {
 					SELECTED
@@ -433,14 +441,14 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 				put_str(g, col + 2, 2 + i, it.label, a);
 				g.text(col + w - 2 - it.accel.len(), 2 + i, it.accel.as_bytes(), a);
 			}
-			shadow(g, col, 1, w, items.len() + 2);
+			shadow(g, col, 1, w, rows + 2);
 			cursor = None;
 		}
 		Mode::Prompt { kind, buf, len } => {
-			let title: &[u8] = if kind == Prompt::Open {
-				b" Open "
-			} else {
-				b" Save As "
+			let title: &[u8] = match kind {
+				Prompt::Open => b" Open ",
+				Prompt::SaveAs => b" Save As ",
+				Prompt::Print => b" Print to file or device ",
 			};
 			dialog(g, 8, 62, 7, title);
 			g.text(10, 10, b"File name:", attr::CHROME);
@@ -543,6 +551,16 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 				}
 			}
 			cursor = cur;
+		}
+		Mode::About => {
+			dialog(g, 8, 62, 10, b" About Quill ");
+			g.text(10, 10, b"Quill", attr::CHROME);
+			g.text(10, 11, b"Version 0.0.0, experimental", attr::CHROME);
+			g.text(10, 12, b"A Liminal HQ Labs experiment", attr::CHROME);
+			g.text(10, 13, b"Apache-2.0 OR MIT", attr::CHROME);
+			g.text(10, 14, app.about.bytes(), attr::CHROME);
+			g.text(34, 16, b"< OK >", SELECTED);
+			cursor = None;
 		}
 		Mode::Confirm(_) => {
 			dialog(g, 8, 62, 7, b" Quill ");
@@ -657,4 +675,52 @@ fn number_label(style: u8, n: u32, out: &mut [u8; 16]) -> usize {
 	}
 	put(if style == 1 || style == 3 { b')' } else { b'.' });
 	len
+}
+
+/// Counters for numbered lists: nine levels for each of four lists, kept across the lines of one pass over the document.
+pub type ListCounters = [[u32; 9]; 4];
+
+/// The list label of a line, when it is the first line of a list paragraph: the label bytes (a bullet is 0x07 as in CP437), their
+/// number, and the x the label starts at in device units at `rx` units per inch. Call it for every line in order, so the counters
+/// stay right.
+pub fn line_label<M: Measure + Clone, S: Store + ?Sized>(
+	app: &App<M>,
+	s: &S,
+	l: &quill_core::layout::Line,
+	counters: &mut ListCounters,
+	rx: u16,
+) -> Option<([u8; 16], usize, usize)> {
+	if l.line != 0 {
+		return None;
+	}
+	let pf = app.para_pfmt(s, l.start);
+	if pf.flags & 5 == 0 {
+		return None;
+	}
+	let lvl = usize::from(pf.level.min(8));
+	let list = usize::from(pf.list).min(3);
+	let def = app.doc.lists.get(s, pf.list).unwrap_or_default();
+	let lv = def.levels.get(lvl).copied().unwrap_or_default();
+	let mut label = [0u8; 16];
+	let mut n = 0;
+	if pf.flags & 1 != 0 {
+		label[0] = 0x07;
+		n = 1;
+	} else if let Some(c) = counters.get_mut(list) {
+		let cur = c.get(lvl).copied().unwrap_or(0);
+		let next = if cur == 0 || pf.flags & 8 != 0 {
+			u32::from(lv.start.max(1))
+		} else {
+			cur + 1
+		};
+		if let Some(slot) = c.get_mut(lvl) {
+			*slot = next;
+		}
+		for deeper in c.iter_mut().skip(lvl + 1) {
+			*deeper = 0;
+		}
+		n = number_label(lv.style, next, &mut label);
+	}
+	let first = quill_core::layout::to_units(pf.left + pf.first, rx).max(0) as usize;
+	Some((label, n, first))
 }

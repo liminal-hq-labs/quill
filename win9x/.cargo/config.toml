@@ -17,6 +17,8 @@ rustflags = [
     # Windows 9x predates ASLR; load at the preferred base with no relocations.
     "-C", "link-arg=/FIXED",
     "-C", "link-arg=/DYNAMICBASE:NO",
+    # Menu, icon and version information, written by tools/res_pack.py (build.sh makes it).
+    "-C", "link-arg=resources/quill.res",
 ]
 
 # The prebuilt \`core\` for i686 assumes SSE2 (D33), so build \`core\` and \`alloc\` here for a Pentium. The build script sets RUSTC_BOOTSTRAP=1.

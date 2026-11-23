@@ -21,6 +21,16 @@ pub const CS_OWNDC: u32 = 0x0020;
 pub const IDC_ARROW: usize = 32512;
 pub const OEM_FIXED_FONT: i32 = 10;
 pub const ETO_OPAQUE: u32 = 2;
+pub const TA_BASELINE: u32 = 24;
+pub const TRANSPARENT: i32 = 1;
+pub const OPAQUE: i32 = 2;
+pub const FW_NORMAL: i32 = 400;
+pub const FW_BOLD: i32 = 700;
+pub const WM_COMMAND: u32 = 0x0111;
+pub const WM_ERASEBKGND: u32 = 0x0014;
+pub const WS_OVERLAPPEDWINDOW: u32 = 0x00CF_0000;
+pub const MF_STRING: u32 = 0;
+pub const MF_POPUP: u32 = 0x10;
 pub const VK_SHIFT: i32 = 0x10;
 pub const VK_CONTROL: i32 = 0x11;
 pub const GENERIC_READ: u32 = 0x8000_0000;
@@ -156,11 +166,44 @@ extern "system" {
 	pub fn DestroyWindow(hwnd: Handle) -> i32;
 	pub fn SetTimer(hwnd: Handle, id: usize, ms: u32, proc_: *const c_void) -> usize;
 	pub fn GetDC(hwnd: Handle) -> Handle;
+	pub fn LoadMenuA(instance: Handle, name: *const u8) -> Handle;
+	pub fn LoadIconA(instance: Handle, name: *const u8) -> Handle;
+	pub fn GetClientRect(hwnd: Handle, rect: *mut Rect) -> i32;
+	pub fn FillRect(dc: Handle, rect: *const Rect, brush: Handle) -> i32;
+	pub fn CreateMenu() -> Handle;
+	pub fn CreatePopupMenu() -> Handle;
+	pub fn AppendMenuA(menu: Handle, flags: u32, id: usize, item: *const u8) -> i32;
+	pub fn SetWindowTextA(hwnd: Handle, text: *const u8) -> i32;
 	pub fn ReleaseDC(hwnd: Handle, dc: Handle) -> i32;
 }
 
 #[link(name = "gdi32", kind = "raw-dylib", import_name_type = "undecorated")]
 extern "system" {
+	pub fn CreateFontA(
+		height: i32,
+		width: i32,
+		escapement: i32,
+		orientation: i32,
+		weight: i32,
+		italic: u32,
+		underline: u32,
+		strike: u32,
+		charset: u32,
+		out_precision: u32,
+		clip_precision: u32,
+		quality: u32,
+		pitch_family: u32,
+		face: *const u8,
+	) -> Handle;
+	pub fn DeleteObject(obj: Handle) -> i32;
+	pub fn GetCharWidthA(dc: Handle, first: u32, last: u32, out: *mut i32) -> i32;
+	pub fn SetTextAlign(dc: Handle, mode: u32) -> u32;
+	pub fn SetBkMode(dc: Handle, mode: i32) -> i32;
+	pub fn CreateSolidBrush(colour: u32) -> Handle;
+	pub fn TextOutA(dc: Handle, x: i32, y: i32, text: *const u8, len: i32) -> i32;
+	pub fn MoveToEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
+	pub fn LineTo(dc: Handle, x: i32, y: i32) -> i32;
+	pub fn CreatePen(style: i32, width: i32, colour: u32) -> Handle;
 	pub fn GetStockObject(index: i32) -> Handle;
 	pub fn SelectObject(dc: Handle, obj: Handle) -> Handle;
 	pub fn SetTextColor(dc: Handle, colour: u32) -> u32;

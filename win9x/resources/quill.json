@@ -1,0 +1,64 @@
+{
+	"version": { "file": [0, 0, 0, 1], "company": "Liminal HQ", "description": "Quill for Windows 95", "copyright": "(c) Copyright 2026 Liminal HQ, Scott Morris", "original": "QUILL32.EXE", "product": "Quill" },
+	"icon": "quill",
+	"menus": [
+		{ "title": "File", "items": [
+			{ "text": "New\tCtrl+N", "id": 100 },
+			{ "text": "Open...\tCtrl+O", "id": 101 },
+			{ "text": "Save\tCtrl+S", "id": 102 },
+			{ "text": "Save As...", "id": 103 },
+			{ "text": "Print...\tCtrl+P", "id": 104 },
+			{ "text": "Exit\tCtrl+Q", "id": 105 }
+		] },
+		{ "title": "Edit", "items": [
+			{ "text": "Undo\tCtrl+Z", "id": 106 },
+			{ "text": "Redo\tCtrl+Y", "id": 107 }
+		] },
+		{ "title": "Insert", "items": [
+			{ "text": "Page Number", "id": 108 },
+			{ "text": "Page Count", "id": 109 },
+			{ "text": "Date", "id": 110 },
+			{ "text": "File Name", "id": 111 }
+		] },
+		{ "title": "Find", "items": [
+			{ "text": "Find...\tCtrl+F", "id": 112 },
+			{ "text": "Find Next\tF3", "id": 113 },
+			{ "text": "Replace...\tCtrl+H", "id": 114 }
+		] },
+		{ "title": "Character", "items": [
+			{ "text": "Regular\tF5", "id": 115 },
+			{ "text": "Bold\tCtrl+B", "id": 116 },
+			{ "text": "Italic\tCtrl+I", "id": 117 },
+			{ "text": "Underline\tCtrl+U", "id": 118 },
+			{ "text": "Strikethrough", "id": 119 },
+			{ "text": "Superscript", "id": 120 },
+			{ "text": "Subscript", "id": 121 },
+			{ "text": "Fonts...", "id": 122 }
+		] },
+		{ "title": "Paragraph", "items": [
+			{ "text": "Left\tCtrl+L", "id": 123 },
+			{ "text": "Centred\tCtrl+E", "id": 124 },
+			{ "text": "Right\tCtrl+R", "id": 125 },
+			{ "text": "Justified\tCtrl+J", "id": 126 },
+			{ "text": "Bullets", "id": 127 },
+			{ "text": "Numbering", "id": 128 },
+			{ "text": "Increase Level", "id": 129 },
+			{ "text": "Decrease Level", "id": 130 },
+			{ "text": "Tabs...", "id": 131 },
+			{ "text": "Single Space", "id": 132 },
+			{ "text": "1\u00bd Space", "id": 133 },
+			{ "text": "Double Space", "id": 134 }
+		] },
+		{ "title": "Document", "items": [
+			{ "text": "Header", "id": 135 },
+			{ "text": "Footer", "id": 136 },
+			{ "text": "First Page Header", "id": 137 },
+			{ "text": "First Page Footer", "id": 138 },
+			{ "text": "Different First Page", "id": 139 },
+			{ "text": "Return to Document", "id": 140 }
+		] },
+		{ "title": "Help", "items": [
+			{ "text": "About Quill...", "id": 141 }
+		] }
+	]
+}

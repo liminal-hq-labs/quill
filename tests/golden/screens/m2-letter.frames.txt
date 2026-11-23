@@ -369,10 +369,10 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 LETTER.RTF           │s).....................1     6.75                     
+└────────────────────────┘aragraph with a hanging indent. It is long            
                enough to run over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
@@ -397,9 +397,9 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -419,7 +419,7 @@
       ┌────────────────────────┐  Quill Letter                                  
       │ Undo            Ctrl+Z │                                                
       │ Redo            Ctrl+Y │italic, underlined and struck text,             
-      └────────────────────────┘nd some raised and lowered text.                
+      └ 1 LETTER.RTF           ┘nd some raised and lowered text.                
           Item           Qty.................Price                              
           Quills         12...................3.50                              
           Ink bottles    3....................8.25                              
@@ -473,7 +473,7 @@
           Th│ Page Count             │, underlined and struck text,             
           pl│ Date                   │e raised and lowered text.                
           It│ File Name              │.......Price                              
-          Qu└────────────────────────┘........3.50                              
+          Qu└ 1 LETTER.RTF           ┘........3.50                              
           Ink bottles    3....................8.25                              
           Paper (500 sheets).....................1     6.75                     
              A justified paragraph with a hanging indent. It is long            
@@ -524,7 +524,7 @@
           Dear reade│ Find...         Ctrl+F │                                  
           This lette│ Find Next           F3 │ined and struck text,             
           plus a col│ Replace...      Ctrl+H │ and lowered text.                
-          Item      └────────────────────────┘rice                              
+          Item      └ 1 LETTER.RTF           ┘rice                              
           Quills         12...................3.50                              
           Ink bottles    3....................8.25                              
           Paper (500 sheets).....................1     6.75                     
@@ -581,7 +581,7 @@
           Ink bottles    3│ Superscript            │                            
           Paper (500 sheet│ Subscript              │   6.75                     
              A justified p│ Fonts...               │dent. It is long            
-               enough to r└────────────────────────┘the line breaks             
+               enough to r└ 1 LETTER.RTF           ┘the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -633,7 +633,7 @@
           Ink bottles    3│ Superscript            │                            
           Paper (500 sheet│ Subscript              │   6.75                     
              A justified p│ Fonts...               │dent. It is long            
-               enough to r└────────────────────────┘the line breaks             
+               enough to r└ 1 LETTER.RTF           ┘the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -685,7 +685,7 @@
           Ink bottles    3│ Superscript            │                            
           Paper (500 sheet│ Subscript              │   6.75                     
              A justified p│ Fonts...               │dent. It is long            
-               enough to r└────────────────────────┘the line breaks             
+               enough to r└ 1 LETTER.RTF           ┘the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -1461,10 +1461,10 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 LETTER.RTF           │s).....................1     6.75                     
+└────────────────────────┘aragraph with a hanging indent. It is long            
                enough to run over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
@@ -1489,9 +1489,9 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -1511,7 +1511,7 @@
       ┌────────────────────────┐  Quill Letter                                  
       │ Undo            Ctrl+Z │                                                
       │ Redo            Ctrl+Y │italic, underlined and struck text,             
-      └────────────────────────┘nd some raised and lowered text.                
+      └ 1 LETTER.RTF           ┘nd some raised and lowered text.                
           Item           Qty.................Price                              
           Quills         12...................3.50                              
           Ink bottles    3....................8.25                              
@@ -1565,7 +1565,7 @@
           Th│ Page Count             │, underlined and struck text,             
           pl│ Date                   │e raised and lowered text.                
           It│ File Name              │.......Price                              
-          Qu└────────────────────────┘........3.50                              
+          Qu└ 1 LETTER.RTF           ┘........3.50                              
           Ink bottles    3....................8.25                              
           Paper (500 sheets).....................1     6.75                     
              A justified paragraph with a hanging indent. It is long            
@@ -1616,7 +1616,7 @@
           Dear reade│ Find...         Ctrl+F │                                  
           This lette│ Find Next           F3 │ined and struck text,             
           plus a col│ Replace...      Ctrl+H │ and lowered text.                
-          Item      └────────────────────────┘rice                              
+          Item      └ 1 LETTER.RTF           ┘rice                              
           Quills         12...................3.50                              
           Ink bottles    3....................8.25                              
           Paper (500 sheets).....................1     6.75                     
@@ -1673,7 +1673,7 @@
           Ink bottles    3│ Superscript            │                            
           Paper (500 sheet│ Subscript              │   6.75                     
              A justified p│ Fonts...               │dent. It is long            
-               enough to r└────────────────────────┘the line breaks             
+               enough to r└ 1 LETTER.RTF           ┘the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -1725,7 +1725,7 @@
           Ink bottles    3│ Superscript            │                            
           Paper (500 sheet│ Subscript              │   6.75                     
              A justified p│ Fonts...               │dent. It is long            
-               enough to r└────────────────────────┘the line breaks             
+               enough to r└ 1 LETTER.RTF           ┘the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -1825,10 +1825,10 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 LETTER.RTF           │s).....................1     6.75                     
+└────────────────────────┘aragraph with a hanging indent. It is long            
                enough to run over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
@@ -1853,9 +1853,9 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -1875,7 +1875,7 @@
       ┌────────────────────────┐  Quill Letter                                  
       │ Undo            Ctrl+Z │                                                
       │ Redo            Ctrl+Y │italic, underlined and struck text,             
-      └────────────────────────┘nd some raised and lowered text.                
+      └ 1 LETTER.RTF           ┘nd some raised and lowered text.                
           Item           Qty.................Price                              
           Quills         12...................3.50                              
           Ink bottles    3....................8.25                              
@@ -1929,7 +1929,7 @@
           Th│ Page Count             │, underlined and struck text,             
           pl│ Date                   │e raised and lowered text.                
           It│ File Name              │.......Price                              
-          Qu└────────────────────────┘........3.50                              
+          Qu└ 1 LETTER.RTF           ┘........3.50                              
           Ink bottles    3....................8.25                              
           Paper (500 sheets).....................1     6.75                     
              A justified paragraph with a hanging indent. It is long            
@@ -1980,7 +1980,7 @@
           Dear reade│ Find...         Ctrl+F │                                  
           This lette│ Find Next           F3 │ined and struck text,             
           plus a col│ Replace...      Ctrl+H │ and lowered text.                
-          Item      └────────────────────────┘rice                              
+          Item      └ 1 LETTER.RTF           ┘rice                              
           Quills         12...................3.50                              
           Ink bottles    3....................8.25                              
           Paper (500 sheets).....................1     6.75                     
@@ -2037,7 +2037,7 @@
           Ink bottles    3│ Superscript            │                            
           Paper (500 sheet│ Subscript              │   6.75                     
              A justified p│ Fonts...               │dent. It is long            
-               enough to r└────────────────────────┘the line breaks             
+               enough to r└ 1 LETTER.RTF           ┘the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -2089,7 +2089,7 @@
           Ink bottles    3│ Superscript            │                            
           Paper (500 sheet│ Subscript              │   6.75                     
              A justified p│ Fonts...               │dent. It is long            
-               enough to r└────────────────────────┘the line breaks             
+               enough to r└ 1 LETTER.RTF           ┘the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -2141,7 +2141,7 @@
           Ink bottles    3│ Superscript            │                            
           Paper (500 sheet│ Subscript              │   6.75                     
              A justified p│ Fonts...               │dent. It is long            
-               enough to r└────────────────────────┘the line breaks             
+               enough to r└ 1 LETTER.RTF           ┘the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -2193,7 +2193,7 @@
           Ink bottles    3│ Superscript            │                            
           Paper (500 sheet│ Subscript              │   6.75                     
              A justified p│ Fonts...               │dent. It is long            
-               enough to r└────────────────────────┘the line breaks             
+               enough to r└ 1 LETTER.RTF           ┘the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -2553,10 +2553,10 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 LETTER.RTF           │s).....................1     6.75                     
+└────────────────────────┘aragraph with a hanging indent. It is long            
                enough to run over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
@@ -2581,9 +2581,9 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -2603,7 +2603,7 @@
       ┌────────────────────────┐  Quill Letter                                  
       │ Undo            Ctrl+Z │                                                
       │ Redo            Ctrl+Y │italic, underlined and struck text,             
-      └────────────────────────┘nd some raised and lowered text.                
+      └ 1 LETTER.RTF           ┘nd some raised and lowered text.                
           Item           Qty.................Price                              
           Quills         12...................3.50                              
           Ink bottles    3....................8.25                              
@@ -2657,7 +2657,7 @@
           Th│ Page Count             │, underlined and struck text,             
           pl│ Date                   │e raised and lowered text.                
           It│ File Name              │.......Price                              
-          Qu└────────────────────────┘........3.50                              
+          Qu└ 1 LETTER.RTF           ┘........3.50                              
           Ink bottles    3....................8.25                              
           Paper (500 sheets).....................1     6.75                     
              A justified paragraph with a hanging indent. It is long            
@@ -2708,7 +2708,7 @@
           Dear reade│ Find...         Ctrl+F │                                  
           This lette│ Find Next           F3 │ined and struck text,             
           plus a xyl│ Replace...      Ctrl+H │ and lowered text.                
-          Item      └────────────────────────┘rice                              
+          Item      └ 1 LETTER.RTF           ┘rice                              
           Quills         12...................3.50                              
           Ink bottles    3....................8.25                              
           Paper (500 sheets).....................1     6.75                     
@@ -2765,7 +2765,7 @@
           Ink bottles    3│ Superscript            │                            
           Paper (500 sheet│ Subscript              │   6.75                     
              A justified p│ Fonts...               │dent. It is long            
-               enough to r└────────────────────────┘the line breaks             
+               enough to r└ 1 LETTER.RTF           ┘the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -2821,7 +2821,7 @@
                and the spacing betwee│ Single Space           │ on              
                every platform that sh│ 1½ Space               │nt as            
                well as ▒curly quotes▒│ Double Space           │                 
-                                     └────────────────────────┘ truly,          
+                                     └ 1 LETTER.RTF           ┘ truly,          
                                                         The Quill team          
                                                                                 
                                                                                 
@@ -2873,7 +2873,7 @@
                and the spacing betwee│ Single Space           │ on              
                every platform that sh│ 1½ Space               │nt as            
                well as ▒curly quotes▒│ Double Space           │                 
-                                     └────────────────────────┘ truly,          
+                                     └ 1 LETTER.RTF           ┘ truly,          
                                                         The Quill team          
                                                                                 
                                                                                 
@@ -2925,7 +2925,7 @@
                and the spacing betwee│ Single Space           │ on              
                every platform that sh│ 1½ Space               │nt as            
                well as ▒curly quotes▒│ Double Space           │                 
-                                     └────────────────────────┘ truly,          
+                                     └ 1 LETTER.RTF           ┘ truly,          
                                                         The Quill team          
                                                                                 
                                                                                 
@@ -3021,10 +3021,10 @@
 │ Open...         Ctrl+O │as bold, italic, underlined and struck text,          
 │ Save            Ctrl+S │oured word and some raised and lowered text.          
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 LETTER.RTF           │s).....................1     6.75                     
+└────────────────────────┘aragraph with a hanging indent. It is long            
                enough to run over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
@@ -3049,9 +3049,9 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -3071,7 +3071,7 @@
       ┌────────────────────────┐  Quill Letter                                  
       │ Undo            Ctrl+Z │                                                
       │ Redo            Ctrl+Y │d, italic, underlined and struck text,          
-      └────────────────────────┘word and some raised and lowered text.          
+      └ 1 LETTER.RTF           ┘word and some raised and lowered text.          
           Item           Qty.................Price                              
           Quills         12...................3.50                              
           Ink bottles    3....................8.25                              
@@ -3123,7 +3123,7 @@
       ┌────────────────────────┐  Quill Letter                                  
       │ Undo            Ctrl+Z │                                                
       │ Redo            Ctrl+Y │d, italic, underlined and struck text,          
-      └────────────────────────┘word and some raised and lowered text.          
+      └ 1 LETTER.RTF           ┘word and some raised and lowered text.          
           Item           Qty.................Price                              
           Quills         12...................3.50                              
           Ink bottles    3....................8.25                              
@@ -3229,10 +3229,10 @@
 │ Open...         Ctrl+O │as bold, italic, underlined and struck text,          
 │ Save            Ctrl+S │oured word and some raised and lowered text.          
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 LETTER.RTF           │s).....................1     6.75                     
+└────────────────────────┘aragraph with a hanging indent. It is long            
                enough to run over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
@@ -3257,9 +3257,9 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -3279,7 +3279,7 @@
       ┌────────────────────────┐  Quill Letter                                  
       │ Undo            Ctrl+Z │                                                
       │ Redo            Ctrl+Y │d, italic, underlined and struck text,          
-      └────────────────────────┘word and some raised and lowered text.          
+      └ 1 LETTER.RTF           ┘word and some raised and lowered text.          
           Item           Qty.................Price                              
           Quills         12...................3.50                              
           Ink bottles    3....................8.25                              
@@ -3385,10 +3385,10 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 LETTER.RTF           │s).....................1     6.75                     
+└────────────────────────┘aragraph with a hanging indent. It is long            
                enough to run over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
@@ -3413,9 +3413,9 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -3437,10 +3437,10 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 LETTER.RTF           │s).....................1     6.75                     
+└────────────────────────┘aragraph with a hanging indent. It is long            
                enough to run over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
@@ -3465,9 +3465,9 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -3489,10 +3489,10 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 LETTER.RTF           │s).....................1     6.75                     
+└────────────────────────┘aragraph with a hanging indent. It is long            
                enough to run over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
@@ -3517,9 +3517,9 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -3541,10 +3541,10 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 LETTER.RTF           │s).....................1     6.75                     
+└────────────────────────┘aragraph with a hanging indent. It is long            
                enough to run over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
@@ -3569,9 +3569,9 @@
 700707070707070707070707070707070707070707070707077008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -4061,11 +4061,11 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
-               enough to run over several lines, so the line breaks             
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 OUT.RTF              │s).....................1     6.75                     
+│ 2 LETTER.RTF           │aragraph with a hanging indent. It is long            
+└────────────────────────┘un over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -4089,10 +4089,10 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -4113,11 +4113,11 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
-               enough to run over several lines, so the line breaks             
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 OUT.RTF              │s).....................1     6.75                     
+│ 2 LETTER.RTF           │aragraph with a hanging indent. It is long            
+└────────────────────────┘un over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -4141,10 +4141,10 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -4165,11 +4165,11 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
-               enough to run over several lines, so the line breaks             
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 OUT.RTF              │s).....................1     6.75                     
+│ 2 LETTER.RTF           │aragraph with a hanging indent. It is long            
+└────────────────────────┘un over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -4193,10 +4193,10 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -4217,11 +4217,11 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
-               enough to run over several lines, so the line breaks             
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 OUT.RTF              │s).....................1     6.75                     
+│ 2 LETTER.RTF           │aragraph with a hanging indent. It is long            
+└────────────────────────┘un over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -4245,10 +4245,10 @@
 700707070707070707070707070707070707070707070707077008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -4269,11 +4269,11 @@
 │ Open...         Ctrl+O │bold, italic, underlined and struck text,             
 │ Save            Ctrl+S │word and some raised and lowered text.                
 │ Save As...             │ty.................Price                              
-│ Exit            Ctrl+Q │2...................3.50                              
-└────────────────────────┘....................8.25                              
-          Paper (500 sheets).....................1     6.75                     
-             A justified paragraph with a hanging indent. It is long            
-               enough to run over several lines, so the line breaks             
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 OUT.RTF              │s).....................1     6.75                     
+│ 2 LETTER.RTF           │aragraph with a hanging indent. It is long            
+└────────────────────────┘un over several lines, so the line breaks             
                and the spacing between the words can be checked on              
                every platform that shows it, in a typewriter font as            
                well as ▒curly quotes▒ and an em dash▒here.                      
@@ -4297,10 +4297,10 @@
 707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
 7007070707070707070707070707070707070707070707070770080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -4315,6 +4315,58 @@
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
 === screen 84 ===
+ File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
+┌────────────────────────┐        Quill Letter                                  
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │bold, italic, underlined and struck text,             
+│ Save            Ctrl+S │word and some raised and lowered text.                
+│ Save As...             │ty.................Price                              
+│ Print...        Ctrl+P │2...................3.50                              
+│ Exit            Ctrl+Q │....................8.25                              
+│ 1 OUT.RTF              │s).....................1     6.75                     
+│ 2 LETTER.RTF           │aragraph with a hanging indent. It is long            
+└────────────────────────┘un over several lines, so the line breaks             
+               and the spacing between the words can be checked on              
+               every platform that shows it, in a typewriter font as            
+               well as ▒curly quotes▒ and an em dash▒here.                      
+                                                          Yours truly,          
+                                                        The Quill team          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+ OUT.RTF   Pg 1 Ln 4 Col 10   Times New Roman 12                                
+--- attributes ---
+7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
+707070707070707070707070707070707070707070707070707017171717171717171E1E1E1E1E1F1F1F1F1F1F1F17171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+707070707070707070707070707070707070707070707070707008081F1F17171B1B1B1B1B1B17171D1D1D1D1D1D1D1D1D1D171717171718181818181817171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171716161616161617171717171616161616161617171717171717171717171717171717171717171717
+707070707070707070707070707070707070707070707070707008081F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F1F171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7007070707070707070707070707070707070707070707070770080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
+=== screen 85 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                   Quill Letter                                  
           Dear reader,                                                          

@@ -57,6 +57,7 @@ USER 53 DestroyWindow w w
 USER 57 RegisterClass p w
 USER 66 GetDC w w
 USER 68 ReleaseDC ww w
+USER 84 DrawIcon wwww w
 USER 87 DialogBox wlwf w
 USER 88 EndDialog ww v
 USER 89 CreateDialog wlwf w
@@ -79,4 +80,5 @@ USER 176 LoadString wwpw w
 USER 179 GetSystemMetrics w w
 GDI 2 SetBkMode ww w
 GDI 33 TextOut wwwpw w
+GDI 80 GetDeviceCaps ww w
 GDI 87 GetStockObject w w

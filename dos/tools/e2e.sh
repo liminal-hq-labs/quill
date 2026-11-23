@@ -31,6 +31,7 @@ export DOS_KEEP="$WORK/keep"
 # argument) and @mono (/MONO). Everything else is key tokens; # starts a comment.
 run_scenario() { # <name> <saved file on the disk or -> <golden saved file or ->
 	local name="$1" saved="$2" golden="$3"
+	[ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = "$name" ] || return 0
 	local file="$ROOT/tests/scenarios/$name.keys"
 	local disk="$WORK/disk-$name"
 	rm -rf "$disk" "$WORK/keep"
@@ -67,6 +68,9 @@ run_scenario m2-letter OUT.RTF m2-letter.rtf
 run_scenario m2-mono - -
 run_scenario m2-find - -
 run_scenario m2-dialogs - -
+run_scenario m4-about QUILL.INI m4-quill.ini
+run_scenario m4-print OUT.PRN letter.print.txt
+run_scenario m4-print-headers OUT.PRN headers.print.txt
 run_scenario m2-headers - -
 run_scenario m2-lists - -
 echo "e2e: ok"

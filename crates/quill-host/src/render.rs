@@ -3,13 +3,11 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::fmt::Write;
-
 use quill_core::doc::{Doc, StoryKind};
 use quill_core::layout::{layout_story, Measure};
 use quill_core::store::Store;
 
-/// The text dump of a story's layout: one line per line box, with its text after a bar.
+/// The text dump of a story's layout: one line per line box, with its text after a bar (see `quill_core::layout::dump_story`).
 pub fn text_dump<S: Store, M: Measure>(
 	doc: &Doc,
 	s: &S,
@@ -17,38 +15,8 @@ pub fn text_dump<S: Store, M: Measure>(
 	name: &str,
 	kind: StoryKind,
 ) -> String {
-	let (rx, ry) = m.resolution();
 	let mut out = String::new();
-	let _ = writeln!(out, "# quill layout dump 1");
-	let _ = writeln!(out, "# measure {name}, {rx} x {ry} units per inch");
-	let text = doc.story(kind);
-	let mut lines = Vec::new();
-	let pages = layout_story(doc, s, m, kind, |l| lines.push(*l));
-	let _ = writeln!(
-		out,
-		"# {} characters, {} lines, {} pages",
-		text.len(),
-		lines.len(),
-		pages
-	);
-	for l in &lines {
-		let mut buf = vec![0u8; l.len as usize];
-		text.read(s, l.start, &mut buf);
-		let shown: String = buf
-			.iter()
-			.map(|b| match b {
-				0x09 => '→',
-				0x0b => '↵',
-				0x20..=0x7e => char::from(*b),
-				_ => '.',
-			})
-			.collect();
-		let _ = writeln!(
-			out,
-			"page {} y {} para {} line {} start {} len {} x {} width {} ascent {} descent {} | {}",
-			l.page, l.y, l.para, l.line, l.start, l.len, l.x, l.width, l.ascent, l.descent, shown
-		);
-	}
+	let _ = quill_core::layout::dump_story(doc, s, m, name, kind, &mut out);
 	out
 }
 

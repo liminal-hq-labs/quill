@@ -21,9 +21,9 @@ unset WINEARCH
 fail() { echo "wine-e2e: FAIL: $*" >&2; exit 1; }
 
 # scenario name, saved file, golden saved file
-declare -A SAVED=([m1-edit]="PLAIN.QLD m1-edit.qld" [m2-letter]="OUT.RTF m2-letter.rtf")
+declare -A SAVED=([m1-edit]="PLAIN.QLD m1-edit.qld" [m2-letter]="OUT.RTF m2-letter.rtf" [m4-about]="QUILL.INI m4-quill.ini" [m4-print]="OUT.PRN letter.print.txt" [m4-print-headers]="OUT.PRN headers.print.txt")
 names=("$@")
-[ ${#names[@]} -gt 0 ] || names=(m1-edit m2-letter m2-mono m2-find m2-lists m2-headers m2-dialogs)
+[ ${#names[@]} -gt 0 ] || names=(m1-edit m2-letter m2-mono m2-find m2-lists m2-headers m2-dialogs m4-about m4-print m4-print-headers)
 for name in "${names[@]}"; do
 	d="$WORK/$name"
 	mkdir -p "$d"

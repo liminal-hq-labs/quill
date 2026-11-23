@@ -226,6 +226,28 @@ fn m2_dialogs_script_matches_its_golden_screens() {
 }
 
 #[test]
+fn m4_about_script_matches_its_golden_screens_and_settings() {
+	let (files, frames) = scenario("m4-about");
+	compare("tests/golden/screens/m4-about.frames.txt", &frames);
+	compare_bytes("tests/golden/files/m4-quill.ini", &files.files["QUILL.INI"]);
+}
+
+#[test]
+fn m4_print_scripts_match_their_golden_pages() {
+	for (name, golden) in [
+		("m4-print", "letter.print.txt"),
+		("m4-print-headers", "headers.print.txt"),
+	] {
+		let (files, frames) = scenario(name);
+		compare(&format!("tests/golden/screens/{name}.frames.txt"), &frames);
+		compare_bytes(
+			&format!("tests/golden/files/{golden}"),
+			&files.files["OUT.PRN"],
+		);
+	}
+}
+
+#[test]
 fn m2_letter_in_the_mono_scheme_matches_its_golden_screens() {
 	let (_, frames) = scenario("m2-mono");
 	compare("tests/golden/screens/m2-mono.frames.txt", &frames);
@@ -271,4 +293,21 @@ proptest! {
 			prop_assert_eq!(body.read_byte(&s, body.len() - 1), Some(0x0D));
 		}
 	}
+}
+
+#[test]
+fn captured_metrics_lay_the_letter_out_as_windows_me_did() {
+	// tests/golden/layout/letter.windows-me.txt is what QUILL32.EXE /LINES wrote on the Windows ME VM, with the fonts
+	// ME has; the table is what /CAPTURE read there. Same widths in, so the host must break the same lines.
+	let table =
+		std::fs::read_to_string(root().join("tests/metrics/screen96-windows-me.txt")).unwrap();
+	let mut m = quill_host::CapturedMeasure::parse(&table).unwrap();
+	let mut s = HostStore::new();
+	let rtf = std::fs::read(root().join("tests/docs/letter.rtf")).unwrap();
+	let mut d = Doc::new();
+	quill_formats::rtf::read(&mut d, &mut s, &mut SliceSource::new(&rtf)).unwrap();
+	let dump = text_dump(&d, &s, &mut m, "windows-96", StoryKind::Body);
+	let want =
+		std::fs::read_to_string(root().join("tests/golden/layout/letter.windows-me.txt")).unwrap();
+	assert_eq!(want.replace("\r\n", "\n"), dump);
 }
