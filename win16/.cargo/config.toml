@@ -12,5 +12,11 @@ build-std-features = ["compiler-builtins-mem"]
 json-target-spec = true
 
 [target.win16]
-# Jump tables are off: a four-way `match` in the probe made one whose entries pointed into the middle of an instruction (see docs/progress.md, T1).
-rustflags = ["-C", "link-arg=--no-dynamic-linker", "-C", "llvm-args=-min-jump-table-entries=1000"]
+# `--unique`, `--emit-relocs` and `--noinhibit-exec` leave each code section apart with its relocations for tools/ne_pack.py (see link.ld).
+rustflags = [
+	"-C", "link-arg=-Tlink.ld",
+	"-C", "link-arg=--no-dynamic-linker",
+	"-C", "link-arg=--unique",
+	"-C", "link-arg=--emit-relocs",
+	"-C", "link-arg=--noinhibit-exec",
+]

@@ -142,15 +142,12 @@ impl Files for Win16Files {
 // ---- the screen ----------------------------------------------------------------------------------------------------------------
 
 fn paint(hwnd: u32) {
-	crumb(b"paint");
 	unsafe {
 		let mut ps = core::mem::zeroed::<PaintStruct>();
 		let dc = BeginPaint(hwnd, &mut ps as *mut PaintStruct as u32);
 		SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
 		let mut g = Grid::<25>::new(0);
-		crumb(b"paint grid");
 		quill_app::draw(app(), store(), &mut g);
-		crumb(b"paint drawn");
 		let (cw, ch) = CELL;
 		for y in 0..25usize {
 			let mut x = 0usize;
@@ -252,15 +249,6 @@ impl Play {
 	}
 
 	fn snapshot(&mut self) {
-		trace(self, b"sp at snapshot ", sp());
-		trace(self, b"min sp ", u32::from(unsafe { store::MIN_SP }));
-		let bad = unsafe { store::BAD };
-		if bad[0] != 0 {
-			trace(self, b"BAD tag ", u32::from(bad[0]));
-			trace(self, b"es ", u32::from(bad[1]));
-			trace(self, b"ds ", u32::from(bad[2]));
-			unsafe { store::BAD = [0; 4] };
-		}
 		let mut g = Grid::<25>::new(0);
 		quill_app::draw(app(), store(), &mut g);
 		self.frames += 1;
@@ -381,12 +369,10 @@ fn trace(pl: &mut Play, what: &[u8], v: u32) {
 }
 
 fn play(hwnd: u32) {
-	crumb(b"play");
 	let Some(pl) = (unsafe { (*core::ptr::addr_of_mut!(PLAY)).as_mut() }) else {
 		return;
 	};
 	unsafe { KillTimer(hwnd, 1) };
-	trace(pl, b"sp at play ", sp());
 	if pl.frames == 0 {
 		pl.snapshot();
 	}
@@ -410,9 +396,7 @@ fn play(hwnd: u32) {
 		else {
 			continue;
 		};
-		crumb(b"key");
 		app().key(store(), &mut Win16Files, k);
-		crumb(b"keyed");
 		pl.snapshot();
 		if app().quit() {
 			break;
@@ -571,17 +555,12 @@ fn build_menu() -> u32 {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
-	crumb(b"main");
-	if w16::fault::install() {
-		crumb(b"fault handler");
-	}
+	// `/FAULT` installs the ToolHelp handler that logs the registers of a fault to FAULT.LOG.
 	unsafe {
 		let a = &mut *core::ptr::addr_of_mut!(APP);
 		a.write(App::new());
-		crumb(b"app new");
 		let _ = app().reset(store());
 	}
-	crumb(b"reset");
 	// The command line: `[FILE] [/PLAY KEYS] [/DUMP OUT]`.
 	let mut cmd = [0u8; 128];
 	let mut n = command_line(&mut cmd);
@@ -622,6 +601,9 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 			play_file = take(words.next());
 		} else if w.eq_ignore_ascii_case(b"/DUMP") {
 			dump_file = take(words.next());
+		} else if w.eq_ignore_ascii_case(b"/FAULT") {
+			// Logs the registers of a General Protection Fault to FAULT.LOG (a ToolHelp handler).
+			w16::fault::install();
 		} else if w.eq_ignore_ascii_case(b"/MONO") {
 			app().set_scheme(Scheme::Mono);
 		} else if w[0] != b'/' {
@@ -630,9 +612,7 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 	}
 	// With a script, files are found beside the program.
 	unsafe { USE_HERE = play_file.is_some() };
-	crumb(b"cmdline");
 	app().load_settings(&mut Win16Files);
-	crumb(b"settings");
 	app().set_about(if play_file.is_some() {
 		"Host test run"
 	} else {
@@ -647,11 +627,9 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 			}
 		}
 	}
-	crumb(b"script");
 	if let Some((name, len)) = &open {
 		let _ = app().open(store(), &mut Win16Files, &name[..*len]);
 	}
-	crumb(b"opened");
 	unsafe {
 		if let (Some((name, len)), true) = (&dump_file, play_file.is_some()) {
 			let mut buf = [0u8; 128];

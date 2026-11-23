@@ -15,8 +15,10 @@ KERNEL 15 GlobalAlloc wl w
 KERNEL 17 GlobalFree w w
 KERNEL 18 GlobalLock w l
 KERNEL 19 GlobalUnlock w w
+KERNEL 25 GlobalCompact l l
 KERNEL 29 Yield - v
 KERNEL 30 WaitEvent w w
+KERNEL 37 GetCurrentPDB - w
 KERNEL 49 GetModuleFileName wpw w
 KERNEL 60 FindResource wll w
 KERNEL 61 LoadResource ww w
@@ -24,7 +26,6 @@ KERNEL 62 LockResource w l
 KERNEL 63 FreeResource w w
 KERNEL 65 SizeofResource ww l
 KERNEL 74 OpenFile ppw w
-KERNEL 166 WinExec pw w
 KERNEL 81 _lclose w w
 KERNEL 82 _lread wlw w
 KERNEL 83 _lcreat pw w
@@ -41,11 +42,7 @@ USER 1 MessageBox wppw w
 USER 5 InitApp w w
 USER 6 PostQuitMessage w v
 USER 7 ExitWindows lw w
-USER 10 SetTimer wwwl w
-USER 12 KillTimer ww w
-USER 13 GetTickCount - l
 USER 22 SetFocus w w
-USER 50 FindWindow ll w
 USER 33 GetClientRect wp v
 USER 34 EnableWindow ww w
 USER 37 SetWindowText wp v
@@ -57,7 +54,6 @@ USER 53 DestroyWindow w w
 USER 57 RegisterClass p w
 USER 66 GetDC w w
 USER 68 ReleaseDC ww w
-USER 84 DrawIcon wwww w
 USER 87 DialogBox wlwf w
 USER 88 EndDialog ww v
 USER 89 CreateDialog wlwf w
@@ -80,8 +76,15 @@ USER 176 LoadString wwpw w
 USER 179 GetSystemMetrics w w
 GDI 2 SetBkMode ww w
 GDI 33 TextOut wwwpw w
-GDI 80 GetDeviceCaps ww w
 GDI 87 GetStockObject w w
+# Added for Quill: menus, GDI text, file calls, the common dialogs' neighbours and ToolHelp.
+KERNEL 166 WinExec pw w
+USER 10 SetTimer wwwl w
+USER 12 KillTimer ww w
+USER 13 GetTickCount - l
+USER 50 FindWindow ll w
+USER 84 DrawIcon wwww w
+GDI 80 GetDeviceCaps ww w
 USER 151 CreateMenu - w
 USER 411 AppendMenu wwwp w
 USER 158 SetMenu ww w
