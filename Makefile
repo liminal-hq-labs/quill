@@ -3,7 +3,7 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-.PHONY: validate fmt clippy test headers floats goldens
+.PHONY: dos validate fmt clippy test headers floats goldens
 
 validate: fmt clippy test headers floats
 	@echo "validate: ok"
@@ -26,3 +26,8 @@ floats:
 # Rewrites the goldens from the current code. Review the diff like code.
 goldens:
 	QUILL_UPDATE_GOLDEN=1 cargo nextest run --workspace --locked
+
+# The DOS runtime: format, lints, build and the headless DOSBox golden comparison (fetches the tools first).
+dos:
+	bash dos/tools/fetch-tools.sh
+	bash dos/check.sh

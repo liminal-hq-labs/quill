@@ -1,0 +1,15 @@
+# The DOS workspace: the runtime crate and QUILLDOS.EXE, outside the root Cargo workspace (see PROVENANCE.md).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[workspace]
+members = ["rt", "quill-dos"]
+resolver = "2"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+debug = 0

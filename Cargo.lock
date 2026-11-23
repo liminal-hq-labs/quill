@@ -107,12 +107,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-grid"
+version = "0.0.0"
+
+[[package]]
 name = "quill-host"
 version = "0.0.0"
 dependencies = [
  "proptest",
  "quill-core",
  "quill-formats",
+ "quill-grid",
 ]
 
 [[package]]
