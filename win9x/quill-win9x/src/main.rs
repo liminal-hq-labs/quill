@@ -522,6 +522,7 @@ unsafe fn play(hwnd: Handle) {
 			break;
 		}
 	}
+	sh.app.save_settings(&mut sh.files);
 	let _ = writeln!(pl.frames, "=== end ===");
 	if let Some((h, _)) = sh.dump {
 		let mut out = Win32Sink(h);
@@ -617,6 +618,8 @@ pub extern "C" fn start() -> ! {
 	}));
 	let _ = app.reset(&mut store);
 	let mut files = Win32Files;
+	app.load_settings(&mut files);
+	app.set_about(if text_view { "Host test run" } else { "Windows 9x, Win32" });
 	let mut play_file: Option<Vec<u8>> = None;
 	let mut dump_file: Option<Vec<u8>> = None;
 	let mut hold = false;

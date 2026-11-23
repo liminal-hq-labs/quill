@@ -17,6 +17,7 @@
 mod find;
 mod form;
 mod paint;
+mod print;
 pub mod script;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
@@ -161,6 +162,10 @@ pub enum Command {
 	Fonts,
 	/// Paragraph > Tabs.
 	Tabs,
+	/// Help > About Quill.
+	About,
+	/// File > one of the recent files (0 to 3).
+	Recent(u8),
 	/// Find > Find.
 	Find,
 	/// Find > Find Next.
@@ -267,6 +272,7 @@ pub(crate) enum Mode {
 		len: usize,
 	},
 	Confirm(Command),
+	About,
 	Find(find::FindState),
 	Form(form::Form),
 }
@@ -304,6 +310,13 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) clip_len: usize,
 	/// The last search, for Find Next.
 	pub(crate) last_find: Option<find::FindState>,
+	/// What the platform adds to the About box (the mode and the free memory).
+	pub(crate) about: Msg,
+	/// The date the Date field prints as (the platform fills it in).
+	pub(crate) date: Msg,
+	/// The four most recent files, most recent first.
+	pub(crate) recent: [[u8; NAME_MAX]; 4],
+	pub(crate) recent_len: [usize; 4],
 	/// The format the document was opened in: 0 native, 1 RTF, 2 text.
 	fmt: u8,
 }
@@ -346,6 +359,10 @@ impl<M: Measure + Clone> App<M> {
 			typing_fmt: None,
 			fmt: 0,
 			last_find: None,
+			about: Msg::new(),
+			date: Msg::new(),
+			recent: [[0; NAME_MAX]; 4],
+			recent_len: [0; 4],
 			clip: [0; 2048],
 			clip_len: 0,
 			view: 0,
@@ -473,6 +490,95 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	/// Puts the current file at the front of the recent list.
+	fn push_recent(&mut self) {
+		let name = self.name;
+		let len = self.name_len;
+		if len == 0 {
+			return;
+		}
+		let cur = name.get(..len).unwrap_or(&[]);
+		// Drop an earlier entry for the same file, then shift the rest down.
+		let mut last = 3;
+		for i in 0..4 {
+			if self.recent_len.get(i).copied() == Some(len)
+				&& self.recent.get(i).and_then(|r| r.get(..len)) == Some(cur)
+			{
+				last = i;
+			}
+		}
+		for i in (1..=last).rev() {
+			let prev = self.recent.get(i - 1).copied().unwrap_or([0; NAME_MAX]);
+			let pl = self.recent_len.get(i - 1).copied().unwrap_or(0);
+			if let (Some(d), Some(dl)) = (self.recent.get_mut(i), self.recent_len.get_mut(i)) {
+				*d = prev;
+				*dl = pl;
+			}
+		}
+		if let (Some(d), Some(dl)) = (self.recent.first_mut(), self.recent_len.first_mut()) {
+			*d = name;
+			*dl = len;
+		}
+	}
+
+	/// Reads `QUILL.INI` (the [Recent] section) through `f`; a missing file is fine.
+	pub fn load_settings<F: Files>(&mut self, f: &mut F) {
+		let Some(mut r) = f.open(b"QUILL.INI") else {
+			return;
+		};
+		let mut buf = [0u8; 512];
+		let n = r.read(&mut buf);
+		let text = buf.get(..n).unwrap_or(&[]);
+		for line in text.split(|b| *b == b'\n') {
+			let line = line.strip_suffix(b"\r").unwrap_or(line);
+			for i in 0..4usize {
+				let key = [b'F', b'i', b'l', b'e', b'1' + i as u8, b'='];
+				if let Some(v) = line.strip_prefix(&key[..]) {
+					let len = v.len().min(NAME_MAX);
+					if let (Some(d), Some(dl)) =
+						(self.recent.get_mut(i), self.recent_len.get_mut(i))
+					{
+						for (x, y) in d.iter_mut().zip(v.iter().take(len)) {
+							*x = *y;
+						}
+						*dl = len;
+					}
+				}
+			}
+		}
+	}
+
+	/// Writes `QUILL.INI`: the recent files, as the SPEC's `[Recent] File1` to `File4`.
+	pub fn save_settings<F: Files>(&self, f: &mut F) {
+		let Some(mut w) = f.create(b"QUILL.INI") else {
+			return;
+		};
+		let _ = w.write(b"[Recent]\r\n");
+		for i in 0..4usize {
+			let len = self.recent_len.get(i).copied().unwrap_or(0);
+			if len == 0 {
+				continue;
+			}
+			let _ = w.write(&[b'F', b'i', b'l', b'e', b'1' + i as u8, b'=']);
+			let _ = w.write(self.recent.get(i).and_then(|r| r.get(..len)).unwrap_or(&[]));
+			let _ = w.write(b"\r\n");
+		}
+		f.close(w);
+	}
+
+	/// Sets the platform's line of the About box (the mode and the free memory).
+	pub fn set_about(&mut self, text: &str) {
+		self.about.set(text);
+	}
+
+	/// The recent files, for a native menu.
+	pub fn recent_files(&self) -> impl Iterator<Item = &[u8]> {
+		(0..4).filter_map(|i| {
+			let len = self.recent_len.get(i).copied().filter(|l| *l > 0)?;
+			self.recent.get(i)?.get(..len)
+		})
+	}
+
 	/// Opens a file by content (a RIFF `QLD1` header is native, anything else is plain text) into a fresh document, and
 	/// keeps the current one when it cannot be read.
 	pub fn open<S: Store + ?Sized, F: Files>(
@@ -505,6 +611,7 @@ impl<M: Measure + Clone> App<M> {
 		self.modified = false;
 		self.typing = false;
 		self.set_name(name);
+		self.push_recent();
 		self.fmt = if native {
 			0
 		} else if rich {
@@ -537,6 +644,7 @@ impl<M: Measure + Clone> App<M> {
 			_ => qld::write(&self.doc, s, &mut w)?,
 		}
 		self.fmt = kind;
+		self.push_recent();
 		if !f.close(w) {
 			return Err(FormatError::Write);
 		}
@@ -803,7 +911,7 @@ impl<M: Measure + Clone> App<M> {
 		let _ = s;
 	}
 
-	fn set_view<S: Store + ?Sized>(&mut self, s: &mut S, to: u8) {
+	pub(crate) fn set_view<S: Store + ?Sized>(&mut self, s: &mut S, to: u8) {
 		let cur = StoryKind::from_u8(self.view).unwrap_or(StoryKind::Body);
 		if self.view != 0 {
 			// Back to the body: a story holding only its paragraph mark is empty.
@@ -1029,6 +1137,17 @@ impl<M: Measure + Clone> App<M> {
 			}
 			Command::Fonts => self.open_fonts(s),
 			Command::Tabs => self.open_tabs(),
+			Command::About => self.mode = Mode::About,
+			Command::Recent(n) => {
+				let mut name = [0u8; NAME_MAX];
+				let len = self.recent_len.get(usize::from(n)).copied().unwrap_or(0);
+				if let Some(src) = self.recent.get(usize::from(n)) {
+					name = *src;
+				}
+				if len > 0 && self.open(s, f, name.get(..len).unwrap_or(&[])).is_err() {
+					self.msg.set("Quill cannot open that file.");
+				}
+			}
 			Command::Find => self.open_find(false),
 			Command::Replace => self.open_find(true),
 			Command::FindNext => {
@@ -1206,6 +1325,11 @@ impl<M: Measure + Clone> App<M> {
 			Mode::Edit => self.key_edit(s, f, k),
 			Mode::Menu { menu, item } => self.key_menu(s, f, k, menu, item),
 			Mode::Prompt { kind, buf, len } => self.key_prompt(s, f, k, kind, buf, len),
+			Mode::About => {
+				if matches!(k, Key::Enter | Key::Esc | Key::Char(b' ')) {
+					self.mode = Mode::Edit;
+				}
+			}
 			Mode::Find(st) => self.key_find(s, k, st),
 			Mode::Form(fm) => self.key_form(s, k, fm),
 			Mode::Confirm(c) => match k {
@@ -1384,7 +1508,12 @@ impl<M: Measure + Clone> App<M> {
 		item: u8,
 	) {
 		let items = paint::menu_items(menu);
-		let n = items.len() as u8;
+		let recents = if menu == 0 {
+			self.recent_files().count() as u8
+		} else {
+			0
+		};
+		let n = items.len() as u8 + recents;
 		let total = paint::MENU_COUNT;
 		// The next menu that has items, going left or right round the bar.
 		let step = |from: u8, right: bool| {
@@ -1431,6 +1560,8 @@ impl<M: Measure + Clone> App<M> {
 				self.mode = Mode::Edit;
 				if let Some(it) = items.get(usize::from(item)) {
 					self.run(s, f, it.command);
+				} else if menu == 0 {
+					self.run(s, f, Command::Recent(item - items.len() as u8));
 				}
 			}
 			_ => {}

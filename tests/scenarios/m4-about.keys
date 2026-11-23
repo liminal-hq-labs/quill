@@ -1,0 +1,11 @@
+# M4: the About box from the Help menu, recent files after an open and a save, and the settings file the run leaves behind.
+@copy plain.qld
+f10 down enter                            # File > Open...
+p l a i n period q l d enter
+f10 right right right right right right right enter   # Help > About Quill...
+enter
+f10                                       # File menu with the recent file listed
+esc
+f10 down down down enter                  # File > Save As...
+c o p y period q l d enter
+f10 down down down down enter             # File > Exit

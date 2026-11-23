@@ -72,6 +72,7 @@ const DOCUMENT: [Item; 6] = [
 	item("Different First Page", "", Command::FirstPage),
 	item("Return to Document", "", Command::View(0)),
 ];
+const HELP: [Item; 1] = [item("About Quill...", "", Command::About)];
 const FILE: [Item; 5] = [
 	item("New", "Ctrl+N", Command::New),
 	item("Open...", "Ctrl+O", Command::Open),
@@ -118,6 +119,7 @@ pub fn menu_items(menu: u8) -> &'static [Item] {
 		4 => &CHARACTER,
 		5 => &PARAGRAPH,
 		6 => &DOCUMENT,
+		7 => &HELP,
 		_ => &[],
 	}
 }
@@ -404,8 +406,30 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 			let items = menu_items(menu);
 			let col = MENU_COLS.get(usize::from(menu)).copied().unwrap_or(1) - 1;
 			let w = 26;
-			g.fill(col, 1, w, items.len() + 2, b' ', attr::CHROME);
-			g.frame(col, 1, w, items.len() + 2, attr::CHROME);
+			let recents = if menu == 0 {
+				app.recent_files().count()
+			} else {
+				0
+			};
+			let rows = items.len() + recents;
+			g.fill(col, 1, w, rows + 2, b' ', attr::CHROME);
+			g.frame(col, 1, w, rows + 2, attr::CHROME);
+			for (k, name) in app.recent_files().enumerate() {
+				let i = items.len() + k;
+				let a = if i == usize::from(item) {
+					SELECTED
+				} else {
+					attr::CHROME
+				};
+				g.fill(col + 1, 2 + i, w - 2, 1, b' ', a);
+				g.put(col + 2, 2 + i, b'1' + k as u8, a);
+				g.text(
+					col + 4,
+					2 + i,
+					name.get(..name.len().min(w - 6)).unwrap_or(&[]),
+					a,
+				);
+			}
 			for (i, it) in items.iter().enumerate() {
 				let a = if i == usize::from(item) {
 					SELECTED
@@ -416,7 +440,7 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 				put_str(g, col + 2, 2 + i, it.label, a);
 				g.text(col + w - 2 - it.accel.len(), 2 + i, it.accel.as_bytes(), a);
 			}
-			shadow(g, col, 1, w, items.len() + 2);
+			shadow(g, col, 1, w, rows + 2);
 			cursor = None;
 		}
 		Mode::Prompt { kind, buf, len } => {
@@ -526,6 +550,16 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 				}
 			}
 			cursor = cur;
+		}
+		Mode::About => {
+			dialog(g, 8, 62, 10, b" About Quill ");
+			g.text(10, 10, b"Quill", attr::CHROME);
+			g.text(10, 11, b"Version 0.0.0, experimental", attr::CHROME);
+			g.text(10, 12, b"A Liminal HQ Labs experiment", attr::CHROME);
+			g.text(10, 13, b"Apache-2.0 OR MIT", attr::CHROME);
+			g.text(10, 14, app.about.bytes(), attr::CHROME);
+			g.text(34, 16, b"< OK >", SELECTED);
+			cursor = None;
 		}
 		Mode::Confirm(_) => {
 			dialog(g, 8, 62, 7, b" Quill ");
