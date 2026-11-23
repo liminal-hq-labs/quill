@@ -1,0 +1,16 @@
+# Cargo settings for the Win16 target: build the standard library crates from source for it.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[build]
+target = "win16.json"
+
+[unstable]
+build-std = ["core", "alloc"]
+build-std-features = ["compiler-builtins-mem"]
+json-target-spec = true
+
+[target.win16]
+# Jump tables are off: a four-way `match` in the probe made one whose entries pointed into the middle of an instruction (see docs/progress.md, T1).
+rustflags = ["-C", "link-arg=-Tlink.ld", "-C", "link-arg=--no-dynamic-linker", "-C", "llvm-args=-min-jump-table-entries=1000"]

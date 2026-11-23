@@ -1,0 +1,49 @@
+Quill T1 register probes (code16)
+GetVersion=05000A03 GetWinFlags=00000C29 386 Enhanced mode
+WinExec second task: 4598 started
+FindWindow Progman: 11D0
+-- plain probes (second task running, FS=GS=0000)
+probe GetVersion: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044AA FS=0000 GS=0000 PRESERVED
+probe GlobalAlloc: EBX=00001F2E ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044AA FS=0000 GS=0000 CLOBBERED
+probe PeekMessage: EBX=55550000 ESI=6666BE02 EDI=7777BE03 EBP=8888BE04 ESP=800144AA FS=0000 GS=0000 CLOBBERED
+probe busy loop under timer interrupts: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=800144AA FS=0000 GS=0000 PRESERVED
+-- plain probes (second task running, FS=GS=121F)
+probe GetVersion: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044AA FS=121F GS=121F PRESERVED
+probe GlobalAlloc: EBX=00001F56 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044AA FS=0000 GS=0000 (segment registers reloaded) CLOBBERED
+probe PeekMessage: EBX=55550000 ESI=6666BE02 EDI=7777BE03 EBP=8888BE04 ESP=800144AA FS=0000 GS=0000 (segment registers reloaded) CLOBBERED
+probe busy loop under timer interrupts: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=800144AA FS=121F GS=121F PRESERVED
+-- yielding probes (second task running, FS=GS=0000)
+probe Yield: EBX=5555BE01 ESI=6666BE02 EDI=7777BE03 EBP=8888BE04 ESP=800144A6 FS=0000 GS=0000 CLOBBERED
+probe GetMessage waiting on a timer: EBX=55550517 ESI=6666BE02 EDI=7777BE03 EBP=8888BE04 ESP=800144A6 FS=0000 GS=0000 CLOBBERED
+probe SendMessage to another task's window: EBX=11114490 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=800144A6 FS=0000 GS=0000 CLOBBERED
+probe DialogBox (modal loop): EBX=00001F98 ESI=6666BE02 EDI=7777BE03 EBP=8888BE04 ESP=800144A6 FS=0000 GS=0000 CLOBBERED
+-- yielding probes (second task running, FS=GS=121F)
+probe Yield: EBX=0000BE01 ESI=6666BE02 EDI=7777BE03 EBP=8888BE04 ESP=800144A6 FS=0000 GS=0000 (segment registers reloaded) CLOBBERED
+probe GetMessage waiting on a timer: EBX=55550517 ESI=6666BE02 EDI=7777BE03 EBP=8888BE04 ESP=800144A6 FS=0000 GS=0000 (segment registers reloaded) CLOBBERED
+probe SendMessage to another task's window: EBX=11114490 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=800144A6 FS=0000 GS=0000 (segment registers reloaded) CLOBBERED
+probe DialogBox (modal loop): EBX=00001F98 ESI=6666BE02 EDI=7777BE03 EBP=8888BE04 ESP=800144A6 FS=0000 GS=0000 (segment registers reloaded) CLOBBERED
+-- probes through the import stubs (second task running, FS=GS=0000)
+about to run stub case 0
+probe Yield via stub: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044D2 FS=0000 GS=0000 PRESERVED
+about to run stub case 1
+probe PeekMessage via stub: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044D2 FS=0000 GS=0000 PRESERVED
+about to run stub case 2
+probe GetMessage via stub: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044D2 FS=0000 GS=0000 PRESERVED
+about to run stub case 3
+probe SendMessage via stub: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044D2 FS=0000 GS=0000 PRESERVED
+about to run stub case 4
+probe DialogBox via stub: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044D2 FS=0000 GS=0000 PRESERVED
+-- probes through the import stubs (second task running, FS=GS=121F)
+about to run stub case 0
+probe Yield via stub: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044D2 FS=0000 GS=0000 (segment registers reloaded) PRESERVED
+about to run stub case 1
+probe PeekMessage via stub: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044D2 FS=0000 GS=0000 (segment registers reloaded) PRESERVED
+about to run stub case 2
+probe GetMessage via stub: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044D2 FS=0000 GS=0000 (segment registers reloaded) PRESERVED
+about to run stub case 3
+probe SendMessage via stub: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044D2 FS=0000 GS=0000 (segment registers reloaded) PRESERVED
+about to run stub case 4
+probe DialogBox via stub: EBX=1111BE01 ESI=2222BE02 EDI=3333BE03 EBP=4444BE04 ESP=000044D2 FS=0000 GS=0000 (segment registers reloaded) PRESERVED
+raw calls are expected to lose registers; the stubbed calls decide the result
+stub mismatches: 0
+RESULT: PASS
