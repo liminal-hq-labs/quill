@@ -164,6 +164,8 @@ pub enum Command {
 	Tabs,
 	/// Help > About Quill.
 	About,
+	/// Insert > Picture.
+	Picture,
 	/// File > Print.
 	Print,
 	/// File > one of the recent files (0 to 3).
@@ -259,6 +261,7 @@ pub(crate) enum Prompt {
 	Open,
 	SaveAs,
 	Print,
+	Picture,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -491,6 +494,50 @@ impl<M: Measure + Clone> App<M> {
 		for (d, s) in self.name.iter_mut().zip(n.iter()) {
 			*d = s.to_ascii_uppercase();
 		}
+	}
+
+	/// Inserts the BMP or PNG file `name` at the caret as one inline picture.
+	pub fn insert_picture<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		name: &[u8],
+	) -> Result<(), quill_core::Error> {
+		let bad = Error::Range;
+		let mut head = [0u8; 8];
+		f.open(name).ok_or(bad)?.read(&mut head);
+		let (kind, w, h) = if head.starts_with(b"BM") {
+			let info =
+				quill_image::bmp::read_info(&mut f.open(name).ok_or(bad)?).map_err(|_| bad)?;
+			(0u8, info.width, info.height)
+		} else {
+			let (w, h) =
+				quill_image::png::read_size(&mut f.open(name).ok_or(bad)?).map_err(|_| bad)?;
+			(1u8, w, h)
+		};
+		let text_w = self.doc.page.paper_w - self.doc.page.margin_l - self.doc.page.margin_r;
+		let mut src = f.open(name).ok_or(bad)?;
+		let idx = self
+			.doc
+			.add_picture(s, kind, w as u16, h as u16, text_w, |b| src.read(b))?;
+		let t = &self.doc.body;
+		let cf = if self.caret > 0 {
+			t.cfmt_at(s, self.caret - 1)
+		} else {
+			t.cfmt_at(s, 0)
+		}
+		.unwrap_or(0);
+		let pfi = self
+			.para_mark(s, self.caret)
+			.and_then(|m| self.doc.body.pfmt_at(s, m))
+			.unwrap_or(0);
+		self.end_typing();
+		self.doc
+			.body
+			.insert_object(s, self.caret, u32::from(idx), cf, pfi, label::TYPING)?;
+		self.caret += 1;
+		self.modified = true;
+		Ok(())
 	}
 
 	/// Puts the current file at the front of the recent list.
@@ -1141,6 +1188,13 @@ impl<M: Measure + Clone> App<M> {
 			Command::Fonts => self.open_fonts(s),
 			Command::Tabs => self.open_tabs(),
 			Command::About => self.mode = Mode::About,
+			Command::Picture => {
+				self.mode = Mode::Prompt {
+					kind: Prompt::Picture,
+					buf: [0; NAME_MAX],
+					len: 0,
+				}
+			}
 			Command::Print => {
 				self.mode = Mode::Prompt {
 					kind: Prompt::Print,
@@ -1616,6 +1670,11 @@ impl<M: Measure + Clone> App<M> {
 						self.set_name(name);
 						self.do_save(s, f);
 					}
+					Prompt::Picture => {
+						if self.insert_picture(s, f, name).is_err() {
+							self.msg.set("Quill cannot use that picture.");
+						}
+					}
 					Prompt::Print => {
 						if !self.print_text(s, f, name) {
 							self.msg.set("Quill cannot print to that file.");
@@ -1637,6 +1696,30 @@ impl<M: Measure + Clone> App<M> {
 		let rows = self.rows as u32;
 		if idx < self.top {
 			self.top = idx;
+		} else if self.measure.resolution().1 <= 6 {
+			// On the text screen a row is a unit of layout, so spacing and tall lines count: move down until the caret's line fits.
+			let page_rows = quill_core::layout::to_units(
+				self.doc.page.paper_h - self.doc.page.margin_t - self.doc.page.margin_b,
+				6,
+			);
+			let cum = |l: &Line| (l.page as i32 - 1) * page_rows + l.y;
+			let mut top = self.top;
+			loop {
+				let (mut top_cum, mut caret_end) = (0, 0);
+				self.lines(s, |i, l| {
+					if i == top {
+						top_cum = cum(l);
+					}
+					if i == idx {
+						caret_end = cum(l) + (l.ascent + l.descent).max(1);
+					}
+				});
+				if caret_end - top_cum <= rows as i32 || top >= idx {
+					break;
+				}
+				top += 1;
+			}
+			self.top = top;
 		} else if idx >= self.top + rows {
 			self.top = idx + 1 - rows;
 		}
