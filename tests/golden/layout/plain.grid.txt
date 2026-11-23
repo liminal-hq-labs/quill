@@ -1,0 +1,20 @@
+# quill layout dump 1
+# measure grid, 10 x 6 units per inch
+# 548 characters, 17 lines, 1 pages
+page 1 y 0 para 0 line 0 start 0 len 23 x 18 width 23 ascent 1 descent 0 | Quill: a plain document
+page 1 y 2 para 1 line 0 start 24 len 57 x 0 width 56 ascent 1 descent 0 | Quill is a small word processor for DOS, Windows 3.1 and 
+page 1 y 3 para 1 line 1 start 81 len 59 x 0 width 58 ascent 1 descent 0 | Windows 95, written in Rust. This paragraph is long enough 
+page 1 y 4 para 1 line 2 start 140 len 60 x 0 width 59 ascent 1 descent 0 | to wrap onto several lines in a sixty column text area, and 
+page 1 y 5 para 1 line 3 start 200 len 55 x 0 width 54 ascent 1 descent 0 | its lines break after spaces and hyphens, never in the 
+page 1 y 6 para 1 line 4 start 255 len 56 x 0 width 56 ascent 1 descent 0 | middle of a word unless the word is wider than the line.
+page 1 y 7 para 2 line 0 start 312 len 0 x 0 width 0 ascent 1 descent 0 | 
+page 1 y 8 para 3 line 0 start 313 len 19 x 0 width 20 ascent 1 descent 0 | Name→Quantity→Price
+page 1 y 9 para 4 line 0 start 333 len 14 x 0 width 19 ascent 1 descent 0 | Quills→12→3.50
+page 1 y 10 para 5 line 0 start 348 len 18 x 0 width 24 ascent 1 descent 0 | Ink bottles→3→8.25
+page 1 y 11 para 6 line 0 start 367 len 0 x 0 width 0 ascent 1 descent 0 | 
+page 1 y 12 para 7 line 0 start 368 len 12 x 0 width 12 ascent 1 descent 0 | A line break
+page 1 y 13 para 7 line 1 start 381 len 36 x 0 width 35 ascent 1 descent 0 | keeps the paragraph together, and a 
+page 1 y 14 para 7 line 2 start 417 len 60 x 0 width 60 ascent 1 descent 0 | supercalifragilisticexpialidocious-looking-word-that-has-no-
+page 1 y 15 para 7 line 3 start 477 len 58 x 0 width 57 ascent 1 descent 0 | spaces-and-is-far-longer-than-a-line is cut where it must 
+page 1 y 16 para 7 line 4 start 535 len 3 x 0 width 3 ascent 1 descent 0 | be.
+page 1 y 17 para 8 line 0 start 539 len 8 x 0 width 8 ascent 1 descent 0 | The end.

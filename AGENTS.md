@@ -73,7 +73,8 @@ Quill is a [Liminal HQ Labs](https://github.com/liminal-hq-labs) experiment: one
 - **Shared CI images** come from [`liminal-hq/.github`](https://github.com/liminal-hq/.github) (`ci-rust`, `ci-web`, `tauri-ci-desktop` and others). Pick the leanest tier that fits and pin it by digest. A project image belongs here only when no shared tier covers it.
 - **Dependabot** is off. Add `.github/dependabot.yml` only when the project opts in (see `docs/new-project.md`).
 
-<!-- Add the project's toolchain pin, build container and single local gate (for example `make validate`) here. -->
+- **Toolchain:** Rust 1.98.0 (`rust-toolchain.toml`) for the host workspace. `make validate` is the single local gate: format check, clippy, `cargo nextest`, headers and the float ban. Set `CARGO_TARGET_DIR` outside the repository for big builds.
+- **Goldens:** `QUILL_UPDATE_GOLDEN=1 cargo nextest run --workspace` (or `make goldens`) rewrites them; review the diff like code.
 
 ## Licence headers
 
@@ -123,4 +124,4 @@ scripts/       header check, banner check and its Chromium text-fit harness
 .github/       CI workflow, issue and pull request templates, release notes configuration
 ```
 
-Planned, as the roadmap adds them: `crates/` (portable crates and host tools), `win16/`, `win9x/` and `dos/` (one workspace per platform), `help/`, `dict/`, `fuzz/`, `installer/` and `tests/`. See [docs/architecture.md](docs/architecture.md#crates-and-workspaces).
+`crates/` holds the portable crates and host tools, and `tests/` the test documents and goldens. Planned, as the roadmap adds them: `win16/`, `win9x/` and `dos/` (one workspace per platform), `help/`, `dict/`, `fuzz/` and `installer/`. See [docs/architecture.md](docs/architecture.md#crates-and-workspaces).
