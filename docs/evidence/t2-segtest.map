@@ -1,0 +1,75 @@
+0001:0000     0 _start
+0001:0001     0 __w16imp_KERNEL_91_InitTask
+0001:002E     0 ExitWindows
+0001:0042     0 __w16imp_USER_7_ExitWindows
+0001:005A     0 InitApp
+0001:0068     0 __w16imp_USER_5_InitApp
+0001:0080     0 MessageBox
+0001:0099     0 __w16imp_USER_1_MessageBox
+0001:00B1     0 _lwrite
+0001:00C6     0 __w16imp_KERNEL_86__lwrite
+0001:00DE     0 _lcreat
+0001:00F0     0 __w16imp_KERNEL_83__lcreat
+0001:0108     0 _lclose
+0001:0116     0 __w16imp_KERNEL_81__lclose
+0001:012E     0 GetModuleFileName
+0001:0143     0 __w16imp_KERNEL_49_GetModuleFileName
+0001:015B     0 WaitEvent
+0001:0169     0 __w16imp_KERNEL_30_WaitEvent
+0001:0181   149 _RNvCskkLx14U7CDR_7segtest6expect
+0001:0216   134 _RNvMCse6UmrdlMy1x_3w16NtB2_3Log3dec
+0001:029C    41 _RNvXs2_NtNtCs6ZSAlBC0Dc1_4core5slice5indexINtNtNtB9_3ops5range5RangejEINtB5_10SliceIndexShE9index_mutCskkLx14U7CDR_7segtest
+0001:02C5    25 s1_inc
+0001:02DE   965 w16_main
+0001:06A3     6 _RNvNtNtCs6ZSAlBC0Dc1_4core5slice5index16slice_index_fail
+0001:06A9     6 _RNvNtCs6ZSAlBC0Dc1_4core9panicking9panic_fmt
+0001:06AF     6 _RNvNtCs6ZSAlBC0Dc1_4core9panicking18panic_bounds_check
+0001:06B5     6 _RNvNvNtCs6ZSAlBC0Dc1_4core5slice20copy_from_slice_impl17len_mismatch_fail
+0001:06BB    45 _RINvNtCs6ZSAlBC0Dc1_4core5slice20copy_from_slice_implhEB4_
+0001:06E8    52 _RNvCse6UmrdlMy1x_3w169w16_entry
+0001:071C    35 _RNvCs6rREvFdRhLb_7___rustc17rust_begin_unwind
+0001:073F    47 _RNvMCse6UmrdlMy1x_3w16NtB2_3Log1s
+0001:076E    14 _RNvMCse6UmrdlMy1x_3w16NtB2_3Log2nl
+0001:077C   197 _RNvNtCsc1uF708fSE_17compiler_builtins3mem6memcpy
+0001:0841   285 _RNvNtNtCsc1uF708fSE_17compiler_builtins3int19specialized_div_rem11u64_div_rem
+0001:095E    64 _RNvNtNtCsc1uF708fSE_17compiler_builtins3int4udiv9___umoddi3
+0001:099E    75 _RNvNtNtCsc1uF708fSE_17compiler_builtins3int5shift9___lshrdi3
+0001:09E9     3 __lshrdi3
+0001:09EC     3 __umoddi3
+0001:09EF     3 memcpy
+0001:09F2    24 <return trampoline>
+0001:0A0A    62 <veneer to 0002:0000>
+0001:0A48    62 <veneer to 0003:0000>
+0001:0A86    62 <veneer to 0002:0049>
+0001:0AC4    62 <veneer to 0002:011F>
+0001:0B02    62 <veneer to 0002:0154>
+0001:0B40    62 <veneer to 0003:00A2>
+0001:0B7E    62 <veneer to 0002:002F>
+0001:0BBC    62 <veneer to 0003:0078>
+0001:0C00     4 <slot for 0001:02C5>
+0001:0C04     4 <slot for 0002:002F>
+0001:0C08     4 <slot for 0003:0078>
+0002:0000    47 s2_add
+0002:002F    26 s2_dbl
+0002:0049   214 s2_many
+0002:011F    53 s2_ping
+0002:0154    57 s2_via_table
+0002:018D    24 <return trampoline>
+0002:01A5    62 <veneer to 0003:0042>
+0002:01E3    62 <veneer to 0001:02C5>
+0002:0221    62 <veneer to 0003:0078>
+0002:0C00     4 <slot for 0001:02C5>
+0002:0C04     4 <slot for 0002:002F>
+0002:0C08     4 <slot for 0003:0078>
+0003:0000    66 s3_mul
+0003:0042    54 s3_pong
+0003:0078    42 s3_sq
+0003:00A2    57 s3_via_table
+0003:00DB    24 <return trampoline>
+0003:00F3    62 <veneer to 0001:09EC>
+0003:0131    62 <veneer to 0002:011F>
+0003:016F    62 <veneer to 0001:02C5>
+0003:01AD    62 <veneer to 0002:002F>
+0003:0C00     4 <slot for 0001:02C5>
+0003:0C04     4 <slot for 0002:002F>
+0003:0C08     4 <slot for 0003:0078>

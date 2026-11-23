@@ -3,5 +3,53 @@
 version = 4
 
 [[package]]
+name = "quill-app"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+ "quill-formats",
+ "quill-grid",
+ "quill-image",
+ "quill-inflate",
+]
+
+[[package]]
+name = "quill-core"
+version = "0.0.0"
+
+[[package]]
+name = "quill-formats"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+]
+
+[[package]]
+name = "quill-grid"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+]
+
+[[package]]
+name = "quill-image"
+version = "0.0.0"
+dependencies = [
+ "quill-formats",
+ "quill-inflate",
+]
+
+[[package]]
+name = "quill-inflate"
+version = "0.0.0"
+
+[[package]]
 name = "quill-win16-rt"
 version = "0.0.0"
+dependencies = [
+ "quill-app",
+ "quill-core",
+ "quill-formats",
+ "quill-grid",
+ "quill-image",
+]

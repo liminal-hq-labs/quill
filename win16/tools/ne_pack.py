@@ -77,7 +77,7 @@ def read_elf(data):
 	secs = []
 	for i in range(e_shnum):
 		name, typ, flags, addr, off, size, link, info, _al, _es = struct.unpack_from("<IIIIIIIIII", data, e_shoff + i * e_shentsize)
-		secs.append({"name_off": name, "type": typ, "flags": flags, "addr": addr, "off": off, "size": size, "link": link})
+		secs.append({"name_off": name, "type": typ, "flags": flags, "addr": addr, "off": off, "size": size, "link": link, "info": info})
 	shstr = secs[e_shstrndx]
 	for s in secs:
 		end = data.index(b"\0", shstr["off"] + s["name_off"])
@@ -222,69 +222,271 @@ def resource_table(resources, data_base):
 	return bytes(body), bytes(data)
 
 
-def pack(elf_data, module="SETUP", description="", stack=0x2000, heap=0x1000, resources=(), expected_ver=0x030A):
-	secs, by_name, syms = read_elf(elf_data)
-	code = section_bytes(elf_data, by_name.get(".text"))
-	dat = section_bytes(elf_data, by_name.get(".data"))
+R_386_32 = 1
+R_386_PC32 = 2
+R_386_PLT32 = 4
+R_386_16 = 20
+R_386_PC16 = 21
+SLOT_SIZE = 4  # a near `jmp rel16` and a pad byte
+MAX_SEG = 0xFFFF
+
+# The code the packer writes. Both run with DS = SS = the data segment and use only 16-bit addressing (BP, BX), so the high half of ESP
+# does not matter. They keep every register but EBX, ECX and EDX intact and put those back, apart from ECX in the return trampoline, which
+# is free by the calling convention (and EAX and EDX carry the result).
+#
+# A cross-segment call is a near `call` the linker could not resolve (the targets' offsets overlap, since every segment starts at 0). The
+# packer sends it to a veneer in the caller's segment: it pushes the caller's return IP and CS on a shadow stack in the data segment,
+# points the return slot at a trampoline in the callee's segment and jumps there with a far `jmp`. The callee's `ret` lands on the
+# trampoline, which pops the shadow stack and returns far to the caller. Arguments, the stack and every register the caller set are
+# untouched.
+def veneer_code(ssp, end, ret_off, target, seg):
+	"""Returns (bytes, offset of the far jump's operand, ...). `target` is the offset in the callee's segment."""
+	b = bytearray()
+	b += bytes([0x66, 0x55, 0x89, 0xE5, 0x66, 0x53, 0x66, 0x52])  # push ebp; mov bp,sp; push ebx; push edx
+	b += bytes([0x66, 0x8B, 0x1E]) + struct.pack("<H", ssp)  # mov ebx,[ssp]
+	b += bytes([0x81, 0xFB]) + struct.pack("<H", end)  # cmp bx,end
+	b += bytes([0x72, 0x05, 0xB8, 0x05, 0x4C, 0xCD, 0x21])  # jb ok; mov ax,4C05h; int 21h (the shadow stack is full)
+	b += bytes([0x8B, 0x56, 0x04, 0x89, 0x17])  # mov dx,[bp+4]; mov [bx],dx
+	b += bytes([0x8C, 0xCA, 0x89, 0x57, 0x02])  # mov dx,cs; mov [bx+2],dx
+	b += bytes([0x66, 0x83, 0xC3, 0x04])  # add ebx,4
+	b += bytes([0x66, 0x89, 0x1E]) + struct.pack("<H", ssp)  # mov [ssp],ebx
+	b += bytes([0x66, 0xC7, 0x46, 0x04]) + struct.pack("<I", ret_off)  # mov dword [bp+4],ret trampoline
+	b += bytes([0x66, 0x5A, 0x66, 0x5B, 0x66, 0x5D])  # pop edx; pop ebx; pop ebp
+	b += bytes([0xEA])
+	far_at = len(b)
+	b += struct.pack("<HH", target, 0)
+	return bytes(b), far_at
+
+
+def trampoline_code(ssp):
+	b = bytearray()
+	b += bytes([0x66, 0x53])  # push ebx
+	b += bytes([0x66, 0x8B, 0x1E]) + struct.pack("<H", ssp)  # mov ebx,[ssp]
+	b += bytes([0x66, 0x83, 0xEB, 0x04])  # sub ebx,4
+	b += bytes([0x66, 0x89, 0x1E]) + struct.pack("<H", ssp)  # mov [ssp],ebx
+	b += bytes([0x66, 0x8B, 0x0F])  # mov ecx,[bx]
+	b += bytes([0x66, 0x5B, 0x66, 0x51, 0xCB])  # pop ebx; push ecx; retf
+	return bytes(b)
+
+
+def read_symbols(data, secs):
+	"""Every symbol: (name, value, section index, size, type)."""
+	symtab = next((s for s in secs if s["type"] == 2), None)
+	out = []
+	if symtab:
+		strtab = secs[symtab["link"]]
+		for i in range(symtab["size"] // 16):
+			st_name, st_value, st_size, st_info, _o, st_shndx = struct.unpack_from("<IIIBBH", data, symtab["off"] + 16 * i)
+			end = data.index(b"\0", strtab["off"] + st_name)
+			out.append((data[strtab["off"] + st_name : end].decode(), st_value, st_shndx, st_size, st_info & 15))
+	return out
+
+
+def read_relocs(data, secs, target_index):
+	"""The REL entries (offset, type, symbol index) that apply to section `target_index`."""
+	out = []
+	for s in secs:
+		if s["type"] == 9 and s["info"] == target_index:
+			for i in range(s["size"] // 8):
+				off, info = struct.unpack_from("<II", data, s["off"] + 8 * i)
+				out.append((off, info & 0xFF, info >> 8))
+	return out
+
+
+def pack(elf_data, module="SETUP", description="", stack=0x2000, heap=0x1000, resources=(), expected_ver=0x030A, map_out=None):
+	secs, by_name, _syms = read_elf(elf_data)
+	symlist = read_symbols(elf_data, secs)
+	syms = {}
+	for nm, val, shndx, _sz, _t in symlist:
+		if nm and shndx < len(secs):
+			syms[nm] = (val, secs[shndx]["name"])
+	# The code segments: `.text` alone, or `.text1`, `.text2`... one each.
+	segsec = {}
+	for i, sec in enumerate(secs):
+		m = re.fullmatch(r"\.text(\d*)", sec["name"])
+		if m:
+			segsec[int(m.group(1) or 1)] = i
+	if not segsec:
+		raise PackError("no .text")
+	nseg = max(segsec)
+	if sorted(segsec) != list(range(1, nseg + 1)):
+		raise PackError("code sections must be numbered from 1 without gaps")
+	segno = {i: n for n, i in segsec.items()}  # section index -> segment number
+	data_seg = nseg + 1
+	code = {n: bytearray(section_bytes(elf_data, secs[i])) for n, i in segsec.items()}
+	for n, c in code.items():
+		if len(c) > MAX_SEG:
+			raise PackError(f"code segment {n} is {len(c)} bytes, over 64 KB")
+		if not c:
+			raise PackError(f"code segment {n} is empty")
+	dat = bytearray(section_bytes(elf_data, by_name.get(".data")))
 	bss = by_name.get(".bss")
 	if bss:
 		dat += bytes(bss["size"])
-	if not code:
-		raise PackError("no .text")
-	if len(code) > 0xFFFF:
-		raise PackError(f"code is {len(code)} bytes, over one 64 KB segment")
 	if len(dat) < 16:
 		dat += bytes(16 - len(dat))
 	if len(dat) + stack + heap > 0x10000:
 		raise PackError(f"data {len(dat)} + stack {stack} + heap {heap} is over one 64 KB segment")
 	if "_start" not in syms:
 		raise PackError("no _start")
+	data_index = secs.index(by_name[".data"]) if ".data" in by_name else -1
 
-	imports = []  # (module, ordinal, offset)
-	exports = []  # (name, offset)
-	selfix = []  # (offset, segment)
-	for nm, (val, sec) in syms.items():
+	def seg_of(sym_index):
+		_n, _v, shndx, _s, _t = symlist[sym_index]
+		return segno.get(shndx)
+
+	exports_at = set()  # (segment, offset) of every exported procedure: pointers to them are not redirected
+	imports = []  # (module, ordinal, segment, offset)
+	exports = []  # (name, segment, offset)
+	selfix = []  # (segment, offset, target segment)
+	for nm, (val, secname) in syms.items():
+		sn = next((n for n, i in segsec.items() if secs[i]["name"] == secname), None)
 		m = re.fullmatch(r"__w16imp_([A-Z0-9]+)_(\d+)_\w+", nm)
 		if m:
-			imports.append((m.group(1), int(m.group(2)), val))
+			imports.append((m.group(1), int(m.group(2)), sn, val))
 			continue
 		m = re.fullmatch(r"__w16exp_(\w+)", nm)
 		if m:
-			exports.append((m.group(1), val))
+			exports.append((m.group(1), sn, val))
+			exports_at.add((sn, val))
 			continue
 		m = re.fullmatch(r"__w16sel_(code|data)_\d+", nm)
 		if m:
-			selfix.append((val, 1 if m.group(1) == "code" else 2))
+			selfix.append((sn, val, sn if m.group(1) == "code" else data_seg))
 	exports.sort()
-	imports.sort(key=lambda r: r[2])
+	imports.sort(key=lambda r: (r[2], r[3]))
 	mod_names = []
-	for mn, _o, _v in imports:
+	for mn, _o, _s, _v in imports:
 		if mn not in mod_names:
 			mod_names.append(mn)
 	mod_names.sort(key=lambda n: ("KERNEL", "USER", "GDI").index(n) if n in ("KERNEL", "USER", "GDI") else 99)
 
-	# Relocation records for segment 1: 8 bytes each. A fixup that is not additive is a link in a chain: the loader reads the offset of
-	# the next fixup from the location it is about to patch, and 0xFFFF ends the chain. Each site here is a chain of one.
-	code = bytearray(code)
-	for _m, _o, val in imports:
-		struct.pack_into("<H", code, val, 0xFFFF)
-	for val, _seg in selfix:
-		struct.pack_into("<H", code, val, 0xFFFF)
-	code = bytes(code)
-	relocs = []
-	for mn, o, val in imports:
-		relocs.append((val, struct.pack("<BBHHH", 3, 1, val, mod_names.index(mn) + 1, o)))
-	for val, seg in selfix:
-		relocs.append((val, struct.pack("<BBHBBH", 2, 0, val, seg, 0, 0)))
-	relocs.sort(key=lambda r: r[0])
-	reloc_blob = struct.pack("<H", len(relocs)) + b"".join(r[1] for r in relocs)
+	# Cross-segment references, from the relocations the linker kept (--emit-relocs). The linker resolved each one with every segment
+	# starting at offset 0, so the value left in the code is the target's offset in its own segment: for a call, value + site + 4.
+	calls = {n: [] for n in code}  # per segment: (site, target segment, target offset)
+	pointers = []  # (where, segment or None, site, target segment, target offset): a code address stored as data
+	for n, i in segsec.items():
+		for off, typ, symi in read_relocs(elf_data, secs, i):
+			tseg = seg_of(symi)
+			if typ in (R_386_PC32, R_386_PLT32):
+				if tseg is None:
+					raise PackError(f"segment {n}: a call or jump at {off:#x} targets {symlist[symi][0]!r}, which is not code")
+				value = struct.unpack_from("<i", code[n], off)[0]
+				if tseg != n:
+					calls[n].append((off, tseg, (value + off + 4) & 0xFFFF))
+			elif typ == R_386_32:
+				if tseg is not None:
+					pointers.append(("code", n, off, tseg, struct.unpack_from("<I", code[n], off)[0] & 0xFFFF))
+			elif typ == R_386_16:
+				# A 16-bit absolute address: a data offset (`mov ecx,[offset]`) is already right; one of code has no slot to point to.
+				if tseg is not None:
+					raise PackError(f"segment {n}: a 16-bit absolute address of code at {off:#x}")
+			elif typ == R_386_PC16:
+				if tseg is not None and tseg != n:
+					raise PackError(f"segment {n}: a 16-bit relative branch at {off:#x} leaves its segment")
+			else:
+				raise PackError(f"segment {n}: relocation type {typ} at {off:#x} is not handled")
+	if data_index >= 0:
+		for off, typ, symi in read_relocs(elf_data, secs, data_index):
+			tseg = seg_of(symi)
+			if typ == R_386_32 and tseg is not None:
+				pointers.append(("data", None, off, tseg, struct.unpack_from("<I", dat, off)[0] & 0xFFFF))
+			elif tseg is not None:
+				raise PackError(f"data: relocation type {typ} at {off:#x} is not handled")
+
+	need_far = any(calls.values()) or any(p for p in pointers if (p[3], p[4]) not in exports_at)
+	ssp = syms.get("__w16_ssp", (None,))[0]
+	shadow_end = syms.get("__w16_shadow_end", (None,))[0]
+	if need_far and (ssp is None or shadow_end is None):
+		raise PackError("code crosses segments but the program has no shadow stack (__w16_ssp, __w16_shadow_end)")
+
+	# Pointers to code go through slots at the same offset in every segment, so a pointer means the same function wherever it is called.
+	slot_keys = []
+	for where, n, off, tseg, t in pointers:
+		if (tseg, t) in exports_at:
+			if where == "code" and n != tseg:
+				raise PackError(f"segment {n}: the address of an exported procedure in segment {tseg} is taken at {off:#x}")
+			continue
+		if (tseg, t) not in slot_keys:
+			slot_keys.append((tseg, t))
+
+	# Veneers per segment, return trampolines per target segment.
+	veneer_keys = {n: [] for n in code}
+	for n in code:
+		for _off, tseg, t in calls[n]:
+			if (tseg, t) not in veneer_keys[n]:
+				veneer_keys[n].append((tseg, t))
+		for tseg, t in slot_keys:
+			if tseg != n and (tseg, t) not in veneer_keys[n]:
+				veneer_keys[n].append((tseg, t))
+	tramp_needed = sorted({tseg for n in code for tseg, _t in veneer_keys[n]})
+	body_len = {n: len(code[n]) for n in code}
+	tramp_off = {}
+	for n in code:
+		if n in tramp_needed:
+			tramp_off[n] = len(code[n])
+			code[n] += trampoline_code(ssp or 0)
+	veneer_off = {n: {} for n in code}
+	far_sites = {n: [] for n in code}  # (site of the far pointer, target segment, target offset)
+	for n in code:
+		for tseg, t in veneer_keys[n]:
+			v, far_at = veneer_code(ssp, shadow_end, tramp_off[tseg], t, tseg)
+			veneer_off[n][(tseg, t)] = len(code[n])
+			far_sites[n].append((len(code[n]) + far_at, tseg, t))
+			code[n] += v
+	used = {n: len(c) for n, c in code.items()}  # the code, trampoline and veneers, before the slot table pads each segment
+	slot_base = 0
+	if slot_keys:
+		slot_base = align(max(len(c) for c in code.values()), 16)
+		if slot_base + SLOT_SIZE * len(slot_keys) > MAX_SEG:
+			raise PackError(f"the slot table does not fit: segments run to {slot_base:#x}")
+		for n in code:
+			code[n] += b"\x90" * (slot_base - len(code[n]))  # nops, so a linear decode stays in step
+			for i, (tseg, t) in enumerate(slot_keys):
+				at = len(code[n])
+				dest = t if tseg == n else veneer_off[n][(tseg, t)]
+				code[n] += bytes([0xE9]) + struct.pack("<h", dest - (at + 3)) + b"\x90"
+	# Patch the call sites and the pointers.
+	for n in code:
+		for off, tseg, t in calls[n]:
+			dest = veneer_off[n][(tseg, t)]
+			struct.pack_into("<i", code[n], off, dest - (off + 4))
+	for where, n, off, tseg, t in pointers:
+		if (tseg, t) in exports_at:
+			target = t
+		else:
+			target = slot_base + SLOT_SIZE * slot_keys.index((tseg, t))
+		if where == "code":
+			struct.pack_into("<I", code[n], off, target)
+		else:
+			struct.pack_into("<I", dat, off, target)
+
+	# Relocation records per segment: 8 bytes each. A fixup that is not additive is a link in a chain: the loader reads the offset of the
+	# next fixup from the location it is about to patch, and 0xFFFF ends the chain. Each site here is a chain of one.
+	relocs = {n: [] for n in code}
+	for mn, o, n, val in imports:
+		struct.pack_into("<H", code[n], val, 0xFFFF)
+		relocs[n].append((val, struct.pack("<BBHHH", 3, 1, val, mod_names.index(mn) + 1, o)))
+	for n, val, target in selfix:
+		struct.pack_into("<H", code[n], val, 0xFFFF)
+		relocs[n].append((val, struct.pack("<BBHBBH", 2, 0, val, target, 0, 0)))
+	for n in code:
+		for site, tseg, t in far_sites[n]:
+			struct.pack_into("<H", code[n], site, 0xFFFF)
+			relocs[n].append((site, struct.pack("<BBHBBH", 3, 0, site, tseg, 0, t)))
+	reloc_blob = {}
+	for n in code:
+		relocs[n].sort(key=lambda r: r[0])
+		reloc_blob[n] = struct.pack("<H", len(relocs[n])) + b"".join(r[1] for r in relocs[n])
+	code = {n: bytes(c) for n, c in code.items()}
+	dat = bytes(dat)
 
 	# Name tables.
 	def name_entry(name, ordinal):
 		b = name.encode("latin-1")
 		return bytes([len(b)]) + b + struct.pack("<H", ordinal)
 
-	resident = name_entry(module, 0) + b"".join(name_entry(n.upper(), i + 1) for i, (n, _o) in enumerate(exports)) + b"\0"
+	resident = name_entry(module, 0) + b"".join(name_entry(n.upper(), i + 1) for i, (n, _s, _o) in enumerate(exports)) + b"\0"
 	nonres = (name_entry(description, 0) + b"\0") if description else b"\0"
 
 	imp_names = bytearray(b"\0")
@@ -294,16 +496,21 @@ def pack(elf_data, module="SETUP", description="", stack=0x2000, heap=0x1000, re
 		imp_names += bytes([len(n)]) + n.encode()
 
 	entry = bytearray()
-	if exports:
-		entry += bytes([len(exports), 1])  # a bundle of fixed entries in segment 1
-		for _n, off in exports:
+	i = 0
+	while i < len(exports):
+		j = i
+		while j < len(exports) and exports[j][1] == exports[i][1] and j - i < 255:
+			j += 1
+		entry += bytes([j - i, exports[i][1]])  # a bundle of fixed entries in one segment
+		for _n, _s, off in exports[i:j]:
 			entry += struct.pack("<BH", 0x03, off)
+		i = j
 	entry += b"\0\0"
 
 	# Layout. The MZ stub is 0x80 bytes, the NE header 0x40, then the tables, each directly after the last.
 	ne_off = 0x80
 	seg_tab = ne_off + 0x40
-	res_tab = seg_tab + 16
+	res_tab = seg_tab + 8 * (nseg + 1)
 	res_blob_dummy, _ = resource_table(resources, 0) if resources else (b"", b"")
 	res_len = len(res_blob_dummy)
 	resname_tab = res_tab + res_len
@@ -312,13 +519,19 @@ def pack(elf_data, module="SETUP", description="", stack=0x2000, heap=0x1000, re
 	entry_tab = impname_tab + len(imp_names)
 	nonres_tab = entry_tab + len(entry)
 	tables_end = nonres_tab + len(nonres)
-	code_off = align(tables_end, 1 << FILE_SHIFT)
-	data_off = align(code_off + len(code) + len(reloc_blob), 1 << FILE_SHIFT)
+	code_off = {}
+	pos = align(tables_end, 1 << FILE_SHIFT)
+	for n in range(1, nseg + 1):
+		code_off[n] = pos
+		pos = align(pos + len(code[n]) + len(reloc_blob[n]), 1 << FILE_SHIFT)
+	data_off = pos
 	res_data_base = align(data_off + len(dat), 1 << RES_SHIFT)
 	res_blob, res_data = resource_table(resources, res_data_base) if resources else (b"", b"")
 
-	seg_code = struct.pack("<HHHH", code_off >> FILE_SHIFT, len(code), SEG_PRELOAD | SEG_RELOCS | SEG_RING3, len(code))
-	seg_data = struct.pack("<HHHH", data_off >> FILE_SHIFT, len(dat), SEG_DATA | SEG_PRELOAD | SEG_RING3, len(dat))
+	seg_entries = b""
+	for n in range(1, nseg + 1):
+		seg_entries += struct.pack("<HHHH", code_off[n] >> FILE_SHIFT, len(code[n]), SEG_PRELOAD | SEG_RELOCS | SEG_RING3, len(code[n]))
+	seg_entries += struct.pack("<HHHH", data_off >> FILE_SHIFT, len(dat), SEG_DATA | SEG_PRELOAD | SEG_RING3, len(dat))
 
 	hdr = bytearray(0x40)
 	hdr[0:2] = b"NE"
@@ -326,9 +539,9 @@ def pack(elf_data, module="SETUP", description="", stack=0x2000, heap=0x1000, re
 	hdr[3] = 1
 	struct.pack_into("<HH", hdr, 4, entry_tab - ne_off, len(entry))
 	struct.pack_into("<I", hdr, 8, 0)
-	struct.pack_into("<HHHH", hdr, 0x0C, NE_WINAPI | NE_MULTIPLEDATA, 2, heap, stack)
-	struct.pack_into("<HHHH", hdr, 0x14, syms["_start"][0], 1, 0, 2)
-	struct.pack_into("<HHHH", hdr, 0x1C, 2, len(mod_names), len(nonres), seg_tab - ne_off)
+	struct.pack_into("<HHHH", hdr, 0x0C, NE_WINAPI | NE_MULTIPLEDATA, data_seg, heap, stack)
+	struct.pack_into("<HHHH", hdr, 0x14, syms["_start"][0], 1, 0, data_seg)
+	struct.pack_into("<HHHH", hdr, 0x1C, nseg + 1, len(mod_names), len(nonres), seg_tab - ne_off)
 	struct.pack_into("<HHHH", hdr, 0x24, res_tab - ne_off, resname_tab - ne_off, modref_tab - ne_off, impname_tab - ne_off)
 	struct.pack_into("<I", hdr, 0x2C, nonres_tab)
 	struct.pack_into("<HH", hdr, 0x30, 0, FILE_SHIFT)
@@ -349,25 +562,51 @@ def pack(elf_data, module="SETUP", description="", stack=0x2000, heap=0x1000, re
 	out = bytearray()
 	out += mz
 	out += hdr
-	out += seg_code + seg_data
+	out += seg_entries
 	out += res_blob
 	out += resident + modref + imp_names + entry + nonres
-	out += bytes(code_off - len(out))
-	out += code + reloc_blob
+	for n in range(1, nseg + 1):
+		out += bytes(code_off[n] - len(out))
+		out += code[n] + reloc_blob[n]
 	out += bytes(data_off - len(out))
 	out += dat
 	if resources:
 		out += bytes(res_data_base - len(out))
 		out += res_data
+
+	# A map for `ne_addr2sym.py`: every function symbol and veneer, by segment and offset.
+	lines = []
+	for n in range(1, nseg + 1):
+		names = {}
+		for nm, val, shndx, size, typ in symlist:
+			if nm and segno.get(shndx) == n and typ in (0, 2) and not nm.startswith(("$", ".")):
+				names[val] = (size, nm)
+		for val, (size, nm) in sorted(names.items()):
+			lines.append(f"{n:04X}:{val:04X} {size:5d} {nm}")
+		if n in tramp_off:
+			lines.append(f"{n:04X}:{tramp_off[n]:04X} {len(trampoline_code(0)):5d} <return trampoline>")
+		for (tseg, t), v in sorted(veneer_off[n].items(), key=lambda kv: kv[1]):
+			lines.append(f"{n:04X}:{v:04X} {len(veneer_code(0, 0, 0, 0, 0)[0]):5d} <veneer to {tseg:04X}:{t:04X}>")
+		for i, (tseg, t) in enumerate(slot_keys):
+			lines.append(f"{n:04X}:{slot_base + SLOT_SIZE * i:04X} {SLOT_SIZE:5d} <slot for {tseg:04X}:{t:04X}>")
+	if map_out:
+		with open(map_out, "w") as f:
+			f.write("\n".join(lines) + "\n")
 	info = {
-		"code": len(code),
+		"code": sum(len(c) for c in code.values()),
+		"segments": [len(code[n]) for n in range(1, nseg + 1)],
+		"bodies": [body_len[n] for n in range(1, nseg + 1)],
+		"used": [used[n] for n in range(1, nseg + 1)],
+		"veneers": sum(len(v) for v in veneer_off.values()),
+		"slots": len(slot_keys),
+		"cross_calls": sum(len(c) for c in calls.values()),
 		"data": len(dat),
 		"stack": stack,
 		"heap": heap,
 		"imports": len(imports),
-		"exports": [n for n, _o in exports],
+		"exports": [n for n, _s, _o in exports],
 		"modules": mod_names,
-		"relocs": len(relocs),
+		"relocs": sum(len(r) for r in relocs.values()),
 		"resources": len(resources),
 		"file": len(out),
 	}
@@ -378,6 +617,7 @@ def main():
 	args = sys.argv[1:]
 	opts = {"module": "SETUP", "description": "", "stack": 0x2000, "heap": 0x1000}
 	res_path = None
+	budgets = {}
 	while args and args[0].startswith("--"):
 		o = args.pop(0)
 		if o == "--module":
@@ -388,6 +628,11 @@ def main():
 			opts[o[2:]] = int(args.pop(0), 0)
 		elif o == "--resources":
 			res_path = args.pop(0)
+		elif o == "--map":
+			opts["map_out"] = args.pop(0)
+		elif o == "--budget":
+			seg, size = args.pop(0).split(":")
+			budgets[int(seg)] = int(size)
 		else:
 			sys.exit("ne_pack: unknown option " + o)
 	if len(args) != 2:
@@ -397,9 +642,15 @@ def main():
 			out, info = pack(f.read(), resources=load_resources(res_path), **opts)
 	except PackError as e:
 		sys.exit("ne_pack: " + str(e))
+	over = [f"segment {n} uses {info['used'][n - 1]} bytes, over its budget of {b}" for n, b in sorted(budgets.items()) if n <= len(info["used"]) and info["used"][n - 1] > b]
+	if over:
+		sys.exit("ne_pack: " + "; ".join(over))
 	with open(args[1], "wb") as f:
 		f.write(out)
-	print(f"ne_pack: {args[1]}: {info['file']} bytes (code {info['code']}, data {info['data']} + stack {info['stack']} + heap {info['heap']}, {info['imports']} imports, {info['resources']} resources)")
+	segs = ""
+	if len(info["segments"]) > 1:
+		segs = " in " + " + ".join(str(x) for x in info["segments"]) + f", {info['cross_calls']} cross-segment calls, {info['veneers']} veneers, {info['slots']} pointer slots"
+	print(f"ne_pack: {args[1]}: {info['file']} bytes (code {info['code']}{segs}, data {info['data']} + stack {info['stack']} + heap {info['heap']}, {info['imports']} imports, {info['resources']} resources)")
 
 
 if __name__ == "__main__":
