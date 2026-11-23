@@ -22,6 +22,7 @@ mod paint;
 pub mod picture;
 mod print;
 pub mod script;
+mod spelling;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
 use quill_core::layout::{layout_story, Line, Measure};
@@ -177,6 +178,8 @@ pub enum Command {
 	Print,
 	/// View > Toolbar (1), Ruler (2), Status Bar (4) or Formatting Bar (8).
 	Chrome(u8),
+	/// Find > Spelling (F7).
+	Spelling,
 	/// File > Print Preview (Windows builds only).
 	Preview,
 	/// File > Print Setup (Windows builds only).
@@ -294,6 +297,7 @@ pub(crate) enum Mode {
 	About,
 	Find(find::FindState),
 	Form(form::Form),
+	Spell(spelling::SpellDlg),
 }
 
 /// The editor.
@@ -325,6 +329,7 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) chrome: u8,
 	/// True when dialogs belong to the shell (D86).
 	pub(crate) native: bool,
+	pub(crate) spell: spelling::SpellData,
 	/// The dialog the last command asked the shell for.
 	pub(crate) dialog: Option<native::Dialog>,
 	/// The folder of the last file dialog.
@@ -387,6 +392,7 @@ impl<M: Measure + Clone> App<M> {
 			typing_fmt: None,
 			chrome: 15,
 			native: false,
+			spell: spelling::SpellData::new(),
 			dialog: None,
 			folder: [0; NAME_MAX],
 			folder_len: 0,
@@ -615,6 +621,9 @@ impl<M: Measure + Clone> App<M> {
 			let line = line.strip_suffix(b"\r").unwrap_or(line);
 			for i in 0..4usize {
 				let key = [b'F', b'i', b'l', b'e', b'1' + i as u8, b'='];
+				if let Some(v) = line.strip_prefix(&b"Language="[..]) {
+					self.spell.lang = v.first().map_or(0, |b| b.saturating_sub(b'0').min(2));
+				}
 				if let Some(v) = line.strip_prefix(&b"Folder="[..]) {
 					let n = v.len().min(NAME_MAX);
 					if let (Some(d), Some(sv)) = (self.folder.get_mut(..n), v.get(..n)) {
@@ -667,6 +676,22 @@ impl<M: Measure + Clone> App<M> {
 			let _ = w.write(b"\r\n");
 		}
 		let _ = w.write(b"[Quill]\r\n");
+		if self.spell.lang != 0 {
+			let _ = w.write(&[
+				b'L',
+				b'a',
+				b'n',
+				b'g',
+				b'u',
+				b'a',
+				b'g',
+				b'e',
+				b'=',
+				b'0' + self.spell.lang,
+				b'\r',
+				b'\n',
+			]);
+		}
 		if self.folder_len > 0 {
 			let _ = w.write(b"Folder=");
 			let _ = w.write(self.folder.get(..self.folder_len).unwrap_or(&[]));
@@ -1266,6 +1291,11 @@ impl<M: Measure + Clone> App<M> {
 			Command::Cut | Command::Copy | Command::Paste | Command::SelectAll => {
 				self.clip_command(s, c)
 			}
+			Command::Spelling => {
+				if self.spell_begin(s, f) {
+					self.open_spell_dialog(s);
+				}
+			}
 			Command::Fonts => self.open_fonts(s),
 			Command::Tabs => self.open_tabs(),
 			Command::About => self.mode = Mode::About,
@@ -1481,6 +1511,7 @@ impl<M: Measure + Clone> App<M> {
 			}
 			Mode::Find(st) => self.key_find(s, k, st),
 			Mode::Form(fm) => self.key_form(s, k, fm),
+			Mode::Spell(d) => self.key_spell(s, f, k, d),
 			Mode::Confirm(c) => match k {
 				Key::Char(b'y' | b'Y') => {
 					self.mode = Mode::Edit;
@@ -1622,6 +1653,7 @@ impl<M: Measure + Clone> App<M> {
 			Key::Insert => self.overtype = !self.overtype,
 			Key::F(5) => self.run(s, f, Command::Regular),
 			Key::F(3) => self.run(s, f, Command::FindNext),
+			Key::F(7) => self.run(s, f, Command::Spelling),
 			Key::Ctrl(b'f') => self.run(s, f, Command::Find),
 			Key::Ctrl(b'h') => self.run(s, f, Command::Replace),
 			Key::F(10) if !self.native => {

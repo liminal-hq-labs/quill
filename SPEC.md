@@ -243,6 +243,7 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 - Suggestions are words within two edits (a letter added, removed, changed, or two letters swapped). The search stops after a time budget so the dialog never pauses for more than about half a second on a 386; when it stops early, the list says `More...` and Suggest continues.
 - **Check Spelling as You Type** marks unknown words with a wavy red underline, checked only when Quill is idle and only for the visible paragraphs. On Win16 it is off by default.
 - Languages are Canadian English (default), American English and British English, set in **Find > Spelling... > Options**. The user dictionary is shared by all languages.
+- **Build note (D88).** The dictionary is a file, `EN_CA.DIC`, `EN_US.DIC` or `EN_GB.DIC`, found in the current folder or beside the program, and read whole into memory when the first check begins; the user dictionary is `QUILL.UDC`, a text file with one word a line. The language is set by `[Quill] Language` in `QUILL.INI` (0 Canadian, 1 American, 2 British) until the Options page is built.
 
 ### Files
 

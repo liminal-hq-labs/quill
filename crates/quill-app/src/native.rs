@@ -36,6 +36,8 @@ pub enum Dialog {
 	Tabs,
 	/// Find (false) or Replace (true).
 	Find(bool),
+	/// Find > Spelling: the shell calls `spell_begin` and shows each word.
+	Spelling,
 	/// The document has unsaved changes and the command would lose them: Save, Don't Save or Cancel, then the command again.
 	ConfirmSave(Command),
 }
@@ -88,6 +90,7 @@ impl<M: Measure + Clone> App<M> {
 			Command::Print => Dialog::Print,
 			Command::Find => Dialog::Find(false),
 			Command::Replace => Dialog::Find(true),
+			Command::Spelling => Dialog::Spelling,
 			_ => return None,
 		})
 	}
