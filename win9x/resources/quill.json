@@ -60,8 +60,14 @@
 			{ "text": "Different First Page", "id": 142 },
 			{ "text": "Return to Document", "id": 143 }
 		] },
+		{ "title": "View", "items": [
+			{ "text": "Toolbar", "id": 144 },
+			{ "text": "Formatting Bar", "id": 145 },
+			{ "text": "Ruler", "id": 146 },
+			{ "text": "Status Bar", "id": 147 }
+		] },
 		{ "title": "Help", "items": [
-			{ "text": "About Quill...", "id": 144 }
+			{ "text": "About Quill...", "id": 148 }
 		] }
 	]
 }

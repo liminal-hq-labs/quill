@@ -340,7 +340,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
-	fn tab_edit<S: Store + ?Sized>(
+	pub(crate) fn tab_edit<S: Store + ?Sized>(
 		&mut self,
 		s: &mut S,
 		what: &str,

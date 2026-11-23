@@ -137,6 +137,17 @@ extern "system" {
 
 #[link(name = "user32", kind = "raw-dylib", import_name_type = "undecorated")]
 extern "system" {
+	pub fn SendMessageA(hwnd: Handle, msg: u32, wparam: usize, lparam: isize) -> isize;
+	pub fn MoveWindow(hwnd: Handle, x: i32, y: i32, w: i32, h: i32, repaint: i32) -> i32;
+	pub fn ShowWindow(hwnd: Handle, cmd: i32) -> i32;
+	pub fn SetFocus(hwnd: Handle) -> Handle;
+	pub fn TrackPopupMenu(menu: Handle, flags: u32, x: i32, y: i32, reserved: i32, hwnd: Handle, rect: *const Rect) -> i32;
+	pub fn ClientToScreen(hwnd: Handle, p: *mut Point) -> i32;
+	pub fn DestroyMenu(menu: Handle) -> i32;
+	pub fn CheckMenuItem(menu: Handle, id: u32, flags: u32) -> i32;
+	pub fn GetMenu(hwnd: Handle) -> Handle;
+	pub fn SetCapture(hwnd: Handle) -> Handle;
+	pub fn ReleaseCapture() -> i32;
 	pub fn RegisterClassA(class: *const WndClassA) -> u16;
 	pub fn CreateWindowExA(
 		ex_style: u32,
@@ -205,6 +216,14 @@ pub struct BitmapInfoHeader {
 
 #[link(name = "gdi32", kind = "raw-dylib", import_name_type = "undecorated")]
 extern "system" {
+	pub fn IntersectClipRect(dc: Handle, left: i32, top: i32, right: i32, bottom: i32) -> i32;
+	pub fn Polygon(dc: Handle, points: *const Point, count: i32) -> i32;
+	pub fn EnumFontFamiliesA(
+		dc: Handle,
+		face: *const u8,
+		proc_: unsafe extern "system" fn(*const u8, *const u8, u32, isize) -> i32,
+		lparam: isize,
+	) -> i32;
 	pub fn SaveDC(dc: Handle) -> i32;
 	pub fn RestoreDC(dc: Handle, saved: i32) -> i32;
 	pub fn SetMapMode(dc: Handle, mode: i32) -> i32;

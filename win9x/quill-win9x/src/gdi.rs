@@ -517,6 +517,9 @@ unsafe fn draw_line(
 /// # Safety
 /// `dc` must be a valid device context.
 pub unsafe fn paint_page(dc: Handle, area: Rect, app: &App<GdiMeasure>, s: &HeapStore, cache: &mut PicCache) -> usize {
+	// Nothing of the page may spill over the toolbar and ruler above it.
+	let saved = SaveDC(dc);
+	IntersectClipRect(dc, area.left, area.top, area.right, area.bottom);
 	let page = &app.doc().page;
 	let page_w = to_units(page.paper_w, 96);
 	let page_h = to_units(page.paper_h, 96);
@@ -611,6 +614,7 @@ pub unsafe fn paint_page(dc: Handle, area: Rect, app: &App<GdiMeasure>, s: &Heap
 			}
 		}
 	}
+	RestoreDC(dc, saved);
 	(((area.bottom - area.top) / line_h.max(1)) as usize)
 		.max(fitted.min(1))
 		.max(1)

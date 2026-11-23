@@ -14,6 +14,7 @@
 
 extern crate alloc;
 
+mod chrome;
 mod gdi;
 mod rt;
 mod sys;
@@ -127,6 +128,10 @@ struct Shell {
 	pics: gdi::PicCache,
 	/// The print preview, when it is showing: the first page shown, and whether two pages are.
 	preview: Option<(u32, bool)>,
+	combos: Option<chrome::Combos>,
+	/// The kind of tab stop a click on the ruler makes: 0 left, 1 centre, 2 right, 3 decimal.
+	ruler_kind: u8,
+	drag: Option<chrome::Drag>,
 	files: Win32Files,
 	cw: i32,
 	ch: i32,
@@ -251,7 +256,23 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 		}
 		WM_ERASEBKGND => 1,
 		WM_COMMAND => {
-			menu_command(hwnd, wparam & 0xFFFF);
+			if lparam != 0 {
+				combo_changed(hwnd, wparam);
+			} else {
+				menu_command(hwnd, wparam & 0xFFFF);
+			}
+			0
+		}
+		0x0201 => {
+			mouse_down(hwnd, (lparam & 0xFFFF) as i16 as i32, (lparam >> 16) as i16 as i32);
+			0
+		}
+		0x0200 => {
+			mouse_move(hwnd, (lparam & 0xFFFF) as i16 as i32);
+			0
+		}
+		0x0202 => {
+			mouse_up(hwnd, (lparam & 0xFFFF) as i16 as i32);
 			0
 		}
 		WM_DESTROY => {
@@ -480,6 +501,14 @@ unsafe fn menu_command(hwnd: Handle, id: usize) {
 	let Some(c) = id.checked_sub(100).and_then(|i| sh.cmds.get(i)).copied() else {
 		return;
 	};
+	run_command(hwnd, c);
+}
+
+/// Runs a command from the menu or the toolbar.
+unsafe fn run_command(hwnd: Handle, c: Command) {
+	let Some(sh) = shell() else {
+		return;
+	};
 	match c {
 		Command::Open => {
 			if let Some(path) = file_dialog(hwnd, false) {
@@ -510,11 +539,145 @@ unsafe fn menu_command(hwnd: Handle, id: usize) {
 		}
 		_ => sh.app.command(&mut sh.store, &mut sh.files, c),
 	}
+	if let Command::Chrome(_) = c {
+		sync_chrome(hwnd, sh);
+	}
 	retitle(hwnd, sh);
 	InvalidateRect(hwnd, null(), 0);
 	if sh.app.quit() {
 		DestroyWindow(hwnd);
 	}
+}
+
+/// A face or size was chosen in one of the boxes.
+unsafe fn combo_changed(hwnd: Handle, wparam: usize) {
+	let Some(sh) = shell() else {
+		return;
+	};
+	let (id, code) = (wparam & 0xFFFF, wparam >> 16);
+	if code != 1 {
+		return; // CBN_SELCHANGE
+	}
+	if id == chrome::ID_STYLE {
+		let at = SendMessageA(sh.combos.as_ref().map_or(null_mut(), |c| c.style), 0x0147, 0, 0);
+		if at >= 0 {
+			sh.app.apply_style(&mut sh.store, at as usize);
+		}
+	} else if let Some(choice) = sh.combos.as_ref().and_then(|c| c.choice(id)) {
+		if id == chrome::ID_FACE {
+			sh.app.set_face(&mut sh.store, &choice, chrome::family_of(&choice));
+		} else if let Some(pts) = core::str::from_utf8(&choice).ok().and_then(|t| t.trim().parse::<u16>().ok()) {
+			sh.app.set_size(&mut sh.store, pts * 2);
+		}
+	}
+	SetFocus(hwnd);
+	InvalidateRect(hwnd, null(), 0);
+}
+
+/// Where the ruler is and where the text's left edge is, for the mouse.
+unsafe fn ruler_geometry(hwnd: Handle, sh: &Shell) -> (i32, i32, i32) {
+	let mut r = Rect {
+		left: 0,
+		top: 0,
+		right: 0,
+		bottom: 0,
+	};
+	GetClientRect(hwnd, &mut r);
+	let (left, w) = chrome::text_extent(&sh.app, r.right);
+	let (h0, h1) = chrome::rows(&sh.app);
+	let top = h0 + h1;
+	(top, left, w)
+}
+
+unsafe fn mouse_down(hwnd: Handle, x: i32, y: i32) {
+	let Some(sh) = shell() else {
+		return;
+	};
+	if sh.preview.is_some() || sh.grid {
+		return;
+	}
+	{
+		if let Some((b, row_top)) = chrome::button_at(&sh.app, x, y) {
+			match b.act {
+				chrome::Act::Cmd(c) => run_command(hwnd, c),
+				chrome::Act::Colour => {
+					if let Some(choice) = chrome::colour_menu(hwnd, b.x, row_top + chrome::TB_H) {
+						sh.app.set_colour(&mut sh.store, choice);
+					}
+				}
+				chrome::Act::None => sh.app.set_message("Spelling is not built yet."),
+			}
+			InvalidateRect(hwnd, null(), 0);
+			return;
+		}
+	}
+	if sh.app.show_ruler() {
+		let (top, left, w) = ruler_geometry(hwnd, sh);
+		let st = chrome::RulerState::of(&sh.app, &sh.store);
+		match chrome::ruler_hit(x, y, top, left, w, &st) {
+			Some(chrome::Hit::Kind) => sh.ruler_kind = (sh.ruler_kind + 1) % 4,
+			Some(chrome::Hit::Scale(t)) => sh.app.add_tab(&mut sh.store, chrome::snap(t), sh.ruler_kind),
+			Some(hit) => {
+				sh.drag = Some(chrome::Drag {
+					hit,
+					state: st,
+					start: st,
+				});
+				SetCapture(hwnd);
+			}
+			None => {}
+		}
+		InvalidateRect(hwnd, null(), 0);
+	}
+}
+
+unsafe fn mouse_move(hwnd: Handle, x: i32) {
+	let Some(sh) = shell() else {
+		return;
+	};
+	if let Some(mut d) = sh.drag {
+		let (_, left, w) = ruler_geometry(hwnd, sh);
+		chrome::drag_to(&mut d, x, left, w);
+		sh.drag = Some(d);
+		InvalidateRect(hwnd, null(), 0);
+	}
+}
+
+unsafe fn mouse_up(hwnd: Handle, x: i32) {
+	let Some(sh) = shell() else {
+		return;
+	};
+	let Some(mut d) = sh.drag.take() else {
+		return;
+	};
+	ReleaseCapture();
+	let (_, left, w) = ruler_geometry(hwnd, sh);
+	chrome::drag_to(&mut d, x, left, w);
+	match d.hit {
+		chrome::Hit::First | chrome::Hit::Left | chrome::Hit::Both | chrome::Hit::Right => {
+			sh.app
+				.set_indents(&mut sh.store, d.state.left, d.state.first - d.state.left, d.state.right);
+		}
+		_ => {}
+	}
+	InvalidateRect(hwnd, null(), 0);
+}
+
+/// Shows or hides the combo boxes with the toolbar, ticks the menu items and lays the page out again.
+unsafe fn sync_chrome(hwnd: Handle, sh: &mut Shell) {
+	if let Some(cb) = &sh.combos {
+		cb.show(&sh.app);
+	}
+	let menu = GetMenu(hwnd);
+	if !menu.is_null() {
+		for (i, c) in sh.cmds.iter().enumerate() {
+			if let Command::Chrome(bit) = c {
+				let on = sh.app.chrome_on(*bit);
+				CheckMenuItem(menu, 100 + i as u32, if on { 0x8 } else { 0 });
+			}
+		}
+	}
+	InvalidateRect(hwnd, null(), 0);
 }
 
 unsafe fn retitle(hwnd: Handle, sh: &Shell) {
@@ -579,12 +742,35 @@ unsafe fn paint(hwnd: Handle) {
 			bottom: 0,
 		};
 		GetClientRect(hwnd, &mut r);
+		let (h0, h1) = chrome::rows(&sh.app);
+		let tb = if sh.preview.is_none() { h0 + h1 } else { 0 };
+		let rl = if sh.app.show_ruler() && sh.preview.is_none() {
+			chrome::RULER_H
+		} else {
+			0
+		};
+		let status = if sh.app.show_status() { sh.ch } else { 0 };
 		let area = Rect {
 			left: 0,
-			top: 0,
+			top: tb + rl,
 			right: r.right,
-			bottom: r.bottom - sh.ch,
+			bottom: r.bottom - status,
 		};
+		if sh.preview.is_none() {
+			if tb > 0 {
+				chrome::paint_toolbar(dc, r.right, &sh.app, &sh.store);
+				if let Some(cb) = sh.combos.as_mut() {
+					cb.sync(&sh.app, &sh.store);
+				}
+			}
+			if rl > 0 {
+				let (left, w) = chrome::text_extent(&sh.app, r.right);
+				let st = sh
+					.drag
+					.map_or_else(|| chrome::RulerState::of(&sh.app, &sh.store), |d| d.state);
+				chrome::paint_ruler(dc, tb, r.right, left, w, &st, sh.ruler_kind);
+			}
+		}
 		if let Some((first, two)) = sh.preview {
 			let pages = gdi::paint_preview(dc, area, &sh.app, &sh.store, sh.screen_dc, first, two, &mut sh.pics);
 			SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
@@ -620,7 +806,9 @@ unsafe fn paint(hwnd: Handle) {
 		if !sh.app.editing() {
 			draw_rows(dc, &g, 7, 21, sh, (r.right - 80 * sh.cw).max(0) / 2, 40);
 		}
-		draw_rows(dc, &g, 24, 25, sh, 0, r.bottom - sh.ch);
+		if status > 0 {
+			draw_rows(dc, &g, 24, 25, sh, 0, r.bottom - sh.ch);
+		}
 		EndPaint(hwnd, ps.as_ptr());
 		return;
 	};
@@ -904,6 +1092,9 @@ pub extern "C" fn start() -> ! {
 		screen_dc,
 		pics: gdi::PicCache::new(),
 		preview: preview_start.then_some((1, false)),
+		combos: None,
+		ruler_kind: 0,
+		drag: None,
 		files,
 		cw: 8,
 		ch: 16,
@@ -998,6 +1189,13 @@ pub extern "C" fn start() -> ! {
 		);
 		if let Some(sh) = shell() {
 			retitle(hwnd, sh);
+			if !gridview {
+				let faces = chrome::enumerate_faces(sh.screen_dc);
+				let cb = chrome::create_combos(hwnd, instance, &faces);
+				cb.show(&sh.app);
+				sh.combos = Some(cb);
+				sync_chrome(hwnd, sh);
+			}
 		}
 		if playing {
 			SetTimer(hwnd, 1, 200, null());
