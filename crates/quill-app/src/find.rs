@@ -129,9 +129,7 @@ impl App {
 				return None;
 			}
 			for i in 0..=(n as u32 - m) {
-				let Some(window) = buf.get(i as usize..(i + m) as usize) else {
-					return None;
-				};
+				let window = buf.get(i as usize..(i + m) as usize)?;
 				if window
 					.iter()
 					.zip(needle)
