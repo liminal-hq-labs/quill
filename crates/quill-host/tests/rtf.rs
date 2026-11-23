@@ -187,3 +187,79 @@ fn headers_footers_and_fields_round_trip() {
 	assert_eq!(story(&d3, &s, StoryKind::Footer), b"Quill test document\r");
 	assert_eq!(d3.header.object_at(&s, 5), Some(1 << 16));
 }
+
+fn pic_bytes(name: &str) -> Vec<u8> {
+	std::fs::read(root().join("tests/docs").join(name)).unwrap()
+}
+
+fn add(s: &mut HostStore, d: &mut Doc, name: &str, kind: u8, w: u16, h: u16) {
+	let bytes = pic_bytes(name);
+	let mut at = 0;
+	let idx = d
+		.add_picture(s, kind, w, h, 9000, |b| {
+			let n = (bytes.len() - at).min(b.len());
+			b[..n].copy_from_slice(&bytes[at..at + n]);
+			at += n;
+			n
+		})
+		.unwrap();
+	let n = d.body.len();
+	d.body
+		.append_object(s, u32::from(idx), 0, 0)
+		.unwrap_or_else(|_| panic!("object at {n}"));
+}
+
+fn picture_file(s: &HostStore, d: &Doc, i: u32) -> Vec<u8> {
+	let p = d.pictures.get(s, i).unwrap();
+	let mut v = vec![0u8; p.len as usize];
+	assert_eq!(d.picture_bytes(s, i as u16, 0, &mut v), v.len());
+	v
+}
+
+#[test]
+fn pictures_round_trip_through_rtf() {
+	let mut s = HostStore::new();
+	let mut d = read(
+		&mut s,
+		&std::fs::read(root().join("tests/docs/letter.rtf")).unwrap(),
+	)
+	.unwrap();
+	add(&mut s, &mut d, "pic.png", 1, 64, 48);
+	add(&mut s, &mut d, "pic.bmp", 0, 64, 48);
+	let first = write(&s, &d);
+	let text = String::from_utf8_lossy(&first);
+	assert!(text.contains("\\pict\\pngblip\\picw64\\pich48"), "{text}");
+	assert!(text.contains("\\pict\\dibitmap0\\wbmbitspixel24"));
+	let d2 = read(&mut s, &first).unwrap();
+	assert_eq!(d2.pictures.len(), 2);
+	assert_eq!(picture_file(&s, &d2, 0), pic_bytes("pic.png"));
+	assert_eq!(picture_file(&s, &d2, 1), pic_bytes("pic.bmp"));
+	let p = d2.pictures.get(&s, 1).unwrap();
+	assert_eq!((p.kind, p.w, p.h), (0, 64, 48));
+	assert_eq!(write(&s, &d2), first, "writing what was read is stable");
+}
+
+#[test]
+fn a_picture_with_a_copy_after_it_is_read_once_and_damage_is_dropped() {
+	let mut s = HostStore::new();
+	let png = pic_bytes("pic.png");
+	let hex: String = png.iter().map(|b| format!("{b:02x}")).collect();
+	let doc = |body: &str| format!("{{\\rtf1\\ansi Hello {body}\\par}}");
+	let both = doc(&format!(
+		"{{\\*\\shppict{{\\pict\\pngblip\\picw64\\pich48\\picwgoal960\\pichgoal720 {hex}}}}}{{\\nonshppict{{\\pict\\wmetafile8 0102}}}}"
+	));
+	let d = read(&mut s, both.as_bytes()).unwrap();
+	assert_eq!(d.pictures.len(), 1);
+	let p = d.pictures.get(&s, 0).unwrap();
+	assert_eq!((p.shown_w, p.shown_h), (960, 720));
+	// A truncated or unknown picture leaves no picture and no stray bytes in the pool.
+	for body in [
+		format!("{{\\pict\\pngblip {}}}", &hex[..40]),
+		"{\\pict\\emfblip 0102}".to_string(),
+		"{\\pict\\pngblip zz}".to_string(),
+	] {
+		let d = read(&mut s, doc(&body).as_bytes()).unwrap();
+		assert_eq!(d.pictures.len(), 0, "{body}");
+		assert_eq!(d.pic_data.len(), 0);
+	}
+}

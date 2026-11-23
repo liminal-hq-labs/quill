@@ -167,6 +167,28 @@ impl<const CH: usize> ByteBuf<CH> {
 		}
 	}
 
+	/// Cuts the buffer back to `len` bytes (no-op when it is already shorter), freeing chunks past it.
+	pub fn truncate<S: Store + ?Sized>(&mut self, s: &mut S, len: u32) {
+		if len >= self.len {
+			return;
+		}
+		let keep = len.div_ceil(self.chunk) as usize;
+		self.rollback(s, keep, len);
+	}
+
+	/// Overwrites bytes already held, starting at `pos`; whatever falls past the end is ignored.
+	pub fn patch<S: Store + ?Sized>(&mut self, s: &mut S, pos: u32, data: &[u8]) {
+		for (i, b) in data.iter().enumerate() {
+			let at = pos + i as u32;
+			if at >= self.len {
+				return;
+			}
+			if let Some(c) = self.chunks.get((at / self.chunk) as usize) {
+				s.write(*c, (at % self.chunk) as u16, core::slice::from_ref(b));
+			}
+		}
+	}
+
 	/// Frees every chunk.
 	pub fn clear<S: Store + ?Sized>(&mut self, s: &mut S) {
 		self.rollback(s, 0, 0);
