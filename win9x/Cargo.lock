@@ -41,6 +41,7 @@ name = "quill-win9x"
 version = "0.0.0"
 dependencies = [
  "quill-app",
+ "quill-core",
  "quill-formats",
  "quill-grid",
  "quill-heap",
