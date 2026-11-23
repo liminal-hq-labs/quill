@@ -2,6 +2,8 @@
 
 <p align="center"><img src="assets/hero.svg" alt="Quill — one word processor for DOS, Windows 3.1 and Windows 95, written in Rust" width="100%"></p>
 
+<p align="center"><img src="assets/icon/quill-128.png" alt="The Quill icon: a Q whose tail is a pen nib" width="96" height="96"></p>
+
 <p align="center">
   <a href="https://github.com/liminal-hq-labs/quill/actions/workflows/ci.yml"><img src="https://github.com/liminal-hq-labs/quill/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <img src="https://img.shields.io/badge/status-experimental-f0a830" alt="Status: experimental">
