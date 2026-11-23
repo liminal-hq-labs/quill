@@ -1,0 +1,15 @@
+Quill T2 code segments
+seg1 -> seg2 add: 42 ok
+seg1 -> seg3 u64 result: 406493 ok
+eight arguments through a veneer: 204 ok
+60 levels, seg2 and seg3 alternating: 444860 ok
+pointer from seg1: 11 ok
+pointer from seg2: 11 ok
+pointer from seg3: 11 ok
+pointer from seg1: 20 ok
+pointer from seg2: 20 ok
+pointer from seg3: 20 ok
+pointer from seg1: 100 ok
+pointer from seg2: 100 ok
+pointer from seg3: 100 ok
+RESULT: PASS
