@@ -6,16 +6,27 @@
 use quill_core::store::Store;
 use quill_grid::{ansi_to_cp437, attr, Grid, COLS};
 
-use crate::{App, Command, Mode, Prompt};
+use quill_core::doc::cflag;
+
+use crate::{App, Command, Mode, Prompt, Scheme};
 
 /// Rows of text between the menu bar and the status line on an 80 by 25 screen.
 pub const TEXT_ROWS: usize = 23;
-/// Menus that open (the rest of the bar is drawn for later milestones).
-pub const ACTIVE_MENUS: u8 = 2;
+/// Menus on the bar.
+pub const MENU_COUNT: u8 = 8;
 
 const MENU_BAR: &[u8] = b" File  Edit  Insert  Find  Character  Paragraph  Document  Help";
-const MENU_COLS: [usize; 2] = [1, 7];
-const MENU_TITLES: [&[u8]; 2] = [b"File", b"Edit"];
+const MENU_COLS: [usize; 8] = [1, 7, 13, 21, 27, 38, 49, 59];
+const MENU_TITLES: [&[u8]; 8] = [
+	b"File",
+	b"Edit",
+	b"Insert",
+	b"Find",
+	b"Character",
+	b"Paragraph",
+	b"Document",
+	b"Help",
+];
 const SELECTED: u8 = 0x07;
 
 /// A pull-down item.
@@ -28,51 +39,106 @@ pub struct Item {
 	pub command: Command,
 }
 
+const fn item(label: &'static str, accel: &'static str, command: Command) -> Item {
+	Item {
+		label,
+		accel,
+		command,
+	}
+}
+
 const FILE: [Item; 5] = [
-	Item {
-		label: "New",
-		accel: "Ctrl+N",
-		command: Command::New,
-	},
-	Item {
-		label: "Open...",
-		accel: "Ctrl+O",
-		command: Command::Open,
-	},
-	Item {
-		label: "Save",
-		accel: "Ctrl+S",
-		command: Command::Save,
-	},
-	Item {
-		label: "Save As...",
-		accel: "",
-		command: Command::SaveAs,
-	},
-	Item {
-		label: "Exit",
-		accel: "Ctrl+Q",
-		command: Command::Exit,
-	},
+	item("New", "Ctrl+N", Command::New),
+	item("Open...", "Ctrl+O", Command::Open),
+	item("Save", "Ctrl+S", Command::Save),
+	item("Save As...", "", Command::SaveAs),
+	item("Exit", "Ctrl+Q", Command::Exit),
 ];
 const EDIT: [Item; 2] = [
-	Item {
-		label: "Undo",
-		accel: "Ctrl+Z",
-		command: Command::Undo,
-	},
-	Item {
-		label: "Redo",
-		accel: "Ctrl+Y",
-		command: Command::Redo,
-	},
+	item("Undo", "Ctrl+Z", Command::Undo),
+	item("Redo", "Ctrl+Y", Command::Redo),
+];
+const CHARACTER: [Item; 7] = [
+	item("Regular", "F5", Command::Regular),
+	item("Bold", "Ctrl+B", Command::Bold),
+	item("Italic", "Ctrl+I", Command::Italic),
+	item("Underline", "Ctrl+U", Command::Underline),
+	item("Strikethrough", "", Command::Strike),
+	item("Superscript", "", Command::Super),
+	item("Subscript", "", Command::Sub),
+];
+const PARAGRAPH: [Item; 7] = [
+	item("Left", "Ctrl+L", Command::Align(0)),
+	item("Centred", "Ctrl+E", Command::Align(1)),
+	item("Right", "Ctrl+R", Command::Align(2)),
+	item("Justified", "Ctrl+J", Command::Align(3)),
+	item("Single Space", "", Command::Spacing(0)),
+	item("1\u{bd} Space", "", Command::Spacing(1)),
+	item("Double Space", "", Command::Spacing(2)),
 ];
 
 pub(crate) fn menu_items(menu: u8) -> &'static [Item] {
-	if menu == 0 {
-		&FILE
-	} else {
-		&EDIT
+	match menu {
+		0 => &FILE,
+		1 => &EDIT,
+		4 => &CHARACTER,
+		5 => &PARAGRAPH,
+		_ => &[],
+	}
+}
+
+/// The attribute of a character with these flags in a scheme (the colour scheme of the SPEC's DOS table, or the mono one).
+fn text_attr(scheme: Scheme, flags: u16, vpos: u8, selected: bool) -> u8 {
+	if selected {
+		return 0x70;
+	}
+	let b = flags & cflag::BOLD != 0;
+	let i = flags & cflag::ITALIC != 0;
+	let u = flags & cflag::UNDERLINE != 0;
+	let st = flags & cflag::STRIKE != 0;
+	match scheme {
+		Scheme::Colour => {
+			if vpos != 0 {
+				return 0x16;
+			}
+			match (b, i, u) {
+				(false, false, false) => {
+					if st {
+						0x18
+					} else {
+						attr::TEXT
+					}
+				}
+				(true, false, false) => attr::BOLD,
+				(false, true, false) => attr::ITALIC,
+				(false, false, true) => 0x1D,
+				(true, true, false) => 0x1E,
+				(true, false, true) => 0x1C,
+				(false, true, true) => 0x1A,
+				(true, true, true) => 0x1E,
+			}
+		}
+		Scheme::Mono => match (b, i, u) {
+			_ if st => 0x08,
+			(false, false, false) => 0x07,
+			(true, false, false) => 0x0F,
+			(false, true, false) => 0x70,
+			(false, false, true) => 0x01,
+			(true, _, true) => 0x09,
+			(true, true, false) => 0x7F,
+			(false, true, true) => 0x71,
+		},
+	}
+}
+
+fn put_str<const ROWS: usize>(g: &mut Grid<ROWS>, x: usize, y: usize, t: &str, attr: u8) {
+	for (i, c) in t.chars().enumerate() {
+		let b = if (c as u32) < 0x80 {
+			c as u32 as u8
+		} else {
+			ansi_to_cp437(c as u32 as u8)
+		};
+		g.put(x + i, y, b, attr);
 	}
 }
 
@@ -137,7 +203,13 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 	g: &mut Grid<ROWS>,
 ) -> Option<Cursor> {
 	let text_rows = ROWS.saturating_sub(2);
-	*g = Grid::new(attr::TEXT);
+	let base = if app.scheme == Scheme::Colour {
+		attr::TEXT
+	} else {
+		0x07
+	};
+	*g = Grid::new(base);
+	let sel = app.selection();
 	let text_w = ((app.doc.page.paper_w - app.doc.page.margin_l - app.doc.page.margin_r) * 10
 		/ 1440) as usize;
 	let margin = COLS.saturating_sub(text_w) / 2;
@@ -158,16 +230,30 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 			return;
 		}
 		let row = 1 + (i - top) as usize;
-		app.walk(s, l, |_, c, x, w| {
+		app.walk(s, l, |p, c, x, w, leader| {
 			let col = margin + x as usize;
+			let cf = app
+				.doc
+				.body
+				.cfmt_at(s, p)
+				.and_then(|i| app.doc.cfmts.get(s, i));
+			let (flags, vpos) = cf.map_or((0, 0), |c| (c.flags, c.vpos));
+			let selected = sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
+			let a = text_attr(app.scheme, flags, vpos, selected);
 			if c == 0x09 {
+				let fill = match leader {
+					1 => b'.',
+					2 => b'-',
+					3 => b'_',
+					_ => b' ',
+				};
 				for k in 0..w as usize {
-					g.put(col + k, row, b' ', attr::TEXT);
+					g.put(col + k, row, fill, a);
 				}
 			} else if c == 0x01 {
-				g.put(col, row, 0xB0, attr::TEXT);
+				g.put(col, row, 0xB0, a);
 			} else {
-				g.put(col, row, ansi_to_cp437(c), attr::TEXT);
+				g.put(col, row, ansi_to_cp437(c), a);
 			}
 		});
 		if let Some((ci, _)) = caret {
@@ -219,6 +305,12 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 				}
 			}
 		}
+		if app.overtype {
+			st.s("   OVR");
+		}
+		if app.extend {
+			st.s("   EXT");
+		}
 		if app.modified {
 			st.s("   Mod");
 		}
@@ -232,7 +324,7 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 		Mode::Menu { menu, item } => {
 			let items = menu_items(menu);
 			let col = MENU_COLS.get(usize::from(menu)).copied().unwrap_or(1) - 1;
-			let w = 24;
+			let w = 26;
 			g.fill(col, 1, w, items.len() + 2, b' ', attr::CHROME);
 			g.frame(col, 1, w, items.len() + 2, attr::CHROME);
 			for (i, it) in items.iter().enumerate() {
@@ -242,7 +334,7 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 					attr::CHROME
 				};
 				g.fill(col + 1, 2 + i, w - 2, 1, b' ', a);
-				g.text(col + 2, 2 + i, it.label.as_bytes(), a);
+				put_str(g, col + 2, 2 + i, it.label, a);
 				g.text(col + w - 2 - it.accel.len(), 2 + i, it.accel.as_bytes(), a);
 			}
 			shadow(g, col, 1, w, items.len() + 2);

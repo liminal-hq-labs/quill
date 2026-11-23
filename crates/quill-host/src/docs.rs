@@ -49,3 +49,18 @@ impl quill_formats::io::Sink for VecSink {
 		true
 	}
 }
+
+/// The bytes of `letter.qld`: the same document the RTF corpus holds, built in code.
+pub fn letter_bytes(s: &mut HostStore) -> Result<Vec<u8>> {
+	let mut d = Doc::new();
+	let rtf = std::fs::read(concat!(
+		env!("CARGO_MANIFEST_DIR"),
+		"/../../tests/docs/letter.rtf"
+	))
+	.map_err(|_| quill_core::Error::Range)?;
+	quill_formats::rtf::read(&mut d, s, &mut quill_formats::io::SliceSource::new(&rtf))
+		.map_err(|_| quill_core::Error::Range)?;
+	let mut out = VecSink(Vec::new());
+	quill_formats::qld::write(&d, s, &mut out).map_err(|_| quill_core::Error::NoMemory)?;
+	Ok(out.0)
+}

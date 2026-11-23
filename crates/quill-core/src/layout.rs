@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::doc::{cflag, CFmt, Doc, Font, PFmt, StoryKind};
+use crate::doc::{cflag, CFmt, Doc, Font, PFmt, StoryKind, MAX_STOPS, NO_TABS};
 use crate::store::Store;
 use crate::text::Piece;
 
@@ -126,6 +126,82 @@ impl FontCache {
 	}
 }
 
+/// One tab stop in device units, measured from the left margin.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct Stop {
+	/// Position.
+	pub x: i32,
+	/// 0 left, 1 centre, 2 right, 3 decimal.
+	pub kind: u8,
+	/// 0 none, 1 dots, 2 hyphens, 3 underline.
+	pub leader: u8,
+}
+
+/// A paragraph's tab stops and the default step that applies past the last one.
+#[derive(Copy, Clone, Debug)]
+pub struct Stops {
+	/// Stops set.
+	pub n: usize,
+	/// The stops, in position order.
+	pub set: [Stop; MAX_STOPS],
+	/// The default step, in device units (every half inch).
+	pub step: i32,
+}
+
+impl Stops {
+	/// The stops of paragraph format `pf`, converted at `rx` units per inch.
+	pub fn for_para<S: Store + ?Sized>(doc: &Doc, s: &S, pf: &PFmt, rx: u16) -> Stops {
+		let mut st = Stops {
+			n: 0,
+			set: [Stop::default(); MAX_STOPS],
+			step: to_units(720, rx).max(1),
+		};
+		if pf.tabset != NO_TABS {
+			if let Some(ts) = doc.tabsets.get(s, pf.tabset) {
+				for (i, t) in ts.stops.iter().take(usize::from(ts.count)).enumerate() {
+					if let Some(slot) = st.set.get_mut(i) {
+						*slot = Stop {
+							x: to_units(t.pos, rx),
+							kind: t.kind,
+							leader: t.leader,
+						};
+						st.n = i + 1;
+					}
+				}
+			}
+		}
+		st
+	}
+
+	/// The first stop after `cur` (units from the margin): a set stop, or a default left stop.
+	pub fn next(&self, cur: i32) -> Stop {
+		for st in self.set.iter().take(self.n) {
+			if st.x > cur {
+				return *st;
+			}
+		}
+		let last = self.set.get(self.n.wrapping_sub(1)).map_or(0, |s| s.x);
+		let from = cur.max(last);
+		Stop {
+			x: (from / self.step + 1) * self.step,
+			kind: 0,
+			leader: 0,
+		}
+	}
+}
+
+/// How far a tab at `cur` advances to reach `stop`, given the width of the text that follows it up to the next tab (`seg`) and
+/// the part of it before a decimal point (`dec`). A left stop advances to the stop; the others hold the segment back so that it
+/// ends, centres or lines up on the stop, and advance nothing when it is wider than the room.
+pub fn tab_advance(stop: &Stop, cur: i32, seg: i32, dec: i32) -> i32 {
+	match stop.kind {
+		1 => (stop.x - seg / 2 - cur).max(0),
+		2 => (stop.x - seg - cur).max(0),
+		3 => (stop.x - dec - cur).max(0),
+		_ => (stop.x - cur).max(1),
+	}
+}
+
 /// One laid-out line, in device units.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Line {
@@ -153,7 +229,8 @@ pub struct Line {
 	pub y: i32,
 }
 
-fn to_units(twips: i32, res: u16) -> i32 {
+/// Twips to device units, rounding half up.
+pub fn to_units(twips: i32, res: u16) -> i32 {
 	let v = i64::from(twips) * i64::from(res) * 2 + 1440;
 	v.div_euclid(2880) as i32
 }
@@ -217,7 +294,6 @@ where
 	let total = text.len();
 	let text_w = to_units(doc.page.paper_w - doc.page.margin_l - doc.page.margin_r, rx);
 	let text_h = to_units(doc.page.paper_h - doc.page.margin_t - doc.page.margin_b, ry);
-	let default_tab = to_units(720, rx).max(1);
 	let mut cache = FontCache::new();
 	let mut page = 1u32;
 	let mut y = 0i32;
@@ -232,6 +308,7 @@ where
 			.and_then(|p| text.pfmt_at(s, p))
 			.and_then(|i| doc.pfmts.get(s, i))
 			.unwrap_or(PFmt::DEFAULT);
+		let stops = Stops::for_para(doc, s, &pf, rx);
 		let left = to_units(pf.left, rx);
 		let right = to_units(pf.right, rx);
 		let first = to_units(pf.first, rx);
@@ -309,7 +386,13 @@ where
 						}
 						let w = if c == 0x09 {
 							let cur = x0 + width;
-							((cur / default_tab) + 1) * default_tab - cur
+							let stop = stops.next(cur);
+							let (seg, dec) = if stop.kind == 0 {
+								(0, 0)
+							} else {
+								segment(doc, s, &mut cache, m, p + 1, end)
+							};
+							tab_advance(&stop, cur, seg, dec)
 						} else if c == 0x01 {
 							0
 						} else {
@@ -403,4 +486,52 @@ fn para_end<S: Store + ?Sized>(text: &crate::doc::StoryText, s: &S, pos: u32, to
 		at += n as u32;
 	}
 	total
+}
+
+/// The width of the text from `from` to the next tab, line break or paragraph mark (at most 200 characters), and the part of it
+/// before the first decimal point (all of it when there is none).
+fn segment<S, M>(
+	doc: &Doc,
+	s: &S,
+	cache: &mut FontCache,
+	m: &mut M,
+	from: u32,
+	end: u32,
+) -> (i32, i32)
+where
+	S: Store + ?Sized,
+	M: Measure + ?Sized,
+{
+	let text = &doc.body;
+	let (mut total, mut dec) = (0i32, None::<i32>);
+	let mut done = false;
+	let span = (end.saturating_sub(from)).min(200);
+	text.for_each_run(s, from, span, |_, piece| {
+		if done {
+			return;
+		}
+		let (fr, _, _) = font_ref(doc, s, piece.cfmt);
+		let slot = cache.slot(m, &fr);
+		let mut buf = [0u8; 64];
+		let mut at = 0u32;
+		while at < piece.len && !done {
+			let take = (piece.len - at).min(64) as usize;
+			let Some(b) = buf.get_mut(..take) else {
+				return;
+			};
+			text.read_piece(s, &piece, at, b);
+			for &c in b.iter() {
+				if c == 0x09 || c == 0x0D || c == 0x0B {
+					done = true;
+					break;
+				}
+				if c == b'.' && dec.is_none() {
+					dec = Some(total);
+				}
+				total += cache.width(slot, c);
+			}
+			at += take as u32;
+		}
+	});
+	(total, dec.unwrap_or(total))
 }

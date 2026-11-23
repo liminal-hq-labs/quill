@@ -16,12 +16,12 @@
 
 mod paint;
 
-use quill_core::doc::Doc;
-use quill_core::layout::{layout_story, Line};
+use quill_core::doc::{cflag, CFmt, Doc, PFmt};
+use quill_core::layout::{layout_story, tab_advance, Line, Stops};
 use quill_core::store::Store;
 use quill_core::Error;
 use quill_formats::io::{Sink, Source};
-use quill_formats::{qld, text, FormatError};
+use quill_formats::{qld, rtf, text, FormatError};
 use quill_grid::GridMeasure;
 
 pub use paint::{draw, Cursor};
@@ -61,10 +61,44 @@ pub enum Key {
 	CtrlHome,
 	/// Ctrl+End.
 	CtrlEnd,
+	/// Shift with an arrow, Home, End or a page key: the same movement, extending the selection.
+	Select(Dir),
+	/// The Insert key.
+	Insert,
 	/// A function key, 1 to 12.
 	F(u8),
 	/// Ctrl with a letter, as the lower-case letter.
 	Ctrl(u8),
+}
+
+/// A direction for the movement keys.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Dir {
+	/// Left arrow.
+	Left,
+	/// Right arrow.
+	Right,
+	/// Up arrow.
+	Up,
+	/// Down arrow.
+	Down,
+	/// Home.
+	Home,
+	/// End.
+	End,
+	/// Page Up.
+	PageUp,
+	/// Page Down.
+	PageDown,
+}
+
+/// The attribute scheme of text mode.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Scheme {
+	/// Colours: white on blue, bold bright, italic cyan.
+	Colour,
+	/// Monochrome: normal, bright, reverse and underline.
+	Mono,
 }
 
 /// Where files come from and go to.
@@ -98,6 +132,24 @@ pub enum Command {
 	Undo,
 	/// Edit > Redo.
 	Redo,
+	/// Character > Regular.
+	Regular,
+	/// Character > Bold.
+	Bold,
+	/// Character > Italic.
+	Italic,
+	/// Character > Underline.
+	Underline,
+	/// Character > Strikethrough.
+	Strike,
+	/// Character > Superscript.
+	Super,
+	/// Character > Subscript.
+	Sub,
+	/// Paragraph > Left, Centred, Right or Justified (0 to 3).
+	Align(u8),
+	/// Paragraph > Single, 1½ or Double Space (0 to 2).
+	Spacing(u8),
 }
 
 const NAME_MAX: usize = 64;
@@ -108,6 +160,10 @@ pub mod label {
 	pub const TYPING: u8 = 1;
 	/// Deleting.
 	pub const DELETE: u8 = 2;
+	/// Character formatting.
+	pub const CHAR_FORMAT: u8 = 3;
+	/// Paragraph formatting.
+	pub const PARA_FORMAT: u8 = 4;
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -145,6 +201,15 @@ pub struct App {
 	quit: bool,
 	pub(crate) msg: &'static str,
 	pending: Option<Command>,
+	/// The other end of the selection, when there is one.
+	pub(crate) anchor: Option<u32>,
+	pub(crate) extend: bool,
+	pub(crate) overtype: bool,
+	pub(crate) scheme: Scheme,
+	/// The format the next typed character takes, chosen with no selection.
+	typing_fmt: Option<u16>,
+	/// The format the document was opened in: 0 native, 1 RTF, 2 text.
+	fmt: u8,
 }
 
 impl Default for App {
@@ -169,6 +234,12 @@ impl App {
 			quit: false,
 			msg: "",
 			pending: None,
+			anchor: None,
+			extend: false,
+			overtype: false,
+			scheme: Scheme::Colour,
+			typing_fmt: None,
+			fmt: 0,
 		}
 	}
 
@@ -182,6 +253,16 @@ impl App {
 		self.mode = Mode::Edit;
 		self.typing = false;
 		Ok(())
+	}
+
+	/// Chooses the attribute scheme.
+	pub fn set_scheme(&mut self, scheme: Scheme) {
+		self.scheme = scheme;
+	}
+
+	/// True in overtype mode.
+	pub fn overtype(&self) -> bool {
+		self.overtype
 	}
 
 	/// True once the person has chosen Exit.
@@ -222,10 +303,13 @@ impl App {
 		let mut head = [0u8; 12];
 		let n = f.open(name).ok_or(FormatError::BadFile)?.read(&mut head);
 		let native = n == 12 && head.starts_with(b"RIFF") && head.get(8..12) == Some(b"QLD1");
+		let rich = n >= 5 && head.starts_with(b"{\\rtf");
 		let mut r = f.open(name).ok_or(FormatError::BadFile)?;
 		let mut fresh = Doc::new();
 		let res = if native {
 			qld::read(&mut fresh, s, &mut r)
+		} else if rich {
+			rtf::read(&mut fresh, s, &mut r)
 		} else {
 			text::read(&mut fresh, s, &mut r)
 		};
@@ -240,6 +324,13 @@ impl App {
 		self.modified = false;
 		self.typing = false;
 		self.set_name(name);
+		self.fmt = if native {
+			0
+		} else if rich {
+			1
+		} else {
+			2
+		};
 		Ok(())
 	}
 
@@ -252,12 +343,19 @@ impl App {
 		let name = self.name;
 		let name = name.get(..self.name_len).unwrap_or(&[]);
 		let mut w = f.create(name).ok_or(FormatError::Write)?;
-		let is_text = name.len() >= 4 && name.get(name.len() - 4..) == Some(b".TXT");
-		if is_text {
-			text::write(&self.doc, s, &mut w)?;
-		} else {
-			qld::write(&self.doc, s, &mut w)?;
+		let ext = name.len().checked_sub(4).and_then(|i| name.get(i..));
+		let kind = match ext {
+			Some(b".QLD") => 0,
+			Some(b".RTF") => 1,
+			Some(b".TXT") => 2,
+			_ => self.fmt,
+		};
+		match kind {
+			1 => rtf::write(&self.doc, s, &mut w)?,
+			2 => text::write(&self.doc, s, &mut w)?,
+			_ => qld::write(&self.doc, s, &mut w)?,
 		}
+		self.fmt = kind;
 		if !f.close(w) {
 			return Err(FormatError::Write);
 		}
@@ -308,37 +406,53 @@ impl App {
 		found
 	}
 
-	/// The x of each character of a line, calling `f(position, character, x, width)`.
+	/// The x of each character of a line, calling `f(position, character, x, width, leader)`. The leader is 0 except for a tab
+	/// that has one (1 dots, 2 hyphens, 3 underline).
 	pub(crate) fn walk<S: Store + ?Sized>(
 		&self,
 		s: &S,
 		line: &Line,
-		mut f: impl FnMut(u32, u8, i32, i32),
+		mut f: impl FnMut(u32, u8, i32, i32, u8),
 	) {
+		let pf = self
+			.para_mark(s, line.start)
+			.and_then(|m| self.doc.body.pfmt_at(s, m))
+			.and_then(|i| self.doc.pfmts.get(s, i))
+			.unwrap_or(PFmt::DEFAULT);
+		let stops = Stops::for_para(&self.doc, s, &pf, 10);
+		let mut buf = [0u8; 256];
+		let want = (line.len as usize).min(buf.len());
+		let n = buf
+			.get_mut(..want)
+			.map_or(0, |b| self.doc.body.read(s, line.start, b));
 		let mut x = line.x;
-		let mut at = 0u32;
-		let mut buf = [0u8; 64];
-		while at < line.len {
-			let want = ((line.len - at) as usize).min(64);
-			let Some(b) = buf.get_mut(..want) else {
-				return;
+		for i in 0..n {
+			let c = buf.get(i).copied().unwrap_or(b' ');
+			let rel = line.indent + (x - line.x);
+			let (w, leader) = if c == 0x09 {
+				let stop = stops.next(rel);
+				let (mut seg, mut dec, mut seen_dot) = (0, 0, false);
+				if stop.kind != 0 {
+					for &d in buf.get(i + 1..n).unwrap_or(&[]) {
+						if d == 0x09 || d == 0x0B {
+							break;
+						}
+						if d == b'.' && !seen_dot {
+							seen_dot = true;
+							dec = seg;
+						}
+						seg += 1;
+					}
+					if !seen_dot {
+						dec = seg;
+					}
+				}
+				(tab_advance(&stop, rel, seg, dec), stop.leader)
+			} else {
+				(1, 0)
 			};
-			let n = self.doc.body.read(s, line.start + at, b);
-			if n == 0 {
-				return;
-			}
-			for (i, &c) in b.iter().take(n).enumerate() {
-				let rel = line.indent + (x - line.x);
-				// A tab runs to the next half inch; everything else, an inline object included, is one column.
-				let w = if c == 0x09 {
-					(rel / 5 + 1) * 5 - rel
-				} else {
-					1
-				};
-				f(line.start + at + i as u32, c, x, w);
-				x += w;
-			}
-			at += n as u32;
+			f(line.start + i as u32, c, x, w, leader);
+			x += w;
 		}
 	}
 
@@ -346,7 +460,7 @@ impl App {
 	pub(crate) fn x_of<S: Store + ?Sized>(&self, s: &S, line: &Line, pos: u32) -> i32 {
 		let mut x = line.x;
 		let mut end = line.x;
-		self.walk(s, line, |p, _, cx, w| {
+		self.walk(s, line, |p, _, cx, w, _| {
 			if p == pos {
 				x = cx;
 			}
@@ -361,7 +475,7 @@ impl App {
 
 	fn pos_at_x<S: Store + ?Sized>(&self, s: &S, line: &Line, want: i32) -> u32 {
 		let mut best = (line.start, i32::MAX);
-		self.walk(s, line, |p, _, x, _| {
+		self.walk(s, line, |p, _, x, _, _| {
 			let d = (x - want).abs();
 			if d < best.1 {
 				best = (p, d);
@@ -417,14 +531,49 @@ impl App {
 		None
 	}
 
+	/// The selection as an ordered range, when it holds anything.
+	pub fn selection(&self) -> Option<(u32, u32)> {
+		let a = self.anchor?;
+		let (lo, hi) = if a < self.caret {
+			(a, self.caret)
+		} else {
+			(self.caret, a)
+		};
+		(lo != hi).then_some((lo, hi.min(self.doc.body.len().saturating_sub(1))))
+	}
+
+	/// Removes the selection (never the final paragraph mark) and puts the caret where it was. Returns true when it did.
+	fn delete_selection<S: Store + ?Sized>(&mut self, s: &mut S) -> bool {
+		let Some((lo, hi)) = self.selection() else {
+			self.anchor = None;
+			return false;
+		};
+		self.anchor = None;
+		if hi > lo && self.doc.body.delete(s, lo, hi - lo, label::DELETE).is_ok() {
+			self.caret = lo;
+			self.modified = true;
+			true
+		} else {
+			false
+		}
+	}
+
 	fn insert<S: Store + ?Sized>(&mut self, s: &mut S, c: u8) {
+		if self.selection().is_some() {
+			self.end_typing();
+			self.doc.body.begin_group(label::TYPING);
+			self.typing = true;
+			self.delete_selection(s);
+		}
+		self.anchor = None;
 		let t = &self.doc.body;
-		let cfmt = if self.caret > 0 {
+		let prev = if self.caret > 0 {
 			t.cfmt_at(s, self.caret - 1)
 		} else {
 			t.cfmt_at(s, 0)
 		}
 		.unwrap_or(0);
+		let cfmt = self.typing_fmt.unwrap_or(prev);
 		let pfmt = self
 			.para_mark(s, self.caret)
 			.and_then(|m| t.pfmt_at(s, m))
@@ -434,6 +583,14 @@ impl App {
 			self.typing = true;
 		}
 		self.want_x = -1;
+		// Overtype replaces the character after the caret, except a paragraph mark.
+		if self.overtype
+			&& c != 0x0D
+			&& self.caret + 1 < self.doc.body.len()
+			&& self.doc.body.read_byte(s, self.caret) != Some(0x0D)
+		{
+			let _ = self.doc.body.delete(s, self.caret, 1, label::TYPING);
+		}
 		match self
 			.doc
 			.body
@@ -450,12 +607,17 @@ impl App {
 		}
 		if c == 0x0D {
 			self.end_typing();
+			self.typing_fmt = None;
 		}
 	}
 
 	fn delete<S: Store + ?Sized>(&mut self, s: &mut S, pos: u32) {
 		self.end_typing();
 		self.want_x = -1;
+		if self.selection().is_some() {
+			self.delete_selection(s);
+			return;
+		}
 		if self.doc.body.delete(s, pos, 1, label::DELETE).is_ok() {
 			self.caret = pos;
 			self.modified = true;
@@ -521,6 +683,65 @@ impl App {
 				self.pending = None;
 				self.quit = true;
 			}
+			Command::Regular => self.char_command(
+				s,
+				|c| CFmt {
+					flags: 0,
+					vpos: 0,
+					..c
+				},
+				None,
+			),
+			Command::Bold => self.char_command(
+				s,
+				|c| CFmt {
+					flags: c.flags ^ cflag::BOLD,
+					..c
+				},
+				Some(cflag::BOLD),
+			),
+			Command::Italic => self.char_command(
+				s,
+				|c| CFmt {
+					flags: c.flags ^ cflag::ITALIC,
+					..c
+				},
+				Some(cflag::ITALIC),
+			),
+			Command::Underline => self.char_command(
+				s,
+				|c| CFmt {
+					flags: c.flags ^ cflag::UNDERLINE,
+					..c
+				},
+				Some(cflag::UNDERLINE),
+			),
+			Command::Strike => self.char_command(
+				s,
+				|c| CFmt {
+					flags: c.flags ^ cflag::STRIKE,
+					..c
+				},
+				Some(cflag::STRIKE),
+			),
+			Command::Super => self.char_command(
+				s,
+				|c| CFmt {
+					vpos: if c.vpos == 1 { 0 } else { 1 },
+					..c
+				},
+				None,
+			),
+			Command::Sub => self.char_command(
+				s,
+				|c| CFmt {
+					vpos: if c.vpos == 2 { 0 } else { 2 },
+					..c
+				},
+				None,
+			),
+			Command::Align(a) => self.para_command(s, |p| PFmt { align: a, ..p }),
+			Command::Spacing(n) => self.para_command(s, |p| PFmt { spacing: n, ..p }),
 			Command::Undo => {
 				if self.doc.body.undo(s).unwrap_or(false) {
 					self.modified = true;
@@ -534,6 +755,128 @@ impl App {
 				}
 			}
 		}
+	}
+
+	/// Applies a character-format change to the selection, or sets the format typing takes next when nothing is selected.
+	/// `flag` makes the change a toggle: when every character already has it, it is switched off for all.
+	fn char_command<S: Store + ?Sized>(
+		&mut self,
+		s: &mut S,
+		f: impl Fn(CFmt) -> CFmt,
+		flag: Option<u16>,
+	) {
+		let Some((lo, hi)) = self.selection() else {
+			let t = &self.doc.body;
+			let at = if self.caret > 0 { self.caret - 1 } else { 0 };
+			let cur = self.typing_fmt.or_else(|| t.cfmt_at(s, at)).unwrap_or(0);
+			if let Some(c) = self.doc.cfmts.get(s, cur) {
+				self.typing_fmt = self.doc.cfmts.intern(s, f(c)).ok();
+			}
+			return;
+		};
+		// A toggle that every character already has switches off; otherwise it switches on for all.
+		let mut all = true;
+		if let Some(bit) = flag {
+			let mut cfs = [0u16; 32];
+			let mut n = 0;
+			self.doc.body.for_each_run(s, lo, hi - lo, |_, p| {
+				if let Some(slot) = cfs.get_mut(n) {
+					*slot = p.cfmt;
+					n += 1;
+				}
+			});
+			for cf in cfs.iter().take(n) {
+				if self
+					.doc
+					.cfmts
+					.get(s, *cf)
+					.is_some_and(|c| c.flags & bit == 0)
+				{
+					all = false;
+				}
+			}
+		}
+		self.doc.body.begin_group(label::CHAR_FORMAT);
+		let mut at = lo;
+		while at < hi {
+			let mut runs = [(0u32, 0u32, 0u16); 32];
+			let mut n = 0;
+			self.doc.body.for_each_run(s, at, hi - at, |pos, p| {
+				if let Some(slot) = runs.get_mut(n) {
+					*slot = (pos, p.len, p.cfmt);
+					n += 1;
+				}
+			});
+			if n == 0 {
+				break;
+			}
+			for &(pos, len, cf) in runs.iter().take(n) {
+				let Some(c) = self.doc.cfmts.get(s, cf) else {
+					continue;
+				};
+				let mut new = f(c);
+				if let Some(bit) = flag {
+					// Make the toggle uniform: on for everything unless everything had it.
+					new.flags = if all { c.flags & !bit } else { c.flags | bit };
+				}
+				if let Ok(idx) = self.doc.cfmts.intern(s, new) {
+					let _ = self.doc.body.set_cfmt(s, pos, len, idx, label::CHAR_FORMAT);
+				}
+				at = pos + len;
+			}
+		}
+		self.doc.body.end_group();
+		self.modified = true;
+	}
+
+	/// Applies a paragraph-format change to every paragraph the selection or the caret touches.
+	fn para_command<S: Store + ?Sized>(&mut self, s: &mut S, f: impl Fn(PFmt) -> PFmt) {
+		let (lo, hi) = self.selection().unwrap_or((self.caret, self.caret));
+		let t_len = self.doc.body.len();
+		let mut start = self.para_start(s, lo);
+		self.doc.body.begin_group(label::PARA_FORMAT);
+		while let Some(mark) = self.para_mark(s, start) {
+			let old = self
+				.doc
+				.body
+				.pfmt_at(s, mark)
+				.and_then(|i| self.doc.pfmts.get(s, i))
+				.unwrap_or(PFmt::DEFAULT);
+			if let Ok(idx) = self.doc.pfmts.intern(s, f(old)) {
+				let _ = self
+					.doc
+					.body
+					.set_pfmt(s, start, mark + 1 - start, idx, label::PARA_FORMAT);
+			}
+			start = mark + 1;
+			if start > hi || start >= t_len {
+				break;
+			}
+		}
+		self.doc.body.end_group();
+		self.modified = true;
+	}
+
+	/// The position where the paragraph holding `pos` starts.
+	fn para_start<S: Store + ?Sized>(&self, s: &S, pos: u32) -> u32 {
+		let t = &self.doc.body;
+		let mut end = pos;
+		let mut buf = [0u8; 64];
+		while end > 0 {
+			let from = end.saturating_sub(64);
+			let n = t.read(
+				s,
+				from,
+				buf.get_mut(..(end - from) as usize).unwrap_or(&mut []),
+			);
+			for i in (0..n).rev() {
+				if buf.get(i) == Some(&0x0D) {
+					return from + i as u32 + 1;
+				}
+			}
+			end = from;
+		}
+		0
 	}
 
 	fn do_save<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F) -> bool {
@@ -585,39 +928,31 @@ impl App {
 		self.scroll(s);
 	}
 
-	fn key_edit<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, k: Key) {
+	fn move_caret<S: Store + ?Sized>(&mut self, s: &S, d: Dir) {
 		let len = self.doc.body.len();
-		match k {
-			Key::Char(c) => self.insert(s, c),
-			Key::Tab => self.insert(s, 0x09),
-			Key::Enter => self.insert(s, 0x0D),
-			Key::Backspace if self.caret > 0 => self.delete(s, self.caret - 1),
-			Key::Delete if self.caret + 1 < len => self.delete(s, self.caret),
-			Key::Left => {
-				self.end_typing();
+		match d {
+			Dir::Left => {
 				self.caret = self.caret.saturating_sub(1);
 				self.want_x = -1;
 			}
-			Key::Right => {
-				self.end_typing();
+			Dir::Right => {
 				self.caret = (self.caret + 1).min(len.saturating_sub(1));
 				self.want_x = -1;
 			}
-			Key::Up | Key::Down | Key::PageUp | Key::PageDown => {
-				self.end_typing();
-				let delta = match k {
-					Key::Up => -1,
-					Key::Down => 1,
-					Key::PageUp => -(paint::TEXT_ROWS as i32 - 1),
-					_ => paint::TEXT_ROWS as i32 - 1,
+			Dir::Up | Dir::Down | Dir::PageUp | Dir::PageDown => {
+				let page = paint::TEXT_ROWS as i32 - 1;
+				let delta = match d {
+					Dir::Up => -1,
+					Dir::Down => 1,
+					Dir::PageUp => -page,
+					_ => page,
 				};
 				let keep = self.want_x >= 0;
 				self.move_vertical(s, delta, keep);
 			}
-			Key::Home | Key::End => {
-				self.end_typing();
+			Dir::Home | Dir::End => {
 				if let Some((_, l)) = self.caret_line(s) {
-					self.caret = if k == Key::Home {
+					self.caret = if d == Dir::Home {
 						l.start
 					} else {
 						l.start + l.len
@@ -625,16 +960,71 @@ impl App {
 				}
 				self.want_x = -1;
 			}
-			Key::CtrlHome => {
+		}
+	}
+
+	fn key_edit<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, k: Key) {
+		let len = self.doc.body.len();
+		let dir = match k {
+			Key::Left => Some(Dir::Left),
+			Key::Right => Some(Dir::Right),
+			Key::Up => Some(Dir::Up),
+			Key::Down => Some(Dir::Down),
+			Key::Home => Some(Dir::Home),
+			Key::End => Some(Dir::End),
+			Key::PageUp => Some(Dir::PageUp),
+			Key::PageDown => Some(Dir::PageDown),
+			Key::Select(d) => Some(d),
+			_ => None,
+		};
+		if let Some(d) = dir {
+			self.end_typing();
+			self.typing_fmt = None;
+			if matches!(k, Key::Select(_)) || self.extend {
+				if self.anchor.is_none() {
+					self.anchor = Some(self.caret);
+				}
+			} else {
+				self.anchor = None;
+			}
+			self.move_caret(s, d);
+			return;
+		}
+		match k {
+			Key::Char(c) => self.insert(s, c),
+			Key::Tab => self.insert(s, 0x09),
+			Key::Enter => self.insert(s, 0x0D),
+			Key::Backspace if self.selection().is_some() => self.delete(s, self.caret),
+			Key::Backspace if self.caret > 0 => self.delete(s, self.caret - 1),
+			Key::Delete if self.selection().is_some() => self.delete(s, self.caret),
+			Key::Delete if self.caret + 1 < len => self.delete(s, self.caret),
+			Key::CtrlHome | Key::CtrlEnd => {
 				self.end_typing();
-				self.caret = 0;
+				self.typing_fmt = None;
+				if self.extend {
+					if self.anchor.is_none() {
+						self.anchor = Some(self.caret);
+					}
+				} else {
+					self.anchor = None;
+				}
+				self.caret = if k == Key::CtrlHome {
+					0
+				} else {
+					len.saturating_sub(1)
+				};
 				self.want_x = -1;
 			}
-			Key::CtrlEnd => {
-				self.end_typing();
-				self.caret = len.saturating_sub(1);
-				self.want_x = -1;
+			Key::Esc => {
+				self.anchor = None;
+				self.extend = false;
 			}
+			Key::F(8) => {
+				self.extend = !self.extend;
+				self.anchor = if self.extend { Some(self.caret) } else { None };
+			}
+			Key::Insert => self.overtype = !self.overtype,
+			Key::F(5) => self.run(s, f, Command::Regular),
 			Key::F(10) => {
 				self.end_typing();
 				self.mode = Mode::Menu { menu: 0, item: 0 };
@@ -645,6 +1035,13 @@ impl App {
 			Key::Ctrl(b'q') => self.run(s, f, Command::Exit),
 			Key::Ctrl(b'z') => self.run(s, f, Command::Undo),
 			Key::Ctrl(b'y') => self.run(s, f, Command::Redo),
+			Key::Ctrl(b'b') => self.run(s, f, Command::Bold),
+			Key::Ctrl(b'i') => self.run(s, f, Command::Italic),
+			Key::Ctrl(b'u') => self.run(s, f, Command::Underline),
+			Key::Ctrl(b'l') => self.run(s, f, Command::Align(0)),
+			Key::Ctrl(b'e') => self.run(s, f, Command::Align(1)),
+			Key::Ctrl(b'r') => self.run(s, f, Command::Align(2)),
+			Key::Ctrl(b'j') => self.run(s, f, Command::Align(3)),
 			_ => {}
 		}
 	}
@@ -659,27 +1056,43 @@ impl App {
 	) {
 		let items = paint::menu_items(menu);
 		let n = items.len() as u8;
+		let total = paint::MENU_COUNT;
+		// The next menu that has items, going left or right round the bar.
+		let step = |from: u8, right: bool| {
+			let mut m = from;
+			for _ in 0..total {
+				m = if right {
+					(m + 1) % total
+				} else {
+					(m + total - 1) % total
+				};
+				if !paint::menu_items(m).is_empty() {
+					return m;
+				}
+			}
+			from
+		};
 		match k {
 			Key::Esc | Key::F(10) => self.mode = Mode::Edit,
 			Key::Left => {
 				self.mode = Mode::Menu {
-					menu: (menu + paint::ACTIVE_MENUS - 1) % paint::ACTIVE_MENUS,
+					menu: step(menu, false),
 					item: 0,
 				}
 			}
 			Key::Right => {
 				self.mode = Mode::Menu {
-					menu: (menu + 1) % paint::ACTIVE_MENUS,
+					menu: step(menu, true),
 					item: 0,
 				}
 			}
-			Key::Up => {
+			Key::Up if n > 0 => {
 				self.mode = Mode::Menu {
 					menu,
 					item: (item + n - 1) % n,
 				}
 			}
-			Key::Down => {
+			Key::Down if n > 0 => {
 				self.mode = Mode::Menu {
 					menu,
 					item: (item + 1) % n,

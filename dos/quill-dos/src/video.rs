@@ -92,7 +92,6 @@ pub fn cursor(at: Option<(u8, u8)>) {
 	match at {
 		Some((x, y)) => {
 			int10(0x0200, 0, 0, (u32::from(y) << 8) | u32::from(x));
-			int10(0x0100, 0, 0x0607, 0);
 		}
 		None => hide_cursor(),
 	}
@@ -105,4 +104,9 @@ pub fn read_back<const ROWS: usize>() -> Grid<ROWS> {
 	// SAFETY: as `present`.
 	g.load_words(|i| unsafe { vram.add(i).read_volatile() });
 	g
+}
+
+/// Shapes the hardware cursor: a line under the character for insert, a block for overtype.
+pub fn cursor_shape(overtype: bool) {
+	int10(0x0100, 0, if overtype { 0x000F } else { 0x0607 }, 0);
 }

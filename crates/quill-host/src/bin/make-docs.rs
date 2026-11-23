@@ -14,6 +14,18 @@ fn main() -> ExitCode {
 		return ExitCode::from(2);
 	};
 	let mut s = HostStore::new();
+	match docs::letter_bytes(&mut s) {
+		Ok(b) => {
+			if let Err(e) = std::fs::write(format!("{dir}/letter.qld"), b) {
+				eprintln!("make-docs: {e}");
+				return ExitCode::from(1);
+			}
+		}
+		Err(e) => {
+			eprintln!("make-docs: {e:?}");
+			return ExitCode::from(1);
+		}
+	}
 	match docs::plain_bytes(&mut s) {
 		Ok(b) => {
 			if let Err(e) = std::fs::write(format!("{dir}/plain.qld"), b) {

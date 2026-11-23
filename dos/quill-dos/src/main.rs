@@ -16,7 +16,7 @@ mod video;
 
 use alloc::boxed::Box;
 use alloc::string::String;
-use quill_app::App;
+use quill_app::{App, Scheme};
 use quill_grid::Grid;
 use quill_heap::HeapStore;
 use rt::dos::{File, Mode};
@@ -29,6 +29,9 @@ fn show(app: &App, s: &HeapStore, dump: &mut Option<File>, n: &mut u32) {
 	let cursor = quill_app::draw(app, s, &mut g);
 	video::present(&g);
 	video::cursor(cursor.map(|(x, y)| (x as u8, y as u8)));
+	if cursor.is_some() {
+		video::cursor_shape(app.overtype());
+	}
 	if let Some(f) = dump {
 		let mut text = String::new();
 		*n += 1;
@@ -46,8 +49,12 @@ fn main() -> i32 {
 		return 1;
 	}
 	let args = env::args();
-	if let Some(name) = args.first() {
-		let _ = app.open(&mut store, &mut files, name.as_bytes());
+	for a in &args {
+		if a.eq_ignore_ascii_case("/mono") || a.eq_ignore_ascii_case("-mono") {
+			app.set_scheme(Scheme::Mono);
+		} else if !a.starts_with('/') && !a.starts_with('-') {
+			let _ = app.open(&mut store, &mut files, a.as_bytes());
+		}
 	}
 	let mut dump = env::var("QUILL_DUMP").and_then(|p| File::open(&p, Mode::Create).ok());
 	let mut n = 0;

@@ -13,6 +13,7 @@ What is built, how it was shown to work, what is blocked and what was assumed. U
 
 | Step | State | Notes |
 |---|---|---|
+| M2 Rich core on DOS | Partly done | Character and paragraph formats with selection, tab stops with leaders, overtype, both attribute schemes, RTF read and write checked in LibreOffice. Lists, headers and footers, find and replace, the Tabs dialog and the other dialogs are not built |
 | M1 DOS text editor | Done | `QUILLDOS.EXE` opens, edits and saves a document; its screens and saved file equal the host's |
 | T1 Register probes | Done for Windows 3.11 at the fast profile | `win16/` copied from `rust-win16` with provenance; two-task probe program; findings below. Wine, the 386SX profile and Windows ME not run |
 | T4 DOS foundation | Done | `dos/` copied with `dos/PROVENANCE.md`; `QUILLDOS.EXE` draws the `quill-grid` hello screen and `dos/tools/e2e.sh` compares it with the host golden |
@@ -31,6 +32,17 @@ What is built, how it was shown to work, what is blocked and what was assumed. U
 
 - `make dos` (or `dos/tools/e2e.sh`) builds `QUILLDOS.EXE` (about 34 KB, CWSDPMI inside) with the pinned toolchain and no C compiler, runs it under headless DOSBox Staging 0.83.0 at `cputype = 486`, and compares the screen it read back from video memory (B8000h) with `tests/golden/screens/hello.80x25.txt`: identical, characters and attributes.
 - The DOS side needs `-Zbuild-std` through `RUSTC_BOOTSTRAP=1`, as Desk does; it is not part of `make validate`, which stays host-only.
+
+### M2 (partly)
+
+- **RTF.** `quill-formats/src/rtf.rs` reads the subset (characters, paragraphs, tab stops with kinds and leaders, page setup, font and colour tables, `\'hh`, `\uN`, the named punctuation) and skips every other destination; it writes the canonical subset. `tests/rtf.rs` checks the hand-written `tests/docs/letter.rtf`, that write, read, write is stable, tolerance of unknown words and destinations, refusal of non-RTF and of control words over 32 characters, and 300 damaged or truncated variants of the letter for panics and leaks.
+- **LibreOffice.** `scripts/check-rtf-libreoffice.sh` reads `letter.rtf`, writes it with Quill, converts both to HTML with `soffice --headless`, and requires the same text and the same counts of bold, italic, underline, strike, superscript, subscript, centred, right, justified, red text, Arial and Courier runs. It passes (3 bold, 1 of each of the others).
+- **Editing.** Selection with Shift or F8, typing over it, Character menu (Regular, Bold, Italic, Underline, Strikethrough, Superscript, Subscript, with toggles over mixed text), Paragraph menu (alignments, spacing), overtype, undo and redo of all of it, tab stops with left, centre, right and decimal kinds and dot, hyphen or underline leaders drawn in the grid, colour and mono schemes (`/MONO`).
+- **Screens.** `tests/scenarios/m2-letter.keys` and `m2-mono.keys` open the letter, format it from the menus, overtype, undo, save as RTF and exit; `dos/tools/e2e.sh` plays them in DOSBox and compares every screen with `tests/golden/screens/m2-letter.frames.txt` and `m2-mono.frames.txt`, and the saved `OUT.RTF` with `tests/golden/files/m2-letter.rtf`.
+
+`docs/media/m2-letter-dos-colour.png` is a DOSBox-X screenshot of `QUILLDOS.EXE LETTER.RTF` (the documentation plan's scene 12): bold bright white, italic cyan, underline magenta, strike dark grey, raised and lowered text brown, tab leaders, a hanging indent and `▒` where CP437 has no curly quote.
+
+Missing from M2 as the roadmap states it: numbered and bulleted lists, headers and footers, find and replace, the Tabs and Fonts dialogs, the mouse, and the DOS clipboard. The RTF reader skips list and header groups, so such files open with their text and character and paragraph formats.
 
 ### M1
 
