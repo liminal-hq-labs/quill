@@ -1,33 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-	Quill hero banner: the Liminal HQ Labs placeholder, a small flask bubbling on a bench.
+	Quill hero banner: a Windows 3.1 window in which a quill nib writes lines of text, with a blue DOS
+	text screen and a Windows 95 window behind it. Brief: docs/hero-brief.md.
 
 	(c) Copyright 2026 Liminal HQ, Scott Morris
 	SPDX-License-Identifier: Apache-2.0 OR MIT
 
-	How to edit: scripts/init-project.sh fills in the title and description. Keep the title under
-	about 16 characters and the description under about 60, or shrink their font-size. Replace the
-	flask with a scene for the project when it has one: keep the 1200 x 320 viewBox, SMIL only, the
-	.motion and .static pairs for reduced motion, data-loop on the root and animations whose dur
-	divides it. For a final wordmark, outline the title with Inkscape (export text to path) and
-	keep the paths. Check every change with scripts/check-banner.sh and its shots option, and look
-	at the frames (docs/new-project.md has the commands).
+	Palette (Quill's own, recorded as D70 in docs/decisions.md): ink blue and parchment with one amber accent.
+		ink      #0a1230 to #16275a   the banner ground (darker in dark mode: #050a1c to #0c1738)
+		parchment #fff4d6 to #e9dcb0  the title, the description and the page the nib writes on
+		amber    #f0a830              the only accent: the nib, the chip, the title's last stop, one coloured word
+		The three operating-system windows borrow their own period colours (VGA blue, Windows 3.1 navy, Windows 95 teal-blue),
+		muted so they sit on the ink.
+
+	How to edit: keep the 1200 x 320 viewBox, SMIL only, the .motion and .static pairs for reduced motion, data-loop on the
+	root and animations whose dur divides it (3 s, 4.5 s, 9 s). Keep the title under about 16 characters and the description
+	under about 64, or shrink their font-size. For a final wordmark, outline the title with Inkscape (export text to path)
+	and keep the paths. Check every change with scripts/check-banner.sh and its shots option, and look at the frames.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="hero-title hero-desc" data-loop="9">
 	<title id="hero-title">Quill</title>
-	<desc id="hero-desc">Quill: A small rich-text word processor for Windows 3.1, written in Rust. A Liminal HQ Labs experiment. An animated banner shows a flask of glowing lime liquid bubbling on a lab bench.</desc>
+	<desc id="hero-desc">Quill: one word processor for DOS, Windows 3.1 and Windows 95, written in Rust. A Liminal HQ Labs experiment and the companion to the Cross-compiling to the past series. An animated banner shows a Windows 3.1 window in which a quill nib writes lines of text, with a blue DOS text screen and a Windows 95 window behind it.</desc>
 
 	<style>
 		.ui { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Adwaita Sans', Inter, sans-serif; }
 		.mono { font-family: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace; }
-		.bg-a { stop-color: #0c0e16; }
-		.bg-b { stop-color: #161a28; }
-		.edge { fill: none; stroke: #2a3040; }
+		.bg-a { stop-color: #0a1230; }
+		.bg-b { stop-color: #16275a; }
+		.edge { fill: none; stroke: #2b3b72; }
 		.static { display: none; }
 		@media (prefers-color-scheme: dark) {
-			.bg-a { stop-color: #050507; }
-			.bg-b { stop-color: #0e1019; }
-			.edge { stroke: #1d212c; }
+			.bg-a { stop-color: #050a1c; }
+			.bg-b { stop-color: #0c1738; }
+			.edge { stroke: #1a2750; }
 		}
 		@media (prefers-reduced-motion: reduce) {
 			.motion { display: none; }
@@ -41,24 +46,22 @@
 			<stop class="bg-b" offset="1"/>
 		</linearGradient>
 		<linearGradient id="afterglow" x1="0" y1="0" x2="1" y2="0">
-			<stop offset="0" stop-color="#ffffff"/>
-			<stop offset="0.55" stop-color="#ffaa40"/>
-			<stop offset="1" stop-color="#f43f5e"/>
+			<stop offset="0" stop-color="#fff4d6"/>
+			<stop offset="0.6" stop-color="#f6dca0"/>
+			<stop offset="1" stop-color="#f0a830"/>
 		</linearGradient>
-		<linearGradient id="liquid" x1="0" y1="0" x2="0" y2="1">
-			<stop offset="0" stop-color="#bef264"/>
-			<stop offset="0.25" stop-color="#a3e635"/>
-			<stop offset="1" stop-color="#4ade80"/>
+		<linearGradient id="w95" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#0a1a7a"/>
+			<stop offset="1" stop-color="#3a7fc4"/>
 		</linearGradient>
 		<radialGradient id="wash">
-			<stop offset="0" stop-color="#a78bfa" stop-opacity="0.16"/>
-			<stop offset="1" stop-color="#a78bfa" stop-opacity="0"/>
+			<stop offset="0" stop-color="#3b5bdb" stop-opacity="0.22"/>
+			<stop offset="1" stop-color="#3b5bdb" stop-opacity="0"/>
 		</radialGradient>
 		<filter id="haze" x="-60%" y="-60%" width="220%" height="220%">
-			<feGaussianBlur stdDeviation="20"/>
+			<feGaussianBlur stdDeviation="22"/>
 		</filter>
 		<clipPath id="frame"><rect width="1200" height="320" rx="18"/></clipPath>
-		<clipPath id="flask-in"><path d="M966 104V156L916 236Q910 248 924 248H1036Q1050 248 1044 236L994 156V104Z"/></clipPath>
 	</defs>
 
 	<g clip-path="url(#frame)">
@@ -69,50 +72,137 @@
 		<!-- hero-text:start (system font; outline it for the final wordmark) -->
 		<text class="ui" x="56" y="128" font-size="60" font-weight="800" letter-spacing="-1" fill="url(#afterglow)">Quill</text>
 		<!-- hero-text:end -->
-		<text class="ui" x="56" y="172" font-size="18" font-weight="500" fill="#e0e0e0">A small rich-text word processor for Windows 3.1, written in Rust</text>
-		<g class="ui" font-size="13" font-weight="600" fill="#b4bfce">
-			<rect id="chip-status" data-box="" x="56" y="200" width="134" height="28" rx="14" fill="#a3e635" fill-opacity="0.08" stroke="#a3e635" stroke-opacity="0.45"/>
-			<circle class="motion" cx="74" cy="214" r="4" fill="#a3e635">
+		<text class="ui" x="56" y="172" font-size="16" font-weight="500" fill="#efe6c8">One word processor for DOS, Windows 3.1 and Windows 95, in Rust</text>
+		<g class="ui" font-size="13" font-weight="600" fill="#c9cde0">
+			<rect id="chip-status" data-box="" x="56" y="200" width="134" height="28" rx="14" fill="#f0a830" fill-opacity="0.1" stroke="#f0a830" stroke-opacity="0.5"/>
+			<circle class="motion" cx="74" cy="214" r="4" fill="#f0a830">
 				<animate attributeName="opacity" dur="3s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" values="1;0.35;1"/>
 			</circle>
-			<circle class="static" cx="74" cy="214" r="4" fill="#a3e635"/>
+			<circle class="static" cx="74" cy="214" r="4" fill="#f0a830"/>
 			<text data-for="chip-status" x="86" y="219">experimental</text>
 		</g>
-		<text class="mono" x="56" y="266" font-size="12" fill="#8a96aa">Liminal HQ Labs</text>
+		<text class="mono" x="56" y="266" font-size="12" fill="#98a2c8">Cross-compiling to the past · Liminal HQ Labs</text>
 
-		<!-- Right: a flask bubbling on the bench -->
-		<rect x="860" y="257" width="300" height="2" fill="#b4bfce" opacity="0.35"/>
+		<!-- Right: three windows like papers on a desk, back to front -->
 		<g class="motion">
-			<ellipse cx="980" cy="212" rx="90" ry="56" fill="#4ade80" opacity="0.2" filter="url(#haze)">
-				<animate attributeName="opacity" dur="4.5s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" values="0.16;0.32;0.16"/>
+			<ellipse cx="880" cy="170" rx="190" ry="90" fill="#3b5bdb" opacity="0.2" filter="url(#haze)">
+				<animate attributeName="opacity" dur="4.5s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" values="0.14;0.3;0.14"/>
 			</ellipse>
 		</g>
-		<ellipse class="static" cx="980" cy="212" rx="90" ry="56" fill="#4ade80" opacity="0.24" filter="url(#haze)"/>
-		<g clip-path="url(#flask-in)">
-			<path fill="url(#liquid)" d="M900 200H1060V260H900Z"/>
-			<g class="motion" fill="#ecfccb">
-				<circle cx="962" cy="244" r="3" opacity="0">
-					<animate attributeName="cy" dur="3s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.05;0.7;1" keySplines="0 0 1 1;0.5 0 0.8 1;0 0 1 1" values="244;244;204;204"/>
-					<animate attributeName="opacity" dur="3s" repeatCount="indefinite" keyTimes="0;0.05;0.15;0.6;0.7;1" values="0;0;0.85;0.85;0;0"/>
-				</circle>
-				<circle cx="990" cy="244" r="4" opacity="0">
-					<animate attributeName="cy" dur="4.5s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.3;0.9;1" keySplines="0 0 1 1;0.5 0 0.8 1;0 0 1 1" values="244;244;204;204"/>
-					<animate attributeName="opacity" dur="4.5s" repeatCount="indefinite" keyTimes="0;0.3;0.4;0.8;0.9;1" values="0;0;0.8;0.8;0;0"/>
-				</circle>
-				<circle cx="1010" cy="242" r="2.5" opacity="0">
-					<animate attributeName="cy" dur="3s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.4;0.95;1" keySplines="0 0 1 1;0.5 0 0.8 1;0 0 1 1" values="242;242;205;205"/>
-					<animate attributeName="opacity" dur="3s" repeatCount="indefinite" keyTimes="0;0.4;0.5;0.85;0.95;1" values="0;0;0.85;0.85;0;0"/>
-				</circle>
+		<ellipse class="static" cx="880" cy="170" rx="190" ry="90" fill="#3b5bdb" opacity="0.22" filter="url(#haze)"/>
+
+		<!-- DOS text screen, back left -->
+		<g>
+			<rect x="590" y="72" width="236" height="170" fill="#14169a" stroke="#0a0c60" stroke-width="2"/>
+			<rect x="590" y="72" width="236" height="12" fill="#a8a8b4"/>
+			<rect x="598" y="76" width="16" height="4" fill="#202030"/>
+			<rect x="622" y="76" width="16" height="4" fill="#202030"/>
+			<rect x="646" y="76" width="24" height="4" fill="#202030"/>
+			<g fill="#a8aac8">
+				<rect x="602" y="96" width="150" height="5"/>
+				<rect x="602" y="108" width="176" height="5"/>
+				<rect x="602" y="132" width="120" height="5"/>
+				<rect x="602" y="156" width="164" height="5"/>
+				<rect x="602" y="168" width="96" height="5"/>
 			</g>
-			<g class="static" fill="#ecfccb" opacity="0.8">
-				<circle cx="962" cy="226" r="3"/>
-				<circle cx="990" cy="214" r="4"/>
-				<circle cx="1010" cy="236" r="2.5"/>
+			<rect x="602" y="120" width="132" height="5" fill="#ffffff"/>
+			<rect x="602" y="144" width="104" height="5" fill="#55e6e6"/>
+			<rect x="590" y="228" width="236" height="14" fill="#a8a8b4"/>
+			<g fill="#14142a"><rect x="598" y="233" width="12" height="4"/><rect x="614" y="233" width="6" height="4"/><rect x="624" y="233" width="12" height="4"/><rect x="640" y="233" width="6" height="4"/><rect x="650" y="233" width="12" height="4"/><rect x="666" y="233" width="6" height="4"/></g>
+		</g>
+
+		<!-- Windows 95 window, back right -->
+		<g>
+			<rect x="958" y="58" width="212" height="172" fill="#b4b6c0" stroke="#0a1230" stroke-width="2"/>
+			<rect x="962" y="62" width="204" height="18" fill="url(#w95)"/>
+			<rect x="1146" y="65" width="16" height="12" fill="#b4b6c0"/>
+			<path d="M1150 68L1158 76M1158 68L1150 76" stroke="#14142a" stroke-width="1.6"/>
+			<rect x="966" y="90" width="196" height="132" fill="#d4d6de"/>
+		</g>
+
+		<!-- Windows 3.1 window, the hero -->
+		<g>
+			<rect x="702" y="38" width="344" height="236" fill="#08102c" opacity="0.5" transform="translate(5 6)"/>
+			<rect x="702" y="38" width="344" height="236" fill="#c4c6d0" stroke="#0a1230" stroke-width="2"/>
+			<rect x="705" y="41" width="338" height="20" fill="#1c2b86"/>
+			<rect x="705" y="41" width="20" height="20" fill="#c4c6d0" stroke="#0a1230" stroke-width="1"/>
+			<rect x="709" y="49" width="12" height="3" fill="#14142a"/>
+			<rect x="1003" y="41" width="20" height="20" fill="#c4c6d0" stroke="#0a1230" stroke-width="1"/>
+			<path d="M1013 46L1008 54H1018Z" fill="#14142a"/>
+			<rect x="1023" y="41" width="20" height="20" fill="#c4c6d0" stroke="#0a1230" stroke-width="1"/>
+			<path d="M1033 56L1028 48H1038Z" fill="#14142a"/>
+			<text class="ui" x="864" y="55.5" font-size="11.5" font-weight="700" text-anchor="middle" fill="#ffffff">Quill - LETTER.QLD</text>
+			<rect x="705" y="61" width="338" height="17" fill="#fbf7ea"/>
+			<g fill="#14142a"><rect x="712" y="67" width="20" height="5" rx="1"/><rect x="740" y="67" width="18" height="5" rx="1"/><rect x="766" y="67" width="26" height="5" rx="1"/><rect x="800" y="67" width="20" height="5" rx="1"/><rect x="828" y="67" width="40" height="5" rx="1"/><rect x="876" y="67" width="44" height="5" rx="1"/></g>
+			<g>
+				<rect x="705" y="78" width="338" height="26" fill="#c4c6d0"/>
+				<g fill="#d8dae2" stroke="#14142a" stroke-width="0.8">
+					<rect x="712" y="82" width="22" height="18"/>
+					<rect x="738" y="82" width="22" height="18"/>
+					<rect x="764" y="82" width="22" height="18"/>
+					<rect x="796" y="82" width="22" height="18"/>
+					<rect x="822" y="82" width="22" height="18"/>
+				</g>
+				<path transform="translate(719 87)" d="M0 0H5Q8 0 8 3Q8 4.6 6.4 5Q9 5.5 9 8Q9 11 5.5 11H0Z M2 2V4.2H4.6Q5.8 4.2 5.8 3.1Q5.8 2 4.6 2Z M2 6V9H5Q6.8 9 6.8 7.5Q6.8 6 5 6Z" fill="#14142a" fill-rule="evenodd"/>
+				<path transform="translate(745 87)" d="M3 0H9L8.6 2H7.3L5.7 9H7L6.6 11H0.6L1 9H2.4L4 2H2.6Z" fill="#14142a"/>
+				<path transform="translate(771 87)" d="M0 0H3.4V6.4Q3.4 8.6 5 8.6Q6.6 8.6 6.6 6.4V0H10V6.6Q10 11 5 11Q0 11 0 6.6Z M0 12.4H10V14H0Z" fill="#14142a"/>
+			</g>
+			<rect x="705" y="104" width="338" height="14" fill="#fbf7ea"/>
+			<g stroke="#14142a" stroke-width="0.8">
+				<path d="M742 114V108M754 114V110M766 114V108M778 114V110M790 114V108M802 114V110M814 114V108M826 114V110M838 114V108M850 114V110M862 114V108M874 114V110M886 114V108M898 114V110M910 114V108M922 114V110M934 114V108M946 114V110M958 114V108M970 114V110M982 114V108M994 114V110M1006 114V108"/>
+			</g>
+			<path d="M742 105L738 110H746Z M742 117L738 112H746Z" fill="#f0a830" stroke="#14142a" stroke-width="0.6"/>
+			<rect x="705" y="118" width="338" height="153" fill="#7c7e90"/>
+			<rect x="716" y="122" width="316" height="146" fill="#fbf1d2"/>
+
+			<!-- the written lines, grown by the nib -->
+			<g class="motion">
+		<clipPath id="line1"><rect x="742" y="134" width="0" height="20"><animate attributeName="width" dur="9s" repeatCount="indefinite" keyTimes="0;0;0.2222;0.944;1" values="0;0;250;250;0"/></rect></clipPath>
+		<clipPath id="line2"><rect x="742" y="158" width="0" height="20"><animate attributeName="width" dur="9s" repeatCount="indefinite" keyTimes="0;0.2342;0.4444;0.944;1" values="0;0;232;232;0"/></rect></clipPath>
+		<clipPath id="line3"><rect x="742" y="182" width="0" height="20"><animate attributeName="width" dur="9s" repeatCount="indefinite" keyTimes="0;0.4564;0.6667;0.944;1" values="0;0;172;172;0"/></rect></clipPath>
+				<g>
+					<animate attributeName="opacity" dur="9s" repeatCount="indefinite" keyTimes="0;0.02;0.889;0.944;1" values="0;1;1;0;0"/>
+					<g clip-path="url(#line1)">
+						<rect x="742" y="139" width="250" height="6" rx="3" fill="#2b2f4a"/>
+						<rect x="742" y="137" width="52" height="10" rx="3" fill="#14172c"/>
+					</g>
+					<g clip-path="url(#line2)">
+						<rect x="742" y="163" width="232" height="6" rx="3" fill="#2b2f4a"/>
+					</g>
+					<g clip-path="url(#line3)">
+						<rect x="742" y="187" width="172" height="6" rx="3" fill="#2b2f4a"/>
+						<rect x="812" y="187" width="46" height="6" rx="3" fill="#f0a830"/>
+					</g>
+					<!-- the nib: a split steel nib with a breather hole -->
+					<g>
+						<animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" calcMode="linear" keyTimes="0;0.2222;0.2342;0.4444;0.4564;0.6667;0.944;1" values="742 142;992 142;742 166;974 166;742 190;914 190;914 190;742 142"/>
+						<g>
+							<animateTransform attributeName="transform" type="translate" dur="3s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" values="0 0;0 1.5;0 0"/>
+							<path d="M0 10L-6 -4Q-4 -12 0 -16Q4 -12 6 -4Z" fill="#f0a830" stroke="#7a4a08" stroke-width="1"/>
+							<circle cx="0" cy="-5" r="1.8" fill="#7a4a08"/>
+							<path d="M0 10V-3" stroke="#7a4a08" stroke-width="0.9"/>
+							<path d="M-2 -16L0 -34L2 -16Z" fill="#fff4d6" stroke="#b8893a" stroke-width="0.8"/>
+						</g>
+					</g>
+					<rect x="918" y="184" width="2.5" height="14" fill="#14172c" opacity="0">
+						<animate attributeName="opacity" dur="9s" repeatCount="indefinite" calcMode="discrete" keyTimes="0;0.667;0.8333;1" values="0;1;0;0"/>
+					</rect>
+				</g>
+			</g>
+			<g class="static">
+				<rect x="742" y="139" width="250" height="6" rx="3" fill="#2b2f4a"/>
+				<rect x="742" y="137" width="52" height="10" rx="3" fill="#14172c"/>
+				<rect x="742" y="163" width="232" height="6" rx="3" fill="#2b2f4a"/>
+				<rect x="742" y="187" width="172" height="6" rx="3" fill="#2b2f4a"/>
+				<rect x="812" y="187" width="46" height="6" rx="3" fill="#f0a830"/>
+				<g transform="translate(914 190)">
+					<path d="M0 10L-6 -4Q-4 -12 0 -16Q4 -12 6 -4Z" fill="#f0a830" stroke="#7a4a08" stroke-width="1"/>
+					<circle cx="0" cy="-5" r="1.8" fill="#7a4a08"/>
+					<path d="M0 10V-3" stroke="#7a4a08" stroke-width="0.9"/>
+					<path d="M-2 -16L0 -34L2 -16Z" fill="#fff4d6" stroke="#b8893a" stroke-width="0.8"/>
+				</g>
 			</g>
 		</g>
-		<path d="M966 104V156L916 236Q910 248 924 248H1036Q1050 248 1044 236L994 156V104" fill="#ffffff" fill-opacity="0.05" stroke="#e0e0e0" stroke-opacity="0.65" stroke-width="2.5" stroke-linejoin="round"/>
-		<rect x="959" y="95" width="42" height="10" rx="4" fill="#161a26" stroke="#e0e0e0" stroke-opacity="0.65" stroke-width="2.5"/>
-		<path d="M936 222L970 168" stroke="#ffffff" stroke-opacity="0.22" stroke-width="5" stroke-linecap="round"/>
 	</g>
 	<rect class="edge" x="0.5" y="0.5" width="1199" height="319" rx="18"/>
 </svg>
