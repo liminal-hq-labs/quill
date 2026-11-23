@@ -224,6 +224,7 @@ fn para_end<S: Store + ?Sized>(doc: &Doc, s: &S, from: u32) -> Option<u32> {
 }
 
 fn para_props<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, pf: &PFmt) {
+	let mut group = false;
 	o.s("\\pard");
 	o.s(match pf.align {
 		1 => "\\qc",
@@ -253,6 +254,40 @@ fn para_props<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, 
 	if pf.flags & 2 != 0 {
 		o.s("\\pagebb");
 	}
+	if pf.flags & 5 != 0 {
+		// The Word 6 form, which every reader since has understood.
+		group = true;
+		o.s("{\\*\\pn");
+		if pf.flags & 1 != 0 {
+			o.s("\\pnlvlblt\\pnindent360{\\pntxtb\\'95}}");
+		} else {
+			let l = doc.lists.get(s, pf.list).unwrap_or_default();
+			let lv = l
+				.levels
+				.get(usize::from(pf.level))
+				.copied()
+				.unwrap_or_default();
+			o.s("\\pnlvlbody");
+			o.s(match lv.style {
+				2 | 3 => "\\pnlcltr",
+				4 => "\\pnlcrm",
+				5 => "\\pnucltr",
+				6 => "\\pnucrm",
+				_ => "\\pndec",
+			});
+			o.word("pnstart", i64::from(lv.start.max(1)));
+			o.s("\\pnindent360{\\pntxta ");
+			o.s(if lv.style == 1 || lv.style == 3 {
+				")"
+			} else {
+				"."
+			});
+			o.s("}}");
+		}
+		if pf.level > 0 {
+			o.word("ilvl", i64::from(pf.level));
+		}
+	}
 	if pf.tabset != NO_TABS {
 		if let Some(ts) = doc.tabsets.get(s, pf.tabset) {
 			for st in ts.stops.iter().take(usize::from(ts.count)) {
@@ -272,7 +307,10 @@ fn para_props<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, 
 			}
 		}
 	}
-	o.s(" ");
+	// A group is not followed by a delimiter space: the next control word starts the run.
+	if !group {
+		o.s(" ");
+	}
 }
 
 fn char_props<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, cf: u16) {
@@ -333,6 +371,11 @@ struct ParaState {
 	tabs: TabSet,
 	next_kind: u8,
 	next_leader: u8,
+	/// 0 none, 1 bullet, 2 numbered.
+	list: u8,
+	style: u8,
+	start: u16,
+	level: u8,
 }
 
 const PARA0: ParaState = ParaState {
@@ -354,6 +397,10 @@ const PARA0: ParaState = ParaState {
 	},
 	next_kind: 0,
 	next_leader: 0,
+	list: 0,
+	style: 0,
+	start: 1,
+	level: 0,
 };
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -362,6 +409,7 @@ enum Dest {
 	FontTable,
 	ColourTable,
 	Skip,
+	Pn,
 }
 
 #[derive(Copy, Clone)]
@@ -484,12 +532,25 @@ impl<S: Store + ?Sized> State<'_, S> {
 			flags |= 2;
 			self.pagebb_next = false;
 		}
+		let mut list = 0;
+		if p.list != 0 {
+			flags |= if p.list == 1 { 1 } else { 4 };
+			let mut def = quill_core::doc::ListDef::default();
+			for (i, lv) in def.levels.iter_mut().enumerate() {
+				*lv = quill_core::doc::ListLevel {
+					style: p.style,
+					start: p.start,
+					indent: 360 * (i as i32 + 1),
+				};
+			}
+			list = self.doc.lists.intern(self.s, def)?;
+		}
 		let pf = PFmt {
 			align: p.align,
 			spacing: p.spacing,
 			flags,
-			list: 0,
-			level: 0,
+			list,
+			level: p.level.min(8),
 			tabset,
 			left: p.left,
 			right: p.right,
@@ -758,7 +819,7 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 							finish_colour(&mut st)?;
 						}
 					}
-					Dest::Skip => {}
+					Dest::Skip | Dest::Pn => {}
 				}
 			}
 		}
@@ -853,6 +914,10 @@ fn control<S: Store + ?Sized>(
 	let v = val.unwrap_or(0) as i32;
 	// Destinations.
 	match w {
+		"pn" => {
+			cur.dest = Dest::Pn;
+			return Ok(());
+		}
 		"fonttbl" => {
 			cur.dest = Dest::FontTable;
 			return Ok(());
@@ -864,7 +929,7 @@ fn control<S: Store + ?Sized>(
 		}
 		"stylesheet" | "info" | "header" | "footer" | "headerl" | "headerr" | "headerf"
 		| "footerl" | "footerr" | "footerf" | "pict" | "object" | "footnote" | "annotation"
-		| "listtable" | "listoverridetable" | "field" | "pn" | "pntext" | "listtext" | "revtbl"
+		| "listtable" | "listoverridetable" | "field" | "pntext" | "listtext" | "revtbl"
 		| "rsidtbl" | "generator" | "xmlnstbl" | "themedata" | "colorschememapping"
 		| "latentstyles" | "datastore" | "fldinst" | "fldrslt" => {
 			if cur.dest != Dest::FontTable && cur.dest != Dest::ColourTable {
@@ -902,6 +967,22 @@ fn control<S: Store + ?Sized>(
 				"red" => st.colour_cur = (v as u8, st.colour_cur.1, st.colour_cur.2, true),
 				"green" => st.colour_cur = (st.colour_cur.0, v as u8, st.colour_cur.2, true),
 				"blue" => st.colour_cur = (st.colour_cur.0, st.colour_cur.1, v as u8, true),
+				_ => {}
+			}
+			return Ok(());
+		}
+		Dest::Pn => {
+			match w {
+				"pnlvlblt" => st.para.list = 1,
+				"pnlvlbody" => st.para.list = 2,
+				"pnlvl" => st.para.level = v.clamp(1, 9) as u8 - 1,
+				"pndec" => st.para.style = 0,
+				"pnlcltr" => st.para.style = 2,
+				"pnlcrm" => st.para.style = 4,
+				"pnucltr" => st.para.style = 5,
+				"pnucrm" => st.para.style = 6,
+				"pnstart" => st.para.start = v.clamp(0, 65535) as u16,
+				"pntxta" | "pntxtb" => cur.dest = Dest::Skip,
 				_ => {}
 			}
 			return Ok(());
@@ -961,6 +1042,7 @@ fn control<S: Store + ?Sized>(
 		"nosupersub" => cur.chars.vpos = 0,
 		"cf" => cur.chars.colour = v.clamp(0, 255) as u8,
 		"pard" => st.para = PARA0,
+		"ilvl" => st.para.level = v.clamp(0, 8) as u8,
 		"ql" => st.para.align = 0,
 		"qc" => st.para.align = 1,
 		"qr" => st.para.align = 2,

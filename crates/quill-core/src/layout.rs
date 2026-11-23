@@ -322,7 +322,9 @@ where
 		let mut line_start = pos;
 		let mut line_no = 0u16;
 		loop {
-			let x0 = if line_no == 0 {
+			// A list label sits in the hanging indent, so the text of the first line starts at the left indent.
+			let listed = pf.flags & 5 != 0;
+			let x0 = if line_no == 0 && !listed {
 				(left + first).max(0)
 			} else {
 				left.max(0)

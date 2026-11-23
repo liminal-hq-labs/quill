@@ -72,11 +72,15 @@ const CHARACTER: [Item; 7] = [
 	item("Superscript", "", Command::Super),
 	item("Subscript", "", Command::Sub),
 ];
-const PARAGRAPH: [Item; 7] = [
+const PARAGRAPH: [Item; 11] = [
 	item("Left", "Ctrl+L", Command::Align(0)),
 	item("Centred", "Ctrl+E", Command::Align(1)),
 	item("Right", "Ctrl+R", Command::Align(2)),
 	item("Justified", "Ctrl+J", Command::Align(3)),
+	item("Bullets", "", Command::Bullets),
+	item("Numbering", "", Command::Numbering),
+	item("Increase Level", "", Command::LevelUp),
+	item("Decrease Level", "", Command::LevelDown),
 	item("Single Space", "", Command::Spacing(0)),
 	item("1\u{bd} Space", "", Command::Spacing(1)),
 	item("Double Space", "", Command::Spacing(2)),
@@ -224,11 +228,51 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 	let caret = app.caret_line(s);
 	let caret_page = caret.map_or(1, |(_, l)| l.page);
 	let mut ln_in_page = 0u32;
+	let mut counters = [[0u32; 9]; 4];
 	let mut cursor = None;
 	app.lines(s, |i, l| {
 		if let Some((ci, _)) = caret {
 			if l.page == caret_page && i <= ci {
 				ln_in_page += 1;
+			}
+		}
+		if l.line == 0 {
+			let pf = app.para_pfmt(s, l.start);
+			if pf.flags & 5 != 0 {
+				let lvl = usize::from(pf.level.min(8));
+				let list = usize::from(pf.list).min(3);
+				let def = app.doc.lists.get(s, pf.list).unwrap_or_default();
+				let lv = def.levels.get(lvl).copied().unwrap_or_default();
+				let mut label = [0u8; 16];
+				let mut n = 0;
+				if pf.flags & 1 != 0 {
+					label[0] = 0x07;
+					n = 1;
+				} else {
+					if let Some(c) = counters.get_mut(list) {
+						let cur = c.get(lvl).copied().unwrap_or(0);
+						let next = if cur == 0 || pf.flags & 8 != 0 {
+							u32::from(lv.start.max(1))
+						} else {
+							cur + 1
+						};
+						if let Some(slot) = c.get_mut(lvl) {
+							*slot = next;
+						}
+						for deeper in c.iter_mut().skip(lvl + 1) {
+							*deeper = 0;
+						}
+						n = number_label(lv.style, next, &mut label);
+					}
+				}
+				let first = quill_core::layout::to_units(pf.left + pf.first, 10).max(0) as usize;
+				let top = app.top;
+				if l_visible(i, top, text_rows) {
+					let row = 1 + (i - top) as usize;
+					for (k, b) in label.iter().take(n).enumerate() {
+						g.put(margin + first + k, row, *b, attr::TEXT);
+					}
+				}
 			}
 		}
 		let top = app.top;
@@ -457,4 +501,74 @@ fn shadow<const ROWS: usize>(g: &mut Grid<ROWS>, x: usize, y: usize, w: usize, h
 			g.put(xx, y + h, c.ch, 0x08);
 		}
 	}
+}
+
+fn l_visible(i: u32, top: u32, rows: usize) -> bool {
+	i >= top && ((i - top) as usize) < rows
+}
+
+/// Writes the label of number `n` in `style` (0 `1.`, 1 `1)`, 2 `a.`, 3 `a)`, 4 `i.`, 5 `A.`, 6 `I.`, 7 `1.`) and returns its length.
+fn number_label(style: u8, n: u32, out: &mut [u8; 16]) -> usize {
+	let mut len = 0;
+	let mut put = |b: u8| {
+		if let Some(slot) = out.get_mut(len) {
+			*slot = b;
+			len += 1;
+		}
+	};
+	match style {
+		2 | 3 | 5 => {
+			let base = if style == 5 { b'A' } else { b'a' };
+			put(base + ((n.max(1) - 1) % 26) as u8);
+		}
+		4 | 6 => {
+			let mut v = n.clamp(1, 3999);
+			for (val, sym) in [
+				(1000, "m"),
+				(900, "cm"),
+				(500, "d"),
+				(400, "cd"),
+				(100, "c"),
+				(90, "xc"),
+				(50, "l"),
+				(40, "xl"),
+				(10, "x"),
+				(9, "ix"),
+				(5, "v"),
+				(4, "iv"),
+				(1, "i"),
+			] {
+				while v >= val {
+					for b in sym.bytes() {
+						put(if style == 6 {
+							b.to_ascii_uppercase()
+						} else {
+							b
+						});
+					}
+					v -= val;
+				}
+			}
+		}
+		_ => {
+			let mut digits = [0u8; 10];
+			let mut i = digits.len();
+			let mut v = n;
+			loop {
+				i -= 1;
+				if let Some(d) = digits.get_mut(i) {
+					*d = b'0' + (v % 10) as u8;
+				}
+				v /= 10;
+				if v == 0 {
+					break;
+				}
+			}
+			for b in digits.get(i..).unwrap_or(&[]) {
+				put(*b);
+			}
+		}
+	}
+	put(if style == 1 || style == 3 { b')' } else { b'.' });
+	len
 }

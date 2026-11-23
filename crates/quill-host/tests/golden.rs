@@ -208,6 +208,12 @@ fn m2_find_script_matches_its_golden_screens() {
 }
 
 #[test]
+fn m2_lists_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("m2-lists");
+	compare("tests/golden/screens/m2-lists.frames.txt", &frames);
+}
+
+#[test]
 fn m2_letter_in_the_mono_scheme_matches_its_golden_screens() {
 	let (_, frames) = scenario("m2-mono");
 	compare("tests/golden/screens/m2-mono.frames.txt", &frames);

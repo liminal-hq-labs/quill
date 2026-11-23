@@ -135,3 +135,20 @@ proptest! {
 		prop_assert_eq!(text_of(&s, &d), text_of(&s, &d2));
 	}
 }
+
+#[test]
+fn lists_round_trip_in_the_word_6_form() {
+	let mut s = HostStore::new();
+	let d = read(
+		&mut s,
+		&std::fs::read(root().join("tests/docs/lists.rtf")).unwrap(),
+	)
+	.unwrap();
+	let first = write(&s, &d);
+	let text = String::from_utf8_lossy(&first).to_string();
+	assert!(text.contains("\\pnlvlblt"), "{text}");
+	assert!(text.contains("\\pnlvlbody\\pndec\\pnstart1"));
+	let d2 = read(&mut s, &first).unwrap();
+	assert_eq!(String::from_utf8_lossy(&write(&s, &d2)), text);
+	assert_eq!(text_of(&s, &d2), text_of(&s, &d));
+}

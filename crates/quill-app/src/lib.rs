@@ -17,7 +17,7 @@
 mod find;
 mod paint;
 
-use quill_core::doc::{cflag, CFmt, Doc, PFmt};
+use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt};
 use quill_core::layout::{layout_story, tab_advance, Line, Stops};
 use quill_core::store::Store;
 use quill_core::Error;
@@ -133,6 +133,14 @@ pub enum Command {
 	Undo,
 	/// Edit > Redo.
 	Redo,
+	/// Paragraph > Bullets.
+	Bullets,
+	/// Paragraph > Numbering.
+	Numbering,
+	/// Paragraph > Increase Level.
+	LevelUp,
+	/// Paragraph > Decrease Level.
+	LevelDown,
 	/// Find > Find.
 	Find,
 	/// Find > Find Next.
@@ -800,6 +808,58 @@ impl App {
 			),
 			Command::Align(a) => self.para_command(s, |p| PFmt { align: a, ..p }),
 			Command::Spacing(n) => self.para_command(s, |p| PFmt { spacing: n, ..p }),
+			Command::Bullets | Command::Numbering => {
+				let bullet = c == Command::Bullets;
+				let mut def = ListDef::default();
+				for (i, lv) in def.levels.iter_mut().enumerate() {
+					*lv = ListLevel {
+						style: 0,
+						start: 1,
+						indent: 360 * (i as i32 + 1),
+					};
+				}
+				let li = self.doc.lists.intern(s, def).unwrap_or(0);
+				self.para_command(s, move |p| {
+					let bit = if bullet { 1 } else { 4 };
+					if p.flags & bit != 0 {
+						PFmt {
+							flags: p.flags & !5,
+							left: 0,
+							first: 0,
+							level: 0,
+							..p
+						}
+					} else {
+						let fresh = p.left == 0;
+						PFmt {
+							flags: (p.flags & !5) | bit,
+							list: li,
+							left: if fresh { 360 } else { p.left },
+							first: if fresh { -360 } else { p.first },
+							..p
+						}
+					}
+				});
+			}
+			Command::LevelUp | Command::LevelDown => {
+				let up = c == Command::LevelUp;
+				self.para_command(s, move |p| {
+					if p.flags & 5 == 0 {
+						return p;
+					}
+					let level = if up {
+						(p.level + 1).min(8)
+					} else {
+						p.level.saturating_sub(1)
+					};
+					let left = if up {
+						p.left + 360
+					} else {
+						(p.left - 360).max(360)
+					};
+					PFmt { level, left, ..p }
+				});
+			}
 			Command::Find => self.open_find(false),
 			Command::Replace => self.open_find(true),
 			Command::FindNext => {
@@ -922,6 +982,14 @@ impl App {
 		}
 		self.doc.body.end_group();
 		self.modified = true;
+	}
+
+	/// The paragraph format of the paragraph holding `pos`.
+	pub(crate) fn para_pfmt<S: Store + ?Sized>(&self, s: &S, pos: u32) -> PFmt {
+		self.para_mark(s, pos)
+			.and_then(|m| self.doc.body.pfmt_at(s, m))
+			.and_then(|i| self.doc.pfmts.get(s, i))
+			.unwrap_or(PFmt::DEFAULT)
 	}
 
 	/// The position where the paragraph holding `pos` starts.
@@ -1061,7 +1129,23 @@ impl App {
 		match k {
 			Key::Char(c) => self.insert(s, c),
 			Key::Tab => self.insert(s, 0x09),
-			Key::Enter => self.insert(s, 0x0D),
+			Key::Enter => {
+				let pf = self.para_pfmt(s, self.caret);
+				let empty = self.doc.body.read_byte(s, self.caret) == Some(0x0D)
+					&& (self.caret == 0
+						|| self.doc.body.read_byte(s, self.caret - 1) == Some(0x0D));
+				if pf.flags & 5 != 0 && empty && self.selection().is_none() {
+					self.para_command(s, |p| PFmt {
+						flags: p.flags & !5,
+						left: 0,
+						first: 0,
+						level: 0,
+						..p
+					});
+				} else {
+					self.insert(s, 0x0D);
+				}
+			}
 			Key::Backspace if self.selection().is_some() => self.delete(s, self.caret),
 			Key::Backspace if self.caret > 0 => self.delete(s, self.caret - 1),
 			Key::Delete if self.selection().is_some() => self.delete(s, self.caret),
