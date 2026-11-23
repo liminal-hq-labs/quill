@@ -161,31 +161,50 @@ proptest! {
 	}
 }
 
-fn m1_scenario() -> (quill_host::script::MemFiles, String) {
+/// Plays a scenario file from `tests/scenarios` on the host and returns the files and the frames.
+fn scenario(name: &str) -> (quill_host::script::MemFiles, String) {
+	let sc = quill_host::script::parse_script(
+		&std::fs::read_to_string(root().join(format!("tests/scenarios/{name}.keys"))).unwrap(),
+	);
 	let mut files = quill_host::script::MemFiles::default();
-	files.files.insert(
-		"PLAIN.QLD".into(),
-		std::fs::read(root().join("tests/docs/plain.qld")).unwrap(),
-	);
-	let keys = quill_host::script::parse_script(
-		&std::fs::read_to_string(root().join("tests/scenarios/m1-edit.keys")).unwrap(),
-	);
+	for f in &sc.copy {
+		files.files.insert(
+			f.to_ascii_uppercase(),
+			std::fs::read(root().join(format!("tests/docs/{}", f.to_ascii_lowercase()))).unwrap(),
+		);
+	}
 	let mut frames = String::new();
-	quill_host::script::play(&mut files, &keys, &mut frames);
+	quill_host::script::play(&mut files, &sc, &mut frames);
 	(files, frames)
+}
+
+fn compare_bytes(path: &str, actual: &[u8]) {
+	let file = root().join(path);
+	if std::env::var_os("QUILL_UPDATE_GOLDEN").is_some() {
+		std::fs::write(&file, actual).unwrap();
+		return;
+	}
+	assert_eq!(std::fs::read(&file).unwrap(), actual, "{path} differs");
 }
 
 #[test]
 fn m1_edit_script_matches_its_golden_screens_and_file() {
-	let (files, frames) = m1_scenario();
+	let (files, frames) = scenario("m1-edit");
 	compare("tests/golden/screens/m1-edit.frames.txt", &frames);
-	let saved = &files.files["PLAIN.QLD"];
-	let file = root().join("tests/golden/files/m1-edit.qld");
-	if std::env::var_os("QUILL_UPDATE_GOLDEN").is_some() {
-		std::fs::write(&file, saved).unwrap();
-		return;
-	}
-	assert_eq!(&std::fs::read(&file).unwrap(), saved);
+	compare_bytes("tests/golden/files/m1-edit.qld", &files.files["PLAIN.QLD"]);
+}
+
+#[test]
+fn m2_letter_script_matches_its_golden_screens_and_file() {
+	let (files, frames) = scenario("m2-letter");
+	compare("tests/golden/screens/m2-letter.frames.txt", &frames);
+	compare_bytes("tests/golden/files/m2-letter.rtf", &files.files["OUT.RTF"]);
+}
+
+#[test]
+fn m2_letter_in_the_mono_scheme_matches_its_golden_screens() {
+	let (_, frames) = scenario("m2-mono");
+	compare("tests/golden/screens/m2-mono.frames.txt", &frames);
 }
 
 proptest! {

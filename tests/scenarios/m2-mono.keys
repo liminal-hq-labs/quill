@@ -1,0 +1,10 @@
+# M2: the letter in the mono attribute scheme, with a selection and a bold word.
+@mono
+@copy letter.rtf
+@open LETTER.RTF
+down down down
+home f8 end
+f10 right right down down down down enter   # Character > Strikethrough
+esc
+f10 down down down down enter               # File > Exit
+n

@@ -83,31 +83,61 @@ pub fn parse_token(t: &str) -> Option<Key> {
 		"space" => Key::Char(b' '),
 		"period" => Key::Char(b'.'),
 		"minus" => Key::Char(b'-'),
+		"insert" => Key::Insert,
 		_ if t.len() == 1 && t.as_bytes()[0].is_ascii_alphanumeric() => Key::Char(t.as_bytes()[0]),
 		_ if t.starts_with('f') && t.len() <= 3 => Key::F(t[1..].parse().ok()?),
 		_ => return None,
 	})
 }
 
+/// A key script: directives (`@mono`, `@open NAME`, `@copy NAME`) and key tokens, with `#` starting a comment.
+#[derive(Default)]
+pub struct Script {
+	/// The keys.
+	pub keys: Vec<Key>,
+	/// Start in the mono attribute scheme.
+	pub mono: bool,
+	/// A file named on the command line.
+	pub open: Option<String>,
+	/// Test documents to copy to the disk before the run.
+	pub copy: Vec<String>,
+}
+
 /// Reads a script: tokens separated by white space, `#` starting a comment to the end of the line.
-pub fn parse_script(text: &str) -> Vec<Key> {
-	text.lines()
-		.map(|l| l.split('#').next().unwrap_or(""))
-		.flat_map(|l| l.split_whitespace())
-		.map(|t| parse_token(t).unwrap_or_else(|| panic!("unknown key token {t:?}")))
-		.collect()
+pub fn parse_script(text: &str) -> Script {
+	let mut sc = Script::default();
+	for line in text.lines().map(|l| l.split('#').next().unwrap_or("")) {
+		let mut it = line.split_whitespace().peekable();
+		while let Some(t) = it.next() {
+			match t {
+				"@mono" => sc.mono = true,
+				"@open" => sc.open = it.next().map(str::to_string),
+				"@copy" => sc.copy.extend(it.next().map(str::to_string)),
+				_ => sc
+					.keys
+					.push(parse_token(t).unwrap_or_else(|| panic!("unknown key token {t:?}"))),
+			}
+		}
+	}
+	sc
 }
 
 /// Plays `keys` through a new app, writing a frame (`=== screen N ===`) for the start and after each key, and returns the files.
-pub fn play(files: &mut MemFiles, keys: &[Key], frames: &mut String) {
+pub fn play(files: &mut MemFiles, script: &Script, frames: &mut String) {
 	let mut s = HostStore::new();
 	let mut app = App::new();
 	app.reset(&mut s).unwrap();
+	if script.mono {
+		app.set_scheme(quill_app::Scheme::Mono);
+	}
+	if let Some(name) = &script.open {
+		app.open(&mut s, files, name.as_bytes()).unwrap();
+	}
 	let mut g = Grid::<25>::new(0);
 	let mut n = 1;
 	quill_app::draw(&app, &s, &mut g);
 	g.dump(n, frames).unwrap();
-	for k in keys {
+	for k in &script.keys {
 		app.key(&mut s, files, *k);
 		quill_app::draw(&app, &s, &mut g);
 		n += 1;

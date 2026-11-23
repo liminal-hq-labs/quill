@@ -297,6 +297,7 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 `QUILLDOS.EXE` starts in the VGA's 80 × 25 colour text mode (80 × 50 with `/50`), in the spirit of WordPerfect 5.1 and Word for DOS 5.5: white on blue, with the page's text in the middle of the screen.
 
 - **Screen.** Row 1 is the menu bar, with the same tree and accelerators as Windows minus the items in the differences table. The last row is the status line: the file name, `Pg 1 Ln 14 Col 22`, the font and size at the caret (`Times New Roman 12`), `OVR`, and `Mod` when there are unsaved changes. Row 2 shows the ruler when it is on, with `L`, `F` and `R` indent marks and `L C R D` tab marks on a scale in tenths of an inch.
+- **Selection without Shift.** Shift with a movement key extends the selection as on Windows. F8 also toggles extend mode (`EXT` on the status line), in which plain movement keys extend the selection until F8 or Escape ends it; it exists for keyboards and test harnesses that cannot hold Shift.
 - **Menus and dialogs.** Alt or F10 activates the menu bar; Alt+letter opens a menu. Dialogs (Open, Save As, Find, Replace, Spelling, Fonts, Indents and Spacing, Tabs, Numbering, Page Layout, About) are shadowed boxes with `< OK >` and `< Cancel >`; Tab moves between fields.
 - **Styles.** Text mode has one font in one size, so formats are shown with attributes, as WordPerfect did:
 

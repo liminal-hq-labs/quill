@@ -8,14 +8,37 @@
 
 use core::arch::asm;
 
-use quill_app::Key;
+use quill_app::{Dir, Key};
 
 /// Waits for the next key and decodes it; keys Quill has no use for come back as `None`.
 pub fn wait() -> Option<Key> {
 	let ax: u32;
 	// SAFETY: INT 16h is a BIOS service with register arguments only.
 	unsafe { asm!("int 0x16", inout("eax") 0u32 => ax) };
-	decode(ax as u8, (ax >> 8) as u8)
+	let key = decode(ax as u8, (ax >> 8) as u8)?;
+	if shift_down() {
+		let dir = match key {
+			Key::Left => Dir::Left,
+			Key::Right => Dir::Right,
+			Key::Up => Dir::Up,
+			Key::Down => Dir::Down,
+			Key::Home => Dir::Home,
+			Key::End => Dir::End,
+			Key::PageUp => Dir::PageUp,
+			Key::PageDown => Dir::PageDown,
+			other => return Some(other),
+		};
+		return Some(Key::Select(dir));
+	}
+	Some(key)
+}
+
+/// True while a Shift key is held (INT 16h AH=02h, bits 0 and 1 of the shift flags).
+fn shift_down() -> bool {
+	let ax: u32;
+	// SAFETY: INT 16h is a BIOS service with register arguments only.
+	unsafe { asm!("int 0x16", inout("eax") 0x0200u32 => ax) };
+	ax & 3 != 0
 }
 
 /// Turns a BIOS key (ASCII code, scan code) into a `Key`.
@@ -30,6 +53,7 @@ pub fn decode(ascii: u8, scan: u8) -> Option<Key> {
 		(0 | 0xE0, 0x49) => Key::PageUp,
 		(0 | 0xE0, 0x51) => Key::PageDown,
 		(0 | 0xE0, 0x53) => Key::Delete,
+		(0 | 0xE0, 0x52) => Key::Insert,
 		(0, 0x77) => Key::CtrlHome,
 		(0, 0x75) => Key::CtrlEnd,
 		(0, 0x3B..=0x44) => Key::F(scan - 0x3B + 1),

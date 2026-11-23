@@ -26,20 +26,43 @@ fail() { echo "e2e: FAIL: $*" >&2; exit 1; }
 
 export DOS_ENV='QUILL_DUMP=D:\DUMP.TXT'
 export DOS_KEEP="$WORK/keep"
-# The editing script. The same key tokens the host plays (tests/scenarios/m1-edit.keys) go in through AUTOTYPE.
-DISK="$WORK/disk"
-mkdir -p "$DISK"
-cp "$HERE/dist/QUILLDOS.EXE" "$DISK/"
-cp "$ROOT/tests/docs/plain.qld" "$DISK/PLAIN.QLD"
-keys="$(sed 's/#.*//' "$ROOT/tests/scenarios/m1-edit.keys" | tr -s ' \n\t' ' ' | sed 's/^ //; s/ $//')"
-export DOS_AUTOTYPE="-w 2 -p 0.3 $keys"
-export DOS_TIMEOUT=120
-rc=0
-"$HERE/tools/dosrun.sh" "$DISK" QUILLDOS.EXE > "$WORK/m1.out" || rc=$?
-[ "$rc" = 0 ] || fail "QUILLDOS.EXE exited with $rc in the editing script"
-tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/m1-frames.txt"
-diff -u "$ROOT/tests/golden/screens/m1-edit.frames.txt" "$WORK/m1-frames.txt" > "$WORK/m1.diff" || { head -60 "$WORK/m1.diff" >&2; fail "the editing script's screens differ from the host's"; }
-echo "e2e: editing script: every screen matches the host's, character for character and attribute for attribute"
-cmp "$DISK/PLAIN.QLD" "$ROOT/tests/golden/files/m1-edit.qld" || fail "the saved PLAIN.QLD differs from the host's"
-echo "e2e: editing script: the saved .QLD is byte-identical to the host's"
+# Each scenario (tests/scenarios/NAME.keys) is played into QUILLDOS.EXE through AUTOTYPE; the same file is played on the host through the
+# same quill-app code. Lines starting with @ are directives: @copy FILE (a test document put on the disk), @open FILE (a command-line
+# argument) and @mono (/MONO). Everything else is key tokens; # starts a comment.
+run_scenario() { # <name> <saved file on the disk or -> <golden saved file or ->
+	local name="$1" saved="$2" golden="$3"
+	local file="$ROOT/tests/scenarios/$name.keys"
+	local disk="$WORK/disk-$name"
+	rm -rf "$disk" "$WORK/keep"
+	mkdir -p "$disk"
+	cp "$HERE/dist/QUILLDOS.EXE" "$disk/"
+	local args=""
+	while read -r d a; do
+		case "$d" in
+		@copy) cp "$ROOT/tests/docs/$a" "$disk/$(echo "$a" | tr '[:lower:]' '[:upper:]')" ;;
+		@open) args="$args $a" ;;
+		@mono) args="$args /MONO" ;;
+		esac
+	done < <(grep '^@' "$file" | sed 's/#.*//')
+	local keys
+	keys="$(grep -v '^@' "$file" | sed 's/#.*//' | tr -s ' \n\t' ' ' | sed 's/^ //; s/ $//')"
+	export DOS_ENV='QUILL_DUMP=D:\DUMP.TXT'
+	export DOS_KEEP="$WORK/keep"
+	export DOS_AUTOTYPE="-w 2 -p 0.3 $keys"
+	export DOS_TIMEOUT=240
+	local rc=0
+	"$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE$args" > "$WORK/$name.out" || rc=$?
+	[ "$rc" = 0 ] || fail "$name: QUILLDOS.EXE exited with $rc"
+	tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/$name-frames.txt"
+	diff -u "$ROOT/tests/golden/screens/$name.frames.txt" "$WORK/$name-frames.txt" > "$WORK/$name.diff" || { head -60 "$WORK/$name.diff" >&2; fail "$name: the screens differ from the host's"; }
+	echo "e2e: $name: every screen matches the host's, character for character and attribute for attribute"
+	if [ "$saved" != - ]; then
+		cmp "$disk/$saved" "$ROOT/tests/golden/files/$golden" || fail "$name: the saved $saved differs from the host's"
+		echo "e2e: $name: the saved $saved is byte-identical to the host's"
+	fi
+}
+
+run_scenario m1-edit PLAIN.QLD m1-edit.qld
+run_scenario m2-letter OUT.RTF m2-letter.rtf
+run_scenario m2-mono - -
 echo "e2e: ok"

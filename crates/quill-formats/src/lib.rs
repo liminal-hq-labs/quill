@@ -17,6 +17,7 @@
 
 pub mod io;
 pub mod qld;
+pub mod rtf;
 pub mod text;
 
 /// Why a file could not be read or written.
