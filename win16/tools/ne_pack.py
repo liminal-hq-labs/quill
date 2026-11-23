@@ -17,7 +17,7 @@
 #   __w16sel_data_<n>             a 16-bit word in `.text` that must hold the data segment's selector (selector fixup to segment 2)
 #   _start                        the entry point (CS:IP in the header)
 #
-# Resources come from a JSON file (see scripts/build.sh and examples/*/resources.json): dialogs, strings and raw data, each with an integer ID. Raw data (RT_RCDATA)
+# Resources come from a JSON file (see scripts/build.sh and examples/*/resources.json): icons (an .ico file each, as a group with the given ID), dialogs, strings and raw data, each with an integer ID. Raw data (RT_RCDATA)
 # starts with its exact length as a little-endian 32-bit number.
 import json
 import os
@@ -35,6 +35,8 @@ NE_WINAPI = 0x0300
 RES_FLAGS = 0x1030  # MOVEABLE | PURE | DISCARDABLE
 RES_SHIFT = 4
 FILE_SHIFT = 4
+RT_ICON = 3
+RT_GROUP_ICON = 14
 RT_DIALOG = 5
 RT_STRING = 6
 RT_RCDATA = 10
@@ -147,6 +149,25 @@ def string_blocks(strings):
 	return res
 
 
+def icon_resources(group_id, ico_path, first_icon_id):
+	"""An RT_GROUP_ICON and its RT_ICON images from an .ico file. The images are the resources byte for byte (a DIB with the doubled height,
+	its palette, the XOR bits and the AND mask); the group lists them in the same 14-byte entries as a Win32 resource, the last field being the RT_ICON id."""
+	with open(ico_path, "rb") as f:
+		data = f.read()
+	reserved, kind, count = struct.unpack_from("<HHH", data, 0)
+	if (reserved, kind) != (0, 1) or count == 0:
+		raise PackError(f"{ico_path}: not an icon file")
+	group = struct.pack("<HHH", 0, 1, count)
+	res = []
+	for i in range(count):
+		w, h, colours, rsv, planes, bits, size, off = struct.unpack_from("<BBBBHHII", data, 6 + 16 * i)
+		if data[off : off + 4] == b"\x89PNG":
+			raise PackError(f"{ico_path}: PNG images are not valid in a Win16 icon")
+		group += struct.pack("<BBBBHHIH", w, h, colours, rsv, planes, bits, size, first_icon_id + i)
+		res.append((RT_ICON, first_icon_id + i, data[off : off + size]))
+	return [(RT_GROUP_ICON, group_id, group)] + res
+
+
 def load_resources(path):
 	"""Returns a sorted list of (type_id, res_id, bytes) from a JSON description."""
 	if not path:
@@ -155,6 +176,11 @@ def load_resources(path):
 	with open(path, encoding="utf-8") as f:
 		spec = json.load(f)
 	res = []
+	next_icon = 1
+	for ic in spec.get("icons", []):
+		items = icon_resources(ic["id"], os.path.join(base, ic["file"]), next_icon)
+		next_icon += len(items) - 1
+		res += items
 	for d in spec.get("dialogs", []):
 		res.append((RT_DIALOG, d["id"], dialog_template(d)))
 	for bid, blob in string_blocks(spec.get("strings", {})).items():

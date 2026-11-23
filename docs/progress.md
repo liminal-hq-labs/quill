@@ -52,6 +52,7 @@ Missing from M2 as the roadmap states it: numbered and bulleted lists, headers a
 - **Metrics.** `/CAPTURE` on the ME VM wrote `tests/metrics/screen96-windows-me.txt`; `/LINES` wrote the layout dump of `letter.rtf` there; `captured_metrics_lay_the_letter_out_as_windows_me_did` shows the host's `CapturedMeasure` produces the same dump, line for line.
 - **Resources.** `emit-resources` writes `win9x/resources/quill.json` from the app's menu tree; `tools/res_pack.py` writes the `.res` (menu, icon, version information); `tools/test_res_pack.py` reads it back independently and `llvm-cvtres` accepts it; `lld-link` links it and the program loads its menu from it.
 - **Checks.** `tools/scan-pentium.sh` finds no MMX, SSE or CMOV in the executable; `tools/check-imports.sh` holds the 53 imports to `tools/imports.allow` and refuses `...W` entry points. The allowlist is hand-checked, not read from a Windows 95 image.
+- **Icon.** `assets/icon/` holds the Q-and-nib icon (D75): SVG masters, PNGs from 16 to 512 px, a 1280 by 640 social preview and `QUILL.ICO` (16, 32 and 48 px at 4, 8, 24 and 32 bits, 256 px as a PNG; D76), all written by `tools/make_icons.py` and checked by `tools/test_icons.py`. `res_pack.py` now takes every image in `QUILL.ICO` for the Win32 `.res` (13 `RT_ICON` resources and the `RT_GROUP_ICON`); `lld-link` put them in `QUILL32.EXE`, which was not run on Windows 95, 98 or ME with the new icon.
 - Not done: justification in the GDI painter, printing and preview (M4), a scroll bar, the mouse.
 
 ### M1
@@ -80,7 +81,7 @@ Run with `win16/tools/run-w31.sh` (DOSBox-X 2025.02.01 in Docker, Xvfb, `machine
 Nothing is blocked by the machine. These were not started, in roadmap order, for lack of time in this run:
 
 - **The rest of M3 and M4 (Win32).** Needs T3 first: `rust-win9x` copied from `~/source/win9x-rust` with provenance, the `.res` writer, the import allowlist and the instruction scan, then the Windows ME VM and Wine harnesses. `quill-app`, `quill-heap` and the file formats are ready for it; only the platform layer is missing. The ME VM rules in the task (snapshots, audio none, no builds inside) still apply when it is used.
-- **M5 to M6 (Win16).** T0 and T1 are done: `win16/` has the runtime, packer and a Windows 3.11 harness (`win16/tools/run-w31.sh`). Still to do: resources from JSON (menus, accelerators, icons), the far-memory `Store`, the window procedures, T2's multi-segment code, and the jump-table fault (D64).
+- **M5 to M6 (Win16).** T0 and T1 are done: `win16/` has the runtime, packer and a Windows 3.11 harness (`win16/tools/run-w31.sh`). Icons from JSON are done (`ne_pack.py` writes `RT_GROUP_ICON` and `RT_ICON` from an `.ico`; `win16/examples/icontest` shows them in Windows 3.11 in 16-colour, 256-colour and 64K-colour video, see `docs/media`). Still to do: resources from JSON (menus, accelerators), the far-memory `Store`, the window procedures, T2's multi-segment code, and the jump-table fault (D64).
 - **M7 to M11.** Pictures, spelling, help, DOS graphics mode and the release disks.
 - **T1 under Wine and on Windows ME, and at the 386SX profile:** not run.
 - **T2, T3, T5 and the help compiler track (H0 to H3):** not started.

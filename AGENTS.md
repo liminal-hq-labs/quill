@@ -100,6 +100,7 @@ Use `#` comments for shell, YAML, TOML and Dockerfiles, and an XML comment for S
 ## Testing
 
 - `bash scripts/check-headers.sh` — SPDX headers
+- `python3 -I tools/test_icons.py` — structure, depths, palettes and masks of the committed icons (needs Pillow and numpy); `bash tools/make-icons.sh` regenerates them, in Docker if the host lacks `rsvg-convert`, Pillow or numpy
 - `bash scripts/check-banner.sh` — hero banner rules and text fit (needs `xmllint`, `rsvg-convert`, `python3` and Chromium; `--shots DIR` writes frames to look at)
 - `docker run --rm -v "$PWD:/workdir" davidanson/markdownlint-cli2:v0.17.2 "**/*.md"` — markdown
 - `docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable scripts/*.sh` — shell scripts
@@ -118,9 +119,10 @@ State exactly what was and was not run when reporting results.
 ```text
 README.md SPEC.md AGENTS.md CLAUDE.md LICENSE-APACHE LICENSE-MIT
 .editorconfig .markdownlint.jsonc .gitignore rustfmt.toml
-assets/        hero banner
+assets/        hero banner, the app icon (`assets/icon`: SVG masters, PNGs, `QUILL.ICO`, the Windows 3.x icons)
 docs/          architecture, decisions, roadmap, toolchain needs, testing, documentation plan, hero brief
 scripts/       header check, banner check and its Chromium text-fit harness
+tools/         the icon generator (`make_icons.py`, `make-icons.sh` for Docker) and its checks
 .github/       CI workflow, issue and pull request templates, release notes configuration
 ```
 

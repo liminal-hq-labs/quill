@@ -46,7 +46,16 @@ menu = dict(((t, n), d) for t, n, d in res)[(4, 1)]
 names = read_menu(menu)
 expect = [m["title"] for m in spec["menus"]] + [i["text"] for m in spec["menus"] for i in m["items"]]
 assert sorted(names) == sorted(expect), (names, expect)
+icons = [d for t, n, d in res if t == 3]
+group = dict(((t, n), d) for t, n, d in res)[(14, 1)]
+count = struct.unpack_from("<HHH", group, 0)[2]
+assert count == len(icons) and len(group) == 6 + 14 * count, (count, len(icons))
+for i in range(count):
+    w, h, _c, _r, _p, bits, size, rid = struct.unpack_from("<BBBBHHIH", group, 6 + 14 * i)
+    assert rid == i + 1 and size == len(icons[i]), (i, rid, size)
+    if icons[i][:4] != b"\x89PNG":
+        assert struct.unpack_from("<iiHH", icons[i], 4) == (w or 256, 2 * (h or 256), 1, bits), i
 ver = dict(((t, n), d) for t, n, d in res)[(16, 1)]
 assert "VS_VERSION_INFO".encode("utf-16-le") in ver and "Liminal HQ".encode("utf-16-le") in ver
 assert struct.unpack_from("<I", ver, 40)[0] == 0xFEEF04BD or True
-print("test_res_pack: ok:", len(names), "menu strings,", len(res) - 1, "resources")
+print("test_res_pack: ok:", len(names), "menu strings,", count, "icon images,", len(res) - 1, "resources")
