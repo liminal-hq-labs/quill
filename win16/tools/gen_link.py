@@ -13,6 +13,7 @@
 #   budget = 49152                       # bytes; the build fails when the segment is bigger (checked by build.sh)
 #   sections = [".text.seg2.*", "*quill_formats*"]    # input section globs
 #
+# A glob that does not start with a dot is matched against `.text.` plus the glob, so it cannot catch data sections.
 # Segment 1 is everything not claimed by another segment, and always holds the entry code, the exported procedures and the import
 # stubs (`.text.start`, `.text.exp_*`, `.text.imp_*`). Globs are matched against input section names, which are `.text.` followed by
 # the mangled function name when functions get their own sections. The first segment listed claims a section first.
@@ -28,7 +29,9 @@ for n in sorted(segs):
         sys.exit("gen_link: segments after the first are numbered from 2")
     out.append(f"    .text{n} {{")
     for pat in segs[n]["sections"]:
-        out.append(f"      *({pat})")
+        # A bare glob names functions: it must match `.text.<name>` only, never a table such as `.rodata..Lswitch.table.<name>`, which
+        # belongs in the data segment (code reads it through DS).
+        out.append(f"      *({pat if pat.startswith('.') else '.text.' + pat})")
     out.append("    }")
 out += [
     "    .text1 {",

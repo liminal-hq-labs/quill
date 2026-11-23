@@ -44,6 +44,75 @@ global_asm!(
 	"__w16_shadow_end:",
 );
 
+/// The command line's far address (offset, then selector), saved from the registers `InitTask` returns.
+#[unsafe(no_mangle)]
+pub static mut W16_CMD: [u16; 2] = [0; 2];
+
+/// Copies the command line (at most `out.len() - 1` bytes) into `out`, ends it with a zero, and returns its length.
+pub fn command_line(out: &mut [u8]) -> usize {
+	let (off, sel) = unsafe { (W16_CMD[0], W16_CMD[1]) };
+	if sel == 0 || out.is_empty() {
+		return 0;
+	}
+	let mut n = 0;
+	while n + 1 < out.len() {
+		let b = far_byte(u32::from(sel) << 16 | u32::from(off), n as u32);
+		if b == 0 {
+			break;
+		}
+		out[n] = b;
+		n += 1;
+	}
+	out[n] = 0;
+	n
+}
+
+/// Copies `n` bytes from the far address `src` (selector in the high half) to the near buffer `dst`. FS carries the selector, as ES must
+/// stay equal to DS for the string instructions Rust code uses.
+///
+/// # Safety
+/// `src..src + n` must be inside the block `src`'s selector covers and `dst` must hold `n` bytes.
+pub unsafe fn far_read(src: u32, dst: *mut u8, n: usize) {
+	unsafe {
+		asm!(
+			"push esi",
+			"mov si, bx",
+			"mov fs, dx",
+			".byte 0x64",
+			"rep movsb",
+			"pop esi",
+			in("dx") (src >> 16) as u16,
+			in("bx") src as u16,
+			inout("di") dst as u16 => _,
+			inout("cx") n as u16 => _,
+			options(nostack),
+		);
+	}
+}
+
+/// Copies `n` bytes from the near buffer `src` to the far address `dst`. ES is pointed at the far block for the copy and put back.
+///
+/// # Safety
+/// `dst..dst + n` must be inside the block `dst`'s selector covers and `src` must hold `n` bytes.
+pub unsafe fn far_write(dst: u32, src: *const u8, n: usize) {
+	unsafe {
+		asm!(
+			"push esi",
+			"mov si, bx",
+			"mov es, dx",
+			"rep movsb",
+			"push ds",
+			"pop es",
+			"pop esi",
+			in("dx") (dst >> 16) as u16,
+			in("bx") src as u16,
+			inout("di") dst as u16 => _,
+			inout("cx") n as u16 => _,
+			options(nostack),
+		);
+	}
+}
+
 /// The instance handle of this task, set before `w16_main` runs.
 pub static mut HINST: u32 = 0;
 
@@ -73,6 +142,8 @@ global_asm!(
 	"jz 2f",
 	"xor bp, bp",
 	"movzx esp, sp",
+	"mov word ptr [{cmd}], bx",
+	"mov word ptr [{cmd} + 2], es",
 	"push ds",
 	"pop es",
 	"cld",
@@ -88,6 +159,7 @@ global_asm!(
 	"mov ah, 0x4c",
 	"int 0x21",
 	entry = sym w16_entry,
+	cmd = sym W16_CMD,
 );
 
 unsafe extern "C" fn w16_entry(hinst: u32, hprev: u32, show: u32) -> u32 {

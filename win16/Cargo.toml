@@ -25,6 +25,10 @@ name = "probe"
 path = "examples/probe/main.rs"
 
 [[bin]]
+name = "quill"
+path = "examples/quill/main.rs"
+
+[[bin]]
 name = "segtest"
 path = "examples/segtest/main.rs"
 
@@ -42,6 +46,7 @@ quill-formats = { path = "../crates/quill-formats" }
 quill-grid = { path = "../crates/quill-grid" }
 quill-image = { path = "../crates/quill-image" }
 quill-app = { path = "../crates/quill-app" }
+quill-inflate = { path = "../crates/quill-inflate" }
 
 [profile.release]
 opt-level = "z"

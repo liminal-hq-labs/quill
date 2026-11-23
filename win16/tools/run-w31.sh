@@ -11,7 +11,7 @@
 # WIN.INI as the \`run=\` line, so whatever it writes next to itself lands in W31_WORK/d. The profile comes from W31_CONF (a file name
 # in win16/tools/dosbox-x/, default fast.conf). The DOSBox-X image is quill16-dosbox-x:local (debian:trixie-slim plus the dosbox-x
 # package); build it with win16/tools/dosbox-x.Dockerfile. Screenshots are taken at WAIT_SECONDS/3, 2/3 and the end, as
-# SHOTS_PREFIX-1.png to -3.png. The script returns when DOSBox-X exits (the program ends Windows) or after WAIT_SECONDS.
+# SHOTS_PREFIX-1.png to -3.png. W31_ARGS, when set, is the command line after the program's name. The script returns when DOSBox-X exits (the program ends Windows) or after WAIT_SECONDS.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PROG="$1"
@@ -25,7 +25,7 @@ mkdir -p "$W31_WORK/d"
 find "$W31_WORK/d" -maxdepth 1 -type f \( -name '*.LOG' -o -name '*.log' \) -exec rm -f {} + 2> /dev/null || true
 cp "$PROG" "$W31_WORK/d/"
 name="$(basename "$PROG")"
-sed -i "s|^run=.*|run=D:\\\\$name|" "$W31_TREE/WINDOWS/WIN.INI"
+sed -i "s|^run=.*|run=D:\\\\$name ${W31_ARGS:-}|" "$W31_TREE/WINDOWS/WIN.INI"
 pgrep -f "Xvfb $DISP" > /dev/null || (Xvfb "$DISP" -screen 0 1024x768x24 > "$W31_WORK/xvfb.log" 2>&1 &)
 sleep 1
 docker rm -f quill16-dbx > /dev/null 2>&1 || true

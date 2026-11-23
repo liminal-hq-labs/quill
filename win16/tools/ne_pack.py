@@ -373,7 +373,7 @@ def pack(elf_data, module="SETUP", description="", stack=0x2000, heap=0x1000, re
 					raise PackError(f"segment {n}: a call or jump at {off:#x} targets {symlist[symi][0]!r}, which is not code")
 				value = struct.unpack_from("<i", code[n], off)[0]
 				if tseg != n:
-					calls[n].append((off, tseg, (value + off + 4) & 0xFFFF))
+					calls[n].append((off, tseg, (value + off + 4) & 0xFFFF, 4))
 			elif typ == R_386_32:
 				if tseg is not None:
 					pointers.append(("code", n, off, tseg, struct.unpack_from("<I", code[n], off)[0] & 0xFFFF))
@@ -382,8 +382,11 @@ def pack(elf_data, module="SETUP", description="", stack=0x2000, heap=0x1000, re
 				if tseg is not None:
 					raise PackError(f"segment {n}: a 16-bit absolute address of code at {off:#x}")
 			elif typ == R_386_PC16:
+				# A `jmp` or `jcc` with a 16-bit displacement: a tail call. It goes through a veneer like a call, which is right because
+				# the caller's own return address is already on the stack.
 				if tseg is not None and tseg != n:
-					raise PackError(f"segment {n}: a 16-bit relative branch at {off:#x} leaves its segment")
+					value = struct.unpack_from("<h", code[n], off)[0]
+					calls[n].append((off, tseg, (value + off + 2) & 0xFFFF, 2))
 			else:
 				raise PackError(f"segment {n}: relocation type {typ} at {off:#x} is not handled")
 	if data_index >= 0:
@@ -413,7 +416,7 @@ def pack(elf_data, module="SETUP", description="", stack=0x2000, heap=0x1000, re
 	# Veneers per segment, return trampolines per target segment.
 	veneer_keys = {n: [] for n in code}
 	for n in code:
-		for _off, tseg, t in calls[n]:
+		for _off, tseg, t, _w in calls[n]:
 			if (tseg, t) not in veneer_keys[n]:
 				veneer_keys[n].append((tseg, t))
 		for tseg, t in slot_keys:
@@ -445,12 +448,15 @@ def pack(elf_data, module="SETUP", description="", stack=0x2000, heap=0x1000, re
 			for i, (tseg, t) in enumerate(slot_keys):
 				at = len(code[n])
 				dest = t if tseg == n else veneer_off[n][(tseg, t)]
-				code[n] += bytes([0xE9]) + struct.pack("<h", dest - (at + 3)) + b"\x90"
+				code[n] += bytes([0xE9]) + struct.pack("<H", (dest - (at + 3)) & 0xFFFF) + b"\x90"
 	# Patch the call sites and the pointers.
 	for n in code:
-		for off, tseg, t in calls[n]:
+		for off, tseg, t, width in calls[n]:
 			dest = veneer_off[n][(tseg, t)]
-			struct.pack_into("<i", code[n], off, dest - (off + 4))
+			if width == 4:
+				struct.pack_into("<i", code[n], off, dest - (off + 4))
+			else:
+				struct.pack_into("<H", code[n], off, (dest - (off + 2)) & 0xFFFF)
 	for where, n, off, tseg, t in pointers:
 		if (tseg, t) in exports_at:
 			target = t

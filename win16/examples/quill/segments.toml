@@ -1,0 +1,15 @@
+# The code segments of QUILL.EXE. Segment 1 is everything not named here: the runtime, the import stubs, the shell, the layout and the piece table.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+[segment.2]
+name = "FILE"
+sections = ["*quill_formats*", "*quill_image*", "*quill_inflate*", "*quill_app*3App4open*", "*quill_app*3App7save_as*"]
+
+[segment.3]
+name = "EDIT"
+sections = ["*quill_app*4find*", "*quill_app*4form*", "*quill_app*5print*", "*quill_app*3App3run*", "*quill_app*3App3key*", "*quill_app*3App7command*"]
+
+[segment.4]
+name = "VIEW"
+sections = ["*quill_app*5paint*", "*quill_app*3App10caret_line*", "*quill_core*3doc*6Intern*"]
