@@ -68,6 +68,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Prints the body as text to `name` (a file, or `PRN` for the printer on DOS): each page is its lines at the SPEC's 10 pitch
 	/// and 6 lines to the inch, with the header and footer in the margins, and a form feed after every page.
+	#[inline(never)]
 	pub fn print_text<S: Store + ?Sized, F: Files>(
 		&mut self,
 		s: &mut S,
@@ -84,6 +85,7 @@ impl<M: Measure + Clone> App<M> {
 		f.close(k) && ok
 	}
 
+	#[inline(never)]
 	fn print_pages<S: Store + ?Sized, K: Sink>(&self, s: &S, k: &mut K) -> bool {
 		let page = self.doc.page;
 		let top = to_units(page.margin_t, 6) as usize;
@@ -176,6 +178,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// One header or footer row: its first paragraph, fields filled in, aligned inside the text width.
+	#[inline(never)]
 	fn margin_row<S: Store + ?Sized>(
 		&self,
 		s: &S,

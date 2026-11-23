@@ -1206,7 +1206,7 @@
         ┌─────────────────────── About Quill ────────────────────────┐          
         │                                                            │          
         │ Quill                                                      │          
-        │ Version 0.0.0, experimental                                │          
+        │ Version 0.1 (experimental)                                 │          
         │ A Liminal HQ Labs experiment                               │          
         │ Apache-2.0 OR MIT                                          │          
         │ Host test run                                              │          

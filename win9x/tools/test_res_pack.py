@@ -4,7 +4,7 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# usage: test_res_pack.py quill.json quill.res
+# usage: test_res_pack.py quill.json quill.res [dialogs.json]
 import json
 import struct
 import sys
@@ -58,4 +58,44 @@ for i in range(count):
 ver = dict(((t, n), d) for t, n, d in res)[(16, 1)]
 assert "VS_VERSION_INFO".encode("utf-16-le") in ver and "Liminal HQ".encode("utf-16-le") in ver
 assert struct.unpack_from("<I", ver, 40)[0] == 0xFEEF04BD or True
+# The dialogs: read each DLGTEMPLATE back and compare it with the description.
+if len(sys.argv) > 3:
+    want = json.load(open(sys.argv[3], encoding="utf-8"))["dialogs"]
+    by_id = dict(((t, n), d) for t, n, d in res)
+    for d in want:
+        b = by_id[(5, d["id"])]
+        style, ex, cdit = struct.unpack_from("<IIH", b, 0)
+        assert cdit == len(d["items"]) and style & 0x80000000 and style & 0x40, (d["id"], cdit)
+        assert struct.unpack_from("<hhhh", b, 10) == (d["x"], d["y"], d["cx"], d["cy"])
+        at = 18 + 4  # past the geometry and the (empty) menu and class
+        end = at
+        while b[end:end + 2] != b"\0\0":
+            end += 2
+        assert b[at:end].decode("utf-16-le") == d["caption"], d["id"]
+        at = end + 2 + 2  # the font size
+        end = at
+        while b[end:end + 2] != b"\0\0":
+            end += 2
+        assert b[at:end].decode("utf-16-le") == "MS Sans Serif"
+        at = end + 2
+        for it in d["items"]:
+            at += -at % 4
+            istyle, _ex, x, y, cx, cy, cid = struct.unpack_from("<IIhhhhH", b, at)
+            assert (x, y, cx, cy, cid) == (it["x"], it["y"], it["cx"], it["cy"], it["id"]), (d["id"], it)
+            assert istyle & 0x50000000 == 0x50000000, "child and visible"
+            at += 18
+            assert struct.unpack_from("<HH", b, at) == (0xFFFF, {"button": 0x80, "edit": 0x81, "static": 0x82, "listbox": 0x83, "combobox": 0x85}[it["class"]])
+            at += 4
+            if "icon" in it:
+                assert struct.unpack_from("<HH", b, at) == (0xFFFF, it["icon"])
+                at += 4
+            else:
+                end = at
+                while b[end:end + 2] != b"\0\0":
+                    end += 2
+                assert b[at:end].decode("utf-16-le") == it.get("text", ""), (d["id"], it)
+                at = end + 2
+            assert struct.unpack_from("<H", b, at) == (0,)
+            at += 2
+        assert at == len(b), (d["id"], at, len(b))
 print("test_res_pack: ok:", len(names), "menu strings,", count, "icon images,", len(res) - 1, "resources")
