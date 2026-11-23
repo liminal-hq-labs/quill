@@ -4,7 +4,20 @@ The source of truth for behaviour. A change that alters behaviour updates this f
 
 ## Purpose
 
-Quill is a small rich-text word processor for Windows 3.1 and Windows for Workgroups 3.11, written in Rust and built without a C compiler. It sits between Notepad and Word for Windows: more than Write in the places that matter (a toolbar, justified text, bullets, undo and redo, print preview, RTF that today's word processors read), and small enough to fit on one floppy and run on a 386 with 4 MB of memory. It is also a proof that modern Rust can ship a real, period-correct Win16 application.
+Quill is a small rich-text word processor for Windows 3.1, Windows 95 and DOS, written in Rust and built without a C compiler. It sits between Notepad and Word for Windows: more than Write in the places that matter (a toolbar, justified text, bullets, undo and redo, print preview, RTF that today's word processors read), and small enough to fit on one floppy and run on a 386 with 4 MB of memory. Under the three front ends sits one portable core, so a letter started in WordPerfect-blue text mode on a DOS laptop opens, fonts and all, on the family's Windows 3.1 PC.
+
+Quill is the companion application to the Liminal HQ blog series *Cross-compiling to the past*: the series explains the toolchains, and Quill is the real program built with all three of them.
+
+## Platforms
+
+| Build | File | Runs on | Role |
+|---|---|---|---|
+| Win16 | `QUILL.EXE` (NE) | Windows 3.1 and 3.11 in 386 Enhanced mode, 386 or later. It also runs on Windows 95, 98 and ME, as a bonus | The primary build |
+| Win32 | `QUILL32.EXE` (PE, subsystem 4.0) | Windows 95, 98 and ME on a Pentium or later; later, optionally, NT 4.0 to Windows 11 | The build for Windows 9x, with long file names |
+| DOS | `QUILLDOS.EXE` (go32 with a built-in DPMI host) | MS-DOS 5 or later on a 486 or later with a VGA | Text mode (80 × 25 or 80 × 50) first; a graphics mode with real fonts (`/G`) second |
+
+- Every build reads and writes byte-identical `.QLD` and RTF files and has the same document limits, so a document moves between them unchanged. A build that cannot show a property keeps it (see [Build differences](#build-differences)).
+- Windows 95 on a 486 uses the Win16 build: the Win32 build's floor is a Pentium (D33).
 
 ## Users and scenarios
 
@@ -12,11 +25,15 @@ Quill is a small rich-text word processor for Windows 3.1 and Windows for Workgr
 - **A collector restoring a period machine** wants a word processor that installs from a floppy with a Windows 3.1 setup program, runs in 4 MB and does not need Win32s.
 - **A Rust developer** studies how a `no_std` core, a 16-bit code segment and the NE format fit together, and uses Quill's host tools (the reference renderer, the golden tests) without ever starting Windows.
 - **A modern user** receives an RTF written on Windows 3.1 and expects it to open cleanly; Quill's RTF output is the contract that makes that work.
+- **A Windows 98 or ME enthusiast** wants a small native word processor with long file names that opens the same `.QLD` files the family's Windows 3.1 machine writes.
+- **Someone on a DOS laptop with no Windows** types a draft in text mode, where bold is bright white and italic is cyan, and prints it later from Windows with the fonts it was given.
+- **A reader of the blog series** follows a link to this repository and wants to see how one core became three programs, without knowing what a selector is.
 
 ## Non-goals
 
 - **Windows 3.0, Standard mode or real mode.** 386 Enhanced mode is the floor (D4).
-- **Win32s or a 32-bit build.** Quill is a Win16 NE executable only.
+- **Win32s.** The Win32 build targets Windows 9x's own Win32, not the Win32s subset on Windows 3.1.
+- **Wide-character (Unicode) Windows APIs.** Both builds use ANSI entry points only, because Windows 9x lacks most `...W` functions.
 - **Being Word.** No tables, images, columns, headers and footers, footnotes, styles sheets, fields, mail merge, revision marks, OLE or DDE in v1 (the scope table says what is later and why).
 - **Unicode text.** Documents are Windows ANSI (code page 1252) in v1 (D11).
 - **Spelling and grammar checking**, hyphenation and thesaurus.
@@ -58,17 +75,23 @@ Quill is a small rich-text word processor for Windows 3.1 and Windows for Workgr
 
 ## Components
 
-- **Quill for Windows** (`QUILL.EXE`): the Win16 application. The only user-facing component.
+- **Quill for Windows 3.1** (`QUILL.EXE`, crate `quill-win16`): the Win16 application.
+- **Quill for Windows 95** (`QUILL32.EXE`, crate `quill-win9x`): the Win32 application.
+- **Quill for DOS** (`QUILLDOS.EXE`, crate `quill-dos`): the DOS application, text mode and graphics mode in one executable.
 - **Quill core** (`quill-core`): the document model, editing, undo and layout. Portable `no_std` Rust with no Windows dependency.
 - **Quill formats** (`quill-formats`): the native, RTF and plain text readers and writers.
-- **Host tools** (`quill-host`): a reference renderer (`quill-render`) that lays out a document and writes PNG pages or a text dump, used by tests and by developers.
-- **Installer** (`installer/`): a Liminal Installer project that builds Windows 3.1 floppy images with a `SETUP.EXE`.
+- **Quill app** (`quill-app`): the platform-neutral editor controller: commands, the menu tree and its enabled and checked state, status text, and the painting of the page, ruler, toolbar and status bar through a drawing trait that the Windows builds, DOS graphics mode and the host renderer implement.
+- **Quill grid** (`quill-grid`): the text-mode screen renderer, which draws a document, menus and dialogs into an 80-column character grid; DOS text mode shows the grid and the host compares it with golden screens.
+- **Host tools** (`quill-host`): a reference renderer (`quill-render`) that lays out a document and writes PNG pages, text-mode screens or a text dump, used by tests and by developers.
+- **Installer** (`installer/`): a Liminal Installer project that builds floppy images: a Windows `SETUP.EXE` that installs the right Windows build for the version it runs on, and a DOS `INSTALL.EXE` for the DOS build.
 
 ## Behaviour
 
+Everything below describes the Windows builds; the DOS build follows it with the changes in [DOS text mode](#dos-text-mode) and [DOS graphics mode](#dos-graphics-mode). Editing commands, keys, undo, find and the files are the same in all of them.
+
 ### Window and chrome
 
-- The main window's title is `Quill - <FILE.EXT>`, with `(Untitled)` for a new document, in the style of Windows 3.1 Write. The file name is shown in capitals as DOS stores it.
+- The main window's title is `Quill - <FILE.EXT>`, with `(Untitled)` for a new document, in the style of Windows 3.1 Write. The Win16 build shows the file name in capitals as DOS stores it; the Win32 build shows the long name as the file system stores it.
 - Below the menu bar, top to bottom: the toolbar, the ruler, the editing view with a vertical scroll bar (and a horizontal one when the page is wider than the window), and the status bar. **Document** menu items show or hide the toolbar, ruler and status bar; the choice is remembered.
 - The editing view shows the page's text width with the left and right margins as white space, on a white background (`COLOR_WINDOW`). Automatic page breaks are a dotted line across the view; manual page breaks a dotted line with the words `Page break`.
 - The status bar shows `Page N of M`, `Ln N` and `Col N` for the caret (line within the page and character within the line), and the menu help line for the highlighted menu item while a menu is open.
@@ -205,6 +228,59 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 
 **About Quill...** shows the icon, `Quill`, the version, `A Liminal HQ Labs experiment`, the licence, the mode (`386 Enhanced Mode`), free memory in KB and free system resources as a percentage, in the manner of Program Manager's About box.
 
+### DOS text mode
+
+`QUILLDOS.EXE` starts in the VGA's 80 × 25 colour text mode (80 × 50 with `/50` or `[Quill] Rows=50`), in the spirit of WordPerfect 5.1 and Word for DOS 5.5: white on blue by default, with the page's text in the middle of the screen.
+
+- **Screen.** Row 1 is the menu bar (`File Edit Find Character Paragraph Document Help`, the same tree and accelerators as Windows, minus the items in the differences table). The last row is the status line: the file name, `Pg 1 Ln 14 Col 22`, the font and size at the caret (`Times New Roman 12`), and `Mod` when there are unsaved changes. Row 2 shows the ruler when it is on, as `L`, `F` and `R` marks on a dotted scale in tenths of an inch.
+- **Menus.** Alt or F10 activates the menu bar; Alt+letter opens a menu; arrows, Enter and Escape move, choose and close. Items show their accelerators. Dialogs (Open, Save As, Find, Replace, Fonts, Indents and Spacing, Page Layout, About) are drawn as shadowed boxes with `< OK >` and `< Cancel >` buttons; Tab moves between fields.
+- **Styles.** Text mode has one font in one size, so formats are shown with attributes, as WordPerfect did:
+
+| Format | Shown as (colour scheme) | Shown as (mono scheme) |
+|---|---|---|
+| Regular | Light grey on blue | Normal |
+| Bold | Bright white | Bright |
+| Italic | Light cyan | Underline attribute on MDA, reverse on VGA mono |
+| Underline | Light magenta | Underline attribute |
+| Bold italic, bold underline, italic underline | Yellow, light red, light green | Bright with underline |
+| Selection | Black on light grey | Reverse |
+
+- **Fonts and sizes** are kept in the document and shown only in the status line for the character at the caret. Character > Fonts... sets them as on Windows; Reduce Font and Enlarge Font change the size number. Text is laid out as if every character were 1/10 inch wide and every line 1/6 inch tall (a 12-point typewriter), so a line on the screen holds what a 10-pitch printer prints.
+- **Paragraphs.** Alignment is drawn in the grid: centred and right lines are shifted, justified lines get extra spaces spread from the right. Indents are rounded to whole columns. Single and 1½ spacing draw one row per line; double spacing leaves a blank row. Bullets are the CP437 bullet (`•`, 0x07) in the first-line indent. A page break is a row of `═` with `Page break` or, for an automatic break, a row of `─`.
+- **Characters.** The document stays ANSI (code page 1252). The screen shows each character through the CP437 font: characters with no CP437 form show as `▒`, and are kept. Keys typed with Alt and the numeric keypad are taken as CP437 codes and stored as their ANSI equivalent.
+- **Clipboard.** Cut, Copy and Paste use Quill's own clipboard, which lives until Quill exits. When Quill runs in a Windows 3.1 or 9x DOS box, Copy also puts plain text on the Windows clipboard and Paste offers to take text from it (later, see the differences table).
+- **Mouse.** When a mouse driver is loaded (INT 33h), the mouse places the caret, selects by dragging, opens menus and presses buttons. Everything works from the keyboard without one.
+- **Printing.** Print... writes the document as plain text with form feeds to `LPT1`, `LPT2` or a file. PostScript and PCL output are later.
+- **Files.** Names are DOS 8.3. Open and Save As use Quill's own file dialog: a path field, a directory list with `[..]` and drive letters, and the same file types as Windows.
+
+### DOS graphics mode
+
+`QUILLDOS.EXE /G` (or `[Quill] Graphics=1`) uses 640 × 480 in 16 colours on any VGA, or a VBE linear frame buffer of 640 × 480 or 800 × 600 in 256 colours where one exists. It draws the same chrome as the Windows builds (menu bar, toolbar, ruler, status bar), with the Windows 3.1 look, and shows real fonts and sizes.
+
+- **Fonts.** The document's font families map to Desk's faces: roman to Desk Serif, swiss to Desk Sans, modern to Desk Mono; others to Desk Sans. Each comes as bitmap strikes at 8, 10, 12, 14, 18, 24, 36 and 48 points for 96 dots per inch, with bold, italic and bold italic; other sizes use the nearest strike and say so in the status line. Underline is drawn.
+- **Layout** uses these faces' widths, so lines break where Desk's fonts make them break, which is not where Arial or Times New Roman make them break on Windows. The document is unchanged; only the line breaks differ.
+- Everything else (menus, dialogs, mouse, printing, clipboard) is as in text mode, drawn in graphics.
+
+### Build differences
+
+Every build keeps every property of the document; the table says what each shows and does.
+
+| Feature | Win16 | Win32 | DOS text | DOS graphics |
+|---|---|---|---|---|
+| Fonts and sizes shown | Yes | Yes | Status line only | Desk faces at fixed strikes |
+| Bold, italic, underline | Drawn | Drawn | Colours or attributes | Drawn |
+| Alignment, indents, bullets | Exact | Exact | Rounded to columns | Exact for the Desk metrics |
+| Line spacing 1½ | Exact | Exact | Shown as single | Exact |
+| Layout matches the printer | Yes (printer metrics) | Yes | 10-pitch typewriter | Desk metrics |
+| Toolbar and ruler | Yes | Yes | Ruler only, as text | Yes |
+| Print preview | Yes | Yes | No | Later |
+| Printing | Windows printer drivers | Windows printer drivers | Plain text to a port or file | Plain text; PostScript later |
+| Clipboard | Windows (RTF and text) | Windows (RTF and text) | Quill's own; Windows text in a DOS box later | As text mode |
+| File names | 8.3 | Long names | 8.3 | 8.3 |
+| Common dialogs | `COMMDLG.DLL` | `COMDLG32.DLL` | Quill's own | Quill's own |
+| Plain text code page | ANSI | ANSI | CP437, or ANSI when chosen in Save As | As text mode |
+| Mouse | Yes | Yes | With an INT 33h driver | With an INT 33h driver |
+
 ### Errors
 
 - Every error that stops a command shows a message box naming the file or the action and the cause in plain words, then leaves the document as it was before the command. There are no error codes in messages.
@@ -215,12 +291,17 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 
 ### Command line
 
+The same forms work for `QUILL32.EXE` and `QUILLDOS.EXE`; options are case-insensitive and may start with `-` as well as `/`.
+
 | Form | Meaning |
 |---|---|
 | `QUILL.EXE` | Open a new, untitled document |
 | `QUILL.EXE FILE` | Open `FILE`, of any supported type |
-| `QUILL.EXE /P FILE` | Print `FILE` on the default printer, then exit |
-| `QUILL.EXE /SELFTEST SCRIPT` | Run a test script and exit Windows when it ends (test builds only; see [docs/testing.md](docs/testing.md)) |
+| `QUILL.EXE /P FILE` | Print `FILE` on the default printer (DOS: to `LPT1`), then exit |
+| `QUILL.EXE /SELFTEST SCRIPT` | Run a test script, write results to `QUILL.LOG` and exit (Windows 3.1: exit Windows too). Test builds only; see [docs/testing.md](docs/testing.md) |
+| `QUILLDOS.EXE /50` | Use 80 × 50 text mode |
+| `QUILLDOS.EXE /G` | Use graphics mode |
+| `QUILLDOS.EXE /MONO` | Use the mono attribute scheme |
 
 ### Native format (`.QLD`)
 
@@ -258,6 +339,7 @@ Limits while reading: groups nest at most 64 deep (deeper groups are skipped), t
 
 - Read as ANSI. CRLF, LF and CR each end a paragraph; a form feed (`0x0C`) starts a new paragraph with a page break before it; other control characters below 0x20 except tab are dropped. Text gets the default character and paragraph formats.
 - Written as ANSI with CRLF after every paragraph, line breaks as CRLF, and a form feed for each page break.
+- The DOS build reads and writes plain text as CP437 by default, converting to and from ANSI; Save As offers `Text Files (ANSI)` as well. A character with no CP437 form is written as `?`.
 
 ### Clipboard formats
 
@@ -268,7 +350,7 @@ Limits while reading: groups nest at most 64 deep (deeper groups are skipped), t
 
 ### Settings file
 
-Settings live in `QUILL.INI` in the Windows directory, read with `GetPrivateProfileString` at start and written when changed.
+Settings live in `QUILL.INI` in the Windows directory (both Windows builds share it) or, for the DOS build, beside `QUILLDOS.EXE`. It is read at start and written when a setting changes. The Win32 build keeps its recent files in `[Recent32]`, because they may be long names the Win16 build cannot open.
 
 ## Settings and defaults
 
@@ -283,7 +365,11 @@ Settings live in `QUILL.INI` in the Windows directory, read with `GetPrivateProf
 | `[Quill] Size` | `12` | Font size for new documents, in points (4–144) |
 | `[Quill] Margins` | `1800 1800 1440 1440` | Left, right, top, bottom margins for new documents, in twips (0–14400 each, leaving at least one inch of text width) |
 | `[Quill] Backup` | `0` | When `1`, Save keeps the previous file as `<name>.BAK` |
-| `[Recent] File1`–`File4` | Empty | Recent files, most recent first |
+| `[Recent] File1`–`File4` | Empty | Recent files, most recent first (Win16 and DOS) |
+| `[Recent32] File1`–`File4` | Empty | Recent files for the Win32 build |
+| `[Quill] Rows` | `25` | DOS text mode rows: `25` or `50` |
+| `[Quill] Graphics` | `0` | DOS: start in graphics mode |
+| `[Quill] Scheme` | `colour` | DOS text mode attributes: `colour` or `mono` |
 | `[Debug] Trace` | `0` | When `1`, write a trace to `QUILL.LOG` next to `QUILL.EXE` |
 
 ## Security and privacy
@@ -306,5 +392,7 @@ Settings live in `QUILL.INI` in the Windows directory, read with `GetPrivateProf
 | Undo history | 100 steps or 64 KB | Oldest steps are dropped |
 | Clipboard copy | Whole document | Copy that cannot get global memory says `There is not enough memory to copy the selection.` |
 | Recent files | 4 | Oldest is dropped |
-| Path length | 127 characters (DOS limit with drive) | Longer paths cannot be chosen in the dialogs |
-| Memory | Runs in 2 MB; 4 MB is the design target | See the out-of-memory behaviour above |
+| Path length | 127 characters on Win16 and DOS, 259 on Win32 | Longer paths cannot be chosen in the dialogs |
+| Memory | Win16 runs in 2 MB, with 4 MB the design target; Win32 needs what Windows 95 needs; DOS needs 4 MB | See the out-of-memory behaviour above |
+
+The document limits are the same in every build, even where a build has room for more, so any document one build writes, the others open.
