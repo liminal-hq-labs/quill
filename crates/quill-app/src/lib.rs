@@ -17,7 +17,7 @@
 mod find;
 mod paint;
 
-use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt};
+use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
 use quill_core::layout::{layout_story, tab_advance, Line, Stops};
 use quill_core::store::Store;
 use quill_core::Error;
@@ -141,6 +141,12 @@ pub enum Command {
 	LevelUp,
 	/// Paragraph > Decrease Level.
 	LevelDown,
+	/// Document > Header, Footer, First Page Header or First Page Footer (1 to 4), or back to the body (0).
+	View(u8),
+	/// Insert > Page Number, Page Count, Date or File Name (1 to 4).
+	Field(u8),
+	/// Document > Different First Page.
+	FirstPage,
 	/// Find > Find.
 	Find,
 	/// Find > Find Next.
@@ -270,6 +276,9 @@ pub struct App {
 	pub(crate) scheme: Scheme,
 	/// The format the next typed character takes, chosen with no selection.
 	typing_fmt: Option<u16>,
+	/// The story being edited: 0 body, 1 header, 2 footer, 3 first header, 4 first footer. The active story lives in `doc.body`.
+	pub(crate) view: u8,
+	saved_view: (u32, u32),
 	/// The last search, for Find Next.
 	pub(crate) last_find: Option<find::FindState>,
 	/// The format the document was opened in: 0 native, 1 RTF, 2 text.
@@ -305,6 +314,8 @@ impl App {
 			typing_fmt: None,
 			fmt: 0,
 			last_find: None,
+			view: 0,
+			saved_view: (0, 0),
 		}
 	}
 
@@ -513,6 +524,9 @@ impl App {
 					}
 				}
 				(tab_advance(&stop, rel, seg, dec), stop.leader)
+			} else if c == 0x01 {
+				// A field is two columns wide, as layout measures it.
+				(2, 0)
 			} else {
 				(1, 0)
 			};
@@ -703,8 +717,58 @@ impl App {
 		}
 	}
 
+	/// Swaps the story being edited into `doc.body` (or back), so every editing command works on it unchanged.
+	fn swap_view<S: Store + ?Sized>(&mut self, s: &mut S, kind: StoryKind) {
+		match kind {
+			StoryKind::Body => {}
+			StoryKind::Header => core::mem::swap(&mut self.doc.body, &mut self.doc.header),
+			StoryKind::Footer => core::mem::swap(&mut self.doc.body, &mut self.doc.footer),
+			StoryKind::FirstHeader => {
+				core::mem::swap(&mut self.doc.body, &mut self.doc.first_header)
+			}
+			StoryKind::FirstFooter => {
+				core::mem::swap(&mut self.doc.body, &mut self.doc.first_footer)
+			}
+		}
+		let _ = s;
+	}
+
+	fn set_view<S: Store + ?Sized>(&mut self, s: &mut S, to: u8) {
+		let cur = StoryKind::from_u8(self.view).unwrap_or(StoryKind::Body);
+		if self.view != 0 {
+			// Back to the body: a story holding only its paragraph mark is empty.
+			if self.doc.body.len() == 1 && self.doc.body.read_byte(s, 0) == Some(0x0D) {
+				self.doc.body.clear(s);
+			}
+			self.swap_view(s, cur);
+			let (c, t) = self.saved_view;
+			self.caret = c;
+			self.top = t;
+		}
+		self.anchor = None;
+		self.view = 0;
+		if to != 0 {
+			self.saved_view = (self.caret, self.top);
+			let k = StoryKind::from_u8(to).unwrap_or(StoryKind::Header);
+			self.swap_view(s, k);
+			if self.doc.body.is_empty() {
+				let _ = self.doc.body.load(s, b"\r", 0, 0);
+			}
+			self.view = to;
+			self.caret = 0;
+			self.top = 0;
+		}
+	}
+
 	fn run<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, c: Command) {
 		self.end_typing();
+		if self.view != 0
+			&& matches!(
+				c,
+				Command::New | Command::Open | Command::Save | Command::SaveAs | Command::Exit
+			) {
+			self.set_view(s, 0);
+		}
 		match c {
 			Command::New | Command::Open | Command::Exit
 				if self.modified && self.pending != Some(c) =>
@@ -860,6 +924,36 @@ impl App {
 					PFmt { level, left, ..p }
 				});
 			}
+			Command::View(n) => self.set_view(s, n),
+			Command::FirstPage => {
+				self.doc.page.flags ^= 1;
+				self.modified = true;
+			}
+			Command::Field(k) if self.view != 0 => {
+				let t = &self.doc.body;
+				let cf = if self.caret > 0 {
+					t.cfmt_at(s, self.caret - 1)
+				} else {
+					t.cfmt_at(s, 0)
+				}
+				.unwrap_or(0);
+				let pf = self.para_pfmt(s, self.caret);
+				let _ = pf;
+				let pfi = self
+					.para_mark(s, self.caret)
+					.and_then(|m| self.doc.body.pfmt_at(s, m))
+					.unwrap_or(0);
+				if self
+					.doc
+					.body
+					.insert_object(s, self.caret, u32::from(k) << 16, cf, pfi, label::TYPING)
+					.is_ok()
+				{
+					self.caret += 1;
+					self.modified = true;
+				}
+			}
+			Command::Field(_) => {}
 			Command::Find => self.open_find(false),
 			Command::Replace => self.open_find(true),
 			Command::FindNext => {

@@ -396,7 +396,8 @@ where
 							};
 							tab_advance(&stop, cur, seg, dec)
 						} else if c == 0x01 {
-							0
+							// A field is measured as two digits, so the layout does not move from page to page.
+							cache.width(slot, b'8') * 2
 						} else {
 							cache.width(slot, c)
 						};

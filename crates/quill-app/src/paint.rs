@@ -52,6 +52,20 @@ const FIND: [Item; 3] = [
 	item("Find Next", "F3", Command::FindNext),
 	item("Replace...", "Ctrl+H", Command::Replace),
 ];
+const INSERT: [Item; 4] = [
+	item("Page Number", "", Command::Field(1)),
+	item("Page Count", "", Command::Field(2)),
+	item("Date", "", Command::Field(3)),
+	item("File Name", "", Command::Field(4)),
+];
+const DOCUMENT: [Item; 6] = [
+	item("Header", "", Command::View(1)),
+	item("Footer", "", Command::View(2)),
+	item("First Page Header", "", Command::View(3)),
+	item("First Page Footer", "", Command::View(4)),
+	item("Different First Page", "", Command::FirstPage),
+	item("Return to Document", "", Command::View(0)),
+];
 const FILE: [Item; 5] = [
 	item("New", "Ctrl+N", Command::New),
 	item("Open...", "Ctrl+O", Command::Open),
@@ -90,9 +104,11 @@ pub(crate) fn menu_items(menu: u8) -> &'static [Item] {
 	match menu {
 		0 => &FILE,
 		1 => &EDIT,
+		2 => &INSERT,
 		3 => &FIND,
 		4 => &CHARACTER,
 		5 => &PARAGRAPH,
+		6 => &DOCUMENT,
 		_ => &[],
 	}
 }
@@ -301,7 +317,20 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 					g.put(col + k, row, fill, a);
 				}
 			} else if c == 0x01 {
-				g.put(col, row, 0xB0, a);
+				let letter = match app.doc.body.object_at(s, p).map(|v| v >> 16) {
+					Some(1) => b'P',
+					Some(2) => b'N',
+					Some(3) => b'D',
+					Some(4) => b'F',
+					_ => 0,
+				};
+				if letter == 0 {
+					g.put(col, row, 0xB0, a);
+					g.put(col + 1, row, 0xB0, a);
+				} else {
+					g.put(col, row, b'{', a);
+					g.put(col + 1, row, letter, a);
+				}
 			} else {
 				g.put(col, row, ansi_to_cp437(c), a);
 			}
@@ -328,6 +357,21 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 	let mut st = Row::new();
 	if app.msg.is_empty() {
 		st.s(" ");
+		match app.view {
+			1 => {
+				st.s("[Header] ");
+			}
+			2 => {
+				st.s("[Footer] ");
+			}
+			3 => {
+				st.s("[First header] ");
+			}
+			4 => {
+				st.s("[First footer] ");
+			}
+			_ => {}
+		}
 		if app.name_len == 0 {
 			st.s("(Untitled)");
 		} else {
