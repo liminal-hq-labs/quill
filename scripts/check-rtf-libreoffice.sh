@@ -39,7 +39,7 @@ def summary(path):
     body = t[t.index("<body"):]
     counts = {k: len(re.findall(p, body)) for k, p in [
         ("bold", r"<b>"), ("italic", r"<i>"), ("underline", r"<u>"), ("strike", r"<(strike|s)>"),
-        ("super", r"<sup"), ("sub", r"<sub")]}
+        ("super", r"<sup"), ("sub", r"<sub"), ("img", r"<img")]}
     low = body.lower()
     for k in ("center", "right", "justify", "ff0000", "arial", "courier"):
         counts[k] = low.count(k)
