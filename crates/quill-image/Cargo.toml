@@ -1,0 +1,14 @@
+[package]
+name = "quill-image"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "Quill's pictures: BMP decoding by rows, scaling and dithering to the 16 VGA colours"
+
+[dependencies]
+quill-formats = { path = "../quill-formats" }
+quill-inflate = { path = "../quill-inflate" }
+
+[dev-dependencies]
+proptest = { version = "1", default-features = false, features = ["std"] }

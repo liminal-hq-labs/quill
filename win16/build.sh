@@ -31,6 +31,7 @@ elf_dir="$CARGO_TARGET_DIR/win16/release"
 for prog in probe icontest; do
 	RES_ARGS=()
 	[ -f "examples/$prog/resources.json" ] && RES_ARGS=(--resources "examples/$prog/resources.json")
+	python3 tools/check_branches.py "$elf_dir/$prog"
 	upper="$(echo "$prog" | tr '[:lower:]' '[:upper:]')"
 	python3 tools/ne_pack.py --module "$upper" --description "Quill Win16 $prog" \
 		${RES_ARGS[@]+"${RES_ARGS[@]}"} "$elf_dir/$prog" "$out/$upper.EXE"

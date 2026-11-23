@@ -73,11 +73,12 @@ const DOCUMENT: [Item; 6] = [
 	item("Return to Document", "", Command::View(0)),
 ];
 const HELP: [Item; 1] = [item("About Quill...", "", Command::About)];
-const FILE: [Item; 5] = [
+const FILE: [Item; 6] = [
 	item("New", "Ctrl+N", Command::New),
 	item("Open...", "Ctrl+O", Command::Open),
 	item("Save", "Ctrl+S", Command::Save),
 	item("Save As...", "", Command::SaveAs),
+	item("Print...", "Ctrl+P", Command::Print),
 	item("Exit", "Ctrl+Q", Command::Exit),
 ];
 const EDIT: [Item; 2] = [
@@ -444,10 +445,10 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 			cursor = None;
 		}
 		Mode::Prompt { kind, buf, len } => {
-			let title: &[u8] = if kind == Prompt::Open {
-				b" Open "
-			} else {
-				b" Save As "
+			let title: &[u8] = match kind {
+				Prompt::Open => b" Open ",
+				Prompt::SaveAs => b" Save As ",
+				Prompt::Print => b" Print to file or device ",
 			};
 			dialog(g, 8, 62, 7, title);
 			g.text(10, 10, b"File name:", attr::CHROME);
