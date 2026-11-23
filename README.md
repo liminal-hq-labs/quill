@@ -3,7 +3,7 @@
 <p align="center"><img src="assets/hero.svg" alt="Quill — one word processor for DOS, Windows 3.1 and Windows 95, written in Rust" width="100%"></p>
 
 <p align="center">
-  <a href="https://github.com/liminal-hq-labs/quill16/actions/workflows/ci.yml"><img src="https://github.com/liminal-hq-labs/quill16/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/liminal-hq-labs/quill/actions/workflows/ci.yml"><img src="https://github.com/liminal-hq-labs/quill/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <img src="https://img.shields.io/badge/status-experimental-a3e635" alt="Status: experimental">
   <img src="https://img.shields.io/badge/licence-Apache--2.0%20OR%20MIT-3fb950" alt="Licence: Apache-2.0 OR MIT">
 </p>
