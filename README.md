@@ -4,15 +4,15 @@
 
 <p align="center">
   <a href="https://github.com/liminal-hq-labs/quill/actions/workflows/ci.yml"><img src="https://github.com/liminal-hq-labs/quill/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <img src="https://img.shields.io/badge/status-experimental-a3e635" alt="Status: experimental">
-  <img src="https://img.shields.io/badge/licence-Apache--2.0%20OR%20MIT-3fb950" alt="Licence: Apache-2.0 OR MIT">
+  <img src="https://img.shields.io/badge/status-experimental-f0a830" alt="Status: experimental">
+  <img src="https://img.shields.io/badge/licence-Apache--2.0%20OR%20MIT-16275a" alt="Licence: Apache-2.0 OR MIT">
 </p>
 
 One word processor for DOS, Windows 3.1 and Windows 95, written in Rust.
 
 Quill is a small rich-text word processor for the PCs of 1992 to 2000: fonts, lists, tab stops, headers and footers, pictures, a spelling checker and a real WinHelp help file, in a program that fits on a floppy and runs in 4 MB. It is built in 2026 with modern Rust and no C compiler, and one shared core drives all three versions, so a letter typed in blue-screen DOS opens with its fonts on Windows 3.1 and in LibreOffice today. Quill is the companion application to the *Cross-compiling to the past* series on the Liminal HQ blog, which explains the toolchains it is built with.
 
-> **Status:** experimental, and in the planning stage. The design is written ([SPEC.md](SPEC.md), [architecture](docs/architecture.md), [roadmap](docs/roadmap.md)); no Quill code exists yet. The toolchains it builds on are proven separately: Rust programs already run on Windows 3.11 (the Liminal Installer's Win16 spike), Windows ME (`win9x-rust`) and DOS (Desk). There are no releases.
+> **Status:** experimental. The portable core, the `.QLD` and RTF formats and the DOS text-mode editor run and are tested (the DOS build is compared with the host screen for screen under headless DOSBox); the Win16 toolchain has been probed on Windows 3.11. The Windows builds are not written yet. See [docs/progress.md](docs/progress.md) for what is shown to work. There are no releases.
 
 ## What it's for
 
