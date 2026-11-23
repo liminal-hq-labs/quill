@@ -26,48 +26,49 @@
 		{ "title": "Find", "items": [
 			{ "text": "Find...\tCtrl+F", "id": 115 },
 			{ "text": "Find Next\tF3", "id": 116 },
-			{ "text": "Replace...\tCtrl+H", "id": 117 }
+			{ "text": "Replace...\tCtrl+H", "id": 117 },
+			{ "text": "Spelling...\tF7", "id": 118 }
 		] },
 		{ "title": "Character", "items": [
-			{ "text": "Regular\tF5", "id": 118 },
-			{ "text": "Bold\tCtrl+B", "id": 119 },
-			{ "text": "Italic\tCtrl+I", "id": 120 },
-			{ "text": "Underline\tCtrl+U", "id": 121 },
-			{ "text": "Strikethrough", "id": 122 },
-			{ "text": "Superscript", "id": 123 },
-			{ "text": "Subscript", "id": 124 },
-			{ "text": "Fonts...", "id": 125 }
+			{ "text": "Regular\tF5", "id": 119 },
+			{ "text": "Bold\tCtrl+B", "id": 120 },
+			{ "text": "Italic\tCtrl+I", "id": 121 },
+			{ "text": "Underline\tCtrl+U", "id": 122 },
+			{ "text": "Strikethrough", "id": 123 },
+			{ "text": "Superscript", "id": 124 },
+			{ "text": "Subscript", "id": 125 },
+			{ "text": "Fonts...", "id": 126 }
 		] },
 		{ "title": "Paragraph", "items": [
-			{ "text": "Left\tCtrl+L", "id": 126 },
-			{ "text": "Centred\tCtrl+E", "id": 127 },
-			{ "text": "Right\tCtrl+R", "id": 128 },
-			{ "text": "Justified\tCtrl+J", "id": 129 },
-			{ "text": "Bullets", "id": 130 },
-			{ "text": "Numbering", "id": 131 },
-			{ "text": "Increase Level", "id": 132 },
-			{ "text": "Decrease Level", "id": 133 },
-			{ "text": "Tabs...", "id": 134 },
-			{ "text": "Single Space", "id": 135 },
-			{ "text": "1\u00bd Space", "id": 136 },
-			{ "text": "Double Space", "id": 137 }
+			{ "text": "Left\tCtrl+L", "id": 127 },
+			{ "text": "Centred\tCtrl+E", "id": 128 },
+			{ "text": "Right\tCtrl+R", "id": 129 },
+			{ "text": "Justified\tCtrl+J", "id": 130 },
+			{ "text": "Bullets", "id": 131 },
+			{ "text": "Numbering", "id": 132 },
+			{ "text": "Increase Level", "id": 133 },
+			{ "text": "Decrease Level", "id": 134 },
+			{ "text": "Tabs...", "id": 135 },
+			{ "text": "Single Space", "id": 136 },
+			{ "text": "1\u00bd Space", "id": 137 },
+			{ "text": "Double Space", "id": 138 }
 		] },
 		{ "title": "Document", "items": [
-			{ "text": "Header", "id": 138 },
-			{ "text": "Footer", "id": 139 },
-			{ "text": "First Page Header", "id": 140 },
-			{ "text": "First Page Footer", "id": 141 },
-			{ "text": "Different First Page", "id": 142 },
-			{ "text": "Return to Document", "id": 143 }
+			{ "text": "Header", "id": 139 },
+			{ "text": "Footer", "id": 140 },
+			{ "text": "First Page Header", "id": 141 },
+			{ "text": "First Page Footer", "id": 142 },
+			{ "text": "Different First Page", "id": 143 },
+			{ "text": "Return to Document", "id": 144 }
 		] },
 		{ "title": "View", "items": [
-			{ "text": "Toolbar", "id": 144 },
-			{ "text": "Formatting Bar", "id": 145 },
-			{ "text": "Ruler", "id": 146 },
-			{ "text": "Status Bar", "id": 147 }
+			{ "text": "Toolbar", "id": 145 },
+			{ "text": "Formatting Bar", "id": 146 },
+			{ "text": "Ruler", "id": 147 },
+			{ "text": "Status Bar", "id": 148 }
 		] },
 		{ "title": "Help", "items": [
-			{ "text": "About Quill...", "id": 148 }
+			{ "text": "About Quill...", "id": 149 }
 		] }
 	]
 }

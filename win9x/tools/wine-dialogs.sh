@@ -24,6 +24,9 @@ shots="${DIALOG_SHOTS:-$work}"
 mkdir -p "$shots"
 cp "$exe" "$work/QUILL32.EXE"
 cp tests/docs/letter.rtf "$work/LETTER.RTF"
+# The Spelling dialog needs a dictionary beside the program.
+cargo run -q -p quill-dict -- "$work/dic" > /dev/null
+cp "$work/dic/EN_CA.DIC" "$work/EN_CA.DIC"
 trap 'rm -rf "$work"' EXIT
 
 cat > "$work/drive.sh" << 'DRIVE'
@@ -60,6 +63,9 @@ xdotool key x
 sleep 1
 menu 37 82
 expect "^Quill$" confirm-save
+# Spelling: a made-up word is the first the check stops at.
+xdotool type "qqzx "; sleep 1
+menu 141 133; expect "Spelling" spelling
 exit $fail
 DRIVE
 chmod +x "$work/drive.sh"

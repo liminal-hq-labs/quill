@@ -49,6 +49,17 @@ fn plain_qld_is_what_the_builder_writes() {
 }
 
 #[test]
+fn the_test_dictionary_is_what_the_builder_writes() {
+	let words = std::fs::read(root().join("dict/test-words.txt")).unwrap();
+	let committed = std::fs::read(root().join("tests/docs/en_ca.dic")).unwrap();
+	assert_eq!(
+		docs::test_dictionary(&words),
+		committed,
+		"tests/docs/en_ca.dic is stale; run: cargo run -p quill-host --bin make-docs -- tests/docs"
+	);
+}
+
+#[test]
 fn plain_layout_matches_the_grid_golden() {
 	let mut s = HostStore::new();
 	let bytes = std::fs::read(root().join("tests/docs/plain.qld")).unwrap();
@@ -185,6 +196,13 @@ fn compare_bytes(path: &str, actual: &[u8]) {
 		return;
 	}
 	assert_eq!(std::fs::read(&file).unwrap(), actual, "{path} differs");
+}
+
+#[test]
+fn m8_spelling_script_matches_its_golden_screens_and_user_dictionary() {
+	let (files, frames) = scenario("m8-spelling");
+	compare("tests/golden/screens/m8-spelling.frames.txt", &frames);
+	compare_bytes("tests/golden/files/m8-quill.udc", &files.files["QUILL.UDC"]);
 }
 
 #[test]

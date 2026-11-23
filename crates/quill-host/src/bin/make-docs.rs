@@ -26,6 +26,11 @@ fn main() -> ExitCode {
 			return ExitCode::from(1);
 		}
 	}
+	let words = std::fs::read("dict/test-words.txt").unwrap_or_default();
+	if let Err(e) = std::fs::write(format!("{dir}/en_ca.dic"), docs::test_dictionary(&words)) {
+		eprintln!("make-docs: {e}");
+		return ExitCode::from(1);
+	}
 	match docs::plain_bytes(&mut s) {
 		Ok(b) => {
 			if let Err(e) = std::fs::write(format!("{dir}/plain.qld"), b) {

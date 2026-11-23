@@ -54,10 +54,11 @@ const fn item(label: &'static str, accel: &'static str, command: Command) -> Ite
 	}
 }
 
-const FIND: [Item; 3] = [
+const FIND: [Item; 4] = [
 	item("Find...", "Ctrl+F", Command::Find),
 	item("Find Next", "F3", Command::FindNext),
 	item("Replace...", "Ctrl+H", Command::Replace),
+	item("Spelling...", "F7", Command::Spelling),
 ];
 const INSERT: [Item; 5] = [
 	item("Picture...", "", Command::Picture),
@@ -612,6 +613,50 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 			g.text(10, 13, b"Apache-2.0 OR MIT", attr::CHROME);
 			g.text(10, 14, app.about.bytes(), attr::CHROME);
 			g.text(34, 16, b"< OK >", SELECTED);
+			cursor = None;
+		}
+		Mode::Spell(d) => {
+			dialog(g, 2, 76, 13, b" Spelling ");
+			let mut r = Row::new();
+			r.s("Not in dictionary: ").bytes(app.spell_word());
+			g.text(5, 10, r.buf.get(..r.n).unwrap_or(&[]), attr::CHROME);
+			let mut ctx = [0u8; 72];
+			let n = app.spell_context(s, &mut ctx);
+			let mut c = Row::new();
+			c.bytes(ctx.get(..n).unwrap_or(&[]));
+			g.text(5, 11, c.buf.get(..c.n.min(62)).unwrap_or(&[]), attr::CHROME);
+			g.text(5, 13, b"Change to:", attr::CHROME);
+			for i in 0..usize::from(d.n) {
+				let l = usize::from(d.lens.get(i).copied().unwrap_or(0));
+				let mut w = Row::new();
+				w.bytes(d.words.get(i).and_then(|w| w.get(..l)).unwrap_or(&[]));
+				let at = if usize::from(d.sel) == i {
+					SELECTED
+				} else {
+					attr::CHROME
+				};
+				g.text(
+					17 + (i / 4) * 20,
+					13 + i % 4,
+					w.buf.get(..l).unwrap_or(&[]),
+					at,
+				);
+			}
+			if d.n == 0 {
+				g.text(17, 13, b"(no suggestions)", attr::CHROME);
+			}
+			let mut x = 4;
+			for (i, b) in crate::spelling::BUTTONS.iter().enumerate() {
+				let mut t = Row::new();
+				t.s("< ").s(b).s(" >");
+				let at = if usize::from(d.focus) == i {
+					SELECTED
+				} else {
+					attr::CHROME
+				};
+				g.text(x, 18, t.buf.get(..t.n).unwrap_or(&[]), at);
+				x += t.n + 1;
+			}
 			cursor = None;
 		}
 		Mode::Confirm(_) => {

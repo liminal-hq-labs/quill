@@ -98,6 +98,7 @@ dependencies = [
  "quill-grid",
  "quill-image",
  "quill-inflate",
+ "quill-spell",
 ]
 
 [[package]]
@@ -107,6 +108,10 @@ dependencies = [
  "proptest",
  "quill-host",
 ]
+
+[[package]]
+name = "quill-dict"
+version = "0.0.0"
 
 [[package]]
 name = "quill-formats"
@@ -138,6 +143,7 @@ dependencies = [
  "proptest",
  "quill-app",
  "quill-core",
+ "quill-dict",
  "quill-formats",
  "quill-grid",
  "quill-heap",
@@ -157,6 +163,16 @@ name = "quill-inflate"
 version = "0.0.0"
 dependencies = [
  "proptest",
+]
+
+[[package]]
+name = "quill-spell"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+ "quill-dict",
+ "quill-formats",
+ "quill-heap",
 ]
 
 [[package]]

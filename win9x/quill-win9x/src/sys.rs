@@ -117,6 +117,7 @@ pub struct TextMetricA {
 extern "system" {
 	pub fn ExitProcess(code: u32) -> !;
 	pub fn GetModuleHandleA(name: *const u8) -> Handle;
+	pub fn GetModuleFileNameA(module: Handle, name: *mut u8, size: u32) -> u32;
 	pub fn GetCommandLineA() -> *const u8;
 	pub fn GetProcessHeap() -> Handle;
 	pub fn GlobalMemoryStatus(status: *mut MemoryStatus);

@@ -111,7 +111,7 @@ pub fn layout() -> Layout {
 		add(&mut b, 0, &mut x, g, Act::Cmd(c), Toggle::No);
 	}
 	x += 8;
-	add(&mut b, 0, &mut x, 20, Act::None, Toggle::No);
+	add(&mut b, 0, &mut x, 20, Act::Cmd(Command::Spelling), Toggle::No);
 	let mut x = 4;
 	let (style_x, style_w) = (x, 104);
 	x += style_w + 4;

@@ -83,25 +83,46 @@ fn c_name(name: &[u8]) -> Vec<u8> {
 	v
 }
 
+/// Opens a NUL-terminated path for reading.
+fn open_path(n: &[u8]) -> Option<Win32Source> {
+	// SAFETY: `n` is NUL-terminated.
+	let h = unsafe {
+		CreateFileA(
+			n.as_ptr(),
+			GENERIC_READ,
+			FILE_SHARE_READ,
+			null(),
+			OPEN_EXISTING,
+			0,
+			null_mut(),
+		)
+	};
+	(h != INVALID_HANDLE_VALUE).then_some(Win32Source(h))
+}
+
 impl Files for Win32Files {
 	type R = Win32Source;
 	type W = Win32Sink;
 
 	fn open(&mut self, name: &[u8]) -> Option<Win32Source> {
-		let n = c_name(name);
-		// SAFETY: `n` is NUL-terminated.
-		let h = unsafe {
-			CreateFileA(
-				n.as_ptr(),
-				GENERIC_READ,
-				FILE_SHARE_READ,
-				null(),
-				OPEN_EXISTING,
-				0,
-				null_mut(),
-			)
-		};
-		(h != INVALID_HANDLE_VALUE).then_some(Win32Source(h))
+		if let Some(s) = open_path(&c_name(name)) {
+			return Some(s);
+		}
+		// A data file named without a folder (the dictionaries, the user dictionary) is also looked for beside the program.
+		if !name.iter().any(|b| *b == b'\\' || *b == b':') {
+			let mut path = [0u8; 260];
+			// SAFETY: `path` holds 260 bytes, as the call is told.
+			let n = unsafe { GetModuleFileNameA(null_mut(), path.as_mut_ptr(), 260) } as usize;
+			let dir = path
+				.get(..n)
+				.and_then(|p| p.iter().rposition(|b| *b == b'\\'))
+				.map_or(0, |i| i + 1);
+			let mut full = path.get(..dir).unwrap_or(&[]).to_vec();
+			full.extend_from_slice(name);
+			full.push(0);
+			return open_path(&full);
+		}
+		None
 	}
 
 	fn create(&mut self, name: &[u8]) -> Option<Win32Sink> {
@@ -576,6 +597,7 @@ unsafe fn handle_dialogs(hwnd: Handle) {
 			quill_app::Dialog::Fonts => dialogs::fonts(hwnd, sh),
 			quill_app::Dialog::Tabs => dialogs::tabs(hwnd, sh),
 			quill_app::Dialog::Find(replace) => dialogs::find(hwnd, sh, replace),
+			quill_app::Dialog::Spelling => dialogs::spelling(hwnd, sh),
 			quill_app::Dialog::ConfirmSave(c) => {
 				let name = sh.app.name().to_vec();
 				match dialogs::confirm_save(hwnd, &name, c) {
@@ -687,7 +709,10 @@ unsafe fn mouse_down(hwnd: Handle, x: i32, y: i32) {
 						sh.app.set_colour(&mut sh.store, choice);
 					}
 				}
-				chrome::Act::None => sh.app.set_message("Spelling is not built yet."),
+				chrome::Act::None => {
+					run_command(hwnd, Command::Spelling);
+					return;
+				}
 			}
 			InvalidateRect(hwnd, null(), 0);
 			return;

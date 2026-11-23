@@ -11,6 +11,7 @@ dependencies = [
  "quill-grid",
  "quill-image",
  "quill-inflate",
+ "quill-spell",
 ]
 
 [[package]]
@@ -49,6 +50,14 @@ dependencies = [
 [[package]]
 name = "quill-inflate"
 version = "0.0.0"
+
+[[package]]
+name = "quill-spell"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+ "quill-formats",
+]
 
 [[package]]
 name = "quill-win9x"

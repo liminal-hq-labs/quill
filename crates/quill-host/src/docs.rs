@@ -64,3 +64,12 @@ pub fn letter_bytes(s: &mut HostStore) -> Result<Vec<u8>> {
 	quill_formats::qld::write(&d, s, &mut out).map_err(|_| quill_core::Error::NoMemory)?;
 	Ok(out.0)
 }
+
+/// The small dictionary the spelling scenarios use: the words of `dict/test-words.txt`, as a Canadian `.DIC`.
+pub fn test_dictionary(words: &[u8]) -> Vec<u8> {
+	quill_dict::build(
+		&quill_dict::read_list(words),
+		1,
+		"Quill test dictionary (a few words, not SCOWL).",
+	)
+}

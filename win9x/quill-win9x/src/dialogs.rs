@@ -36,6 +36,7 @@ const DLG_ABOUT: usize = 1001;
 const DLG_FIND: usize = 1002;
 const DLG_FONTS: usize = 1003;
 const DLG_TABS: usize = 1004;
+const DLG_SPELLING: usize = 1005;
 
 static mut SHELL: *mut Shell = null_mut();
 static mut OWNER: Handle = null_mut();
@@ -409,4 +410,94 @@ pub unsafe fn confirm_save(owner: Handle, name: &[u8], command: Command) -> i32 
 		c("Quill").as_ptr(),
 		0x23,
 	)
+}
+
+// ---- Spelling ------------------------------------------------------------------------------------------------------------------
+
+/// Shows the word the check stopped at, its sentence and its suggestions.
+unsafe fn spelling_fill(dlg: Handle) {
+	let sh = shell();
+	set_text(dlg, 20, &String::from_utf8_lossy(sh.app.spell_word()));
+	let mut ctx = [0u8; 72];
+	let n = sh.app.spell_context(&sh.store, &mut ctx);
+	set_text(dlg, 21, &String::from_utf8_lossy(&ctx[..n]));
+	SendDlgItemMessageA(dlg, 11, LB_RESETCONTENT, 0, 0);
+	let sg = sh.app.spell_suggestions(&sh.store);
+	for i in 0..sg.len() {
+		if let Some(c) = sg.get(i) {
+			let mut z = c.bytes().to_vec();
+			z.push(0);
+			SendDlgItemMessageA(dlg, 11, LB_ADDSTRING, 0, z.as_ptr() as isize);
+		}
+	}
+	// The first suggestion is the one Change takes; the edit box shows it and can be typed over.
+	if sg.is_empty() {
+		set_text(dlg, 10, "");
+	} else {
+		SendDlgItemMessageA(dlg, 11, 0x186, 0, 0); // LB_SETCURSEL
+		set_text(dlg, 10, &String::from_utf8_lossy(sg.get(0).map_or(&[][..], |c| c.bytes())));
+	}
+	InvalidateRect(OWNER, null(), 0);
+}
+
+unsafe extern "system" fn spelling_proc(dlg: Handle, msg: u32, wparam: usize, _lparam: isize) -> isize {
+	match msg {
+		WM_INITDIALOG => {
+			spelling_fill(dlg);
+			centre(dlg);
+			1
+		}
+		WM_COMMAND => {
+			let id = (wparam & 0xFFFF) as i32;
+			let sh = shell();
+			let with = get_text(dlg, 10);
+			let more = match id {
+				100 => sh.app.spell_ignore(&mut sh.store, false),
+				101 => sh.app.spell_ignore(&mut sh.store, true),
+				102 | 103 if with.is_empty() => return 1,
+				102 => sh.app.spell_change(&mut sh.store, &with, false),
+				103 => sh.app.spell_change(&mut sh.store, &with, true),
+				104 => sh.app.spell_add(&mut sh.store, &mut sh.files),
+				11 if wparam >> 16 == 1 => {
+					// LBN_SELCHANGE: the chosen suggestion goes into the box.
+					let at = SendDlgItemMessageA(dlg, 11, LB_GETCURSEL, 0, 0);
+					let mut buf = [0u8; 64];
+					if at >= 0 {
+						let n = SendDlgItemMessageA(dlg, 11, 0x189, at as usize, buf.as_mut_ptr() as isize).max(0) as usize; // LB_GETTEXT
+						set_text(dlg, 10, &String::from_utf8_lossy(&buf[..n]));
+					}
+					return 1;
+				}
+				IDCANCEL => {
+					sh.app.spell_cancel();
+					EndDialog(dlg, 0);
+					return 1;
+				}
+				_ => return 0,
+			};
+			if more {
+				spelling_fill(dlg);
+			} else {
+				EndDialog(dlg, 1);
+				MessageBoxA(OWNER, c("The spelling check is complete.").as_ptr(), c("Quill").as_ptr(), 0x40);
+			}
+			1
+		}
+		_ => 0,
+	}
+}
+
+/// Runs the spelling check from the caret, a dialog per unknown word.
+///
+/// # Safety
+/// `owner` must be the main window.
+pub unsafe fn spelling(owner: Handle, sh: &mut Shell) {
+	if sh.app.spell_begin(&mut sh.store, &mut sh.files) {
+		run(owner, sh, DLG_SPELLING, spelling_proc);
+	} else if sh.app.message().is_empty() {
+		MessageBoxA(owner, c("The spelling check is complete.").as_ptr(), c("Quill").as_ptr(), 0x40);
+	} else {
+		let text = String::from_utf8_lossy(sh.app.message()).into_owned();
+		MessageBoxA(owner, c(&text).as_ptr(), c("Quill").as_ptr(), 0x40);
+	}
 }
