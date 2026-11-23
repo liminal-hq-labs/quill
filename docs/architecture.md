@@ -124,10 +124,11 @@ The text is a piece table over two byte buffers in the `Store`: the **original**
 | `start` | `u32` | Offset in that buffer |
 | `len` | `u32` | Characters |
 | `cfmt` | `u16` | Character format index |
+| `pfmt` | `u16` | Paragraph format index, used by the paragraph marks the piece holds (D58) |
 
 Pieces carry the character format, so the style runs are the pieces: making a word bold splits at most two pieces and changes the `cfmt` of the ones between. Typing at the end of the last piece extends it in place, which keeps the piece count near the number of edits and format changes, not the number of keystrokes. Finding the piece for a position scans from a cached cursor, which is fast for the local edits typing makes; a block index over the pieces is the planned fix if large documents show the scan.
 
-Paragraphs end with `0x0D` in the text. A `FarVec` of paragraph records holds, per paragraph, its start position, its paragraph format index, its list number (computed, see below), and its layout (the first line index, the line count, the height and the top in layout units).
+Paragraphs end with `0x0D` in the text, and a paragraph's format is the `pfmt` of the piece that holds its mark, so formats follow the text through edits and undo with no second structure to keep in step (D58). A `FarVec` of paragraph records, rebuilt from the text, holds per paragraph its start position, its list number (computed, see below), and its layout (the first line index, the line count, the height and the top in layout units).
 
 ### Stories and inline objects
 

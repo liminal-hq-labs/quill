@@ -393,12 +393,13 @@ A RIFF file (little-endian, chunks padded to even length) with form type `QLD1`.
 | `LIST` | List definitions: count (`u16`), then per list nine levels of style (`u8`), start (`u16`) and indent (`i32` twips) |
 | `PFMT` | Paragraph formats: count (`u16`), then per format an alignment (`u8`: 0 left, 1 centre, 2 right, 3 justify), line spacing (`u8`: 0 single, 1 one and a half, 2 double), flags (`u16`: bit 0 bullet, bit 1 page break before, bit 2 numbered, bit 3 restart numbering), list index (`u16`), level (`u8`, 0–8), tab set index (`u16`, `0xFFFF` for none), left, right and first-line indents and space before and after (`i32` twips each) |
 | `PICT` | One per picture, in order: kind (`u8`: 0 BMP, 1 PNG), width and height in pixels (`u16` each), shown width and height (`i32` twips each), then the original file bytes |
-| `LIST`-type chunk `STRY` | One per story, in the order body, header, footer, first-page header, first-page footer, each holding the chunks below |
+| `LIST` container, form type `STRY` | One per story, in the order body, header, footer, first-page header, first-page footer (empty header and footer stories are left out), each holding the chunks below. A reader tells it from the list definitions chunk by its first bytes: the form type `STRY`, where a definitions chunk starts with a count of at most 64 |
 | `STHD` | Inside a story: story kind (`u8`: 0 body, 1 header, 2 footer, 3 first header, 4 first footer) and character count (`u32`) |
 | `TEXT` | Inside a story: ANSI text. Paragraphs end with `0x0D`, a line break is `0x0B`, a tab `0x09`, and `0x01` marks an inline object. The last paragraph has its `0x0D` |
 | `RUNS` | Inside a story: count (`u32`), then per run a length in characters (`u32`) and a `CFMT` index (`u16`). Lengths sum to the character count |
 | `PARA` | Inside a story: one `PFMT` index (`u16`) per paragraph |
 | `OBJS` | Inside a story: one entry per `0x01` in its text, in order: kind (`u8`: 0 picture, 1 page number, 2 page count, 3 date, 4 file name) and a picture index (`u16`, zero for fields) |
+| `PARA` and `RUNS` order | A story's chunks are written in the order `STHD`, `TEXT`, `RUNS`, `PARA`, `OBJS`, and a reader needs `TEXT` before the others |
 | `INFO` | Optional: title, author and comments, each a `u8` length and ANSI bytes |
 
 ### RTF subset

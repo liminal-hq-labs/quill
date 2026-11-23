@@ -1,0 +1,18 @@
+[package]
+name = "quill-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Quill's host tools: HostStore, the measures, quill-render and the golden tests"
+
+[[bin]]
+name = "quill-render"
+path = "src/bin/quill-render.rs"
+
+[dependencies]
+quill-core = { path = "../quill-core" }
+quill-formats = { path = "../quill-formats" }
+
+[dev-dependencies]
+proptest = { version = "1", default-features = false, features = ["std"] }

@@ -21,7 +21,9 @@ Quill is a Liminal HQ Labs experiment: one word processor for DOS, Windows 3.1 a
 ## Commands
 
 ```sh
+make validate                    # fmt, clippy, nextest, headers, float ban
 bash scripts/check-headers.sh
+make goldens                     # rewrite goldens; review the diff
 bash scripts/check-banner.sh     # add --shots /tmp/shots for review frames
 docker run --rm -v "$PWD:/workdir" davidanson/markdownlint-cli2:v0.17.2 "**/*.md"
 ```

@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc ba34205ad5f7266e3a794f23c2049e26432c1f6645b9250f7446eb2d6576c153 # shrinks to ops = [Delete(15721, 44671), Insert(0, [32, 32, 32, 32, 32, 32, 32, 32, 32, 32], 0), Insert(0, [32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32], 0), Delete(55305, 23392), Delete(44780, 13408), Delete(0, 0), Delete(0, 0)], extra = Insert(0, [32], 0)
+cc 610e231dd094ef7394346fc82b033ad5b3a6d3745a9e476a890117334c2b8363 # shrinks to original = [], ops = [Insert(0, [32, 32], 0), Delete(8869, 0), Insert(0, [32, 32, 32, 32, 32], 0), Insert(0, [32, 32, 32, 32], 0), Insert(0, [32], 0), Insert(0, [32], 0), Insert(0, [32, 32, 32, 32], 0), Insert(0, [32, 32, 32, 32, 32, 32, 32, 32, 32], 0), Delete(47051, 28102), Delete(0, 0), Delete(0, 0), Delete(0, 0)]
