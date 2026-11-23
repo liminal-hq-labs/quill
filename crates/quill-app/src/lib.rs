@@ -14,6 +14,7 @@
 	clippy::indexing_slicing
 )]
 
+mod find;
 mod paint;
 
 use quill_core::doc::{cflag, CFmt, Doc, PFmt};
@@ -132,6 +133,12 @@ pub enum Command {
 	Undo,
 	/// Edit > Redo.
 	Redo,
+	/// Find > Find.
+	Find,
+	/// Find > Find Next.
+	FindNext,
+	/// Find > Replace.
+	Replace,
 	/// Character > Regular.
 	Regular,
 	/// Character > Bold.
@@ -153,6 +160,52 @@ pub enum Command {
 }
 
 const NAME_MAX: usize = 64;
+
+/// The one-line message shown in the status line until the next key.
+#[derive(Copy, Clone)]
+pub(crate) struct Msg {
+	buf: [u8; 96],
+	len: usize,
+}
+
+impl Msg {
+	const fn new() -> Self {
+		Msg {
+			buf: [0; 96],
+			len: 0,
+		}
+	}
+	fn clear(&mut self) {
+		self.len = 0;
+	}
+	fn push(&mut self, b: &[u8]) {
+		for &c in b {
+			if let Some(slot) = self.buf.get_mut(self.len) {
+				*slot = c;
+				self.len += 1;
+			}
+		}
+	}
+	pub(crate) fn set(&mut self, t: &str) {
+		self.clear();
+		self.push(t.as_bytes());
+	}
+	/// A message with a quoted text in it: `a` + `"text"` + `c`.
+	pub(crate) fn set_quoted(&mut self, a: &str, text: &[u8], c: &str) {
+		self.clear();
+		self.push(a.as_bytes());
+		self.push(b"\"");
+		self.push(text);
+		self.push(b"\"");
+		self.push(c.as_bytes());
+	}
+	pub(crate) fn is_empty(&self) -> bool {
+		self.len == 0
+	}
+	pub(crate) fn bytes(&self) -> &[u8] {
+		self.buf.get(..self.len).unwrap_or(&[])
+	}
+}
 
 /// Undo step labels.
 pub mod label {
@@ -185,6 +238,7 @@ pub(crate) enum Mode {
 		len: usize,
 	},
 	Confirm(Command),
+	Find(find::FindState),
 }
 
 /// The editor.
@@ -199,7 +253,7 @@ pub struct App {
 	pub(crate) mode: Mode,
 	typing: bool,
 	quit: bool,
-	pub(crate) msg: &'static str,
+	pub(crate) msg: Msg,
 	pending: Option<Command>,
 	/// The other end of the selection, when there is one.
 	pub(crate) anchor: Option<u32>,
@@ -208,6 +262,8 @@ pub struct App {
 	pub(crate) scheme: Scheme,
 	/// The format the next typed character takes, chosen with no selection.
 	typing_fmt: Option<u16>,
+	/// The last search, for Find Next.
+	pub(crate) last_find: Option<find::FindState>,
 	/// The format the document was opened in: 0 native, 1 RTF, 2 text.
 	fmt: u8,
 }
@@ -232,7 +288,7 @@ impl App {
 			mode: Mode::Edit,
 			typing: false,
 			quit: false,
-			msg: "",
+			msg: Msg::new(),
 			pending: None,
 			anchor: None,
 			extend: false,
@@ -240,6 +296,7 @@ impl App {
 			scheme: Scheme::Colour,
 			typing_fmt: None,
 			fmt: 0,
+			last_find: None,
 		}
 	}
 
@@ -600,10 +657,10 @@ impl App {
 				self.caret += 1;
 				self.modified = true;
 			}
-			Err(Error::NoMemory) => {
-				self.msg = "There is not enough memory to complete this operation."
-			}
-			Err(_) => self.msg = "The document is too large for Quill.",
+			Err(Error::NoMemory) => self
+				.msg
+				.set("There is not enough memory to complete this operation."),
+			Err(_) => self.msg.set("The document is too large for Quill."),
 		}
 		if c == 0x0D {
 			self.end_typing();
@@ -650,7 +707,8 @@ impl App {
 				self.pending = None;
 				self.doc.reset(s);
 				if self.reset(s).is_err() {
-					self.msg = "There is not enough memory to complete this operation.";
+					self.msg
+						.set("There is not enough memory to complete this operation.");
 				}
 			}
 			Command::Open => {
@@ -742,6 +800,15 @@ impl App {
 			),
 			Command::Align(a) => self.para_command(s, |p| PFmt { align: a, ..p }),
 			Command::Spacing(n) => self.para_command(s, |p| PFmt { spacing: n, ..p }),
+			Command::Find => self.open_find(false),
+			Command::Replace => self.open_find(true),
+			Command::FindNext => {
+				if let Some(st) = self.last_find {
+					self.find_next(s, &st);
+				} else {
+					self.open_find(false);
+				}
+			}
 			Command::Undo => {
 				if self.doc.body.undo(s).unwrap_or(false) {
 					self.modified = true;
@@ -888,7 +955,7 @@ impl App {
 				true
 			}
 			Err(_) => {
-				self.msg = "Quill cannot save the file.";
+				self.msg.set("Quill cannot save the file.");
 				self.pending = None;
 				false
 			}
@@ -897,11 +964,12 @@ impl App {
 
 	/// Handles one key.
 	pub fn key<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, k: Key) {
-		self.msg = "";
+		self.msg.set("");
 		match self.mode {
 			Mode::Edit => self.key_edit(s, f, k),
 			Mode::Menu { menu, item } => self.key_menu(s, f, k, menu, item),
 			Mode::Prompt { kind, buf, len } => self.key_prompt(s, f, k, kind, buf, len),
+			Mode::Find(st) => self.key_find(s, k, st),
 			Mode::Confirm(c) => match k {
 				Key::Char(b'y' | b'Y') => {
 					self.mode = Mode::Edit;
@@ -1025,6 +1093,9 @@ impl App {
 			}
 			Key::Insert => self.overtype = !self.overtype,
 			Key::F(5) => self.run(s, f, Command::Regular),
+			Key::F(3) => self.run(s, f, Command::FindNext),
+			Key::Ctrl(b'f') => self.run(s, f, Command::Find),
+			Key::Ctrl(b'h') => self.run(s, f, Command::Replace),
 			Key::F(10) => {
 				self.end_typing();
 				self.mode = Mode::Menu { menu: 0, item: 0 };
@@ -1138,7 +1209,7 @@ impl App {
 						let mut n = [0u8; NAME_MAX];
 						n.get_mut(..len).unwrap_or(&mut []).copy_from_slice(name);
 						if self.open(s, f, n.get(..len).unwrap_or(&[])).is_err() {
-							self.msg = "Quill cannot open that file.";
+							self.msg.set("Quill cannot open that file.");
 						}
 					}
 					Prompt::SaveAs => {

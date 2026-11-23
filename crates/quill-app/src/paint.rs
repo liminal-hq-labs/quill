@@ -47,6 +47,11 @@ const fn item(label: &'static str, accel: &'static str, command: Command) -> Ite
 	}
 }
 
+const FIND: [Item; 3] = [
+	item("Find...", "Ctrl+F", Command::Find),
+	item("Find Next", "F3", Command::FindNext),
+	item("Replace...", "Ctrl+H", Command::Replace),
+];
 const FILE: [Item; 5] = [
 	item("New", "Ctrl+N", Command::New),
 	item("Open...", "Ctrl+O", Command::Open),
@@ -81,6 +86,7 @@ pub(crate) fn menu_items(menu: u8) -> &'static [Item] {
 	match menu {
 		0 => &FILE,
 		1 => &EDIT,
+		3 => &FIND,
 		4 => &CHARACTER,
 		5 => &PARAGRAPH,
 		_ => &[],
@@ -315,7 +321,7 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 			st.s("   Mod");
 		}
 	} else {
-		st.s(" ").s(app.msg);
+		st.s(" ").bytes(app.msg.bytes());
 	}
 	g.text(0, last, st.buf.get(..COLS).unwrap_or(&[]), attr::CHROME);
 
@@ -353,6 +359,60 @@ pub fn draw<S: Store + ?Sized, const ROWS: usize>(
 			g.text(24, 12, b"< OK >", attr::CHROME);
 			g.text(40, 12, b"< Cancel >", attr::CHROME);
 			cursor = Some((21 + len, 10));
+		}
+		Mode::Find(st) => {
+			let h = if st.replace { 11 } else { 9 };
+			dialog(
+				g,
+				8,
+				62,
+				h,
+				if st.replace { b" Replace " } else { b" Find " },
+			);
+			let bx = |on: bool| if on { b"[x]" } else { b"[ ]" };
+			g.text(10, 10, b"Find what:", attr::CHROME);
+			g.fill(24, 10, 34, 1, b' ', 0x07);
+			g.text(24, 10, st.find.get(..st.flen).unwrap_or(&[]), 0x07);
+			let mut y = 11;
+			if st.replace {
+				g.text(10, 11, b"Replace with:", attr::CHROME);
+				g.fill(24, 11, 34, 1, b' ', 0x07);
+				g.text(24, 11, st.with.get(..st.wlen).unwrap_or(&[]), 0x07);
+				y = 12;
+			}
+			g.text(10, y, bx(st.case), attr::CHROME);
+			g.text(14, y, b"Match case", attr::CHROME);
+			g.text(30, y, bx(st.word), attr::CHROME);
+			g.text(34, y, b"Match whole word only", attr::CHROME);
+			let by = y + 2;
+			let mut x = 10;
+			let buttons: &[(&[u8], crate::find::Focus)] = if st.replace {
+				&[
+					(b"< Find Next >", crate::find::Focus::FindNext),
+					(b"< Replace >", crate::find::Focus::ReplaceOne),
+					(b"< Replace All >", crate::find::Focus::ReplaceAll),
+					(b"< Close >", crate::find::Focus::Close),
+				]
+			} else {
+				&[
+					(b"< Find Next >", crate::find::Focus::FindNext),
+					(b"< Close >", crate::find::Focus::Close),
+				]
+			};
+			for (t, f) in buttons {
+				let a = if st.focus == *f {
+					SELECTED
+				} else {
+					attr::CHROME
+				};
+				g.text(x, by, t, a);
+				x += t.len() + 2;
+			}
+			cursor = match st.focus {
+				crate::find::Focus::Find => Some((24 + st.flen, 10)),
+				crate::find::Focus::Replace => Some((24 + st.wlen, 11)),
+				_ => None,
+			};
 		}
 		Mode::Confirm(_) => {
 			dialog(g, 8, 62, 7, b" Quill ");
