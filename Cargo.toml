@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/quill-core", "crates/quill-formats", "crates/quill-host", "crates/quill-grid", "crates/quill-app", "crates/quill-heap"]
+members = ["crates/quill-core", "crates/quill-formats", "crates/quill-host", "crates/quill-grid", "crates/quill-app", "crates/quill-heap", "crates/quill-image", "crates/quill-inflate"]
 
 [workspace.package]
 version = "0.0.0"

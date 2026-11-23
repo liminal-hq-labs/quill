@@ -1,0 +1,10 @@
+[package]
+name = "quill-inflate"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "A raw-deflate decoder with a 32 KB window that streams its input and output: no allocation, no unsafe"
+
+[dev-dependencies]
+proptest = { version = "1", default-features = false, features = ["std"] }
