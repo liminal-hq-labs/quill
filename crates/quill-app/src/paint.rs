@@ -14,7 +14,7 @@ use crate::{App, Command, Mode, Prompt, Scheme};
 /// Rows of text between the menu bar and the status line on an 80 by 25 screen.
 pub const TEXT_ROWS: usize = 23;
 /// Menus on the bar.
-pub const MENU_COUNT: u8 = 8;
+pub const MENU_COUNT: u8 = 9;
 
 const MENU_BAR: &[u8] = b" File  Edit  Insert  Find  Character  Paragraph  Document  Help";
 const MENU_COLS: [usize; 8] = [1, 7, 13, 21, 27, 38, 49, 59];
@@ -23,7 +23,7 @@ pub fn menu_title(menu: u8) -> &'static [u8] {
 	MENU_TITLES.get(usize::from(menu)).copied().unwrap_or(b"")
 }
 
-const MENU_TITLES: [&[u8]; 8] = [
+const MENU_TITLES: [&[u8]; 9] = [
 	b"File",
 	b"Edit",
 	b"Insert",
@@ -31,6 +31,7 @@ const MENU_TITLES: [&[u8]; 8] = [
 	b"Character",
 	b"Paragraph",
 	b"Document",
+	b"View",
 	b"Help",
 ];
 const SELECTED: u8 = 0x07;
@@ -72,6 +73,12 @@ const DOCUMENT: [Item; 6] = [
 	item("First Page Footer", "", Command::View(4)),
 	item("Different First Page", "", Command::FirstPage),
 	item("Return to Document", "", Command::View(0)),
+];
+const VIEW: [Item; 4] = [
+	item("Toolbar", "", Command::Chrome(1)),
+	item("Formatting Bar", "", Command::Chrome(8)),
+	item("Ruler", "", Command::Chrome(2)),
+	item("Status Bar", "", Command::Chrome(4)),
 ];
 const HELP: [Item; 1] = [item("About Quill...", "", Command::About)];
 const FILE: [Item; 8] = [
@@ -123,7 +130,8 @@ pub fn menu_items(menu: u8) -> &'static [Item] {
 		4 => &CHARACTER,
 		5 => &PARAGRAPH,
 		6 => &DOCUMENT,
-		7 => &HELP,
+		7 => &VIEW,
+		8 => &HELP,
 		_ => &[],
 	}
 }

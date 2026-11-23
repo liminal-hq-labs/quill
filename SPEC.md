@@ -48,7 +48,7 @@ Quill is the companion application to the Liminal HQ blog series *Cross-compilin
 - **Windows 3.0, Standard mode or real mode.** 386 Enhanced mode is the floor (D4).
 - **Win32s.** The Win32 build targets Windows 9x's own Win32, not the Win32s subset on Windows 3.1.
 - **Wide-character (Unicode) Windows APIs and Unicode text.** Documents are Windows ANSI (code page 1252), and both Windows builds use ANSI entry points only, because Windows 9x lacks most `...W` functions (D11).
-- **Being Word.** No tables, columns, footnotes, style sheets, fields beyond the four header and footer fields, mail merge, revision marks, OLE or DDE.
+- **Being Word.** No tables, columns, footnotes, user-defined style sheets (the formatting bar's style box applies eight built-in paragraph presets as direct formatting), fields beyond the four header and footer fields, mail merge, revision marks, OLE or DDE.
 - **Grammar checking, hyphenation and a thesaurus.**
 - **Network, macros or scripting.** Quill never opens a socket and never runs code from a document. Help file macros are limited to the standard WinHelp browse and button macros Quill's own help uses.
 
@@ -89,7 +89,7 @@ Everything in this table is v1 unless the last column says otherwise. When time 
 | Zoom (50 % to 200 %) | Stretch | Ships if the milestone it rides on lands with time to spare |
 | WinHelp help file (`QUILL.HLP`) | Yes | Built by Quill's own help compiler (D50) |
 | About box with free memory and system resources | Yes | |
-| Tables, columns, footnotes, style sheets | No | Each is a large layout feature |
+| Tables, columns, footnotes, user-defined style sheets | No | Each is a large layout feature. The style box offers eight built-in presets that apply direct formatting (see Toolbar and ruler) |
 
 ## Components
 
@@ -114,7 +114,7 @@ Everything below describes the Windows builds; the DOS build follows it with the
 ### Window and chrome
 
 - The main window's title is `Quill - <FILE.EXT>`, with `(Untitled)` for a new document, in the style of Windows 3.1 Write. The Win16 build shows the file name in capitals as DOS stores it; the Win32 build shows the long name as the file system stores it.
-- Below the menu bar, top to bottom: the toolbar, the ruler, the editing view with a vertical scroll bar (and a horizontal one when the page is wider than the window), and the status bar. **Document** menu items show or hide the toolbar, ruler and status bar; the choice is remembered.
+- Below the menu bar, top to bottom: the toolbar (a standard row), the formatting bar, the ruler, the editing view with a vertical scroll bar (and a horizontal one when the page is wider than the window), and the status bar. **View** menu items show or hide the toolbar, the formatting bar, the ruler and the status bar, each on its own, and tick when shown; the choices are remembered.
 - The editing view shows the page's text width with the left and right margins as white space. Automatic page breaks are a dotted line across the view; manual page breaks a dotted line with the words `Page break`. Headers and footers are not shown in the editing view (they are in the header view, print preview and print), as in Write.
 - The status bar shows `Page N of M`, `Ln N`, `Col N`, `OVR` in overtype mode, and the menu help line for the highlighted menu item while a menu is open.
 - Only one document is open per window. Starting Quill again opens a second window with its own document (D16).
@@ -179,7 +179,8 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 
 ### Toolbar and ruler
 
-- The toolbar holds, left to right: New, Open, Save, Print, Print Preview; Cut, Copy, Paste; Undo, Redo; a font name drop-down and a font size drop-down; Bold, Italic, Underline; a colour button with a 16-colour drop-down; Left, Centred, Right, Justified; Bullets, Numbering; Spelling. Buttons are drawn in the Windows 3.1 grey three-dimensional style; toggles show pressed when the selection has the property and show neither state when it is mixed.
+- The toolbar is two rows of 24-pixel buttons, as in Word 6, so a 640 by 480 screen keeps a usable page under them and the ruler (about 350 pixels of page with the title bar, menu bar, both rows, the ruler and the status bar showing). The **standard bar** holds, left to right: New, Open, Save, Print, Print Preview; Cut, Copy, Paste; Undo, Redo; Spelling. The **formatting bar** holds: a paragraph style drop-down, a font name drop-down and a font size drop-down; Bold, Italic, Underline; a colour button with a 16-colour drop-down; Left, Centred, Right, Justified; Bullets, Numbering. Buttons are drawn in the Windows 3.1 grey three-dimensional style; toggles show pressed when the selection has the property and show neither state when it is mixed.
+- The **style box** is not a style sheet. It offers eight built-in presets (Normal, Heading 1, Heading 2, Heading 3, Title, Quote, List Paragraph, Hanging Indent), each a fixed set of direct paragraph formatting (alignment, indents, space before and after) and character formatting (size, and bold, italic and underline) applied to the paragraphs the selection touches, in one undo step; tab stops, face and colour stay. The box shows a preset's name while the paragraph at the caret matches it exactly and is blank after any other change. Presets are not stored in the file: RTF carries only the resulting formatting, and `\stylesheet` stays skipped on reading and is not written (D85).
 - The font name box lists the fonts on the display and the current printer, TrueType first. A name that is not installed is kept in the document; Windows substitutes a similar font for display and printing. The size box accepts any whole number from 4 to 144.
 - The ruler shows the text width in the current units, the first-line indent (upper triangle), the left indent (lower triangle with a box that moves both), the right indent, and the paragraph's tab stops as `L`, `C`, `R` and `D` marks. Clicking the ruler's tab-kind button cycles the kind; clicking the scale adds a stop of that kind; dragging a stop moves it; dragging it off the ruler removes it. Each drag is one undo step. Default stops (every half inch, 1.25 cm in metric) show as ticks after the last set stop.
 

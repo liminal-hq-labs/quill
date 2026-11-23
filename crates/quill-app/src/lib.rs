@@ -14,6 +14,7 @@
 	clippy::indexing_slicing
 )]
 
+mod chrome;
 mod find;
 mod form;
 mod paint;
@@ -29,6 +30,9 @@ use quill_formats::io::{Sink, Source};
 use quill_formats::{qld, rtf, text, FormatError};
 use quill_grid::GridMeasure;
 
+pub use chrome::{
+	tab_stop, CharState, CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR, STYLE_NAMES,
+};
 pub use paint::{draw, line_label, menu_items, menu_title, Cursor, Item, ListCounters, MENU_COUNT};
 
 /// A key, as the platform decodes it.
@@ -169,6 +173,8 @@ pub enum Command {
 	Picture,
 	/// File > Print.
 	Print,
+	/// View > Toolbar (1), Ruler (2), Status Bar (4) or Formatting Bar (8).
+	Chrome(u8),
 	/// File > Print Preview (Windows builds only).
 	Preview,
 	/// File > Print Setup (Windows builds only).
@@ -313,6 +319,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) scheme: Scheme,
 	/// The format the next typed character takes, chosen with no selection.
 	typing_fmt: Option<u16>,
+	/// Which parts of the window chrome show (`CHROME_*`).
+	pub(crate) chrome: u8,
 	/// The story being edited: 0 body, 1 header, 2 footer, 3 first header, 4 first footer. The active story lives in `doc.body`.
 	pub(crate) view: u8,
 	saved_view: (u32, u32),
@@ -368,6 +376,7 @@ impl<M: Measure + Clone> App<M> {
 			overtype: false,
 			scheme: Scheme::Colour,
 			typing_fmt: None,
+			chrome: 15,
 			fmt: 0,
 			last_find: None,
 			about: Msg::new(),
@@ -593,6 +602,20 @@ impl<M: Measure + Clone> App<M> {
 			let line = line.strip_suffix(b"\r").unwrap_or(line);
 			for i in 0..4usize {
 				let key = [b'F', b'i', b'l', b'e', b'1' + i as u8, b'='];
+				for (name, bit) in [
+					(&b"Toolbar="[..], 1u8),
+					(b"Ruler=", 2),
+					(b"StatusBar=", 4),
+					(b"FormattingBar=", 8),
+				] {
+					if let Some(v) = line.strip_prefix(name) {
+						if v.first() == Some(&b'0') {
+							self.chrome &= !bit;
+						} else {
+							self.chrome |= bit;
+						}
+					}
+				}
 				if let Some(v) = line.strip_prefix(&key[..]) {
 					let len = v.len().min(NAME_MAX);
 					if let (Some(d), Some(dl)) =
@@ -622,6 +645,20 @@ impl<M: Measure + Clone> App<M> {
 			let _ = w.write(&[b'F', b'i', b'l', b'e', b'1' + i as u8, b'=']);
 			let _ = w.write(self.recent.get(i).and_then(|r| r.get(..len)).unwrap_or(&[]));
 			let _ = w.write(b"\r\n");
+		}
+		let _ = w.write(b"[Quill]\r\n");
+		for (name, bit) in [
+			(&b"Toolbar="[..], 1u8),
+			(b"Ruler=", 2),
+			(b"StatusBar=", 4),
+			(b"FormattingBar=", 8),
+		] {
+			let _ = w.write(name);
+			let _ = w.write(if self.chrome & bit != 0 {
+				b"1\r\n"
+			} else {
+				b"0\r\n"
+			});
 		}
 		f.close(w);
 	}
@@ -1205,6 +1242,7 @@ impl<M: Measure + Clone> App<M> {
 					len: 0,
 				}
 			}
+			Command::Chrome(bit) => self.chrome ^= bit,
 			Command::Preview | Command::PrintSetup => {
 				self.msg.set("That is not available in this version.")
 			}
@@ -1358,7 +1396,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The position where the paragraph holding `pos` starts.
-	fn para_start<S: Store + ?Sized>(&self, s: &S, pos: u32) -> u32 {
+	pub(crate) fn para_start<S: Store + ?Sized>(&self, s: &S, pos: u32) -> u32 {
 		let t = &self.doc.body;
 		let mut end = pos;
 		let mut buf = [0u8; 64];

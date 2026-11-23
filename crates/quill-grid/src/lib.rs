@@ -148,6 +148,43 @@ impl<const ROWS: usize> Grid<ROWS> {
 	}
 }
 
+impl<const ROWS: usize> Grid<ROWS> {
+	/// The same dump as [`Grid::dump`], handed to `out` in pieces and written without `core::fmt`, for builds that cannot afford it.
+	pub fn dump_bytes(&self, n: u32, out: &mut impl FnMut(&[u8])) {
+		out(b"=== screen ");
+		let mut digits = [0u8; 10];
+		let mut i = digits.len();
+		let mut v = n;
+		loop {
+			i -= 1;
+			if let Some(d) = digits.get_mut(i) {
+				*d = b'0' + (v % 10) as u8;
+			}
+			v /= 10;
+			if v == 0 {
+				break;
+			}
+		}
+		out(digits.get(i..).unwrap_or(&[]));
+		out(b" ===\n");
+		let mut utf = [0u8; 4];
+		for row in &self.cells {
+			for c in row {
+				out(cp437(c.ch).encode_utf8(&mut utf).as_bytes());
+			}
+			out(b"\n");
+		}
+		out(b"--- attributes ---\n");
+		for row in &self.cells {
+			for c in row {
+				let hex = |n: u8| if n < 10 { b'0' + n } else { b'A' + n - 10 };
+				out(&[hex(c.attr >> 4), hex(c.attr & 15)]);
+			}
+			out(b"\n");
+		}
+	}
+}
+
 const HIGH: [char; 128] = [
 	'Ç', 'ü', 'é', 'â', 'ä', 'à', 'å', 'ç', 'ê', 'ë', 'è', 'ï', 'î', 'ì', 'Ä', 'Å', 'É', 'æ', 'Æ',
 	'ô', 'ö', 'ò', 'û', 'ù', 'ÿ', 'Ö', 'Ü', '¢', '£', '¥', '₧', 'ƒ', 'á', 'í', 'ó', 'ú', 'ñ', 'Ñ',
@@ -296,5 +333,26 @@ impl Measure for GridMeasure {
 
 	fn widths(&mut self, _font: &FontRef, out: &mut [u16; GLYPHS]) {
 		out.fill(1);
+	}
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod dump_tests {
+	extern crate std;
+	use super::*;
+	use std::string::String;
+	use std::vec::Vec;
+
+	#[test]
+	fn the_byte_dump_equals_the_text_dump() {
+		let mut g = Grid::<25>::new(0x1F);
+		g.put(3, 2, 0xC4, 0x4E);
+		g.put(0, 0, b'Q', 0x07);
+		let mut a = String::new();
+		g.dump(12, &mut a).unwrap();
+		let mut b: Vec<u8> = Vec::new();
+		g.dump_bytes(12, &mut |p| b.extend_from_slice(p));
+		assert_eq!(a.as_bytes(), &b[..]);
 	}
 }
