@@ -1,0 +1,19 @@
+# The Win32 workspace: QUILL32.EXE for Windows 95, 98 and ME, outside the root Cargo workspace (see PROVENANCE.md).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[workspace]
+members = ["quill-win9x"]
+resolver = "2"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+overflow-checks = true
