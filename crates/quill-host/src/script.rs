@@ -64,30 +64,9 @@ impl Files for MemFiles {
 	}
 }
 
-/// Turns one AUTOTYPE-style token into a key: a letter or digit, or a name such as `enter`, `f10`, `down`, `space`.
+/// Turns one AUTOTYPE-style token into a key (see `quill_app::script`).
 pub fn parse_token(t: &str) -> Option<Key> {
-	Some(match t {
-		"enter" => Key::Enter,
-		"bspace" => Key::Backspace,
-		"delete" => Key::Delete,
-		"esc" => Key::Esc,
-		"tab" => Key::Tab,
-		"left" => Key::Left,
-		"right" => Key::Right,
-		"up" => Key::Up,
-		"down" => Key::Down,
-		"home" => Key::Home,
-		"end" => Key::End,
-		"pageup" => Key::PageUp,
-		"pagedown" => Key::PageDown,
-		"space" => Key::Char(b' '),
-		"period" => Key::Char(b'.'),
-		"minus" => Key::Char(b'-'),
-		"insert" => Key::Insert,
-		_ if t.len() == 1 && t.as_bytes()[0].is_ascii_alphanumeric() => Key::Char(t.as_bytes()[0]),
-		_ if t.starts_with('f') && t.len() <= 3 => Key::F(t[1..].parse().ok()?),
-		_ => return None,
-	})
+	quill_app::script::parse_token(t)
 }
 
 /// A key script: directives (`@mono`, `@open NAME`, `@copy NAME`) and key tokens, with `#` starting a comment.

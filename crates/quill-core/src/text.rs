@@ -465,6 +465,13 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		done
 	}
 
+	/// The `start` of the inline object at `pos` (its kind in the high half), when the character there is one.
+	pub fn object_at<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u32> {
+		self.find(s, pos)
+			.filter(|(_, p, _)| p.source == SRC_OBJECT)
+			.map(|(_, p, _)| p.start)
+	}
+
 	/// The character at `pos`.
 	pub fn read_byte<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u8> {
 		let mut b = [0u8; 1];

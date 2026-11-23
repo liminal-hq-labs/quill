@@ -129,7 +129,37 @@ pub fn write<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<
 	}
 	o.nl();
 
-	let t = &doc.body;
+	for kind in [
+		StoryKind::Header,
+		StoryKind::Footer,
+		StoryKind::FirstHeader,
+		StoryKind::FirstFooter,
+	] {
+		if doc.story(kind).is_empty() {
+			continue;
+		}
+		o.s(match kind {
+			StoryKind::Header => "{\\header ",
+			StoryKind::Footer => "{\\footer ",
+			StoryKind::FirstHeader => "{\\headerf ",
+			_ => "{\\footerf ",
+		});
+		write_story(&mut o, doc, s, kind);
+		o.s("}");
+		o.nl();
+	}
+	write_story(&mut o, doc, s, StoryKind::Body);
+	o.s("}");
+	o.nl();
+	if o.ok {
+		Ok(())
+	} else {
+		Err(FormatError::Write)
+	}
+}
+
+fn write_story<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, kind: StoryKind) {
+	let t = doc.story(kind);
 	let total = t.len();
 	let mut para_start = 0u32;
 	let mut at = 0u32;
@@ -144,12 +174,12 @@ pub fn write<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<
 		for (i, &b) in buf.iter().take(n).enumerate() {
 			let pos = at + i as u32;
 			if !para_open {
-				let mark = para_end(doc, s, pos);
+				let mark = para_end(doc, s, kind, pos);
 				let pf = mark
 					.and_then(|m| t.pfmt_at(s, m))
 					.and_then(|x| doc.pfmts.get(s, x))
 					.unwrap_or(PFmt::DEFAULT);
-				para_props(&mut o, doc, s, &pf);
+				para_props(o, doc, s, &pf);
 				para_start = pos;
 				para_open = true;
 				cur_cfmt = None;
@@ -165,7 +195,7 @@ pub fn write<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<
 				if cur_cfmt.is_some() || pos != para_start {
 					// A new run inside a paragraph starts from plain text.
 				}
-				char_props(&mut o, doc, s, cf);
+				char_props(o, doc, s, cf);
 				cur_cfmt = Some(cf);
 			}
 			match b {
@@ -174,7 +204,7 @@ pub fn write<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<
 				}
 				0x09 => o.s("\\tab "),
 				0x0B => o.s("\\line "),
-				0x01 => {}
+				0x01 => field(o, t.object_at(s, pos)),
 				0x20..=0x7E => o.put(&[b]),
 				_ => {
 					o.s("\\'");
@@ -187,13 +217,21 @@ pub fn write<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<
 		}
 		at += n as u32;
 	}
-	o.s("}");
-	o.nl();
-	if o.ok {
-		Ok(())
-	} else {
-		Err(FormatError::Write)
-	}
+}
+
+fn field<K: Sink>(o: &mut Out<'_, K>, start: Option<u32>) {
+	let (name, shown) = match start.map(|v| v >> 16) {
+		Some(1) => ("PAGE", "1"),
+		Some(2) => ("NUMPAGES", "1"),
+		Some(3) => ("DATE", "1/1/1990"),
+		Some(4) => ("FILENAME", "UNTITLED"),
+		_ => return,
+	};
+	o.s("{\\field{\\*\\fldinst ");
+	o.s(name);
+	o.s("}{\\fldrslt ");
+	o.s(shown);
+	o.s("}}");
 }
 
 fn hex(n: u8) -> u8 {
@@ -204,8 +242,8 @@ fn hex(n: u8) -> u8 {
 	}
 }
 
-fn para_end<S: Store + ?Sized>(doc: &Doc, s: &S, from: u32) -> Option<u32> {
-	let t = &doc.body;
+fn para_end<S: Store + ?Sized>(doc: &Doc, s: &S, kind: StoryKind, from: u32) -> Option<u32> {
+	let t = doc.story(kind);
 	let mut at = from;
 	let mut buf = [0u8; 128];
 	while at < t.len() {
@@ -224,6 +262,7 @@ fn para_end<S: Store + ?Sized>(doc: &Doc, s: &S, from: u32) -> Option<u32> {
 }
 
 fn para_props<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, pf: &PFmt) {
+	let mut group = false;
 	o.s("\\pard");
 	o.s(match pf.align {
 		1 => "\\qc",
@@ -253,6 +292,40 @@ fn para_props<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, 
 	if pf.flags & 2 != 0 {
 		o.s("\\pagebb");
 	}
+	if pf.flags & 5 != 0 {
+		// The Word 6 form, which every reader since has understood.
+		group = true;
+		o.s("{\\*\\pn");
+		if pf.flags & 1 != 0 {
+			o.s("\\pnlvlblt\\pnindent360{\\pntxtb\\'95}}");
+		} else {
+			let l = doc.lists.get(s, pf.list).unwrap_or_default();
+			let lv = l
+				.levels
+				.get(usize::from(pf.level))
+				.copied()
+				.unwrap_or_default();
+			o.s("\\pnlvlbody");
+			o.s(match lv.style {
+				2 | 3 => "\\pnlcltr",
+				4 => "\\pnlcrm",
+				5 => "\\pnucltr",
+				6 => "\\pnucrm",
+				_ => "\\pndec",
+			});
+			o.word("pnstart", i64::from(lv.start.max(1)));
+			o.s("\\pnindent360{\\pntxta ");
+			o.s(if lv.style == 1 || lv.style == 3 {
+				")"
+			} else {
+				"."
+			});
+			o.s("}}");
+		}
+		if pf.level > 0 {
+			o.word("ilvl", i64::from(pf.level));
+		}
+	}
 	if pf.tabset != NO_TABS {
 		if let Some(ts) = doc.tabsets.get(s, pf.tabset) {
 			for st in ts.stops.iter().take(usize::from(ts.count)) {
@@ -272,7 +345,10 @@ fn para_props<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, 
 			}
 		}
 	}
-	o.s(" ");
+	// A group is not followed by a delimiter space: the next control word starts the run.
+	if !group {
+		o.s(" ");
+	}
 }
 
 fn char_props<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, cf: u16) {
@@ -333,6 +409,11 @@ struct ParaState {
 	tabs: TabSet,
 	next_kind: u8,
 	next_leader: u8,
+	/// 0 none, 1 bullet, 2 numbered.
+	list: u8,
+	style: u8,
+	start: u16,
+	level: u8,
 }
 
 const PARA0: ParaState = ParaState {
@@ -354,6 +435,10 @@ const PARA0: ParaState = ParaState {
 	},
 	next_kind: 0,
 	next_leader: 0,
+	list: 0,
+	style: 0,
+	start: 1,
+	level: 0,
 };
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -362,6 +447,9 @@ enum Dest {
 	FontTable,
 	ColourTable,
 	Skip,
+	Pn,
+	Field,
+	FldInst,
 }
 
 #[derive(Copy, Clone)]
@@ -369,6 +457,8 @@ struct Group {
 	chars: CharState,
 	dest: Dest,
 	uc_skip: u32,
+	/// The story the text goes to: 0 body, 1 header, 2 footer, 3 first header, 4 first footer.
+	story: u8,
 }
 
 struct Reader<'a, R: Source> {
@@ -418,6 +508,10 @@ struct State<'a, S: Store + ?Sized> {
 	pagebb_next: bool,
 	text_total: u32,
 	last_mark: bool,
+	target: u8,
+	pending_story: u8,
+	fld: [u8; 12],
+	fld_len: usize,
 }
 
 impl<S: Store + ?Sized> State<'_, S> {
@@ -445,9 +539,13 @@ impl<S: Store + ?Sized> State<'_, S> {
 			let n = self.pending_len;
 			self.pending_len = 0;
 			let cf = self.pending_cf;
-			self.doc
-				.body
-				.append_original(self.s, self.pending.get(..n).unwrap_or(&[]), cf, 0)?;
+			let kind = StoryKind::from_u8(self.pending_story).unwrap_or(StoryKind::Body);
+			self.doc.story_mut(kind).append_original(
+				self.s,
+				self.pending.get(..n).unwrap_or(&[]),
+				cf,
+				0,
+			)?;
 		}
 		Ok(())
 	}
@@ -458,16 +556,22 @@ impl<S: Store + ?Sized> State<'_, S> {
 			return Err(FormatError::TooLarge);
 		}
 		let cf = self.cfmt()?;
-		if self.pending_len > 0 && (cf != self.pending_cf || self.pending_len == self.pending.len())
+		if self.pending_len > 0
+			&& (cf != self.pending_cf
+				|| self.pending_len == self.pending.len()
+				|| self.pending_story != self.target)
 		{
 			self.flush()?;
 		}
 		self.pending_cf = cf;
+		self.pending_story = self.target;
 		if let Some(slot) = self.pending.get_mut(self.pending_len) {
 			*slot = b;
 			self.pending_len += 1;
 		}
-		self.last_mark = b == 0x0D;
+		if self.target == 0 {
+			self.last_mark = b == 0x0D;
+		}
 		Ok(())
 	}
 
@@ -484,12 +588,25 @@ impl<S: Store + ?Sized> State<'_, S> {
 			flags |= 2;
 			self.pagebb_next = false;
 		}
+		let mut list = 0;
+		if p.list != 0 {
+			flags |= if p.list == 1 { 1 } else { 4 };
+			let mut def = quill_core::doc::ListDef::default();
+			for (i, lv) in def.levels.iter_mut().enumerate() {
+				*lv = quill_core::doc::ListLevel {
+					style: p.style,
+					start: p.start,
+					indent: 360 * (i as i32 + 1),
+				};
+			}
+			list = self.doc.lists.intern(self.s, def)?;
+		}
 		let pf = PFmt {
 			align: p.align,
 			spacing: p.spacing,
 			flags,
-			list: 0,
-			level: 0,
+			list,
+			level: p.level.min(8),
 			tabset,
 			left: p.left,
 			right: p.right,
@@ -503,8 +620,13 @@ impl<S: Store + ?Sized> State<'_, S> {
 			return Err(FormatError::TooLarge);
 		}
 		let cf = self.cfmt()?;
-		self.doc.body.append_original(self.s, b"\r", cf, pf)?;
-		self.last_mark = true;
+		let kind = StoryKind::from_u8(self.target).unwrap_or(StoryKind::Body);
+		self.doc
+			.story_mut(kind)
+			.append_original(self.s, b"\r", cf, pf)?;
+		if self.target == 0 {
+			self.last_mark = true;
+		}
 		Ok(())
 	}
 }
@@ -569,6 +691,10 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 		pagebb_next: false,
 		text_total: 0,
 		last_mark: true,
+		target: 0,
+		pending_story: 0,
+		fld: [0; 12],
+		fld_len: 0,
 	};
 	let mut rd = Reader {
 		r,
@@ -581,12 +707,14 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 		chars: defaults,
 		dest: Dest::Body,
 		uc_skip: 1,
+		story: 0,
 	}; MAX_DEPTH];
 	let mut depth = 0usize;
 	let mut cur = Group {
 		chars: defaults,
 		dest: Dest::Body,
 		uc_skip: 1,
+		story: 0,
 	};
 	let mut skip_chars = 0u32;
 	let mut seen_rtf = false;
@@ -617,12 +745,37 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 				}
 				depth -= 1;
 				let saved = stack.get(depth).copied().unwrap_or(cur);
+				if cur.dest == Dest::Field && st.fld_len > 0 {
+					let name = st.fld.get(..st.fld_len).unwrap_or(&[]);
+					let kind: u32 = if name.starts_with(b"PAGE") {
+						1
+					} else if name.starts_with(b"NUMPAGES") {
+						2
+					} else if name.starts_with(b"DATE") {
+						3
+					} else if name.starts_with(b"FILENAME") {
+						4
+					} else {
+						0
+					};
+					if kind != 0 {
+						st.target = cur.story;
+						st.flush()?;
+						let cf = st.cfmt()?;
+						let k = StoryKind::from_u8(cur.story).unwrap_or(StoryKind::Body);
+						st.doc.story_mut(k).append_object(st.s, kind << 16, cf, 0)?;
+					}
+				}
+				if cur.story != saved.story {
+					st.flush()?;
+				}
 				// Entries inside the font table are groups of their own: finish the font when its group ends.
 				if cur.dest == Dest::FontTable && saved.dest == Dest::FontTable {
 					finish_font(&mut st)?;
 				}
 				cur = saved;
 				st.chars = cur.chars;
+				st.target = cur.story;
 				if depth == 0 {
 					break;
 				}
@@ -638,6 +791,7 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 								skip_chars -= 1;
 							} else if depth > 0 {
 								st.chars = cur.chars;
+								st.target = cur.story;
 								st.text(c)?;
 							}
 						}
@@ -651,6 +805,7 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 								skip_chars -= 1;
 							} else {
 								st.chars = cur.chars;
+								st.target = cur.story;
 								st.text(v)?;
 							}
 						} else if cur.dest == Dest::FontTable {
@@ -665,12 +820,14 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 					b'~' => {
 						if cur.dest == Dest::Body {
 							st.chars = cur.chars;
+							st.target = cur.story;
 							st.text(0xA0)?;
 						}
 					}
 					b'_' => {
 						if cur.dest == Dest::Body {
 							st.chars = cur.chars;
+							st.target = cur.story;
 							st.text(b'-')?;
 						}
 					}
@@ -678,6 +835,7 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 					b'\r' | b'\n' => {
 						if cur.dest == Dest::Body {
 							st.chars = cur.chars;
+							st.target = cur.story;
 							st.text(0x0D)?;
 							st.flush()?;
 						}
@@ -750,6 +908,7 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 							continue;
 						}
 						st.chars = cur.chars;
+						st.target = cur.story;
 						st.text(if b < 0x20 && b != 0x09 { b' ' } else { b })?;
 					}
 					Dest::FontTable => font_char(&mut st, b),
@@ -758,7 +917,15 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 							finish_colour(&mut st)?;
 						}
 					}
-					Dest::Skip => {}
+					Dest::FldInst => {
+						if b.is_ascii_alphabetic() && st.fld_len < st.fld.len() {
+							if let Some(slot) = st.fld.get_mut(st.fld_len) {
+								*slot = b.to_ascii_uppercase();
+								st.fld_len += 1;
+							}
+						}
+					}
+					Dest::Skip | Dest::Pn | Dest::Field => {}
 				}
 			}
 		}
@@ -776,8 +943,21 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 		st.chars = defaults;
 		st.par()?;
 	}
-	st.doc.body.forget_history(st.s);
-	let _ = StoryKind::Body;
+	for k in [
+		StoryKind::Header,
+		StoryKind::Footer,
+		StoryKind::FirstHeader,
+		StoryKind::FirstFooter,
+	] {
+		let n = st.doc.story(k).len();
+		if n > 0 && st.doc.story(k).read_byte(st.s, n - 1) != Some(0x0D) {
+			st.target = k as u8;
+			st.par()?;
+		}
+	}
+	for k in StoryKind::ALL {
+		st.doc.story_mut(k).forget_history(st.s);
+	}
 	Ok(())
 }
 
@@ -853,6 +1033,10 @@ fn control<S: Store + ?Sized>(
 	let v = val.unwrap_or(0) as i32;
 	// Destinations.
 	match w {
+		"pn" => {
+			cur.dest = Dest::Pn;
+			return Ok(());
+		}
 		"fonttbl" => {
 			cur.dest = Dest::FontTable;
 			return Ok(());
@@ -862,9 +1046,27 @@ fn control<S: Store + ?Sized>(
 			st.colour_count = 0;
 			return Ok(());
 		}
-		"stylesheet" | "info" | "header" | "footer" | "headerl" | "headerr" | "headerf"
-		| "footerl" | "footerr" | "footerf" | "pict" | "object" | "footnote" | "annotation"
-		| "listtable" | "listoverridetable" | "field" | "pn" | "pntext" | "listtext" | "revtbl"
+		"header" | "headerr" | "footer" | "footerr" | "headerf" | "footerf" => {
+			st.flush()?;
+			cur.story = match w {
+				"header" | "headerr" => 1,
+				"footer" | "footerr" => 2,
+				"headerf" => 3,
+				_ => 4,
+			};
+			return Ok(());
+		}
+		"field" => {
+			cur.dest = Dest::Field;
+			st.fld_len = 0;
+			return Ok(());
+		}
+		"fldinst" if cur.dest == Dest::Field => {
+			cur.dest = Dest::FldInst;
+			return Ok(());
+		}
+		"stylesheet" | "info" | "headerl" | "footerl" | "pict" | "object" | "footnote"
+		| "annotation" | "listtable" | "listoverridetable" | "pntext" | "listtext" | "revtbl"
 		| "rsidtbl" | "generator" | "xmlnstbl" | "themedata" | "colorschememapping"
 		| "latentstyles" | "datastore" | "fldinst" | "fldrslt" => {
 			if cur.dest != Dest::FontTable && cur.dest != Dest::ColourTable {
@@ -906,7 +1108,23 @@ fn control<S: Store + ?Sized>(
 			}
 			return Ok(());
 		}
-		Dest::Skip => return Ok(()),
+		Dest::Pn => {
+			match w {
+				"pnlvlblt" => st.para.list = 1,
+				"pnlvlbody" => st.para.list = 2,
+				"pnlvl" => st.para.level = v.clamp(1, 9) as u8 - 1,
+				"pndec" => st.para.style = 0,
+				"pnlcltr" => st.para.style = 2,
+				"pnlcrm" => st.para.style = 4,
+				"pnucltr" => st.para.style = 5,
+				"pnucrm" => st.para.style = 6,
+				"pnstart" => st.para.start = v.clamp(0, 65535) as u16,
+				"pntxta" | "pntxtb" => cur.dest = Dest::Skip,
+				_ => {}
+			}
+			return Ok(());
+		}
+		Dest::Skip | Dest::Field | Dest::FldInst => return Ok(()),
 		Dest::Body => {}
 	}
 	if depth == 0 {
@@ -961,6 +1179,7 @@ fn control<S: Store + ?Sized>(
 		"nosupersub" => cur.chars.vpos = 0,
 		"cf" => cur.chars.colour = v.clamp(0, 255) as u8,
 		"pard" => st.para = PARA0,
+		"ilvl" => st.para.level = v.clamp(0, 8) as u8,
 		"ql" => st.para.align = 0,
 		"qc" => st.para.align = 1,
 		"qr" => st.para.align = 2,
@@ -1007,14 +1226,17 @@ fn control<S: Store + ?Sized>(
 		}
 		"line" => {
 			st.chars = cur.chars;
+			st.target = cur.story;
 			st.text(0x0B)?;
 		}
 		"tab" => {
 			st.chars = cur.chars;
+			st.target = cur.story;
 			st.text(0x09)?;
 		}
 		"u" => {
 			st.chars = cur.chars;
+			st.target = cur.story;
 			st.text(unicode_to_ansi(v))?;
 			*skip = cur.uc_skip;
 		}
@@ -1022,11 +1244,13 @@ fn control<S: Store + ?Sized>(
 		_ => {
 			if let Some(a) = ansi_for(w) {
 				st.chars = cur.chars;
+				st.target = cur.story;
 				st.text(a)?;
 			}
 		}
 	}
 	st.chars = cur.chars;
+	st.target = cur.story;
 	Ok(())
 }
 

@@ -161,6 +161,7 @@ const HIGH: [char; 128] = [
 /// The Unicode character for a CP437 code. Codes below 0x20 show as spaces, so a dump holds no control characters.
 pub fn cp437(b: u8) -> char {
 	match b {
+		0x07 => '•',
 		0x20..=0x7E => char::from(b),
 		0x80..=0xFF => HIGH.get(usize::from(b - 0x80)).copied().unwrap_or('?'),
 		_ => ' ',
