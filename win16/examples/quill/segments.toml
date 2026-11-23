@@ -8,7 +8,7 @@ sections = ["*quill_formats*", "*quill_image*", "*quill_inflate*", "*quill_app*3
 
 [segment.3]
 name = "EDIT"
-sections = ["*quill_app*4find*", "*quill_app*4form*", "*quill_app*5print*", "*quill_app*3App3run*", "*quill_app*3App3key*", "*quill_app*3App7command*"]
+sections = ["*quill_app*4find*", "*quill_app*4form*", "*quill_app*5print*", "*quill_app*3App3run*", "*quill_app*3App3key*", "*quill_app*3App7command*", "*quill_app*3App8key_edit*", "*quill_app*3App10key_prompt*", "*quill_app*3App7do_save*", "*quill_app8spelling*", "*quill_spell*"]
 
 [segment.4]
 name = "VIEW"

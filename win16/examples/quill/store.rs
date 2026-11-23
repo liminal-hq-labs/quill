@@ -6,7 +6,7 @@
 // A moveable block in protected mode keeps its selector when Windows moves it, so the far pointer from the single `GlobalLock` stays
 // good until the block is freed. The table of blocks lives in the data segment (128 entries: 4 MB at 32 KB each).
 use quill_core::store::{ChunkId, Store};
-use w16::{far_read, far_write, GlobalAlloc, GlobalFree, GlobalLock, GlobalUnlock};
+use w16::{GlobalAlloc, GlobalFree, GlobalLock, GlobalUnlock, far_read, far_write};
 
 const CHUNKS: usize = 128;
 const GMEM_MOVEABLE_ZEROINIT: u32 = 0x0042;
@@ -25,7 +25,9 @@ fn check(tag: u16) {
 		}
 	}
 	let (es, ds): (u16, u16);
-	unsafe { core::arch::asm!("mov {0:x}, es", "mov {1:x}, ds", out(reg) es, out(reg) ds, options(nomem, nostack)) };
+	unsafe {
+		core::arch::asm!("mov {0:x}, es", "mov {1:x}, ds", out(reg) es, out(reg) ds, options(nomem, nostack))
+	};
 	if es != ds {
 		unsafe {
 			BAD = [tag, es, ds, 0];

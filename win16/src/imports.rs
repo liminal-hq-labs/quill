@@ -3075,6 +3075,88 @@ global_asm!(
 	".byte 0x66, 0xc3",
 );
 
+// KERNEL.36 GetCurrentTask
+global_asm!(
+	".code16",
+	".section .text.imp_GetCurrentTask,\"ax\"",
+	".globl GetCurrentTask",
+	"GetCurrentTask:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	".byte 0x9a",
+	".globl __w16imp_KERNEL_36_GetCurrentTask",
+	"__w16imp_KERNEL_36_GetCurrentTask:",
+	".word 0, 0",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
+// TOOLHELP.75 InterruptRegister
+global_asm!(
+	".code16",
+	".section .text.imp_InterruptRegister,\"ax\"",
+	".globl InterruptRegister",
+	"InterruptRegister:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push word ptr [bp+8]",
+	"push cs",
+	"push word ptr [bp+12]",
+	".byte 0x9a",
+	".globl __w16imp_TOOLHELP_75_InterruptRegister",
+	"__w16imp_TOOLHELP_75_InterruptRegister:",
+	".word 0, 0",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
+// TOOLHELP.76 InterruptUnRegister
+global_asm!(
+	".code16",
+	".section .text.imp_InterruptUnRegister,\"ax\"",
+	".globl InterruptUnRegister",
+	"InterruptUnRegister:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push word ptr [bp+8]",
+	".byte 0x9a",
+	".globl __w16imp_TOOLHELP_76_InterruptUnRegister",
+	"__w16imp_TOOLHELP_76_InterruptUnRegister:",
+	".word 0, 0",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
 unsafe extern "C" {
 	pub fn GetVersion() -> u32;
 	pub fn GlobalAlloc(a0: u32, a1: u32) -> u32;
@@ -3180,4 +3262,7 @@ unsafe extern "C" {
 	pub fn RestoreDC(a0: u32, a1: u32) -> u32;
 	pub fn IntersectClipRect(a0: u32, a1: u32, a2: u32, a3: u32, a4: u32) -> u32;
 	pub fn SetDIBitsToDevice(a0: u32, a1: u32, a2: u32, a3: u32, a4: u32, a5: u32, a6: u32, a7: u32, a8: u32, a9: u32, a10: u32, a11: u32) -> u32;
+	pub fn GetCurrentTask() -> u32;
+	pub fn InterruptRegister(a0: u32, a1: u32) -> u32;
+	pub fn InterruptUnRegister(a0: u32) -> u32;
 }

@@ -30,7 +30,8 @@ const OEM_FIXED_FONT: u32 = 10;
 const MF_STRING: u32 = 0;
 const MF_POPUP: u32 = 0x10;
 const VGA: [u32; 16] = [
-	0x000000, 0xAA0000, 0x00AA00, 0xAAAA00, 0x0000AA, 0xAA00AA, 0x0055AA, 0xAAAAAA, 0x555555, 0xFF5555, 0x55FF55, 0xFFFF55, 0x5555FF, 0xFF55FF, 0x55FFFF, 0xFFFFFF,
+	0x000000, 0xAA0000, 0x00AA00, 0xAAAA00, 0x0000AA, 0xAA00AA, 0x0055AA, 0xAAAAAA, 0x555555,
+	0xFF5555, 0x55FF55, 0xFFFF55, 0x5555FF, 0xFF55FF, 0x55FFFF, 0xFFFFFF,
 ];
 
 static mut STORE: FarStore = FarStore::new();
@@ -82,7 +83,13 @@ fn c_name(name: &[u8], out: &mut [u8; 128]) -> usize {
 impl Source for FileSource {
 	fn read(&mut self, out: &mut [u8]) -> usize {
 		let n = out.len().min(0x7FFF);
-		let got = unsafe { _lread(self.0, far(data_selector(), out.as_mut_ptr() as u32), n as u32) };
+		let got = unsafe {
+			_lread(
+				self.0,
+				far(data_selector(), out.as_mut_ptr() as u32),
+				n as u32,
+			)
+		};
 		if got == 0xFFFF { 0 } else { got as usize }
 	}
 }
@@ -163,7 +170,13 @@ fn paint(hwnd: u32) {
 				}
 				SetTextColor(dc, VGA[usize::from(a & 15)]);
 				SetBkColor(dc, VGA[usize::from(a >> 4)]);
-				TextOut(dc, x as u32 * cw, y as u32 * ch, run.as_ptr() as u32, k as u32);
+				TextOut(
+					dc,
+					x as u32 * cw,
+					y as u32 * ch,
+					run.as_ptr() as u32,
+					k as u32,
+				);
 				x += k;
 			}
 		}
@@ -391,7 +404,10 @@ fn play(hwnd: u32) {
 			}
 			continue;
 		}
-		let Some(k) = core::str::from_utf8(word).ok().and_then(quill_app::script::parse_token) else {
+		let Some(k) = core::str::from_utf8(word)
+			.ok()
+			.and_then(quill_app::script::parse_token)
+		else {
 			continue;
 		};
 		crumb(b"key");
@@ -556,6 +572,9 @@ fn build_menu() -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 	crumb(b"main");
+	if w16::fault::install() {
+		crumb(b"fault handler");
+	}
 	unsafe {
 		let a = &mut *core::ptr::addr_of_mut!(APP);
 		a.write(App::new());
@@ -614,7 +633,11 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 	crumb(b"cmdline");
 	app().load_settings(&mut Win16Files);
 	crumb(b"settings");
-	app().set_about(if play_file.is_some() { "Host test run" } else { "Windows 3.x, Win16" });
+	app().set_about(if play_file.is_some() {
+		"Host test run"
+	} else {
+		"Windows 3.x, Win16"
+	});
 	let mut script = None;
 	if let Some((name, len)) = &play_file {
 		if let Some((text, tlen, o, ol)) = load_script(&name[..*len]) {
@@ -675,7 +698,8 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		}
 		let menu = build_menu();
 		let frame_w = 80 * cw + 2 * GetSystemMetrics(32);
-		let frame_h = 25 * ch + 2 * GetSystemMetrics(33) + GetSystemMetrics(4) + GetSystemMetrics(15) + 1;
+		let frame_h =
+			25 * ch + 2 * GetSystemMetrics(33) + GetSystemMetrics(4) + GetSystemMetrics(15) + 1;
 		let hwnd = CreateWindow(
 			cs!("QuillWin16"),
 			cs!("Quill"),

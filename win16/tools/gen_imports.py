@@ -108,6 +108,7 @@ def render(rows):
 
 def check_spec(rows, spec_dir):
 	files = {"KERNEL": "krnl.spec", "USER": "user.exe16.spec", "GDI": "gdi.exe16.spec"}
+	rows = [r for r in rows if r[0] in files]  # TOOLHELP has no spec file here
 	bad = 0
 	for mod, ordinal, name, args, ret in rows:
 		with open(os.path.join(spec_dir, files[mod]), encoding="utf-8") as f:

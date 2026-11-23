@@ -114,3 +114,6 @@ GDI 30 SaveDC w w
 GDI 39 RestoreDC ww w
 GDI 22 IntersectClipRect wwwww w
 GDI 443 SetDIBitsToDevice wwwwwwwwwppw w
+KERNEL 36 GetCurrentTask - w
+TOOLHELP 75 InterruptRegister wf w
+TOOLHELP 76 InterruptUnRegister w w

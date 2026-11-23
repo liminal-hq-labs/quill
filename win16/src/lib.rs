@@ -13,6 +13,7 @@ use core::ptr::addr_of_mut;
 
 #[rustfmt::skip]
 pub mod imports;
+pub mod fault;
 pub mod probe;
 pub use imports::*;
 
