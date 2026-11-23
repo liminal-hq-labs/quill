@@ -67,9 +67,17 @@ Run with `win16/tools/run-w31.sh` (DOSBox-X 2025.02.01 in Docker, Xvfb, `machine
 
 ## Blocked
 
-- **T1 under Wine and on Windows ME:** not run. Wine's 16-bit support needs a 32-bit prefix that this machine does not have set up, and the ME VM was left alone until a Win32 program needs it.
-- **T1 at the 386SX profile:** not run; the busy loop is sized for the fast profile and would take minutes at 3000 cycles.
+Nothing is blocked by the machine. These were not started, in roadmap order, for lack of time in this run:
+
+- **M3 to M4 (Win32).** Needs T3 first: `rust-win9x` copied from `~/source/win9x-rust` with provenance, the `.res` writer, the import allowlist and the instruction scan, then the Windows ME VM and Wine harnesses. `quill-app`, `quill-heap` and the file formats are ready for it; only the platform layer is missing. The ME VM rules in the task (snapshots, audio none, no builds inside) still apply when it is used.
+- **M5 to M6 (Win16).** T0 and T1 are done: `win16/` has the runtime, packer and a Windows 3.11 harness (`win16/tools/run-w31.sh`). Still to do: resources from JSON (menus, accelerators, icons), the far-memory `Store`, the window procedures, T2's multi-segment code, and the jump-table fault (D64).
+- **M7 to M11.** Pictures, spelling, help, DOS graphics mode and the release disks.
+- **T1 under Wine and on Windows ME, and at the 386SX profile:** not run.
+- **T2, T3, T5 and the help compiler track (H0 to H3):** not started.
+- **CI:** the new workflow jobs (format, clippy, tests) have never run on GitHub; nothing was pushed. The DOS and LibreOffice checks are local (`make dos`, `scripts/check-rtf-libreoffice.sh`).
+- **Fuzzing:** no `cargo-fuzz` targets or 60-second CI smoke; property tests with damaged and random inputs stand in.
+- **Panic-site count:** not implemented (D19).
 
 ## Assumptions
 
-D58 to D62 in [decisions.md](decisions.md) were made while implementing M0.
+D58 to D69 in [decisions.md](decisions.md) were made while implementing; each stands until the owner confirms or changes it.
