@@ -10,8 +10,8 @@ cd "$(dirname "$0")"
 export RUSTC_BOOTSTRAP=1
 # The resources: the menu tree from the app, packed into a .res (see tools/res_pack.py).
 (cd .. && RUSTC_BOOTSTRAP=0 cargo run -q -p quill-host --bin emit-resources > win9x/resources/quill.json)
-python3 -I tools/res_pack.py resources/quill.json resources/quill.res
-python3 -I tools/test_res_pack.py resources/quill.json resources/quill.res
+python3 -I tools/res_pack.py resources/quill.json resources/quill.res ../assets/icon/QUILL.ICO ../assets/dialogs/dialogs.json
+python3 -I tools/test_res_pack.py resources/quill.json resources/quill.res ../assets/dialogs/dialogs.json
 cargo build --release --locked
 target="${CARGO_TARGET_DIR:-$PWD/target}"
 mkdir -p dist

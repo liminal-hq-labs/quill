@@ -174,6 +174,20 @@ impl<M: Measure + Clone> App<M> {
 		n
 	}
 
+	/// The tab stops of the paragraph at the caret with their leaders: (position in twips, kind, leader).
+	pub fn tab_stops_full<S: Store + ?Sized>(&self, s: &S, out: &mut [(i32, u8, u8); 16]) -> usize {
+		let pf = self.para_pfmt(s, self.caret);
+		if pf.tabset == NO_TABS {
+			return 0;
+		}
+		let set = self.doc.tabsets.get(s, pf.tabset).unwrap_or_default();
+		let n = usize::from(set.count).min(16);
+		for (o, t) in out.iter_mut().zip(set.stops.iter().take(n)) {
+			*o = (t.pos, t.kind, t.leader);
+		}
+		n
+	}
+
 	/// Sets the face of the selection (or of what is typed next).
 	pub fn set_face<S: Store + ?Sized>(&mut self, s: &mut S, name: &[u8], family: u8) {
 		if let Ok(fi) = self.doc.fonts.intern(s, Font::new(name, family)) {

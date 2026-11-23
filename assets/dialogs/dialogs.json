@@ -1,0 +1,71 @@
+{
+	"dialogs": [
+		{
+			"id": 1001, "caption": "About Quill", "x": 0, "y": 0, "cx": 200, "cy": 104,
+			"items": [
+				{ "class": "static", "id": 20, "icon": 1, "x": 12, "y": 12, "cx": 20, "cy": 20, "style": ["icon"] },
+				{ "class": "static", "id": 21, "text": "Quill", "x": 44, "y": 12, "cx": 148, "cy": 10 },
+				{ "class": "static", "id": 22, "text": "", "x": 44, "y": 24, "cx": 148, "cy": 10 },
+				{ "class": "static", "id": 23, "text": "(c) Copyright 2026 Liminal HQ, Scott Morris", "x": 44, "y": 38, "cx": 148, "cy": 10 },
+				{ "class": "static", "id": 24, "text": "Licensed under Apache-2.0 or MIT.", "x": 44, "y": 50, "cx": 148, "cy": 10 },
+				{ "class": "static", "id": 25, "text": "", "x": 44, "y": 66, "cx": 148, "cy": 10 },
+				{ "class": "static", "id": 26, "text": "", "x": 44, "y": 78, "cx": 148, "cy": 10 },
+				{ "class": "button", "id": 1, "text": "OK", "x": 76, "y": 88, "cx": 50, "cy": 12, "style": ["defpushbutton", "tabstop", "group"] }
+			]
+		},
+		{
+			"id": 1002, "caption": "Find and Replace", "x": 0, "y": 0, "cx": 244, "cy": 86,
+			"items": [
+				{ "class": "static", "id": 30, "text": "Fi&nd what:", "x": 8, "y": 10, "cx": 52, "cy": 8 },
+				{ "class": "edit", "id": 10, "x": 62, "y": 8, "cx": 108, "cy": 12, "style": ["autohscroll", "border", "tabstop"] },
+				{ "class": "static", "id": 31, "text": "Re&place with:", "x": 8, "y": 26, "cx": 52, "cy": 8 },
+				{ "class": "edit", "id": 11, "x": 62, "y": 24, "cx": 108, "cy": 12, "style": ["autohscroll", "border", "tabstop"] },
+				{ "class": "button", "id": 12, "text": "Match &case", "x": 8, "y": 46, "cx": 80, "cy": 10, "style": ["autocheckbox", "tabstop"] },
+				{ "class": "button", "id": 13, "text": "&Whole word", "x": 8, "y": 60, "cx": 80, "cy": 10, "style": ["autocheckbox", "tabstop"] },
+				{ "class": "button", "id": 100, "text": "&Find Next", "x": 180, "y": 6, "cx": 56, "cy": 14, "style": ["defpushbutton", "tabstop", "group"] },
+				{ "class": "button", "id": 101, "text": "&Replace", "x": 180, "y": 24, "cx": 56, "cy": 14, "style": ["pushbutton", "tabstop"] },
+				{ "class": "button", "id": 102, "text": "Replace &All", "x": 180, "y": 42, "cx": 56, "cy": 14, "style": ["pushbutton", "tabstop"] },
+				{ "class": "button", "id": 2, "text": "Close", "x": 180, "y": 62, "cx": 56, "cy": 14, "style": ["pushbutton", "tabstop"] }
+			]
+		},
+		{
+			"id": 1003, "caption": "Fonts", "x": 0, "y": 0, "cx": 214, "cy": 100,
+			"items": [
+				{ "class": "static", "id": 30, "text": "&Font:", "x": 8, "y": 10, "cx": 30, "cy": 8 },
+				{ "class": "combobox", "id": 10, "x": 40, "y": 8, "cx": 110, "cy": 120, "style": ["dropdownlist", "vscroll", "tabstop"] },
+				{ "class": "static", "id": 31, "text": "&Size:", "x": 8, "y": 30, "cx": 30, "cy": 8 },
+				{ "class": "combobox", "id": 11, "x": 40, "y": 28, "cx": 50, "cy": 100, "style": ["dropdown", "vscroll", "tabstop"] },
+				{ "class": "button", "id": 14, "text": "Style", "x": 8, "y": 46, "cx": 140, "cy": 44, "style": ["groupbox"] },
+				{ "class": "button", "id": 15, "text": "&Bold", "x": 16, "y": 58, "cx": 56, "cy": 10, "style": ["autocheckbox", "tabstop", "group"] },
+				{ "class": "button", "id": 16, "text": "&Italic", "x": 16, "y": 72, "cx": 56, "cy": 10, "style": ["autocheckbox", "tabstop"] },
+				{ "class": "button", "id": 17, "text": "&Underline", "x": 82, "y": 58, "cx": 60, "cy": 10, "style": ["autocheckbox", "tabstop"] },
+				{ "class": "button", "id": 18, "text": "Stri&keout", "x": 82, "y": 72, "cx": 60, "cy": 10, "style": ["autocheckbox", "tabstop"] },
+				{ "class": "button", "id": 1, "text": "OK", "x": 158, "y": 8, "cx": 48, "cy": 14, "style": ["defpushbutton", "tabstop", "group"] },
+				{ "class": "button", "id": 2, "text": "Cancel", "x": 158, "y": 26, "cx": 48, "cy": 14, "style": ["pushbutton", "tabstop"] }
+			]
+		},
+		{
+			"id": 1004, "caption": "Tabs", "x": 0, "y": 0, "cx": 252, "cy": 124,
+			"items": [
+				{ "class": "static", "id": 30, "text": "&Position (inches):", "x": 8, "y": 10, "cx": 70, "cy": 8 },
+				{ "class": "edit", "id": 10, "x": 80, "y": 8, "cx": 40, "cy": 12, "style": ["autohscroll", "border", "tabstop"] },
+				{ "class": "button", "id": 31, "text": "Kind", "x": 8, "y": 26, "cx": 112, "cy": 46, "style": ["groupbox"] },
+				{ "class": "button", "id": 11, "text": "&Left", "x": 16, "y": 38, "cx": 48, "cy": 10, "style": ["autoradiobutton", "tabstop", "group"] },
+				{ "class": "button", "id": 12, "text": "&Centre", "x": 16, "y": 50, "cx": 48, "cy": 10, "style": ["autoradiobutton"] },
+				{ "class": "button", "id": 13, "text": "&Right", "x": 68, "y": 38, "cx": 48, "cy": 10, "style": ["autoradiobutton"] },
+				{ "class": "button", "id": 14, "text": "&Decimal", "x": 68, "y": 50, "cx": 48, "cy": 10, "style": ["autoradiobutton"] },
+				{ "class": "button", "id": 32, "text": "Leader", "x": 8, "y": 76, "cx": 112, "cy": 36, "style": ["groupbox"] },
+				{ "class": "button", "id": 15, "text": "&None", "x": 16, "y": 88, "cx": 48, "cy": 10, "style": ["autoradiobutton", "tabstop", "group"] },
+				{ "class": "button", "id": 16, "text": "Do&ts", "x": 16, "y": 100, "cx": 48, "cy": 10, "style": ["autoradiobutton"] },
+				{ "class": "button", "id": 17, "text": "&Hyphens", "x": 68, "y": 88, "cx": 48, "cy": 10, "style": ["autoradiobutton"] },
+				{ "class": "button", "id": 18, "text": "&Underline", "x": 68, "y": 100, "cx": 48, "cy": 10, "style": ["autoradiobutton"] },
+				{ "class": "static", "id": 33, "text": "Tab &stops:", "x": 130, "y": 10, "cx": 60, "cy": 8 },
+				{ "class": "listbox", "id": 19, "x": 130, "y": 20, "cx": 114, "cy": 52, "style": ["notify", "vscroll", "border", "tabstop"] },
+				{ "class": "button", "id": 20, "text": "&Set", "x": 130, "y": 80, "cx": 52, "cy": 14, "style": ["defpushbutton", "tabstop", "group"] },
+				{ "class": "button", "id": 21, "text": "C&lear", "x": 192, "y": 80, "cx": 52, "cy": 14, "style": ["pushbutton", "tabstop"] },
+				{ "class": "button", "id": 22, "text": "Clear &All", "x": 130, "y": 98, "cx": 52, "cy": 14, "style": ["pushbutton", "tabstop"] },
+				{ "class": "button", "id": 2, "text": "Close", "x": 192, "y": 98, "cx": 52, "cy": 14, "style": ["pushbutton", "tabstop"] }
+			]
+		}
+	]
+}

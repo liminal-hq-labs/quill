@@ -4,7 +4,7 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# usage: res_pack.py quill.json out.res [icon.ico]
+# usage: res_pack.py quill.json out.res [icon.ico [dialogs.json]]
 #
 # The menu comes from the app's own menu tree (emit-resources writes the JSON), so the native menu and the DOS menus cannot drift.
 # The icon is assets/icon/QUILL.ICO unless a third argument names another: every image in it becomes an RT_ICON (ids 1 to N) and the
@@ -15,7 +15,7 @@ import os
 import struct
 import sys
 
-RT_ICON, RT_MENU, RT_GROUP_ICON, RT_VERSION = 3, 4, 14, 16
+RT_ICON, RT_MENU, RT_DIALOG, RT_GROUP_ICON, RT_VERSION = 3, 4, 5, 14, 16
 LANG = 0x0409
 
 
@@ -35,6 +35,38 @@ def entry(rtype, rid, data):
     """One resource: the 32-byte header, then the data padded to four bytes."""
     head = struct.pack("<II", len(data), 32) + u16(0xFFFF, rtype, 0xFFFF, rid) + struct.pack("<IHHII", 0, 0x1030, LANG, 0, 0)
     return head + pad4(data)
+
+
+# Window, dialog and control style bits by name (the same names the Win16 packer reads from assets/dialogs/dialogs.json).
+STYLE = {
+    "popup": 0x80000000, "child": 0x40000000, "visible": 0x10000000, "caption": 0x00C00000, "sysmenu": 0x00080000,
+    "tabstop": 0x00010000, "group": 0x00020000, "border": 0x00800000, "vscroll": 0x00200000, "modalframe": 0x80, "setfont": 0x40,
+    "center": 0x800, "pushbutton": 0, "defpushbutton": 1, "autocheckbox": 3, "autoradiobutton": 9, "groupbox": 7, "icon": 3,
+    "autohscroll": 0x80, "dropdown": 2, "dropdownlist": 3, "notify": 1,
+}
+CLASS = {"button": 0x80, "edit": 0x81, "static": 0x82, "listbox": 0x83, "scrollbar": 0x84, "combobox": 0x85}
+
+
+def style_bits(v):
+    return sum(STYLE[x] if isinstance(x, str) else x for x in v)
+
+
+def dialog(d):
+    """A DLGTEMPLATE (the 32-bit form, strings in UTF-16) for one dialog description."""
+    style = style_bits(d.get("style", ["popup", "caption", "sysmenu", "modalframe", "setfont"]))
+    items = d.get("items", [])
+    out = struct.pack("<IIH", style, 0, len(items)) + struct.pack("<hhhh", d["x"], d["y"], d["cx"], d["cy"])
+    out += u16(0, 0) + wstr(d.get("caption", ""))
+    if style & STYLE["setfont"]:
+        out += u16(d.get("font_size", 8)) + wstr(d.get("font", "MS Sans Serif"))
+    for it in items:
+        out = pad4(out)
+        istyle = style_bits(it.get("style", [])) | STYLE["child"] | STYLE["visible"]
+        out += struct.pack("<IIhhhhH", istyle, 0, it["x"], it["y"], it["cx"], it["cy"], it["id"])
+        out += u16(0xFFFF, CLASS[it["class"]])
+        out += u16(0xFFFF, it["icon"]) if "icon" in it else wstr(it.get("text", ""))
+        out += u16(0)
+    return out
 
 
 def menu(menus):
@@ -96,6 +128,9 @@ def main():
     for i, image in enumerate(images):
         out += entry(RT_ICON, i + 1, image)
     out += entry(RT_VERSION, 1, version(spec["version"]))
+    if len(sys.argv) > 4:
+        for d in json.load(open(sys.argv[4], encoding="utf-8"))["dialogs"]:
+            out += entry(RT_DIALOG, d["id"], dialog(d))
     open(sys.argv[2], "wb").write(out)
 
 

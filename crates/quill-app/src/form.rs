@@ -237,6 +237,7 @@ impl<M: Measure + Clone> App<M> {
 		});
 	}
 
+	#[inline(never)]
 	pub(crate) fn key_form<S: Store + ?Sized>(&mut self, s: &mut S, k: Key, mut f: Form) {
 		let n = f.n;
 		let row = f.rows.get(f.focus).copied().unwrap_or(EMPTY);

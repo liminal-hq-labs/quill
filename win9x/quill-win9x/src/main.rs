@@ -15,6 +15,7 @@
 extern crate alloc;
 
 mod chrome;
+mod dialogs;
 mod gdi;
 mod rt;
 mod sys;
@@ -129,6 +130,9 @@ struct Shell {
 	/// The print preview, when it is showing: the first page shown, and whether two pages are.
 	preview: Option<(u32, bool)>,
 	combos: Option<chrome::Combos>,
+	/// The TrueType faces on the display, for the font box and the Fonts dialog.
+	faces: Vec<Vec<u8>>,
+	instance: Handle,
 	/// The kind of tab stop a click on the ruler makes: 0 left, 1 centre, 2 right, 3 decimal.
 	ruler_kind: u8,
 	drag: Option<chrome::Drag>,
@@ -273,6 +277,16 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 		}
 		0x0202 => {
 			mouse_up(hwnd, (lparam & 0xFFFF) as i16 as i32);
+			0
+		}
+		0x0010 => {
+			// The close box asks like File > Exit, so unsaved changes are asked about.
+			let grid = shell().is_some_and(|s| s.grid);
+			if grid {
+				DestroyWindow(hwnd);
+			} else {
+				run_command(hwnd, Command::Exit);
+			}
 			0
 		}
 		WM_DESTROY => {
@@ -454,11 +468,30 @@ unsafe fn print_job(hwnd: Handle, sh: &Shell, ask: bool, output: Option<&[u8]>) 
 	ok
 }
 
-/// Shows the common Open or Save As dialog and returns the chosen path.
-unsafe fn file_dialog(hwnd: Handle, save: bool) -> Option<Vec<u8>> {
+/// Which file dialog.
+#[derive(Copy, Clone, PartialEq)]
+enum FileKind {
+	Open,
+	Save,
+	Picture,
+}
+
+/// Shows the common Open, Save As or Insert Picture dialog (the Explorer style, no hook) and returns the chosen path. It starts in the
+/// folder of the last one, and the folder of what was chosen is remembered for the next.
+unsafe fn file_dialog(hwnd: Handle, sh: &mut Shell, kind: FileKind) -> Option<Vec<u8>> {
 	let mut file = [0u8; 260];
-	let filter =
+	let docs: &[u8] =
 		b"Quill Documents (*.qld)\0*.qld\0Rich Text Format (*.rtf)\0*.rtf\0Text Files (*.txt)\0*.txt\0All Files (*.*)\0*.*\0\0";
+	let pics: &[u8] =
+		b"Pictures (*.bmp;*.png)\0*.bmp;*.png\0Bitmaps (*.bmp)\0*.bmp\0PNG Pictures (*.png)\0*.png\0All Files (*.*)\0*.*\0\0";
+	let filter = if kind == FileKind::Picture { pics } else { docs };
+	let mut dir = sh.app.last_folder().to_vec();
+	dir.push(0);
+	let title: &[u8] = match kind {
+		FileKind::Open => b"Open\0",
+		FileKind::Save => b"Save As\0",
+		FileKind::Picture => b"Insert Picture\0",
+	};
 	let mut ofn = OpenFileNameA {
 		size: 76,
 		owner: hwnd,
@@ -471,18 +504,18 @@ unsafe fn file_dialog(hwnd: Handle, save: bool) -> Option<Vec<u8>> {
 		max_file: 260,
 		title_file: null_mut(),
 		max_title: 0,
-		initial_dir: null(),
-		title: null(),
-		// OFN_HIDEREADONLY | OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST (open) or OFN_OVERWRITEPROMPT (save)
-		flags: if save { 0x0002 | 0x0800 } else { 0x0004 | 0x0800 | 0x1000 },
+		initial_dir: if dir.len() > 1 { dir.as_ptr() } else { null() },
+		title: title.as_ptr(),
+		// OFN_EXPLORER | OFN_HIDEREADONLY | OFN_PATHMUSTEXIST, then OFN_OVERWRITEPROMPT (save) or OFN_FILEMUSTEXIST (open)
+		flags: 0x0008_0000 | 0x0004 | 0x0800 | if kind == FileKind::Save { 0x0002 } else { 0x1000 },
 		file_offset: 0,
 		file_ext: 0,
-		def_ext: b"qld\0".as_ptr(),
+		def_ext: if kind == FileKind::Save { b"qld\0".as_ptr() } else { null() },
 		cust_data: 0,
 		hook: null(),
 		template: null(),
 	};
-	let ok = if save {
+	let ok = if kind == FileKind::Save {
 		GetSaveFileNameA(&mut ofn)
 	} else {
 		GetOpenFileNameA(&mut ofn)
@@ -491,7 +524,75 @@ unsafe fn file_dialog(hwnd: Handle, save: bool) -> Option<Vec<u8>> {
 		return None;
 	}
 	let n = file.iter().position(|b| *b == 0).unwrap_or(0);
-	file.get(..n).map(|f| f.to_vec())
+	let path = file.get(..n).map(|f| f.to_vec())?;
+	sh.app.remember_folder(&path);
+	Some(path)
+}
+
+/// Saves the current document, asking for a name first when it has none. False when the user cancelled or the save failed.
+unsafe fn save_current(hwnd: Handle, sh: &mut Shell) -> bool {
+	if sh.app.name().is_empty() {
+		let Some(path) = file_dialog(hwnd, sh, FileKind::Save) else {
+			return false;
+		};
+		return sh.app.save_as(&mut sh.store, &mut sh.files, &path);
+	}
+	sh.app.command(&mut sh.store, &mut sh.files, Command::Save);
+	!sh.app.modified()
+}
+
+/// Shows every dialog the editor has asked for, as a real dialog (D86), and applies the answers.
+unsafe fn handle_dialogs(hwnd: Handle) {
+	while let Some(sh) = shell() {
+		let Some(d) = sh.app.take_dialog() else {
+			return;
+		};
+		match d {
+			quill_app::Dialog::About => dialogs::about(hwnd, sh),
+			quill_app::Dialog::Open => {
+				if let Some(path) = file_dialog(hwnd, sh, FileKind::Open) {
+					if sh.app.open(&mut sh.store, &mut sh.files, &path).is_err() {
+						sh.app.set_message("Quill cannot open that file.");
+					}
+				}
+			}
+			quill_app::Dialog::SaveAs => {
+				if let Some(path) = file_dialog(hwnd, sh, FileKind::Save) {
+					sh.app.save_as(&mut sh.store, &mut sh.files, &path);
+				}
+			}
+			quill_app::Dialog::Picture => {
+				if let Some(path) = file_dialog(hwnd, sh, FileKind::Picture) {
+					if sh.app.insert_picture(&mut sh.store, &mut sh.files, &path).is_err() {
+						sh.app.set_message("Quill cannot use that picture.");
+					}
+				}
+			}
+			quill_app::Dialog::Print => {
+				if !print_job(hwnd, sh, true, None) {
+					sh.app.set_message("Quill could not print.");
+				}
+			}
+			quill_app::Dialog::Fonts => dialogs::fonts(hwnd, sh),
+			quill_app::Dialog::Tabs => dialogs::tabs(hwnd, sh),
+			quill_app::Dialog::Find(replace) => dialogs::find(hwnd, sh, replace),
+			quill_app::Dialog::ConfirmSave(c) => {
+				let name = sh.app.name().to_vec();
+				match dialogs::confirm_save(hwnd, &name, c) {
+					6 => {
+						if save_current(hwnd, sh) {
+							sh.app.run_confirmed(&mut sh.store, &mut sh.files, c);
+						}
+					}
+					7 => {
+						sh.app.discard_changes();
+						sh.app.run_confirmed(&mut sh.store, &mut sh.files, c);
+					}
+					_ => {}
+				}
+			}
+		}
+	}
 }
 
 unsafe fn menu_command(hwnd: Handle, id: usize) {
@@ -510,34 +611,15 @@ unsafe fn run_command(hwnd: Handle, c: Command) {
 		return;
 	};
 	match c {
-		Command::Open => {
-			if let Some(path) = file_dialog(hwnd, false) {
-				if sh.app.open(&mut sh.store, &mut sh.files, &path).is_err() {
-					sh.app.command(&mut sh.store, &mut sh.files, Command::Open);
-				}
-			}
-		}
-		Command::SaveAs => {
-			if let Some(path) = file_dialog(hwnd, true) {
-				sh.app.save_as(&mut sh.store, &mut sh.files, &path);
-			}
-		}
-		Command::Save if sh.app.name().is_empty() => {
-			if let Some(path) = file_dialog(hwnd, true) {
-				sh.app.save_as(&mut sh.store, &mut sh.files, &path);
-			}
-		}
 		Command::Preview if !sh.grid => sh.preview = Some((1, false)),
 		Command::PrintSetup if !sh.grid => {
 			// The common dialog's setup page: choose the printer and paper.
 			print_dialog(hwnd, 0x0040);
 		}
-		Command::Print if !sh.grid => {
-			if !print_job(hwnd, sh, true, None) {
-				sh.app.set_message("Quill could not print.");
-			}
-		}
 		_ => sh.app.command(&mut sh.store, &mut sh.files, c),
+	}
+	if !sh.grid {
+		handle_dialogs(hwnd);
 	}
 	if let Command::Chrome(_) = c {
 		sync_chrome(hwnd, sh);
@@ -714,6 +796,9 @@ unsafe fn press(hwnd: Handle, k: Key) {
 			return;
 		}
 		sh.app.key(&mut sh.store, &mut sh.files, k);
+		if !sh.grid {
+			handle_dialogs(hwnd);
+		}
 		retitle(hwnd, sh);
 		InvalidateRect(hwnd, null(), 0);
 		if sh.app.quit() {
@@ -978,6 +1063,8 @@ pub extern "C" fn start() -> ! {
 		dpi: 96,
 	}));
 	let _ = app.reset(&mut store);
+	// The windowed build never draws a dialog in text cells (D86); the text view that the golden runs use keeps them.
+	app.set_native_dialogs(!text_view);
 	let mut files = Win32Files;
 	app.load_settings(&mut files);
 	app.set_about(if text_view { "Host test run" } else { "Windows 9x, Win32" });
@@ -1093,6 +1180,8 @@ pub extern "C" fn start() -> ! {
 		pics: gdi::PicCache::new(),
 		preview: preview_start.then_some((1, false)),
 		combos: None,
+		faces: Vec::new(),
+		instance: null_mut(),
 		ruler_kind: 0,
 		drag: None,
 		files,
@@ -1190,8 +1279,9 @@ pub extern "C" fn start() -> ! {
 		if let Some(sh) = shell() {
 			retitle(hwnd, sh);
 			if !gridview {
-				let faces = chrome::enumerate_faces(sh.screen_dc);
-				let cb = chrome::create_combos(hwnd, instance, &faces);
+				sh.faces = chrome::enumerate_faces(sh.screen_dc);
+				sh.instance = instance;
+				let cb = chrome::create_combos(hwnd, instance, &sh.faces);
 				cb.show(&sh.app);
 				sh.combos = Some(cb);
 				sync_chrome(hwnd, sh);

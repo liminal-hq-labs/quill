@@ -605,7 +605,9 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 		Mode::About => {
 			dialog(g, 8, 62, 10, b" About Quill ");
 			g.text(10, 10, b"Quill", attr::CHROME);
-			g.text(10, 11, b"Version 0.0.0, experimental", attr::CHROME);
+			let mut v = Row::new();
+			v.s("Version ").s(crate::VERSION);
+			g.text(10, 11, v.buf.get(..v.n).unwrap_or(&[]), attr::CHROME);
 			g.text(10, 12, b"A Liminal HQ Labs experiment", attr::CHROME);
 			g.text(10, 13, b"Apache-2.0 OR MIT", attr::CHROME);
 			g.text(10, 14, app.about.bytes(), attr::CHROME);

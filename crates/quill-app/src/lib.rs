@@ -17,6 +17,7 @@
 mod chrome;
 mod find;
 mod form;
+mod native;
 mod paint;
 pub mod picture;
 mod print;
@@ -33,6 +34,7 @@ use quill_grid::GridMeasure;
 pub use chrome::{
 	tab_stop, CharState, CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR, STYLE_NAMES,
 };
+pub use native::{Dialog, FindAction, VERSION};
 pub use paint::{draw, line_label, menu_items, menu_title, Cursor, Item, ListCounters, MENU_COUNT};
 
 /// A key, as the platform decodes it.
@@ -321,6 +323,13 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	typing_fmt: Option<u16>,
 	/// Which parts of the window chrome show (`CHROME_*`).
 	pub(crate) chrome: u8,
+	/// True when dialogs belong to the shell (D86).
+	pub(crate) native: bool,
+	/// The dialog the last command asked the shell for.
+	pub(crate) dialog: Option<native::Dialog>,
+	/// The folder of the last file dialog.
+	pub(crate) folder: [u8; NAME_MAX],
+	pub(crate) folder_len: usize,
 	/// The story being edited: 0 body, 1 header, 2 footer, 3 first header, 4 first footer. The active story lives in `doc.body`.
 	pub(crate) view: u8,
 	saved_view: (u32, u32),
@@ -377,6 +386,10 @@ impl<M: Measure + Clone> App<M> {
 			scheme: Scheme::Colour,
 			typing_fmt: None,
 			chrome: 15,
+			native: false,
+			dialog: None,
+			folder: [0; NAME_MAX],
+			folder_len: 0,
 			fmt: 0,
 			last_find: None,
 			about: Msg::new(),
@@ -602,6 +615,13 @@ impl<M: Measure + Clone> App<M> {
 			let line = line.strip_suffix(b"\r").unwrap_or(line);
 			for i in 0..4usize {
 				let key = [b'F', b'i', b'l', b'e', b'1' + i as u8, b'='];
+				if let Some(v) = line.strip_prefix(&b"Folder="[..]) {
+					let n = v.len().min(NAME_MAX);
+					if let (Some(d), Some(sv)) = (self.folder.get_mut(..n), v.get(..n)) {
+						d.copy_from_slice(sv);
+					}
+					self.folder_len = n;
+				}
 				for (name, bit) in [
 					(&b"Toolbar="[..], 1u8),
 					(b"Ruler=", 2),
@@ -647,6 +667,11 @@ impl<M: Measure + Clone> App<M> {
 			let _ = w.write(b"\r\n");
 		}
 		let _ = w.write(b"[Quill]\r\n");
+		if self.folder_len > 0 {
+			let _ = w.write(b"Folder=");
+			let _ = w.write(self.folder.get(..self.folder_len).unwrap_or(&[]));
+			let _ = w.write(b"\r\n");
+		}
 		for (name, bit) in [
 			(&b"Toolbar="[..], 1u8),
 			(b"Ruler=", 2),
@@ -666,6 +691,11 @@ impl<M: Measure + Clone> App<M> {
 	/// Sets the platform's line of the About box (the mode and the free memory).
 	pub fn set_about(&mut self, text: &str) {
 		self.about.set(text);
+	}
+
+	/// The platform line set by the shell, as shown in About.
+	pub fn about_platform(&self) -> &str {
+		core::str::from_utf8(self.about.bytes()).unwrap_or("")
 	}
 
 	/// The recent files, for a native menu.
@@ -1037,6 +1067,10 @@ impl<M: Measure + Clone> App<M> {
 
 	fn run<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, c: Command) {
 		self.end_typing();
+		if let Some(d) = self.native_request(c) {
+			self.dialog = Some(d);
+			return;
+		}
 		if self.view != 0
 			&& matches!(
 				c,
@@ -1508,6 +1542,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	#[inline(never)] // keeps each mode's locals out of `key`'s frame (Win16 stacks are small)
 	fn key_edit<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, k: Key) {
 		let len = self.doc.body.len();
 		let dir = match k {
@@ -1589,7 +1624,7 @@ impl<M: Measure + Clone> App<M> {
 			Key::F(3) => self.run(s, f, Command::FindNext),
 			Key::Ctrl(b'f') => self.run(s, f, Command::Find),
 			Key::Ctrl(b'h') => self.run(s, f, Command::Replace),
-			Key::F(10) => {
+			Key::F(10) if !self.native => {
 				self.end_typing();
 				self.mode = Mode::Menu { menu: 0, item: 0 };
 			}
@@ -1615,6 +1650,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	#[inline(never)] // keeps each mode's locals out of `key`'s frame (Win16 stacks are small)
 	fn key_menu<S: Store + ?Sized, F: Files>(
 		&mut self,
 		s: &mut S,
@@ -1684,6 +1720,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	#[inline(never)] // keeps each mode's locals out of `key`'s frame (Win16 stacks are small)
 	fn key_prompt<S: Store + ?Sized, F: Files>(
 		&mut self,
 		s: &mut S,
