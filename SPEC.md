@@ -498,7 +498,7 @@ Settings live in `QUILL.INI` in the Windows directory (both Windows builds share
 - It never opens a network connection, never starts another program except WinHelp for its own help, and never runs anything embedded in a document. Embedded objects and metafiles in RTF are skipped, not decoded.
 - The RTF, native, text, BMP, PNG, dictionary and help readers treat every file as untrusted: every count, length, dimension and nesting depth is checked against the limits below before memory is reserved, and each reader is fuzzed (see [docs/testing.md](docs/testing.md)).
 - The trace records commands and timings, never document text.
-- **Attribution.** The dictionaries are built from SCOWL and VarCon (Copyright 2000–2020 Kevin Atkinson and contributors, under the SCOWL licence, which permits redistribution with its notices kept). Each `.DIC` carries the notice, the About box names it, and `docs/` keeps the full text. The DOS graphics faces are Desk's, under the SIL Open Font License 1.1.
+- **Attribution.** The dictionaries are built from SCOWL and VarCon (copyright Kevin Atkinson and the authors of the word lists they draw on, under SCOWL's permissive licence, which allows redistribution with its notices kept; the exact notice text is copied from the SCOWL release used and checked when `dict/` is added). Each `.DIC` carries the notice, the About box names it, and `docs/` keeps the full text. The DOS graphics faces are Desk's, under the SIL Open Font License 1.1.
 
 ## Limits
 
