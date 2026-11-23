@@ -20,14 +20,14 @@ mod paint;
 pub mod script;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
-use quill_core::layout::{layout_story, tab_advance, Line, Stops};
+use quill_core::layout::{layout_story, Line, Measure};
 use quill_core::store::Store;
 use quill_core::Error;
 use quill_formats::io::{Sink, Source};
 use quill_formats::{qld, rtf, text, FormatError};
 use quill_grid::GridMeasure;
 
-pub use paint::{draw, Cursor};
+pub use paint::{draw, line_label, menu_items, menu_title, Cursor, Item, ListCounters, MENU_COUNT};
 
 /// A key, as the platform decodes it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -272,7 +272,11 @@ pub(crate) enum Mode {
 }
 
 /// The editor.
-pub struct App {
+pub struct App<M: Measure + Clone = GridMeasure> {
+	/// The device the document is laid out for.
+	pub(crate) measure: M,
+	/// Lines the view shows at once (23 on an 80 by 25 screen); the shell sets it.
+	pub(crate) rows: usize,
 	pub(crate) doc: Doc,
 	pub(crate) caret: u32,
 	pub(crate) top: u32,
@@ -310,10 +314,19 @@ impl Default for App {
 	}
 }
 
-impl App {
-	/// An app with no document yet; call `reset`.
+impl App<GridMeasure> {
+	/// An app laid out for the DOS text screen, with no document yet; call `reset`.
 	pub const fn new() -> Self {
+		Self::with_measure(GridMeasure)
+	}
+}
+
+impl<M: Measure + Clone> App<M> {
+	/// An app laid out for `measure`, with no document yet; call `reset`.
+	pub const fn with_measure(measure: M) -> Self {
 		App {
+			measure,
+			rows: paint::TEXT_ROWS,
 			doc: Doc::new(),
 			caret: 0,
 			top: 0,
@@ -350,6 +363,77 @@ impl App {
 		self.mode = Mode::Edit;
 		self.typing = false;
 		Ok(())
+	}
+
+	/// Sets how many lines the view shows at once, for paging and scrolling.
+	pub fn set_rows(&mut self, rows: usize) {
+		self.rows = rows.max(1);
+	}
+
+	/// The caret position in the active story.
+	pub fn caret(&self) -> u32 {
+		self.caret
+	}
+
+	/// The index of the first line shown.
+	pub fn top_line(&self) -> u32 {
+		self.top
+	}
+
+	/// True when no menu, dialog or prompt of the app's own is open.
+	pub fn editing(&self) -> bool {
+		self.mode == Mode::Edit
+	}
+
+	/// Runs a command, as a menu does.
+	pub fn command<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, c: Command) {
+		self.msg.clear();
+		self.run(s, f, c);
+		self.scroll(s);
+	}
+
+	/// Saves under a new name, as Save As does.
+	pub fn save_as<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		name: &[u8],
+	) -> bool {
+		self.set_name(name);
+		self.do_save(s, f)
+	}
+
+	/// The message the last command left for the status line.
+	pub fn message(&self) -> &[u8] {
+		self.msg.bytes()
+	}
+
+	/// Calls `f(index, line)` for each line of the body (or the story being edited), laid out for the app's device.
+	pub fn for_each_line<S: Store + ?Sized>(&self, s: &S, f: impl FnMut(u32, &Line)) {
+		self.lines(s, f);
+	}
+
+	/// Calls `f(position, character, x, width, leader, character format)` for each character of a line.
+	pub fn walk_chars<S: Store + ?Sized>(
+		&self,
+		s: &S,
+		line: &Line,
+		f: impl FnMut(u32, u8, i32, i32, u8, u16),
+	) {
+		quill_core::layout::walk_line(
+			&self.doc,
+			s,
+			&mut self.measure.clone(),
+			quill_core::doc::StoryKind::Body,
+			line,
+			f,
+		);
+	}
+
+	/// The index of the line holding the caret, the line, and the caret's x within it.
+	pub fn caret_xy<S: Store + ?Sized>(&self, s: &S) -> Option<(u32, Line, i32)> {
+		let (i, l) = self.caret_line(s)?;
+		Some((i, l, self.x_of(s, &l, self.caret)))
 	}
 
 	/// Chooses the attribute scheme.
@@ -465,7 +549,7 @@ impl App {
 		layout_story(
 			&self.doc,
 			s,
-			&mut GridMeasure,
+			&mut self.measure.clone(),
 			quill_core::doc::StoryKind::Body,
 			|l| {
 				f(i, l);
@@ -511,49 +595,14 @@ impl App {
 		line: &Line,
 		mut f: impl FnMut(u32, u8, i32, i32, u8),
 	) {
-		let pf = self
-			.para_mark(s, line.start)
-			.and_then(|m| self.doc.body.pfmt_at(s, m))
-			.and_then(|i| self.doc.pfmts.get(s, i))
-			.unwrap_or(PFmt::DEFAULT);
-		let stops = Stops::for_para(&self.doc, s, &pf, 10);
-		let mut buf = [0u8; 256];
-		let want = (line.len as usize).min(buf.len());
-		let n = buf
-			.get_mut(..want)
-			.map_or(0, |b| self.doc.body.read(s, line.start, b));
-		let mut x = line.x;
-		for i in 0..n {
-			let c = buf.get(i).copied().unwrap_or(b' ');
-			let rel = line.indent + (x - line.x);
-			let (w, leader) = if c == 0x09 {
-				let stop = stops.next(rel);
-				let (mut seg, mut dec, mut seen_dot) = (0, 0, false);
-				if stop.kind != 0 {
-					for &d in buf.get(i + 1..n).unwrap_or(&[]) {
-						if d == 0x09 || d == 0x0B {
-							break;
-						}
-						if d == b'.' && !seen_dot {
-							seen_dot = true;
-							dec = seg;
-						}
-						seg += 1;
-					}
-					if !seen_dot {
-						dec = seg;
-					}
-				}
-				(tab_advance(&stop, rel, seg, dec), stop.leader)
-			} else if c == 0x01 {
-				// A field is two columns wide, as layout measures it.
-				(2, 0)
-			} else {
-				(1, 0)
-			};
-			f(line.start + i as u32, c, x, w, leader);
-			x += w;
-		}
+		quill_core::layout::walk_line(
+			&self.doc,
+			s,
+			&mut self.measure.clone(),
+			quill_core::doc::StoryKind::Body,
+			line,
+			|p, c, x, w, l, _| f(p, c, x, w, l),
+		);
 	}
 
 	/// The x of position `pos` in `line`.
@@ -1197,7 +1246,7 @@ impl App {
 				self.want_x = -1;
 			}
 			Dir::Up | Dir::Down | Dir::PageUp | Dir::PageDown => {
-				let page = paint::TEXT_ROWS as i32 - 1;
+				let page = self.rows as i32 - 1;
 				let delta = match d {
 					Dir::Up => -1,
 					Dir::Down => 1,
@@ -1438,7 +1487,7 @@ impl App {
 		let Some((idx, _)) = self.caret_line(s) else {
 			return;
 		};
-		let rows = paint::TEXT_ROWS as u32;
+		let rows = self.rows as u32;
 		if idx < self.top {
 			self.top = idx;
 		} else if idx >= self.top + rows {

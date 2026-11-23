@@ -538,3 +538,60 @@ where
 	});
 	(total, dec.unwrap_or(total))
 }
+
+/// Calls `f(position, character, x, width, leader, cfmt)` for each character of a laid-out line, with the x a character is drawn at
+/// (from the left margin, the line's alignment included). Tabs take the width layout gave them, so a painter and the layout agree.
+pub fn walk_line<S, M, F>(doc: &Doc, s: &S, m: &mut M, kind: StoryKind, line: &Line, mut f: F)
+where
+	S: Store + ?Sized,
+	M: Measure + ?Sized,
+	F: FnMut(u32, u8, i32, i32, u8, u16),
+{
+	let text = doc.story(kind);
+	let (rx, _) = m.resolution();
+	let total = text.len();
+	let end = para_end(text, s, line.start, total);
+	let mark = end
+		.checked_sub(1)
+		.filter(|p| text.read_byte(s, *p) == Some(0x0D));
+	let pf = mark
+		.and_then(|p| text.pfmt_at(s, p))
+		.and_then(|i| doc.pfmts.get(s, i))
+		.unwrap_or(PFmt::DEFAULT);
+	let stops = Stops::for_para(doc, s, &pf, rx);
+	let mut cache = FontCache::new();
+	let mut x = line.x;
+	text.for_each_run(s, line.start, line.len, |at, piece| {
+		let (fr, _, _) = font_ref(doc, s, piece.cfmt);
+		let slot = cache.slot(m, &fr);
+		let mut buf = [0u8; 64];
+		let mut done = 0u32;
+		while done < piece.len {
+			let take = (piece.len - done).min(64) as usize;
+			let Some(b) = buf.get_mut(..take) else {
+				return;
+			};
+			text.read_piece(s, &piece, done, b);
+			for (i, &c) in b.iter().enumerate() {
+				let p = at + done + i as u32;
+				let (w, leader) = if c == 0x09 {
+					let cur = line.indent + (x - line.x);
+					let stop = stops.next(cur);
+					let (seg, dec) = if stop.kind == 0 {
+						(0, 0)
+					} else {
+						segment(doc, s, &mut cache, m, p + 1, end)
+					};
+					(tab_advance(&stop, cur, seg, dec), stop.leader)
+				} else if c == 0x01 {
+					(cache.width(slot, b'8') * 2, 0)
+				} else {
+					(cache.width(slot, c), 0)
+				};
+				f(p, c, x, w, leader, piece.cfmt);
+				x += w;
+			}
+			done += take as u32;
+		}
+	});
+}
