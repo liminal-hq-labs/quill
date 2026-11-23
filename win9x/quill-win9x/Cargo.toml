@@ -21,3 +21,4 @@ quill-core = { path = "../../crates/quill-core" }
 quill-formats = { path = "../../crates/quill-formats" }
 quill-grid = { path = "../../crates/quill-grid" }
 quill-heap = { path = "../../crates/quill-heap" }
+quill-image = { path = "../../crates/quill-image" }

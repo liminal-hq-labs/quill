@@ -17,6 +17,7 @@
 mod find;
 mod form;
 mod paint;
+pub mod picture;
 mod print;
 pub mod script;
 

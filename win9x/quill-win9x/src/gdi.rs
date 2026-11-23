@@ -11,6 +11,7 @@ use quill_core::doc::{cflag, CFmt};
 use quill_core::layout::{font_ref, to_units, FontMetrics, FontRef, Measure, GLYPHS};
 use quill_heap::HeapStore;
 
+use alloc::vec::Vec;
 use crate::sys::*;
 
 /// The measure: the screen at 96 dots per inch, or (for the golden-frame tests) the DOS text grid.
@@ -142,11 +143,102 @@ fn colour_of(app: &App<GdiMeasure>, s: &HeapStore, cf: &CFmt) -> u32 {
 		.map_or(0, |c| u32::from(c.r) | (u32::from(c.g) << 8) | (u32::from(c.b) << 16))
 }
 
+/// One picture rendered at the size it is shown: 24-bit rows, bottom row first, each padded to four bytes.
+struct Rendered {
+	idx: u16,
+	fp: u32,
+	w: i32,
+	h: i32,
+	bits: Vec<u8>,
+}
+
+/// The pictures drawn lately, so scrolling does not decode them again. Holds at most three.
+pub struct PicCache {
+	items: Vec<Rendered>,
+	window: Option<alloc::boxed::Box<[u8; quill_app::picture::WINDOW]>>,
+}
+
+impl PicCache {
+	pub const fn new() -> Self {
+		PicCache {
+			items: Vec::new(),
+			window: None,
+		}
+	}
+
+	fn get(&mut self, app: &App<GdiMeasure>, s: &HeapStore, idx: u16, w: i32, h: i32) -> &Rendered {
+		let fp = quill_app::picture::fingerprint(app.doc(), s, idx);
+		if let Some(i) = self.items.iter().position(|r| r.idx == idx && r.fp == fp && r.w == w && r.h == h) {
+			return &self.items[i];
+		}
+		if self.items.len() >= 3 {
+			self.items.remove(0);
+		}
+		let stride = ((w as usize * 3) + 3) & !3;
+		// Short of memory, or a picture that does not decode: no bits, and the page shows a grey box in its place.
+		let mut bits: Vec<u8> = Vec::new();
+		if bits.try_reserve_exact(stride * h as usize).is_ok() {
+			bits.resize(stride * h as usize, 0xC0);
+			let window = self.window.get_or_insert_with(|| alloc::boxed::Box::new([0u8; quill_app::picture::WINDOW]));
+			let done = quill_app::picture::render(app.doc(), s, idx, w as usize, h as u32, window, |row, rgb| {
+				let at = row as usize * stride;
+				if let Some(dst) = bits.get_mut(at..at + w as usize * 3) {
+					for (d, p) in dst.chunks_exact_mut(3).zip(rgb.chunks_exact(3)) {
+						d[0] = p[2];
+						d[1] = p[1];
+						d[2] = p[0];
+					}
+				}
+			});
+			if done.is_err() {
+				bits.clear();
+			}
+		}
+		self.items.push(Rendered { idx, fp, w, h, bits });
+		&self.items[self.items.len() - 1]
+	}
+}
+
+/// Draws a picture with its top left at (`x`, `y`).
+///
+/// # Safety
+/// `dc` must be a valid device context.
+unsafe fn draw_picture(dc: Handle, cache: &mut PicCache, app: &App<GdiMeasure>, s: &HeapStore, idx: u16, x: i32, y: i32, w: i32, h: i32) {
+	let w = w.clamp(1, quill_image::scale::MAX_OUT as i32);
+	let r = cache.get(app, s, idx, w, h);
+	if r.bits.is_empty() {
+		let area = Rect {
+			left: x,
+			top: y,
+			right: x + w,
+			bottom: y + h,
+		};
+		let b = CreateSolidBrush(0x00C0_C0C0);
+		FillRect(dc, &area, b);
+		DeleteObject(b);
+		return;
+	}
+	let info = BitmapInfoHeader {
+		size: 40,
+		width: w,
+		height: h,
+		planes: 1,
+		bit_count: 24,
+		compression: 0,
+		size_image: 0,
+		x_pels: 0,
+		y_pels: 0,
+		clr_used: 0,
+		clr_important: 0,
+	};
+	SetDIBitsToDevice(dc, x, y, w as u32, h as u32, 0, 0, 0, h as u32, r.bits.as_ptr(), &info, 0);
+}
+
 /// Paints the page view into the client rectangle `area` and returns how many lines fit.
 ///
 /// # Safety
 /// `dc` must be a valid device context.
-pub unsafe fn paint_page(dc: Handle, area: Rect, app: &App<GdiMeasure>, s: &HeapStore) -> usize {
+pub unsafe fn paint_page(dc: Handle, area: Rect, app: &App<GdiMeasure>, s: &HeapStore, cache: &mut PicCache) -> usize {
 	let page = &app.doc().page;
 	let page_w = to_units(page.paper_w, 96);
 	let page_h = to_units(page.paper_h, 96);
@@ -251,6 +343,14 @@ pub unsafe fn paint_page(dc: Handle, area: Rect, app: &App<GdiMeasure>, s: &Heap
 		};
 		app.walk_chars(s, l, |p, c, x, w, leader, cf| {
 			let selected = sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
+			if c == 0x01 {
+				flush(&mut n, &run, run_x, run_cf, run_sel);
+				if let Some((pw, ph)) = quill_core::layout::picture_size(doc, s, &doc.body, p, 96, 96) {
+					let idx = doc.body.object_at(s, p).map_or(0, |v| v & 0xFFFF) as u16;
+					draw_picture(dc, cache, app, s, idx, tx + x, base - ph, pw, ph);
+					return;
+				}
+			}
 			if c == 0x09 || c == 0x01 {
 				flush(&mut n, &run, run_x, run_cf, run_sel);
 				if c == 0x09 && w > 0 {
