@@ -677,6 +677,7 @@
 === screen 14 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -693,7 +694,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -729,6 +729,7 @@
 === screen 15 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                             hQuill: a plain document                            
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -745,7 +746,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -781,6 +781,7 @@
 === screen 16 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                            heQuill: a plain document                            
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -797,7 +798,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -833,6 +833,7 @@
 === screen 17 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                            helQuill: a plain document                           
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -849,7 +850,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -885,6 +885,7 @@
 === screen 18 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                           hellQuill: a plain document                           
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -901,7 +902,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -937,6 +937,7 @@
 === screen 19 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                           helloQuill: a plain document                          
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -953,7 +954,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -989,6 +989,7 @@
 === screen 20 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                          hello Quill: a plain document                          
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1005,7 +1006,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1041,7 +1041,9 @@
 === screen 21 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1058,8 +1060,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1093,7 +1093,9 @@
 === screen 22 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1110,8 +1112,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1145,7 +1145,9 @@
 === screen 23 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1162,8 +1164,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1197,7 +1197,9 @@
 === screen 24 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, writtezn in Rust. This paragraph is long enough           
           to wrap onto several lines in a sixty column text area, and           
@@ -1214,8 +1216,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1249,7 +1249,9 @@
 === screen 25 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1266,8 +1268,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1301,14 +1301,16 @@
 === screen 26 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
-│ Exit            Ctrl+Q │ unless the word is wider than the line.              
-│ 1 PLAIN.QLD            │                                                      
-└────────────────────────┘rice                                                  
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Exit            Ctrl+Q │eral lines in a sixty column text area, and           
+│ 1 PLAIN.QLD            │after spaces and hyphens, never in the                
+└────────────────────────┘ unless the word is wider than the line.              
+                                                                                
+          Name Quantity  Price                                                  
           Quills    12   3.50                                                   
           Ink bottles    3    8.25                                              
                                                                                 
@@ -1318,8 +1320,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1353,14 +1353,16 @@
 === screen 27 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
-│ Exit            Ctrl+Q │ unless the word is wider than the line.              
-│ 1 PLAIN.QLD            │                                                      
-└────────────────────────┘rice                                                  
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Exit            Ctrl+Q │eral lines in a sixty column text area, and           
+│ 1 PLAIN.QLD            │after spaces and hyphens, never in the                
+└────────────────────────┘ unless the word is wider than the line.              
+                                                                                
+          Name Quantity  Price                                                  
           Quills    12   3.50                                                   
           Ink bottles    3    8.25                                              
                                                                                 
@@ -1370,8 +1372,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1405,14 +1405,16 @@
 === screen 28 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
-│ Exit            Ctrl+Q │ unless the word is wider than the line.              
-│ 1 PLAIN.QLD            │                                                      
-└────────────────────────┘rice                                                  
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Exit            Ctrl+Q │eral lines in a sixty column text area, and           
+│ 1 PLAIN.QLD            │after spaces and hyphens, never in the                
+└────────────────────────┘ unless the word is wider than the line.              
+                                                                                
+          Name Quantity  Price                                                  
           Quills    12   3.50                                                   
           Ink bottles    3    8.25                                              
                                                                                 
@@ -1422,8 +1424,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1457,7 +1457,9 @@
 === screen 29 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1474,8 +1476,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1509,14 +1509,16 @@
 === screen 30 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
-│ Exit            Ctrl+Q │ unless the word is wider than the line.              
-│ 1 PLAIN.QLD            │                                                      
-└────────────────────────┘rice                                                  
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Exit            Ctrl+Q │eral lines in a sixty column text area, and           
+│ 1 PLAIN.QLD            │after spaces and hyphens, never in the                
+└────────────────────────┘ unless the word is wider than the line.              
+                                                                                
+          Name Quantity  Price                                                  
           Quills    12   3.50                                                   
           Ink bottles    3    8.25                                              
                                                                                 
@@ -1526,8 +1528,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1561,14 +1561,16 @@
 === screen 31 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
-│ Exit            Ctrl+Q │ unless the word is wider than the line.              
-│ 1 PLAIN.QLD            │                                                      
-└────────────────────────┘rice                                                  
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Exit            Ctrl+Q │eral lines in a sixty column text area, and           
+│ 1 PLAIN.QLD            │after spaces and hyphens, never in the                
+└────────────────────────┘ unless the word is wider than the line.              
+                                                                                
+          Name Quantity  Price                                                  
           Quills    12   3.50                                                   
           Ink bottles    3    8.25                                              
                                                                                 
@@ -1578,8 +1580,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1613,14 +1613,16 @@
 === screen 32 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
-│ Exit            Ctrl+Q │ unless the word is wider than the line.              
-│ 1 PLAIN.QLD            │                                                      
-└────────────────────────┘rice                                                  
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Exit            Ctrl+Q │eral lines in a sixty column text area, and           
+│ 1 PLAIN.QLD            │after spaces and hyphens, never in the                
+└────────────────────────┘ unless the word is wider than the line.              
+                                                                                
+          Name Quantity  Price                                                  
           Quills    12   3.50                                                   
           Ink bottles    3    8.25                                              
                                                                                 
@@ -1630,8 +1632,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1665,14 +1665,16 @@
 === screen 33 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
-│ Exit            Ctrl+Q │ unless the word is wider than the line.              
-│ 1 PLAIN.QLD            │                                                      
-└────────────────────────┘rice                                                  
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Exit            Ctrl+Q │eral lines in a sixty column text area, and           
+│ 1 PLAIN.QLD            │after spaces and hyphens, never in the                
+└────────────────────────┘ unless the word is wider than the line.              
+                                                                                
+          Name Quantity  Price                                                  
           Quills    12   3.50                                                   
           Ink bottles    3    8.25                                              
                                                                                 
@@ -1682,8 +1684,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1717,14 +1717,16 @@
 === screen 34 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
-│ Exit            Ctrl+Q │ unless the word is wider than the line.              
-│ 1 PLAIN.QLD            │                                                      
-└────────────────────────┘rice                                                  
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Exit            Ctrl+Q │eral lines in a sixty column text area, and           
+│ 1 PLAIN.QLD            │after spaces and hyphens, never in the                
+└────────────────────────┘ unless the word is wider than the line.              
+                                                                                
+          Name Quantity  Price                                                  
           Quills    12   3.50                                                   
           Ink bottles    3    8.25                                              
                                                                                 
@@ -1734,8 +1736,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1769,14 +1769,16 @@
 === screen 35 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
-│ Exit            Ctrl+Q │ unless the word is wider than the line.              
-│ 1 PLAIN.QLD            │                                                      
-└────────────────────────┘rice                                                  
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Exit            Ctrl+Q │eral lines in a sixty column text area, and           
+│ 1 PLAIN.QLD            │after spaces and hyphens, never in the                
+└────────────────────────┘ unless the word is wider than the line.              
+                                                                                
+          Name Quantity  Price                                                  
           Quills    12   3.50                                                   
           Ink bottles    3    8.25                                              
                                                                                 
@@ -1786,8 +1788,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1821,7 +1821,9 @@
 === screen 36 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1838,8 +1840,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 

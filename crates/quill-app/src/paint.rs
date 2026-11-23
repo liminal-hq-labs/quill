@@ -58,7 +58,8 @@ const FIND: [Item; 3] = [
 	item("Find Next", "F3", Command::FindNext),
 	item("Replace...", "Ctrl+H", Command::Replace),
 ];
-const INSERT: [Item; 4] = [
+const INSERT: [Item; 5] = [
+	item("Picture...", "", Command::Picture),
 	item("Page Number", "", Command::Field(1)),
 	item("Page Count", "", Command::Field(2)),
 	item("Date", "", Command::Field(3)),
@@ -258,25 +259,40 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 	let mut ln_in_page = 0u32;
 	let mut counters: ListCounters = [[0u32; 9]; 4];
 	let mut cursor = None;
+	// Rows are the layout's own: a line sits where its page and y put it, so spacing and tall lines show.
+	let page_rows = quill_core::layout::to_units(
+		app.doc.page.paper_h - app.doc.page.margin_t - app.doc.page.margin_b,
+		6,
+	);
+	let cum = |l: &quill_core::layout::Line| (l.page as i32 - 1) * page_rows + l.y;
+	let mut top_cum = 0;
+	app.lines(s, |i, l| {
+		if i == app.top {
+			top_cum = cum(l);
+		}
+	});
 	app.lines(s, |i, l| {
 		if let Some((ci, _)) = caret {
 			if l.page == caret_page && i <= ci {
 				ln_in_page += 1;
 			}
 		}
+		let rel = cum(l) - top_cum;
+		let height = (l.ascent + l.descent).max(1);
+		let first_row = 1 + rel;
+		let row_i = first_row + height - 1;
 		if let Some((label, n, first)) = line_label(app, s, l, &mut counters, 10) {
-			if l_visible(i, app.top, text_rows) {
-				let row = 1 + (i - app.top) as usize;
+			if i >= app.top && rel < text_rows as i32 && row_i >= 1 {
+				let row = row_i as usize;
 				for (k, b) in label.iter().take(n).enumerate() {
 					g.put(margin + first + k, row, *b, attr::TEXT);
 				}
 			}
 		}
-		let top = app.top;
-		if i < top || (i - top) as usize >= text_rows {
+		if i < app.top || rel >= text_rows as i32 || row_i < 1 {
 			return;
 		}
-		let row = 1 + (i - top) as usize;
+		let row = row_i as usize;
 		app.walk(s, l, |p, c, x, w, leader| {
 			let col = margin + x as usize;
 			let cf = app
@@ -298,6 +314,29 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 					g.put(col + k, row, fill, a);
 				}
 			} else if c == 0x01 {
+				if let Some((pw, ph)) =
+					quill_core::layout::picture_size(&app.doc, s, &app.doc.body, p, 10, 6)
+				{
+					// A picture is a box of shading the height it would print, labelled with its size in pixels.
+					let top_row = first_row.max(1) as usize;
+					for yy in 0..ph as usize {
+						for xx in 0..pw as usize {
+							g.put(col + xx, top_row + yy, 0xB0, a);
+						}
+					}
+					let idx = app.doc.body.object_at(s, p).map_or(0, |v| v & 0xFFFF);
+					if let Some(pic) = app.doc.pictures.get(s, idx) {
+						let mut r = Row::new();
+						r.s("[Picture ")
+							.dec(u32::from(pic.w))
+							.s(" x ")
+							.dec(u32::from(pic.h))
+							.s("]");
+						let label = r.buf.get(..r.n.min(pw as usize)).unwrap_or(&[]);
+						g.text(col, top_row + (ph as usize) / 2, label, a);
+					}
+					return;
+				}
 				let letter = match app.doc.body.object_at(s, p).map(|v| v >> 16) {
 					Some(1) => b'P',
 					Some(2) => b'N',
@@ -449,6 +488,7 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 				Prompt::Open => b" Open ",
 				Prompt::SaveAs => b" Save As ",
 				Prompt::Print => b" Print to file or device ",
+				Prompt::Picture => b" Insert Picture ",
 			};
 			dialog(g, 8, 62, 7, title);
 			g.text(10, 10, b"File name:", attr::CHROME);
@@ -605,10 +645,6 @@ fn shadow<const ROWS: usize>(g: &mut Grid<ROWS>, x: usize, y: usize, w: usize, h
 			g.put(xx, y + h, c.ch, 0x08);
 		}
 	}
-}
-
-fn l_visible(i: u32, top: u32, rows: usize) -> bool {
-	i >= top && ((i - top) as usize) < rows
 }
 
 /// Writes the label of number `n` in `style` (0 `1.`, 1 `1)`, 2 `a.`, 3 `a)`, 4 `i.`, 5 `A.`, 6 `I.`, 7 `1.`) and returns its length.

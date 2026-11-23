@@ -331,3 +331,21 @@ fn image_data<S: Source>(
 		_ => Err(ImageError::BadFile),
 	}
 }
+
+/// Reads just the size of a PNG: its width and height in pixels.
+pub fn read_size<S: Source>(r: &mut S) -> Result<(u32, u32), ImageError> {
+	let bad = ImageError::BadFile;
+	let mut head = [0u8; 24];
+	if r.read(&mut head) != 24
+		|| head.get(..8) != Some(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A][..])
+		|| head.get(12..16) != Some(b"IHDR")
+	{
+		return Err(bad);
+	}
+	let w = u32::from_be_bytes([head[16], head[17], head[18], head[19]]);
+	let h = u32::from_be_bytes([head[20], head[21], head[22], head[23]]);
+	if w == 0 || h == 0 || w > MAX_SIDE || h > MAX_SIDE {
+		return Err(ImageError::TooLarge);
+	}
+	Ok((w, h))
+}

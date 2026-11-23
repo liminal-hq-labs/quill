@@ -96,6 +96,7 @@ dependencies = [
  "quill-core",
  "quill-formats",
  "quill-grid",
+ "quill-image",
 ]
 
 [[package]]

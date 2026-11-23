@@ -71,6 +71,7 @@ run_scenario m2-dialogs - -
 run_scenario m4-about QUILL.INI m4-quill.ini
 run_scenario m4-print OUT.PRN letter.print.txt
 run_scenario m4-print-headers OUT.PRN headers.print.txt
+run_scenario m7-picture OUT.QLD m7-picture.qld
 run_scenario m2-headers - -
 run_scenario m2-lists - -
 echo "e2e: ok"

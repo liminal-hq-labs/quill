@@ -9,6 +9,7 @@ dependencies = [
  "quill-core",
  "quill-formats",
  "quill-grid",
+ "quill-image",
 ]
 
 [[package]]
@@ -46,6 +47,18 @@ version = "0.0.0"
 dependencies = [
  "quill-core",
 ]
+
+[[package]]
+name = "quill-image"
+version = "0.0.0"
+dependencies = [
+ "quill-formats",
+ "quill-inflate",
+]
+
+[[package]]
+name = "quill-inflate"
+version = "0.0.0"
 
 [[package]]
 name = "rt"

@@ -387,6 +387,7 @@ where
 							result = Some((End::Next(p + 1), p, cw, asc, desc));
 							return;
 						}
+						let mut pic_h = 0;
 						let w = if c == 0x09 {
 							let cur = x0 + width;
 							let stop = stops.next(cur);
@@ -397,8 +398,14 @@ where
 							};
 							tab_advance(&stop, cur, seg, dec)
 						} else if c == 0x01 {
-							// A field is measured as two digits, so the layout does not move from page to page.
-							cache.width(slot, b'8') * 2
+							match picture_size(doc, s, text, p, rx, ry) {
+								Some((pw, ph)) => {
+									pic_h = ph;
+									pw
+								}
+								// A field is measured as two digits, so the layout does not move from page to page.
+								None => cache.width(slot, b'8') * 2,
+							}
 						} else {
 							cache.width(slot, c)
 						};
@@ -412,7 +419,7 @@ where
 							return;
 						}
 						width += w;
-						asc = asc.max(a);
+						asc = asc.max(a).max(pic_h);
 						desc = desc.max(d);
 						if c != b' ' {
 							cw = width;
@@ -549,7 +556,7 @@ where
 	F: FnMut(u32, u8, i32, i32, u8, u16),
 {
 	let text = doc.story(kind);
-	let (rx, _) = m.resolution();
+	let (rx, ry) = m.resolution();
 	let total = text.len();
 	let end = para_end(text, s, line.start, total);
 	let mark = end
@@ -585,7 +592,10 @@ where
 					};
 					(tab_advance(&stop, cur, seg, dec), stop.leader)
 				} else if c == 0x01 {
-					(cache.width(slot, b'8') * 2, 0)
+					match picture_size(doc, s, text, p, rx, ry) {
+						Some((pw, _)) => (pw, 0),
+						None => (cache.width(slot, b'8') * 2, 0),
+					}
 				} else {
 					(cache.width(slot, c), 0)
 				};
@@ -671,4 +681,24 @@ fn write_line<S: Store + ?Sized, W: core::fmt::Write>(
 		at += n as u32;
 	}
 	writeln!(w)
+}
+
+/// The size in device units of the picture at `pos`, when the object there is one (kind 0).
+pub fn picture_size<S: Store + ?Sized>(
+	doc: &Doc,
+	s: &S,
+	text: &crate::doc::StoryText,
+	pos: u32,
+	rx: u16,
+	ry: u16,
+) -> Option<(i32, i32)> {
+	let v = text.object_at(s, pos)?;
+	if v >> 16 != 0 {
+		return None;
+	}
+	let p = doc.pictures.get(s, v & 0xFFFF)?;
+	Some((
+		to_units(p.shown_w, rx).max(1),
+		to_units(p.shown_h, ry).max(1),
+	))
 }

@@ -10,3 +10,4 @@ description = "Quill's editor controller: keys, commands, menus and the text-mod
 quill-core = { path = "../quill-core" }
 quill-formats = { path = "../quill-formats" }
 quill-grid = { path = "../quill-grid" }
+quill-image = { path = "../quill-image" }

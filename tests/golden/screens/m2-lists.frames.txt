@@ -1,13 +1,13 @@
 === screen 1 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list                                                         
+                                                                                
           •  Quills                                                             
           •  Ink                                                                
           1. First step                                                         
           2. Second step                                                        
           a. Lettered                                                           
           Plain again.                                                          
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -53,13 +53,13 @@
 === screen 2 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list                                                         
+                                                                                
           •  Quills                                                             
           •  Ink                                                                
           1. First step                                                         
           2. Second step                                                        
           a. Lettered                                                           
           Plain again.                                                          
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -160,10 +160,10 @@
       │ Undo            Ctrl+Z │                                                
       │ Redo            Ctrl+Y │                                                
       └ 1 LISTS.RTF            ┘                                                
+          1. First step                                                         
           2. Second step                                                        
           a. Lettered                                                           
           Plain again.                                                          
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -209,13 +209,13 @@
 === screen 5 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Sh┌────────────────────────┐                                          
+            │ Picture...             │                                          
           • │ Page Number            │                                          
           • │ Page Count             │                                          
           1.│ Date                   │                                          
           2.│ File Name              │                                          
           a.└ 1 LISTS.RTF            ┘                                          
           Plain again.                                                          
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -240,8 +240,8 @@
 1717171717171717171717177070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717177070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717177070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717177070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -261,13 +261,13 @@
 === screen 6 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping l┌────────────────────────┐                                  
-          •  Quills │ Find...         Ctrl+F │                                  
-          •  Ink    │ Find Next           F3 │                                  
-          1. First s│ Replace...      Ctrl+H │                                  
-          2. Second └ 1 LISTS.RTF            ┘                                  
+                    │ Find...         Ctrl+F │                                  
+          •  Quills │ Find Next           F3 │                                  
+          •  Ink    │ Replace...      Ctrl+H │                                  
+          1. First s└ 1 LISTS.RTF            ┘                                  
+          2. Second step                                                        
           a. Lettered                                                           
           Plain again.                                                          
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -313,13 +313,13 @@
 === screen 7 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list   ┌────────────────────────┐                            
-          •  Quills       │ Regular             F5 │                            
-          •  Ink          │ Bold            Ctrl+B │                            
-          1. First step   │ Italic          Ctrl+I │                            
-          2. Second step  │ Underline       Ctrl+U │                            
-          a. Lettered     │ Strikethrough          │                            
-          Plain again.    │ Superscript            │                            
-                          │ Subscript              │                            
+                          │ Regular             F5 │                            
+          •  Quills       │ Bold            Ctrl+B │                            
+          •  Ink          │ Italic          Ctrl+I │                            
+          1. First step   │ Underline       Ctrl+U │                            
+          2. Second step  │ Strikethrough          │                            
+          a. Lettered     │ Superscript            │                            
+          Plain again.    │ Subscript              │                            
                           │ Fonts...               │                            
                           └ 1 LISTS.RTF            ┘                            
                                                                                 
@@ -365,13 +365,13 @@
 === screen 8 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list              ┌────────────────────────┐                 
-          •  Quills                  │ Left            Ctrl+L │                 
-          •  Ink                     │ Centred         Ctrl+E │                 
-          1. First step              │ Right           Ctrl+R │                 
-          2. Second step             │ Justified       Ctrl+J │                 
-          a. Lettered                │ Bullets                │                 
-          Plain again.               │ Numbering              │                 
-                                     │ Increase Level         │                 
+                                     │ Left            Ctrl+L │                 
+          •  Quills                  │ Centred         Ctrl+E │                 
+          •  Ink                     │ Right           Ctrl+R │                 
+          1. First step              │ Justified       Ctrl+J │                 
+          2. Second step             │ Bullets                │                 
+          a. Lettered                │ Numbering              │                 
+          Plain again.               │ Increase Level         │                 
                                      │ Decrease Level         │                 
                                      │ Tabs...                │                 
                                      │ Single Space           │                 
@@ -417,13 +417,13 @@
 === screen 9 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list              ┌────────────────────────┐                 
-          •  Quills                  │ Left            Ctrl+L │                 
-          •  Ink                     │ Centred         Ctrl+E │                 
-          1. First step              │ Right           Ctrl+R │                 
-          2. Second step             │ Justified       Ctrl+J │                 
-          a. Lettered                │ Bullets                │                 
-          Plain again.               │ Numbering              │                 
-                                     │ Increase Level         │                 
+                                     │ Left            Ctrl+L │                 
+          •  Quills                  │ Centred         Ctrl+E │                 
+          •  Ink                     │ Right           Ctrl+R │                 
+          1. First step              │ Justified       Ctrl+J │                 
+          2. Second step             │ Bullets                │                 
+          a. Lettered                │ Numbering              │                 
+          Plain again.               │ Increase Level         │                 
                                      │ Decrease Level         │                 
                                      │ Tabs...                │                 
                                      │ Single Space           │                 
@@ -469,13 +469,13 @@
 === screen 10 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list              ┌────────────────────────┐                 
-          •  Quills                  │ Left            Ctrl+L │                 
-          •  Ink                     │ Centred         Ctrl+E │                 
-          1. First step              │ Right           Ctrl+R │                 
-          2. Second step             │ Justified       Ctrl+J │                 
-          a. Lettered                │ Bullets                │                 
-          Plain again.               │ Numbering              │                 
-                                     │ Increase Level         │                 
+                                     │ Left            Ctrl+L │                 
+          •  Quills                  │ Centred         Ctrl+E │                 
+          •  Ink                     │ Right           Ctrl+R │                 
+          1. First step              │ Justified       Ctrl+J │                 
+          2. Second step             │ Bullets                │                 
+          a. Lettered                │ Numbering              │                 
+          Plain again.               │ Increase Level         │                 
                                      │ Decrease Level         │                 
                                      │ Tabs...                │                 
                                      │ Single Space           │                 
@@ -521,13 +521,13 @@
 === screen 11 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list              ┌────────────────────────┐                 
-          •  Quills                  │ Left            Ctrl+L │                 
-          •  Ink                     │ Centred         Ctrl+E │                 
-          1. First step              │ Right           Ctrl+R │                 
-          2. Second step             │ Justified       Ctrl+J │                 
-          a. Lettered                │ Bullets                │                 
-          Plain again.               │ Numbering              │                 
-                                     │ Increase Level         │                 
+                                     │ Left            Ctrl+L │                 
+          •  Quills                  │ Centred         Ctrl+E │                 
+          •  Ink                     │ Right           Ctrl+R │                 
+          1. First step              │ Justified       Ctrl+J │                 
+          2. Second step             │ Bullets                │                 
+          a. Lettered                │ Numbering              │                 
+          Plain again.               │ Increase Level         │                 
                                      │ Decrease Level         │                 
                                      │ Tabs...                │                 
                                      │ Single Space           │                 
@@ -573,13 +573,13 @@
 === screen 12 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list              ┌────────────────────────┐                 
-          •  Quills                  │ Left            Ctrl+L │                 
-          •  Ink                     │ Centred         Ctrl+E │                 
-          1. First step              │ Right           Ctrl+R │                 
-          2. Second step             │ Justified       Ctrl+J │                 
-          a. Lettered                │ Bullets                │                 
-          Plain again.               │ Numbering              │                 
-                                     │ Increase Level         │                 
+                                     │ Left            Ctrl+L │                 
+          •  Quills                  │ Centred         Ctrl+E │                 
+          •  Ink                     │ Right           Ctrl+R │                 
+          1. First step              │ Justified       Ctrl+J │                 
+          2. Second step             │ Bullets                │                 
+          a. Lettered                │ Numbering              │                 
+          Plain again.               │ Increase Level         │                 
                                      │ Decrease Level         │                 
                                      │ Tabs...                │                 
                                      │ Single Space           │                 
@@ -625,13 +625,13 @@
 === screen 13 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list                                                         
+                                                                                
           •  Quills                                                             
           •  Ink                                                                
           1. First step                                                         
           2. Second step                                                        
           a. Lettered                                                           
           •  Plain again.                                                       
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -677,13 +677,13 @@
 === screen 14 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list                                                         
+                                                                                
           •  Quills                                                             
           •  Ink                                                                
           1. First step                                                         
           2. Second step                                                        
           a. Lettered                                                           
           •  Plain again.                                                       
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -729,6 +729,7 @@
 === screen 15 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list                                                         
+                                                                                
           •  Quills                                                             
           •  Ink                                                                
           1. First step                                                         
@@ -736,7 +737,6 @@
           a. Lettered                                                           
           •  Plain again.                                                       
           •                                                                     
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -781,13 +781,13 @@
 === screen 16 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list                                                         
+                                                                                
           •  Quills                                                             
           •  Ink                                                                
           1. First step                                                         
           2. Second step                                                        
           a. Lettered                                                           
           •  Plain again.                                                       
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -833,6 +833,7 @@
 === screen 17 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list                                                         
+                                                                                
           •  Quills                                                             
           •  Ink                                                                
           1. First step                                                         
@@ -840,7 +841,6 @@
           a. Lettered                                                           
           •  Plain again.                                                       
           x                                                                     
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1197,12 +1197,12 @@
 === screen 24 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list                                                         
+                                                                                
           •  Quills                                                             
           •  Ink                                                                
           1. First step                                                         
           2. Second step                                                        
           a. Lettered                                                           
-          •  Plain again.                                                       
         ┌────────────────────────── Quill ───────────────────────────┐          
         │                                                            │          
         │ Save changes to LISTS.RTF?                                 │          
@@ -1249,6 +1249,7 @@
 === screen 25 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
           Shopping list                                                         
+                                                                                
           •  Quills                                                             
           •  Ink                                                                
           1. First step                                                         
@@ -1256,7 +1257,6 @@
           a. Lettered                                                           
           •  Plain again.                                                       
           x                                                                     
-                                                                                
                                                                                 
                                                                                 
                                                                                 

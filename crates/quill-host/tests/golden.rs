@@ -248,6 +248,22 @@ fn m4_print_scripts_match_their_golden_pages() {
 }
 
 #[test]
+fn m7_picture_script_matches_its_golden_screens_and_file() {
+	let (files, frames) = scenario("m7-picture");
+	compare("tests/golden/screens/m7-picture.frames.txt", &frames);
+	compare_bytes("tests/golden/files/m7-picture.qld", &files.files["OUT.QLD"]);
+	// The original file bytes travel inside the document unchanged.
+	let out = &files.files["OUT.QLD"];
+	for pic in ["pic.bmp", "pic.png"] {
+		let bytes = std::fs::read(root().join(format!("tests/docs/{pic}"))).unwrap();
+		assert!(
+			out.windows(bytes.len()).any(|w| w == &bytes[..]),
+			"{pic} is in OUT.QLD"
+		);
+	}
+}
+
+#[test]
 fn m2_letter_in_the_mono_scheme_matches_its_golden_screens() {
 	let (_, frames) = scenario("m2-mono");
 	compare("tests/golden/screens/m2-mono.frames.txt", &frames);
