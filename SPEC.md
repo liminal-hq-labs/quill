@@ -2,9 +2,23 @@
 
 The source of truth for behaviour. A change that alters behaviour updates this file in the same change. How it is built is in [docs/architecture.md](docs/architecture.md), why in [docs/decisions.md](docs/decisions.md) and when in [docs/roadmap.md](docs/roadmap.md).
 
+## Table of contents
+
+- [Purpose](#purpose)
+- [Platforms](#platforms)
+- [Users and scenarios](#users-and-scenarios)
+- [Non-goals](#non-goals)
+- [Scope](#scope)
+- [Components](#components)
+- [Behaviour](#behaviour)
+- [Interfaces](#interfaces)
+- [Settings and defaults](#settings-and-defaults)
+- [Security and privacy](#security-and-privacy)
+- [Limits](#limits)
+
 ## Purpose
 
-Quill is a small rich-text word processor for Windows 3.1, Windows 95 and DOS, written in Rust and built without a C compiler. It sits between Notepad and Word for Windows: more than Write in the places that matter (a toolbar, justified text, bullets, undo and redo, print preview, RTF that today's word processors read), and small enough to fit on one floppy and run on a 386 with 4 MB of memory. Under the three front ends sits one portable core, so a letter started in WordPerfect-blue text mode on a DOS laptop opens, fonts and all, on the family's Windows 3.1 PC.
+Quill is a small rich-text word processor for Windows 3.1, Windows 95 and DOS, written in Rust and built without a C compiler. It sits between Write and Word for Windows 2.0: fonts, colours, lists, tab stops, headers and footers, pictures, a spelling checker, a help file, print preview, and RTF that today's word processors read, in a program that fits on a floppy and runs on a 386 with 4 MB of memory. Under the three front ends sits one portable core, so a letter started in WordPerfect-blue text mode on a DOS laptop opens, fonts and all, on the family's Windows 3.1 PC.
 
 Quill is the companion application to the Liminal HQ blog series *Cross-compiling to the past*: the series explains the toolchains, and Quill is the real program built with all three of them.
 
@@ -21,85 +35,93 @@ Quill is the companion application to the Liminal HQ blog series *Cross-compilin
 
 ## Users and scenarios
 
-- **A retro-computing hobbyist** writes a letter on a real 486 or in DOSBox-X, prints it on a period printer and carries the `.RTF` file to a modern machine, where LibreOffice or Word opens it with its fonts, styles and bullets intact.
-- **A collector restoring a period machine** wants a word processor that installs from a floppy with a Windows 3.1 setup program, runs in 4 MB and does not need Win32s.
-- **A Rust developer** studies how a `no_std` core, a 16-bit code segment and the NE format fit together, and uses Quill's host tools (the reference renderer, the golden tests) without ever starting Windows.
-- **A modern user** receives an RTF written on Windows 3.1 and expects it to open cleanly; Quill's RTF output is the contract that makes that work.
+- **A retro-computing hobbyist** writes a letter on a real 486 or in DOSBox-X, prints it on a period printer and carries the `.RTF` file to a modern machine, where LibreOffice or Word opens it with its fonts, lists, pictures and page numbers intact.
+- **A collector restoring a period machine** wants a word processor that installs from floppies with a Windows 3.1 setup program, runs in 4 MB, has a proper Help menu and does not need Win32s.
 - **A Windows 98 or ME enthusiast** wants a small native word processor with long file names that opens the same `.QLD` files the family's Windows 3.1 machine writes.
-- **Someone on a DOS laptop with no Windows** types a draft in text mode, where bold is bright white and italic is cyan, and prints it later from Windows with the fonts it was given.
+- **Someone on a DOS laptop with no Windows** types a draft in text mode, where bold is bright white and italic is cyan, runs the spelling checker, and prints it later from Windows with the fonts it was given.
+- **A modern user** receives an RTF written on Windows 3.1 and expects it to open cleanly; Quill's RTF output is the contract that makes that work.
+- **A Rust developer** studies how a `no_std` core, 16-bit code segments and the NE format fit together, and uses Quill's host tools (the reference renderer, the golden tests, the help compiler) without ever starting Windows.
 - **A reader of the blog series** follows a link to this repository and wants to see how one core became three programs, without knowing what a selector is.
 
 ## Non-goals
 
 - **Windows 3.0, Standard mode or real mode.** 386 Enhanced mode is the floor (D4).
 - **Win32s.** The Win32 build targets Windows 9x's own Win32, not the Win32s subset on Windows 3.1.
-- **Wide-character (Unicode) Windows APIs.** Both builds use ANSI entry points only, because Windows 9x lacks most `...W` functions.
-- **Being Word.** No tables, images, columns, headers and footers, footnotes, styles sheets, fields, mail merge, revision marks, OLE or DDE in v1 (the scope table says what is later and why).
-- **Unicode text.** Documents are Windows ANSI (code page 1252) in v1 (D11).
-- **Spelling and grammar checking**, hyphenation and thesaurus.
-- **Help files.** There is no WinHelp `.HLP` in v1; the Windows 3.1 Help Compiler is not redistributable.
-- **Network, macros or scripting.** Quill never opens a socket and never runs code from a document.
+- **Wide-character (Unicode) Windows APIs and Unicode text.** Documents are Windows ANSI (code page 1252), and both Windows builds use ANSI entry points only, because Windows 9x lacks most `...W` functions (D11).
+- **Being Word.** No tables, columns, footnotes, style sheets, fields beyond the four header and footer fields, mail merge, revision marks, OLE or DDE.
+- **Grammar checking, hyphenation and a thesaurus.**
+- **Network, macros or scripting.** Quill never opens a socket and never runs code from a document. Help file macros are limited to the standard WinHelp browse and button macros Quill's own help uses.
 
 ## Scope
 
-| Feature | v1 | Later | Why |
-|---|---|---|---|
-| Fonts and sizes from any installed font (TrueType, raster, printer) | Yes | — | The heart of rich text |
-| Bold, italic, underline | Yes | — | Cheap, expected |
-| Strikethrough, superscript, subscript, text colour | — | v1.1 | Baseline shifts and colour tables add layout and RTF work without changing the design |
-| Alignment: left, centred, right, justified | Yes | — | Justification is the visible proof of an own layout engine |
-| Indents (left, right, first line, hanging) and the ruler to drag them | Yes | — | Needed for bullets and real documents |
-| Line spacing: single, 1½, double; space before and after | Yes | — | Cheap once layout exists |
-| Bulleted paragraphs | Yes | — | Requested; one paragraph flag and a hanging indent |
-| Numbered lists, multi-level lists | — | v1.1 | Numbering state across paragraphs and RTF `\listtable` round trips are their own project |
-| Custom tab stops (left, centre, right, decimal) | — | v1.1 | Default stops every half inch cover v1; custom stops need ruler editing and RTF `\tx` |
-| Manual page breaks | Yes | — | One paragraph flag; RTF `\page` is common |
-| Toolbar, ruler, status bar (each can be hidden) | Yes | — | The chrome that makes it feel like a word processor |
-| Caret, mouse and keyboard selection, keyboard navigation | Yes | — | Core editing |
-| Overtype mode (Insert key) | — | v1.1 | Rarely used; Shift+Insert is paste in Windows 3.1 |
-| Drag and drop of selected text | — | v1.1 | Not a Windows 3.1 convention |
-| Undo and redo, multi-level | Yes | — | Write had one level; multi-level is a clear improvement |
-| Cut, copy, paste (text and RTF) | Yes | — | Interop with other applications |
-| Find and replace (match case, whole word) | Yes | — | Common dialogs make it cheap |
-| New, Open, Save, Save As, recent files | Yes | — | Basic file handling |
-| Native format `.QLD` | Yes | — | Fast, exact, versioned (D12) |
-| RTF subset read and write | Yes | — | The interchange format (D13) |
-| Plain text read and write | Yes | — | Everything reads it |
-| Write `.WRI` import | — | Later | Nice period touch, undocumented format |
-| Printing with page setup and margins | Yes | — | A word processor prints |
-| Print preview (one or two pages) | Yes | — | Cheap because layout already uses printer metrics (D10, D23) |
-| Zoom in the editing view | — | Later | Needs scaled font selection; preview covers the need |
-| Pictures, tables, columns, headers and footers | — | Not planned for v1.x | Each is a large layout feature |
-| About box with free memory and system resources | Yes | — | Period-correct and useful when memory is tight |
-| WinHelp help file | — | Not planned | Help Compiler licence (non-goals) |
+Everything in this table is v1 unless the last column says otherwise. When time runs short, features are cut in the order in [docs/roadmap.md](docs/roadmap.md#if-time-runs-out).
+
+| Feature | v1 | Notes |
+|---|---|---|
+| Fonts and sizes from any installed font | Yes | TrueType, raster and printer fonts |
+| Bold, italic, underline, strikethrough | Yes | |
+| Superscript and subscript | Yes | Two-thirds size, raised or lowered by a third of the font height |
+| Text colour | Yes | The 16 VGA colours in the toolbar; any colour through the Fonts dialog |
+| Alignment: left, centred, right, justified | Yes | |
+| Indents (left, right, first line, hanging) on the ruler | Yes | |
+| Line spacing single, 1½, double; space before and after | Yes | |
+| Tab stops: left, centred, right, decimal, with leaders | Yes | Set and dragged on the ruler, or in the Tabs dialog |
+| Bulleted lists | Yes | |
+| Numbered lists, nine levels | Yes | `1.`, `a.`, `i.`, `A.`, `I.` and `1.1.` styles |
+| Manual page breaks | Yes | |
+| Headers and footers, different first page | Yes | With page number, page count, date and file name fields |
+| Inline pictures: BMP (1, 4, 8, 24 bit) and PNG | Yes | Scaled with the aspect ratio kept; reduced to what the display shows |
+| JPEG pictures | Later | When a `no_std` decoder fits the budgets |
+| Toolbar, ruler, status bar | Yes | Each can be hidden |
+| Caret, mouse and keyboard selection, navigation | Yes | |
+| Overtype mode (Insert key) | Yes | |
+| Drag and drop of selected text within the document | Yes | Ctrl copies instead of moving |
+| Undo and redo, multi-level | Yes | |
+| Cut, copy, paste of text, RTF and pictures | Yes | |
+| Find and replace | Yes | Match case, whole word |
+| Spelling checker with suggestions | Yes | Canadian English by default; American and British too |
+| Check spelling as you type | Yes | Wavy underline, drawn in idle time; off by default on Win16 |
+| New, Open, Save, Save As, recent files | Yes | |
+| Native `.QLD`, RTF subset, plain text | Yes | |
+| Write `.WRI` import | Later | Undocumented format; a nice period touch, not essential |
+| Printing with page setup | Yes | |
+| Print preview, one or two pages | Yes | |
+| Zoom (50 % to 200 %) | Stretch | Ships if the milestone it rides on lands with time to spare |
+| WinHelp help file (`QUILL.HLP`) | Yes | Built by Quill's own help compiler (D50) |
+| About box with free memory and system resources | Yes | |
+| Tables, columns, footnotes, style sheets | No | Each is a large layout feature |
 
 ## Components
 
 - **Quill for Windows 3.1** (`QUILL.EXE`, crate `quill-win16`): the Win16 application.
 - **Quill for Windows 95** (`QUILL32.EXE`, crate `quill-win9x`): the Win32 application.
 - **Quill for DOS** (`QUILLDOS.EXE`, crate `quill-dos`): the DOS application, text mode and graphics mode in one executable.
-- **Quill core** (`quill-core`): the document model, editing, undo and layout. Portable `no_std` Rust with no Windows dependency.
+- **Quill core** (`quill-core`): the document model, editing, undo and layout. Portable `no_std` Rust with no Windows or DOS dependency.
 - **Quill formats** (`quill-formats`): the native, RTF and plain text readers and writers.
-- **Quill app** (`quill-app`): the platform-neutral editor controller: commands, the menu tree and its enabled and checked state, status text, and the painting of the page, ruler, toolbar and status bar through a drawing trait that the Windows builds, DOS graphics mode and the host renderer implement.
-- **Quill grid** (`quill-grid`): the text-mode screen renderer, which draws a document, menus and dialogs into an 80-column character grid; DOS text mode shows the grid and the host compares it with golden screens.
-- **Host tools** (`quill-host`): a reference renderer (`quill-render`) that lays out a document and writes PNG pages, text-mode screens or a text dump, used by tests and by developers.
+- **Quill image** (`quill-image`): the BMP and PNG decoders, scaling and colour reduction.
+- **Quill spell** (`quill-spell`): the dictionary reader, word checking and suggestions.
+- **Quill app** (`quill-app`): the platform-neutral editor controller: commands, the menu tree and its state, status text, and the painting of the page and chrome through a drawing trait.
+- **Quill grid** (`quill-grid`): the text-mode screen renderer for DOS text mode and the host's golden screens.
+- **Help compiler** (`quill-help`, command `hlpc`): a host tool that compiles Quill's help sources into a WinHelp 3.1 `.HLP` file (and a DOS help file), with a reader (`hlpdump`) for tests. Built to be lifted out into its own repository later.
+- **Dictionary builder** (`quill-dict`): a host tool that builds `.DIC` files from SCOWL word lists.
+- **Host tools** (`quill-host`): the reference renderer (`quill-render`) that writes PNG pages, text-mode screens or a text dump, and the test harnesses.
 - **Installer** (`installer/`): a Liminal Installer project that builds floppy images: a Windows `SETUP.EXE` that installs the right Windows build for the version it runs on, and a DOS `INSTALL.EXE` for the DOS build.
 
 ## Behaviour
 
-Everything below describes the Windows builds; the DOS build follows it with the changes in [DOS text mode](#dos-text-mode) and [DOS graphics mode](#dos-graphics-mode). Editing commands, keys, undo, find and the files are the same in all of them.
+Everything below describes the Windows builds; the DOS build follows it with the changes in [DOS text mode](#dos-text-mode) and [DOS graphics mode](#dos-graphics-mode). Editing commands, keys, undo, find, spelling and the files are the same in all of them.
 
 ### Window and chrome
 
 - The main window's title is `Quill - <FILE.EXT>`, with `(Untitled)` for a new document, in the style of Windows 3.1 Write. The Win16 build shows the file name in capitals as DOS stores it; the Win32 build shows the long name as the file system stores it.
 - Below the menu bar, top to bottom: the toolbar, the ruler, the editing view with a vertical scroll bar (and a horizontal one when the page is wider than the window), and the status bar. **Document** menu items show or hide the toolbar, ruler and status bar; the choice is remembered.
-- The editing view shows the page's text width with the left and right margins as white space, on a white background (`COLOR_WINDOW`). Automatic page breaks are a dotted line across the view; manual page breaks a dotted line with the words `Page break`.
-- The status bar shows `Page N of M`, `Ln N` and `Col N` for the caret (line within the page and character within the line), and the menu help line for the highlighted menu item while a menu is open.
-- Only one document is open per window. Starting Quill again opens a second window with its own document (single-document interface, D17).
+- The editing view shows the page's text width with the left and right margins as white space. Automatic page breaks are a dotted line across the view; manual page breaks a dotted line with the words `Page break`. Headers and footers are not shown in the editing view (they are in the header view, print preview and print), as in Write.
+- The status bar shows `Page N of M`, `Ln N`, `Col N`, `OVR` in overtype mode, and the menu help line for the highlighted menu item while a menu is open.
+- Only one document is open per window. Starting Quill again opens a second window with its own document (D16).
 
 ### Menus and accelerators
 
-Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis on items that open a dialog, check marks on toggles, unavailable items greyed out. Items are greyed when they cannot apply (Cut and Copy with no selection, Paste with nothing on the clipboard, Redo with nothing to redo).
+Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis on items that open a dialog, check marks on toggles, unavailable items greyed out (Cut and Copy with no selection, Paste with nothing on the clipboard, Redo with nothing to redo).
 
 | Menu | Item | Accelerator |
 |---|---|---|
@@ -119,65 +141,105 @@ Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis 
 | | Paste | Ctrl+V, Shift+Ins |
 | | Delete | Del |
 | | Select All | Ctrl+A |
-| | Insert Page Break | Ctrl+Enter |
+| | Size Picture... | |
+| Insert | Page Break | Ctrl+Enter |
+| | Picture... | |
+| | Page Number, Page Count, Date, File Name | |
 | Find | Find... | Ctrl+F |
 | | Find Next | F3 |
 | | Replace... | Ctrl+H |
+| | Spelling... | F7 |
+| | Check Spelling as You Type | |
 | Character | Regular | F5 |
-| | Bold | Ctrl+B |
-| | Italic | Ctrl+I |
-| | Underline | Ctrl+U |
-| | Reduce Font | Ctrl+Shift+, |
-| | Enlarge Font | Ctrl+Shift+. |
+| | Bold, Italic, Underline | Ctrl+B, Ctrl+I, Ctrl+U |
+| | Strikethrough | |
+| | Superscript, Subscript | Ctrl+Shift+=, Ctrl+= |
+| | Reduce Font, Enlarge Font | Ctrl+Shift+, and Ctrl+Shift+. |
+| | Colour... | |
 | | Fonts... | |
 | Paragraph | Normal | |
-| | Left | Ctrl+L |
-| | Centred | Ctrl+E |
-| | Right | Ctrl+R |
-| | Justified | Ctrl+J |
-| | Single Space | Ctrl+1 |
-| | 1½ Space | Ctrl+5 |
-| | Double Space | Ctrl+2 |
+| | Left, Centred, Right, Justified | Ctrl+L, Ctrl+E, Ctrl+R, Ctrl+J |
+| | Single Space, 1½ Space, Double Space | Ctrl+1, Ctrl+5, Ctrl+2 |
 | | Bullets | |
+| | Numbering... | |
+| | Increase Level, Decrease Level | Alt+Shift+Right, Alt+Shift+Left |
 | | Indents and Spacing... | |
-| Document | Ruler | |
-| | Toolbar | |
-| | Status Bar | |
+| | Tabs... | |
+| Document | Header... | |
+| | Footer... | |
+| | Ruler, Toolbar, Status Bar | |
+| | Zoom... (stretch) | |
 | | Page Layout... | |
-| Help | About Quill... | |
+| Help | Contents | F1 (outside a dialog) |
+| | Search for Help On... | |
+| | How to Use Help | |
+| | About Quill... | |
 
-The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Redo Paste`. Character and Paragraph items show a check mark when the whole selection has that property. Reduce Font and Enlarge Font step through 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48 and 72 points.
+The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Redo Paste`. Character and Paragraph items show a check mark when the whole selection has that property. Reduce Font and Enlarge Font step through 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48 and 72 points. The Insert field items are available only in the header and footer views. F1 in a dialog opens that dialog's help topic; F1 with a menu item highlighted opens that command's topic.
 
 ### Toolbar and ruler
 
-- The toolbar holds, left to right: New, Open, Save, Print, Print Preview; Cut, Copy, Paste; Undo; a font name drop-down and a font size drop-down; Bold, Italic, Underline; Left, Centred, Right, Justified; Bullets. Buttons are drawn in the Windows 3.1 three-dimensional grey style; toggles show pressed when the selection has the property and show neither state when it is mixed.
-- The font name box lists the fonts available on the display and on the current printer, with TrueType fonts first. Typing a name that is not installed keeps it in the document; Windows substitutes a similar font for display and printing.
-- The size box lists the Reduce/Enlarge steps and accepts any whole number from 4 to 144.
-- The ruler shows the page's text width in the current units (inches or centimetres), the first-line indent (upper triangle), the left indent (lower triangle with a box that moves both) and the right indent. Dragging a marker changes the indents of every selected paragraph when the mouse is released, as one undo step. Default tab stops show as small ticks every half inch (1.25 cm in metric).
+- The toolbar holds, left to right: New, Open, Save, Print, Print Preview; Cut, Copy, Paste; Undo, Redo; a font name drop-down and a font size drop-down; Bold, Italic, Underline; a colour button with a 16-colour drop-down; Left, Centred, Right, Justified; Bullets, Numbering; Spelling. Buttons are drawn in the Windows 3.1 grey three-dimensional style; toggles show pressed when the selection has the property and show neither state when it is mixed.
+- The font name box lists the fonts on the display and the current printer, TrueType first. A name that is not installed is kept in the document; Windows substitutes a similar font for display and printing. The size box accepts any whole number from 4 to 144.
+- The ruler shows the text width in the current units, the first-line indent (upper triangle), the left indent (lower triangle with a box that moves both), the right indent, and the paragraph's tab stops as `L`, `C`, `R` and `D` marks. Clicking the ruler's tab-kind button cycles the kind; clicking the scale adds a stop of that kind; dragging a stop moves it; dragging it off the ruler removes it. Each drag is one undo step. Default stops (every half inch, 1.25 cm in metric) show as ticks after the last set stop.
 
 ### Caret and selection
 
-- The caret is an I-beam-height bar placed between characters. A selection is a range of characters shown in the system highlight colours. The caret and selection exist only while the editing view has the focus; a selection is kept, unhighlighted, while focus is elsewhere.
-- **Mouse.** Click places the caret. Drag selects; dragging above or below the view scrolls automatically. Shift+click extends the selection. Double-click selects a word and the trailing spaces; double-click and drag extends by words.
-- **Keyboard.** Arrows move by character and line; Ctrl+Left and Ctrl+Right by word; Home and End to the start and end of the line; Ctrl+Up and Ctrl+Down to the previous and next paragraph start; Page Up and Page Down by one window height; Ctrl+Home and Ctrl+End to the start and end of the document. Holding Shift with any movement extends the selection. Up and Down keep the caret's original horizontal position across short lines.
-- **Typing** replaces the selection. Enter ends a paragraph, Shift+Enter inserts a line break inside the paragraph, Tab inserts a tab, Backspace and Delete remove a character or the selection, Ctrl+Backspace and Ctrl+Delete remove a word. New text takes the character format of the character before the caret (or the one after at the start of a paragraph), unless a format was chosen with the caret not moved since, which then applies to what is typed next.
+- The caret sits between characters. A selection is a range of characters shown in the system highlight colours, kept unhighlighted while focus is elsewhere. A picture counts as one character.
+- **Mouse.** Click places the caret. Drag selects; dragging past the view's edge scrolls. Shift+click extends the selection. Double-click selects a word and its trailing spaces; double-click and drag extends by words. Clicking a picture selects it and shows its frame.
+- **Drag and drop.** Pressing on a selection and dragging shows a dotted insertion caret; releasing moves the selection there, or copies it with Ctrl held. Escape during the drag cancels. Dropping inside the selection does nothing. A move is one undo step.
+- **Keyboard.** Arrows move by character and line; Ctrl+Left and Ctrl+Right by word; Home and End to the line's ends; Ctrl+Up and Ctrl+Down by paragraph; Page Up and Page Down by a window; Ctrl+Home and Ctrl+End to the document's ends. Shift with any movement extends the selection. Up and Down keep the caret's horizontal position across short lines.
+- **Typing** replaces the selection. Enter ends a paragraph (and continues a list), Enter on an empty list paragraph ends the list, Shift+Enter breaks the line inside the paragraph, Tab inserts a tab (in an empty list paragraph, it increases the level), Backspace and Delete remove a character or the selection, Ctrl+Backspace and Ctrl+Delete remove a word. New text takes the format of the character before the caret, unless a format was chosen since the caret last moved.
+- **Overtype.** The Insert key toggles overtype, shown as `OVR`. In overtype, a typed character replaces the one after the caret, except a paragraph mark, which it never replaces. Undo restores the replaced characters.
 
-### Character and paragraph formatting
+### Character formatting
 
-- Character formats apply to the selection, or to the caret's typing format when nothing is selected. A character format is a font name, a size in half points, and bold, italic and underline flags.
-- Paragraph formats apply to every paragraph the selection touches. A paragraph format is an alignment, left, right and first-line indents, line spacing (single, 1½ or double), space before and after in points, a bullet flag and a page-break-before flag.
-- **Bullets** draw a bullet character (`•`, ANSI 0x95) in the paragraph's first character format at the first-line indent, with the text at the left indent. Turning bullets on for a paragraph with no hanging indent sets one of 0.25 inch (0.6 cm).
-- **Justified** paragraphs spread the extra width of every line but the last, and of lines ending in a line break, across the line's spaces. A line with no spaces is left-aligned.
-- **Indents and Spacing...** opens a dialog with the alignment, the three indents in the current units, line spacing, space before and after, and the bullet check box.
-- **Fonts...** opens the common font dialog (`ChooseFont`) with the selection's font, size and style.
-- **Normal** (Paragraph menu) resets the selected paragraphs to the default paragraph format; **Regular** (Character menu) removes bold, italic and underline.
+- Character formats apply to the selection, or to the typing format when nothing is selected. A character format is a font, a size in half points, a colour, bold, italic, underline and strikethrough flags, and a vertical position (normal, superscript or subscript).
+- **Colour...** opens the common colour dialog (`ChooseColor`); the toolbar's colour drop-down offers the 16 VGA colours and `Automatic` (the window text colour). On a 16-colour display, other colours draw as the nearest of the 16 and print as chosen.
+- **Fonts...** opens the common font dialog (`ChooseFont`) with effects (strikethrough, underline, colour).
+- **Regular** removes bold, italic, underline, strikethrough and superscript or subscript, and keeps the font, size and colour.
+
+### Paragraph formatting
+
+- Paragraph formats apply to every paragraph the selection touches: alignment, left, right and first-line indents, line spacing, space before and after, tab stops, list (none, bullet or numbered, with a level from 1 to 9), and page break before.
+- **Justified** paragraphs spread each line's extra width across its spaces, except the last line and lines ending in a line break. A line with no spaces is left-aligned.
+- **Tabs.** A tab moves to the next stop after the current position: a left stop starts the text there, a centred stop centres the text up to the next tab or line end on it, a right stop ends it there, and a decimal stop aligns the first `.` (or the end of the number) on it. A leader (dots, hyphens or underline) fills the gap. Past the last set stop, the default stops apply. **Tabs...** sets stops by position, kind and leader, and clears one or all.
+- **Bullets** draw `•` (ANSI 0x95) in the paragraph's first character format at the first-line indent; the text starts at the left indent. Turning on a list for a paragraph with no hanging indent sets one of 0.25 inch (0.6 cm) per level.
+- **Numbering...** chooses the style per level (`1.`, `1)`, `a.`, `a)`, `i.`, `A.`, `I.`, or outline `1.1.`), the start number and whether this paragraph restarts the numbering. Numbers count the paragraphs of the same list and level since the last restart or the last paragraph at a higher level; a paragraph that is not in the list does not interrupt the count. Numbers update as paragraphs are added, removed and moved.
+- **Indents and Spacing...** opens a dialog with the alignment, indents, spacing and the page-break-before check box.
+
+### Headers and footers
+
+- **Document > Header...** and **Document > Footer...** switch the editing view to the header (or footer) and open a small modeless dialog, as Write did: `Distance from top` (or `from bottom`), `Different first page`, buttons that insert the Page Number, Page Count, Date and File Name fields, `Clear` and `Return to Document`. With `Different first page`, the dialog has a `First page` and `Other pages` choice, and an empty first-page header prints nothing.
+- Headers and footers hold rich text: any character and paragraph format, tabs, and pictures. They print within the top and bottom margins at their distance from the page edge; a header taller than the space pushes the body text down on that page.
+- Fields show their values in print and preview, and their names (`[Page]`, `[Pages]`, `[Date]`, `[File]`) in the header view. The date is the date of printing in the short date format of `WIN.INI` `[intl] sShortDate` (Windows) or the DOS country setting. `[File]` is the file name without its path, or `(Untitled)`.
+- Undo works inside the header view; Return to Document keeps the header's undo steps in the document's history.
+
+### Pictures
+
+- **Insert > Picture...** opens a file dialog for `*.BMP` and `*.PNG` and inserts the picture at the caret as one character on the line's baseline. Pictures also arrive by Paste (`CF_DIB` or RTF) and inside opened RTF and `.QLD` files.
+- A new picture is shown at its own size at 96 dots per inch, or scaled down to the text width when wider, keeping its aspect ratio.
+- **Sizing.** A selected picture shows a frame with handles at the corners and sides. Dragging a corner scales with the aspect ratio kept; dragging a side stretches one way. **Size Picture...** sets width and height as a percentage or in the current units, with `Keep proportions` checked by default, and `Reset` returns to the original size. Pictures cannot be smaller than 0.1 inch or larger than the page's text area.
+- **Display.** Each picture is decoded once to the screen's colour depth and the size it is shown at: dithered to the 16 VGA colours on a 16-colour display, mapped to a shared halftone palette on a 256-colour display, and kept in full colour otherwise. The original file bytes are kept untouched for saving and printing.
+- **Memory.** Pictures are decoded when first scrolled into view and dropped from memory when far out of view and memory is needed. A picture that cannot be decoded in the memory available shows as a grey box with the text `Picture too large for the memory available` (or `Picture could not be read` for a damaged file); it is kept in the document and saved unchanged.
+- **Printing** decodes the picture again at the printer's resolution in bands, so a large picture prints without needing its whole decoded size in memory at once.
 
 ### Layout and scrolling
 
-- Text wraps at the page's text width (the paper width from the current printer minus the left and right margins). Lines break after spaces and after hyphens; a word longer than a line breaks at the last character that fits.
+- Text wraps at the page's text width. Lines break after spaces and hyphens; a word longer than a line breaks at the last character that fits; a picture wider than the remaining line moves to the next line.
 - Character widths come from the current printer when one is installed, so the lines, page breaks and page numbers on the screen are the ones that print (D10). With no printer installed, Quill lays out for the screen and says `No printer installed: layout uses screen fonts` in the status bar once.
+- A line is as tall as its tallest font or picture, with superscript and subscript raising the line when they reach past it.
 - Changing the printer, the paper or the margins lays the whole document out again; the caret stays on the same character.
-- Scrolling is by line (arrows on the scroll bar), by window (the scroll bar's track) and by dragging the thumb. The view scrolls to keep the caret visible after every edit and caret movement.
+- The view scrolls to keep the caret visible after every edit and caret movement.
+- **Zoom** (stretch): **Document > Zoom...** offers 50, 75, 100, 150 and 200 percent and `Page width`; it changes only the view.
+
+### Spelling
+
+- **Find > Spelling...** (F7) checks from the caret to the end and then from the start, skipping words in all capitals, words with digits, and text marked by Ignore All. Each unknown word is selected and the Spelling dialog shows it with the sentence around it and up to eight suggestions, closest first.
+- Buttons: `Ignore`, `Ignore All` (for this session and document), `Change`, `Change All` (every occurrence in the document, one undo step), `Add` (to the user dictionary), `Suggest` (when suggestions are off for speed), `Cancel`. Finishing says `The spelling check is complete.`.
+- Suggestions are words within two edits (a letter added, removed, changed, or two letters swapped). The search stops after a time budget so the dialog never pauses for more than about half a second on a 386; when it stops early, the list says `More...` and Suggest continues.
+- **Check Spelling as You Type** marks unknown words with a wavy red underline, checked only when Quill is idle and only for the visible paragraphs. On Win16 it is off by default.
+- Languages are Canadian English (default), American English and British English, set in **Find > Spelling... > Options**. The user dictionary is shared by all languages.
 
 ### Files
 
@@ -190,39 +252,41 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 | Text Files | `*.TXT` | Yes | Yes |
 | All Files | `*.*` | By content | — |
 
-- A file is read by its content, not its extension: a RIFF header with form type `QLD1` is native, `{\rtf` is RTF, anything else is plain text.
-- **Save** writes the document in the format it was opened in, or `.QLD` for a new one. Saving in Text Files format asks first: `Saving in text format will remove all formatting. Save anyway?`. Saving RTF from a document with nothing RTF cannot hold asks nothing, since every v1 property has an RTF form.
-- Saving writes a temporary file in the same directory, then replaces the original, so a failed save (disk full, write-protected floppy) leaves the original untouched and says why: `Quill cannot save LETTER.QLD: the disk is full.`.
-- Closing a window, New, Open, opening a recent file and Exit ask `Save changes to LETTER.QLD?` with Yes, No and Cancel when the document has unsaved changes.
-- The recent-file list holds the last four files opened or saved, as full paths, most recent first. A missing file is removed from the list with a message when chosen.
-- Opening a file Quill cannot read says why (`LETTER.RTF is not a document Quill can read.` or `...is too large for Quill.`) and leaves the current document open.
-- A document opened from the command line or from File Manager (`QUILL.EXE LETTER.RTF`) opens in the new window. `QUILL.EXE /P LETTER.RTF` prints the file on the default printer and exits, as File Manager's Print command expects.
+- A file is read by its content: a RIFF header with form type `QLD1` is native, `{\rtf` is RTF, anything else is plain text.
+- **Save** writes the format the document was opened in, or `.QLD` for a new one. Saving as text asks first: `Saving in text format will remove all formatting, pictures, headers and footers. Save anyway?`.
+- Saving writes a temporary file in the same directory, then replaces the original, so a failed save leaves the original untouched and says why: `Quill cannot save LETTER.QLD: the disk is full.`.
+- Closing, New, Open, opening a recent file and Exit ask `Save changes to LETTER.QLD?` with Yes, No and Cancel when there are unsaved changes.
+- The recent-file list holds the last four files, most recent first. A missing file is removed from the list with a message when chosen.
+- A file Quill cannot read says why (`LETTER.RTF is not a document Quill can read.` or `...is too large for Quill.`) and leaves the current document open.
+- `QUILL.EXE LETTER.RTF` opens the file; `QUILL.EXE /P LETTER.RTF` prints it on the default printer and exits, as File Manager's Print command expects.
 
 ### Clipboard
 
-- Cut and Copy place the selection on the clipboard as `Rich Text Format` (a registered format) and as `CF_TEXT` (ANSI, CRLF line ends, paragraph formats dropped).
-- Paste prefers `Rich Text Format` and falls back to `CF_TEXT`. Pasted text replaces the selection as one undo step. Pasting RTF brings its character and paragraph formats; pasting text takes the typing format.
+- Cut and Copy place the selection on the clipboard as `Rich Text Format` (a registered format) and `CF_TEXT`; a selection that is exactly one picture also goes as `CF_DIB`.
+- Paste prefers `Rich Text Format`, then `CF_DIB`, then `CF_TEXT`. Pasting replaces the selection as one undo step.
 
 ### Undo and redo
 
-- Every change to the document is undoable: typing, deletion, paste, formatting, paragraph formatting, ruler drags, Replace and Replace All. Typing coalesces into one step until the caret moves by other means, a format changes, or a word ends after more than 32 characters.
-- Undo restores the text, the formats and the selection as they were. Redo replays a step undone. A new change after Undo discards what could have been redone.
-- Undo keeps at least the last 100 steps or the last 64 KB of undo data, whichever is less; older steps are dropped silently. Saving does not clear undo.
+- Every change is undoable: typing, deletion, overtype, paste, drag and drop, formatting, ruler changes, list changes, picture sizing, header and footer edits, Replace, Replace All and Change All. Typing coalesces into one step until the caret moves by other means, a format changes, or a word ends after more than 32 characters.
+- Undo restores the text, the formats and the selection. Redo replays a step undone; a new change after Undo discards what could have been redone. Saving does not clear undo.
 
 ### Find and replace
 
-- **Find...** and **Replace...** open the common modeless find and replace dialogs (`FindText`, `ReplaceText`) with Match case and Match whole word only; Find has Up and Down. The dialog stays open while editing continues.
-- A search starts at the selection and wraps around the document once, then says `Quill has finished searching the document.`. Text not found says `Cannot find "<text>".`.
-- **Replace All** replaces every match as one undo step and says `Quill made N replacements.`. Replaced text takes the format of the first character of each match.
-- **Find Next** (F3) repeats the last search without the dialog.
+- **Find...** and **Replace...** open the common modeless find and replace dialogs with Match case and Match whole word only; Find has Up and Down. The dialog stays open while editing continues.
+- A search starts at the selection and wraps once, then says `Quill has finished searching the document.`; text not found says `Cannot find "<text>".`. Find searches the body text, or the header or footer when that view is open.
+- **Replace All** replaces every match as one undo step and says `Quill made N replacements.`. **Find Next** (F3) repeats the last search.
 
 ### Printing and preview
 
-- **Print...** opens the common print dialog (`PrintDlg`) for the copy count, page range (all, selection or pages from–to) and printer. Printing shows a `Printing LETTER.QLD on HP LaserJet III on LPT1:` dialog with Cancel; Cancel stops the job between pages.
+- **Print...** opens the common print dialog for copies, page range (all, selection or pages) and printer. Printing shows `Printing LETTER.QLD on HP LaserJet III on LPT1:` with Cancel, which stops between pages.
 - **Print Setup...** opens the print dialog's setup page; changing the printer or paper lays the document out again.
-- **Page Layout...** sets the margins (default 1.25 inch left and right, 1 inch top and bottom) and the measurement units.
-- **Print Preview** replaces the editing view with one or two whole pages scaled to the window, with Print, Next Page, Previous Page, One Page/Two Pages and Close buttons. Page Up and Page Down move between pages; Escape closes the preview.
-- Page numbers are not printed in v1.
+- **Page Layout...** sets the margins (default 1.25 inch left and right, 1 inch top and bottom), the header and footer distances (default 0.5 inch), the starting page number and the measurement units.
+- **Print Preview** replaces the view with one or two whole pages, headers and footers included, with Print, Next Page, Previous Page, One Page/Two Pages and Close. Page Up and Page Down change pages; Escape closes.
+
+### Help
+
+- **Help > Contents** (F1) opens `QUILL.HLP` in WinHelp at its contents topic; **Search for Help On...** opens WinHelp's search; **How to Use Help** opens Windows' own `WINHELP.HLP`. F1 in a dialog opens the dialog's topic. Windows 95 opens the same file in its WinHelp.
+- A missing help file says `Quill cannot find its help file, QUILL.HLP.`.
 
 ### About box
 
@@ -230,123 +294,176 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 
 ### DOS text mode
 
-`QUILLDOS.EXE` starts in the VGA's 80 × 25 colour text mode (80 × 50 with `/50` or `[Quill] Rows=50`), in the spirit of WordPerfect 5.1 and Word for DOS 5.5: white on blue by default, with the page's text in the middle of the screen.
+`QUILLDOS.EXE` starts in the VGA's 80 × 25 colour text mode (80 × 50 with `/50`), in the spirit of WordPerfect 5.1 and Word for DOS 5.5: white on blue, with the page's text in the middle of the screen.
 
-- **Screen.** Row 1 is the menu bar (`File Edit Find Character Paragraph Document Help`, the same tree and accelerators as Windows, minus the items in the differences table). The last row is the status line: the file name, `Pg 1 Ln 14 Col 22`, the font and size at the caret (`Times New Roman 12`), and `Mod` when there are unsaved changes. Row 2 shows the ruler when it is on, as `L`, `F` and `R` marks on a dotted scale in tenths of an inch.
-- **Menus.** Alt or F10 activates the menu bar; Alt+letter opens a menu; arrows, Enter and Escape move, choose and close. Items show their accelerators. Dialogs (Open, Save As, Find, Replace, Fonts, Indents and Spacing, Page Layout, About) are drawn as shadowed boxes with `< OK >` and `< Cancel >` buttons; Tab moves between fields.
+- **Screen.** Row 1 is the menu bar, with the same tree and accelerators as Windows minus the items in the differences table. The last row is the status line: the file name, `Pg 1 Ln 14 Col 22`, the font and size at the caret (`Times New Roman 12`), `OVR`, and `Mod` when there are unsaved changes. Row 2 shows the ruler when it is on, with `L`, `F` and `R` indent marks and `L C R D` tab marks on a scale in tenths of an inch.
+- **Menus and dialogs.** Alt or F10 activates the menu bar; Alt+letter opens a menu. Dialogs (Open, Save As, Find, Replace, Spelling, Fonts, Indents and Spacing, Tabs, Numbering, Page Layout, About) are shadowed boxes with `< OK >` and `< Cancel >`; Tab moves between fields.
 - **Styles.** Text mode has one font in one size, so formats are shown with attributes, as WordPerfect did:
 
-| Format | Shown as (colour scheme) | Shown as (mono scheme) |
+| Format | Colour scheme | Mono scheme |
 |---|---|---|
 | Regular | Light grey on blue | Normal |
 | Bold | Bright white | Bright |
-| Italic | Light cyan | Underline attribute on MDA, reverse on VGA mono |
-| Underline | Light magenta | Underline attribute |
+| Italic | Light cyan | Underline on MDA, reverse on VGA mono |
+| Underline | Light magenta | Underline |
 | Bold italic, bold underline, italic underline | Yellow, light red, light green | Bright with underline |
+| Strikethrough | Dark grey | Dim |
+| Superscript, subscript | Brown, on the same row | Normal; shown in the status line |
+| Text colour | Not shown; named in the status line | Not shown |
+| Misspelt word (as you type) | Red background | Reverse |
 | Selection | Black on light grey | Reverse |
 
-- **Fonts and sizes** are kept in the document and shown only in the status line for the character at the caret. Character > Fonts... sets them as on Windows; Reduce Font and Enlarge Font change the size number. Text is laid out as if every character were 1/10 inch wide and every line 1/6 inch tall (a 12-point typewriter), so a line on the screen holds what a 10-pitch printer prints.
-- **Paragraphs.** Alignment is drawn in the grid: centred and right lines are shifted, justified lines get extra spaces spread from the right. Indents are rounded to whole columns. Single and 1½ spacing draw one row per line; double spacing leaves a blank row. Bullets are the CP437 bullet (`•`, 0x07) in the first-line indent. A page break is a row of `═` with `Page break` or, for an automatic break, a row of `─`.
-- **Characters.** The document stays ANSI (code page 1252). The screen shows each character through the CP437 font: characters with no CP437 form show as `▒`, and are kept. Keys typed with Alt and the numeric keypad are taken as CP437 codes and stored as their ANSI equivalent.
-- **Clipboard.** Cut, Copy and Paste use Quill's own clipboard, which lives until Quill exits. When Quill runs in a Windows 3.1 or 9x DOS box, Copy also puts plain text on the Windows clipboard and Paste offers to take text from it (later, see the differences table).
-- **Mouse.** When a mouse driver is loaded (INT 33h), the mouse places the caret, selects by dragging, opens menus and presses buttons. Everything works from the keyboard without one.
-- **Printing.** Print... writes the document as plain text with form feeds to `LPT1`, `LPT2` or a file. PostScript and PCL output are later.
-- **Files.** Names are DOS 8.3. Open and Save As use Quill's own file dialog: a path field, a directory list with `[..]` and drive letters, and the same file types as Windows.
+- **Fonts and sizes** are kept and shown only in the status line for the character at the caret. Text is laid out as if every character were 1/10 inch wide and every line 1/6 inch tall (a 12-point typewriter), so a screen line holds what a 10-pitch printer prints.
+- **Paragraphs.** Alignment is drawn in the grid; indents and tab stops round to whole columns; leaders draw as `.`, `-` or `_`. Single and 1½ spacing draw one row per line, double leaves a blank row. Bullets are the CP437 bullet (0x07) and numbers are drawn as text. A manual page break is a row of `═` with `Page break`; an automatic one a row of `─`.
+- **Pictures** show as a box of `░` the height the picture would print, at least one row, labelled `[Picture 320 × 200]`. They can be selected, deleted, copied within Quill and sized through Size Picture....
+- **Headers and footers** are edited in the header view as on Windows and print in the plain text output.
+- **Characters.** The document stays ANSI. The screen shows each character through the CP437 font: characters with no CP437 form show as `▒` and are kept. Alt+keypad codes are taken as CP437 and stored as their ANSI equivalent.
+- **Clipboard** is Quill's own, living until Quill exits. Running in a Windows DOS box, Copy also puts plain text on the Windows clipboard through the WinOldAp interface, and Paste offers to take text from it.
+- **Mouse.** With a mouse driver (INT 33h), the mouse places the caret, selects, drags and drops, opens menus and presses buttons. Everything works without one.
+- **Printing** writes plain text with form feeds, headers and footers to `LPT1`, `LPT2` or a file. PostScript output is a stretch.
+- **Files** use DOS 8.3 names and Quill's own file dialog: a path field, a directory list with `[..]` and drive letters, and the same file types.
+- **Help** (F1) opens Quill's help viewer on `QUILL.HLX`, with the same topics as the Windows help: links are highlighted, Tab moves between them, Enter follows, Backspace goes back.
 
 ### DOS graphics mode
 
-`QUILLDOS.EXE /G` (or `[Quill] Graphics=1`) uses 640 × 480 in 16 colours on any VGA, or a VBE linear frame buffer of 640 × 480 or 800 × 600 in 256 colours where one exists. It draws the same chrome as the Windows builds (menu bar, toolbar, ruler, status bar), with the Windows 3.1 look, and shows real fonts and sizes.
+`QUILLDOS.EXE /G` uses 640 × 480 in 16 colours on any VGA, or a VBE linear frame buffer of 640 × 480 or 800 × 600 in 256 colours where one exists. It draws the same chrome as the Windows builds, in the Windows 3.1 look, with real fonts, sizes, colours and pictures.
 
-- **Fonts.** The document's font families map to Desk's faces: roman to Desk Serif, swiss to Desk Sans, modern to Desk Mono; others to Desk Sans. Each comes as bitmap strikes at 8, 10, 12, 14, 18, 24, 36 and 48 points for 96 dots per inch, with bold, italic and bold italic; other sizes use the nearest strike and say so in the status line. Underline is drawn.
-- **Layout** uses these faces' widths, so lines break where Desk's fonts make them break, which is not where Arial or Times New Roman make them break on Windows. The document is unchanged; only the line breaks differ.
-- Everything else (menus, dialogs, mouse, printing, clipboard) is as in text mode, drawn in graphics.
+- **Fonts.** Font families map to Desk's faces: roman to Desk Serif, swiss to Desk Sans, modern to Desk Mono, others to Desk Sans. Each comes as bitmap strikes at 8, 10, 12, 14, 18, 24, 36 and 48 points at 96 dots per inch, in regular, bold, italic and bold italic; other sizes use the nearest strike and say so in the status line. Underline and strikethrough are drawn.
+- **Layout** uses those faces' widths, so lines break where Desk's fonts put them, not where Arial or Times New Roman would. The document is unchanged; only line breaks differ.
+- Pictures are dithered to the 16 colours, or to the halftone palette in 256 colours. Everything else is as in text mode, drawn in graphics.
 
 ### Build differences
 
-Every build keeps every property of the document; the table says what each shows and does.
+Every build keeps every property of the document. The table says what each shows and does.
 
 | Feature | Win16 | Win32 | DOS text | DOS graphics |
 |---|---|---|---|---|
-| Fonts and sizes shown | Yes | Yes | Status line only | Desk faces at fixed strikes |
-| Bold, italic, underline | Drawn | Drawn | Colours or attributes | Drawn |
-| Alignment, indents, bullets | Exact | Exact | Rounded to columns | Exact for the Desk metrics |
-| Line spacing 1½ | Exact | Exact | Shown as single | Exact |
+| Fonts and sizes | Yes | Yes | Status line only | Desk faces at fixed strikes |
+| Bold, italic, underline, strikethrough | Drawn | Drawn | Attributes | Drawn |
+| Superscript and subscript | Drawn | Drawn | Attribute, same row | Drawn |
+| Text colour | Nearest of 16 on VGA | As the display allows | Status line only | Nearest of 16 or 256 |
+| Alignment, indents, tabs, lists | Exact | Exact | Rounded to columns | Exact for Desk metrics |
+| Line spacing 1½ | Exact | Exact | As single | Exact |
 | Layout matches the printer | Yes (printer metrics) | Yes | 10-pitch typewriter | Desk metrics |
-| Toolbar and ruler | Yes | Yes | Ruler only, as text | Yes |
-| Print preview | Yes | Yes | No | Later |
-| Printing | Windows printer drivers | Windows printer drivers | Plain text to a port or file | Plain text; PostScript later |
-| Clipboard | Windows (RTF and text) | Windows (RTF and text) | Quill's own; Windows text in a DOS box later | As text mode |
+| Pictures | Dithered to the display | Full colour where possible | Placeholder boxes | Dithered |
+| Headers and footers | Header view, preview, print | As Win16 | Header view, text print | As Win16, text print |
+| Toolbar and ruler | Yes | Yes | Ruler as text | Yes |
+| Print preview | Yes | Yes | No | Yes |
+| Zoom (stretch) | Yes | Yes | No | No |
+| Printing | Windows printer drivers | Windows printer drivers | Plain text | Plain text; PostScript stretch |
+| Clipboard | Windows: RTF, DIB, text | Windows: RTF, DIB, text | Own; Windows text in a DOS box | As text mode |
+| Spelling as you type | Off by default | On by default | On by default | On by default |
+| Help | WinHelp 3.1 | WinHelp 4 (same file) | Own viewer, `QUILL.HLX` | As text mode |
 | File names | 8.3 | Long names | 8.3 | 8.3 |
 | Common dialogs | `COMMDLG.DLL` | `COMDLG32.DLL` | Quill's own | Quill's own |
-| Plain text code page | ANSI | ANSI | CP437, or ANSI when chosen in Save As | As text mode |
-| Mouse | Yes | Yes | With an INT 33h driver | With an INT 33h driver |
+| Plain text code page | ANSI | ANSI | CP437, or ANSI by choice | As text mode |
 
 ### Errors
 
-- Every error that stops a command shows a message box naming the file or the action and the cause in plain words, then leaves the document as it was before the command. There are no error codes in messages.
-- **Out of memory.** When memory runs out during an edit, the edit is refused, the document is unchanged, and Quill says `There is not enough memory to complete this operation. Close other applications or save and close documents, then try again.`. Saving needs no extra memory beyond a fixed buffer, so it always remains possible.
+- Every error that stops a command shows a message box naming the file or action and the cause in plain words, then leaves the document as it was. There are no error codes in messages.
+- **Out of memory.** When memory runs out during an edit, the edit is refused, the document is unchanged, and Quill says `There is not enough memory to complete this operation. Close other applications or save and close documents, then try again.`. Pictures out of view are dropped from memory before Quill gives up. Saving needs only a fixed buffer, so it always remains possible.
 - **Internal error.** If Quill reaches an internal error it cannot recover from, it says `Quill has met an internal error and must close. Your document has been saved as ~QUILL01.QLD.` when the emergency save succeeds, or without the second sentence when it does not, and exits.
 
 ## Interfaces
 
 ### Command line
 
-The same forms work for `QUILL32.EXE` and `QUILLDOS.EXE`; options are case-insensitive and may start with `-` as well as `/`.
+The same forms work for `QUILL32.EXE` and `QUILLDOS.EXE`; options are case-insensitive and may start with `-` or `/`.
 
 | Form | Meaning |
 |---|---|
 | `QUILL.EXE` | Open a new, untitled document |
 | `QUILL.EXE FILE` | Open `FILE`, of any supported type |
 | `QUILL.EXE /P FILE` | Print `FILE` on the default printer (DOS: to `LPT1`), then exit |
-| `QUILL.EXE /SELFTEST SCRIPT` | Run a test script, write results to `QUILL.LOG` and exit (Windows 3.1: exit Windows too). Test builds only; see [docs/testing.md](docs/testing.md) |
-| `QUILLDOS.EXE /50` | Use 80 × 50 text mode |
-| `QUILLDOS.EXE /G` | Use graphics mode |
-| `QUILLDOS.EXE /MONO` | Use the mono attribute scheme |
+| `QUILL.EXE /SELFTEST SCRIPT` | Run a test script, write results to `QUILL.LOG` and exit (on Windows 3.1, exit Windows too). Test builds only; see [docs/testing.md](docs/testing.md) |
+| `QUILLDOS.EXE /50`, `/G`, `/MONO` | 80 × 50 text mode, graphics mode, the mono attribute scheme |
 
 ### Native format (`.QLD`)
 
-A RIFF file (little-endian, chunks padded to even length) with form type `QLD1`. Unknown chunks are skipped, so a later version can add chunks without breaking v1 readers. A file whose `HEAD` version is newer in its major number is refused with `LETTER.QLD was written by a newer version of Quill.`.
+A RIFF file (little-endian, chunks padded to even length) with form type `QLD1`. Unknown chunks are skipped, so a later minor version adds chunks without breaking older readers. A file whose `HEAD` major version is newer is refused with `LETTER.QLD was written by a newer version of Quill.`. v1 writes version 1.0.
 
 | Chunk | Contents |
 |---|---|
-| `HEAD` | Format version (major `u16`, minor `u16`), character count (`u32`), paragraph count (`u32`), flags (`u32`, zero) |
-| `DOCP` | Paper width and height, margins left, right, top and bottom, all `i32` twips; units (`u8`: 0 inches, 1 centimetres) |
-| `FONT` | Font table: count (`u16`), then per font a family (`u8`: 0 don't care, 1 roman, 2 swiss, 3 modern, 4 script, 5 decorative), a pitch (`u8`), a character set (`u8`) and the name (`u8` length, ANSI bytes, at most 31) |
-| `CFMT` | Character formats: count (`u16`), then per format a font index (`u16`), a size in half points (`u16`) and flags (`u16`: bit 0 bold, bit 1 italic, bit 2 underline; others zero) |
-| `PFMT` | Paragraph formats: count (`u16`), then per format an alignment (`u8`: 0 left, 1 centre, 2 right, 3 justify), line spacing (`u8`: 0 single, 1 one and a half, 2 double), flags (`u16`: bit 0 bullet, bit 1 page break before), left, right and first-line indent and space before and after (`i32` twips each) |
-| `TEXT` | The text in ANSI: paragraphs end with `0x0D`, a line break inside a paragraph is `0x0B`, a tab `0x09`. The last paragraph has its `0x0D` |
-| `RUNS` | Character runs: count (`u32`), then per run a length in characters (`u32`) and a `CFMT` index (`u16`). Run lengths sum to the character count |
-| `PARA` | One `PFMT` index (`u16`) per paragraph, in order |
+| `HEAD` | Version (major `u16`, minor `u16`), story count (`u16`), flags (`u16`, zero) |
+| `DOCP` | Paper width and height, margins left, right, top and bottom, header and footer distances, all `i32` twips; first page number (`u16`); flags (`u16`: bit 0 different first page); units (`u8`: 0 inches, 1 centimetres); spelling language (`u8`: 0 en-CA, 1 en-US, 2 en-GB) |
+| `FONT` | Font table: count (`u16`), then per font a family (`u8`: 0 don't care, 1 roman, 2 swiss, 3 modern, 4 script, 5 decorative), pitch (`u8`), character set (`u8`) and name (`u8` length, ANSI, at most 31) |
+| `COLR` | Colour table: count (`u16`), then `r`, `g`, `b`, `u8` each. Index 0 is reserved for Automatic |
+| `CFMT` | Character formats: count (`u16`), then per format a font index (`u16`), size in half points (`u16`), colour index (`u8`), vertical position (`u8`: 0 normal, 1 superscript, 2 subscript) and flags (`u16`: bit 0 bold, 1 italic, 2 underline, 3 strikethrough) |
+| `TABS` | Tab sets: count (`u16`), then per set a stop count (`u8`, at most 16) and per stop a position (`i32` twips), kind (`u8`: 0 left, 1 centre, 2 right, 3 decimal) and leader (`u8`: 0 none, 1 dots, 2 hyphens, 3 underline) |
+| `LIST` | List definitions: count (`u16`), then per list nine levels of style (`u8`), start (`u16`) and indent (`i32` twips) |
+| `PFMT` | Paragraph formats: count (`u16`), then per format an alignment (`u8`: 0 left, 1 centre, 2 right, 3 justify), line spacing (`u8`: 0 single, 1 one and a half, 2 double), flags (`u16`: bit 0 bullet, bit 1 page break before, bit 2 numbered, bit 3 restart numbering), list index (`u16`), level (`u8`, 0–8), tab set index (`u16`, `0xFFFF` for none), left, right and first-line indents and space before and after (`i32` twips each) |
+| `PICT` | One per picture, in order: kind (`u8`: 0 BMP, 1 PNG), width and height in pixels (`u16` each), shown width and height (`i32` twips each), then the original file bytes |
+| `LIST`-type chunk `STRY` | One per story, in the order body, header, footer, first-page header, first-page footer, each holding the chunks below |
+| `STHD` | Inside a story: story kind (`u8`: 0 body, 1 header, 2 footer, 3 first header, 4 first footer) and character count (`u32`) |
+| `TEXT` | Inside a story: ANSI text. Paragraphs end with `0x0D`, a line break is `0x0B`, a tab `0x09`, and `0x01` marks an inline object. The last paragraph has its `0x0D` |
+| `RUNS` | Inside a story: count (`u32`), then per run a length in characters (`u32`) and a `CFMT` index (`u16`). Lengths sum to the character count |
+| `PARA` | Inside a story: one `PFMT` index (`u16`) per paragraph |
+| `OBJS` | Inside a story: one entry per `0x01` in its text, in order: kind (`u8`: 0 picture, 1 page number, 2 page count, 3 date, 4 file name) and a picture index (`u16`, zero for fields) |
 | `INFO` | Optional: title, author and comments, each a `u8` length and ANSI bytes |
 
 ### RTF subset
 
-Quill reads RTF 1.x as written by Word 2 to Word 2003, WordPad and LibreOffice, keeping what the document model holds and skipping the rest safely; it writes a small, canonical subset that those programs read.
+Quill reads RTF 1.x as written by Word 2 to Word 2003, WordPad and LibreOffice, keeping what the document model holds and skipping the rest safely, and writes a canonical subset those programs read.
 
 | Area | Read | Written |
 |---|---|---|
-| Header | `\rtf1`, `\ansi`, `\ansicpg1252`, `\deff`, `\fonttbl` (`\fN`, family, `\fcharset`, `\fprq`, name), `\colortbl` (parsed, ignored), `\stylesheet` and `\info` (skipped, except `\title`, `\author`, `\doccomm`) | `\rtf1\ansi\ansicpg1252\deff0`, font table, `\info` when set |
-| Document | `\paperw`, `\paperh`, `\margl`, `\margr`, `\margt`, `\margb` | The same |
-| Characters | `\plain`, `\fN`, `\fsN`, `\b`, `\i`, `\ul`, `\ulnone` and their `0` forms; other underline kinds read as `\ul` | `\plain`, `\f`, `\fs`, `\b`, `\i`, `\ul` |
-| Paragraphs | `\pard`, `\par`, `\ql`, `\qc`, `\qr`, `\qj`, `\li`, `\ri`, `\fi`, `\sb`, `\sa`, `\sl` with `\slmult` (mapped to the nearest of single, 1½ and double), `\pagebb`, `\page` | `\pard`, `\par`, alignment, indents, `\sb`, `\sa`, `\sl240`/`\sl360`/`\sl480` with `\slmult1`, `\pagebb` |
-| Bullets | `{\pntext ...}` skipped, `{\*\pn ... \pnlvlblt ...}` sets the bullet flag; `\ls` with a bullet `\listtext` sets the bullet flag | Word 6 form: `{\pntext\f<sym>\'B7\tab}{\*\pn\pnlvlblt\pnf<sym>\pnindent0{\pntxtb\'B7}}` |
-| Special characters | `\line`, `\tab`, `\~`, `\-`, `\_`, `\emdash`, `\endash`, `\lquote`, `\rquote`, `\ldblquote`, `\rdblquote`, `\bullet`, `\'hh`, `\uN` with `\ucN` (to ANSI where it exists, `?` otherwise) | `\line`, `\tab`, `\'hh` for bytes above 0x7F, `\{`, `\}`, `\\` |
-| Skipped safely | Every `{\* ...}` destination, `\pict`, `\object`, fields (the result text is kept), headers, footers, footnotes, tables (each cell becomes text followed by a tab, each row a paragraph) | — |
+| Header | `\rtf1`, `\ansi`, `\ansicpg1252`, `\deff`, `\fonttbl`, `\colortbl`, `\stylesheet` (skipped), `\info` (`\title`, `\author`, `\doccomm` kept) | `\rtf1\ansi\ansicpg1252\deff0`, font table, colour table, `\info` when set |
+| Document | `\paperw`, `\paperh`, `\margl`, `\margr`, `\margt`, `\margb`, `\headery`, `\footery`, `\titlepg`, `\pgnstart` | The same |
+| Characters | `\plain`, `\f`, `\fs`, `\b`, `\i`, `\ul` (and other underline kinds as `\ul`), `\ulnone`, `\strike`, `\super`, `\sub`, `\nosupersub`, `\up` and `\dn` (as super and sub), `\cf`, with their `0` forms | `\plain`, `\f`, `\fs`, `\b`, `\i`, `\ul`, `\strike`, `\super`, `\sub`, `\cf` |
+| Paragraphs | `\pard`, `\par`, `\ql`, `\qc`, `\qr`, `\qj`, `\li`, `\ri`, `\fi`, `\sb`, `\sa`, `\sl` with `\slmult` (to the nearest spacing), `\pagebb`, `\page` | `\pard`, `\par`, alignment, indents, spacing, `\pagebb` |
+| Tabs | `\tx`, `\tqc`, `\tqr`, `\tqdec`, `\tldot`, `\tlhyph`, `\tlul`, `\tlth` (as underline) | The same, without `\tlth` |
+| Lists | Word 97 `\listtable`, `\listoverridetable`, `\ls`, `\ilvl` (bullet and number formats); Word 6 `{\*\pn ...}` with `\pnlvlblt`, `\pnlvlbody`, `\pnlvl`, `\pndec`, `\pnlcltr`, `\pnucltr`, `\pnlcrm`, `\pnucrm`, `\pnstart`; `{\pntext ...}` and `{\listtext ...}` skipped | Both: `\listtable` and `\ls` for Word 97 and later, with `{\*\pn ...}` and `{\pntext ...}` for older readers |
+| Headers and footers | `{\header ...}`, `{\footer ...}`, `{\headerf ...}`, `{\footerf ...}`, `{\headerr ...}` and `{\footerr ...}` (as the plain ones); `\headerl` and `\footerl` skipped | `{\header}`, `{\footer}`, and `{\headerf}` and `{\footerf}` with `\titlepg` |
+| Fields | `{\field{\*\fldinst PAGE}...}`, `NUMPAGES`, `DATE`, `FILENAME` become Quill fields; `\chpgn` becomes Page Number; other fields keep their result text | `{\field{\*\fldinst PAGE}{\fldrslt 1}}` and the like |
+| Pictures | `{\pict ...}` with `\dibitmap`, `\wbitmap` (with `\wbmbitspixel`, `\wbmplanes`, `\wbmwidthbytes`), `\pngblip`; `\picw`, `\pich`, `\picwgoal`, `\pichgoal`, `\picscalex`, `\picscaley`; hex or `\bin` data; inside `{\*\shppict ...}` preferred to `{\nonshppict ...}`. `\wmetafile`, `\emfblip`, `\jpegblip` and others become a `Picture could not be read` placeholder that is kept as an empty box | PNG pictures as `{\*\shppict{\pict\pngblip ...}}` with a `{\nonshppict{\pict\dibitmap0 ...}}` copy for older readers; BMP pictures as `\dibitmap0` |
+| Special characters | `\line`, `\tab`, `\~`, `\-`, `\_`, `\emdash`, `\endash`, `\lquote`, `\rquote`, `\ldblquote`, `\rdblquote`, `\bullet`, `\'hh`, `\uN` with `\ucN` (to ANSI where it exists, `?` otherwise) | `\line`, `\tab`, `\'hh` above 0x7F, `\{`, `\}`, `\\` |
+| Skipped safely | Every other `{\* ...}` destination, `\object`, footnotes, annotations, tables (each cell becomes text followed by a tab, each row a paragraph) | — |
 
-Limits while reading: groups nest at most 64 deep (deeper groups are skipped), the font table holds 64 fonts, and a control word longer than 32 characters or a number outside `i32` ends the read with `...is not a document Quill can read.`.
+Limits while reading: groups nest at most 64 deep (deeper groups are skipped), the font and colour tables hold 64 and 256 entries, and a control word longer than 32 characters or a number outside `i32` ends the read with `...is not a document Quill can read.`.
 
 ### Plain text
 
-- Read as ANSI. CRLF, LF and CR each end a paragraph; a form feed (`0x0C`) starts a new paragraph with a page break before it; other control characters below 0x20 except tab are dropped. Text gets the default character and paragraph formats.
-- Written as ANSI with CRLF after every paragraph, line breaks as CRLF, and a form feed for each page break.
-- The DOS build reads and writes plain text as CP437 by default, converting to and from ANSI; Save As offers `Text Files (ANSI)` as well. A character with no CP437 form is written as `?`.
+- Read as ANSI. CRLF, LF and CR each end a paragraph; a form feed starts a new paragraph with a page break before it; other control characters below 0x20 except tab are dropped.
+- Written as ANSI with CRLF after every paragraph and line break, a tab for each tab, and a form feed for each page break. Pictures, headers and footers are left out.
+- The DOS build reads and writes CP437 by default, converting to and from ANSI; Save As also offers `Text Files (ANSI)`. A character with no CP437 form is written as `?`.
 
 ### Clipboard formats
 
 | Format | Read | Written |
 |---|---|---|
 | `Rich Text Format` (registered) | Yes, preferred | Yes |
+| `CF_DIB` | Yes | When the selection is one picture |
 | `CF_TEXT` | Yes | Yes |
+
+### Dictionary format (`.DIC`)
+
+Built by `quill-dict` from SCOWL (see [Security and privacy](#security-and-privacy) for the attribution it carries) and read in 32 KB pages, so only the pages a check touches are in memory.
+
+| Part | Contents |
+|---|---|
+| Header (64 bytes) | Magic `QDIC`, version (`u16`), language tag (8 ANSI bytes, `en-CA`), word count (`u32`), node count (`u32`), root edge index (`u32`), page size (`u16`, 32768), flags (`u16`) |
+| Edges | The word list as a minimized acyclic automaton (a DAWG): each edge is 4 bytes, a character (8 bits, ANSI lower case), an end-of-word flag, a last-edge-of-node flag and the index of the child node's first edge (22 bits). Edges of one node are contiguous and sorted |
+| Notice | The SCOWL copyright and licence text, as ANSI, after the edges |
+
+The user dictionary, `CUSTOM.DIC`, is plain ANSI text with one word per line, sorted, at most 5,000 words, beside `QUILL.INI`.
+
+### Help source format
+
+Quill's help is written in `.qhm` files (Quill help markup, a small Markdown dialect) and a `help.toml` project file, compiled by `hlpc` into `QUILL.HLP` (WinHelp 3.1) and `QUILL.HLX` (DOS). The full grammar lives with the compiler; the shape is:
+
+| Construct | Means |
+|---|---|
+| `# Opening a document {#open_document}` | A topic with its title and context string |
+| `keywords: open; files; RTF` | Search keywords for the topic |
+| `browse: files:020` | Browse sequence and position |
+| `**bold**`, `*italic*`, `` `code` `` | Character formats |
+| `[Saving a copy](#save_as)` | A jump to a topic |
+| `[pica](^def_pica)` | A popup of a topic |
+| `![Toolbar](toolbar.bmp)` | A bitmap, inline |
+| `- item`, `1. item` | Lists, drawn with hanging indents |
+| `> Note text` | A shaded note paragraph |
+
+`help.toml` names the title, the contents topic, the files, the map from context strings to the numbers Quill passes to `WinHelp` (`HELP_CONTEXT`), the main window's size and colours, and the browse-button macro.
 
 ### Settings file
 
@@ -356,43 +473,54 @@ Settings live in `QUILL.INI` in the Windows directory (both Windows builds share
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `[Quill] Toolbar` | `1` | Show the toolbar |
-| `[Quill] Ruler` | `1` | Show the ruler |
-| `[Quill] StatusBar` | `1` | Show the status bar |
-| `[Quill] Units` | From `WIN.INI` `[intl] iMeasure` (`0` metric, `1` inches) | Ruler and dialog units: `in` or `cm` |
-| `[Quill] Window` | Windows' default position | Last window position and size as `x y cx cy maximized` |
+| `[Quill] Toolbar`, `Ruler`, `StatusBar` | `1` | Show each part of the chrome |
+| `[Quill] Units` | From `WIN.INI` `[intl] iMeasure` (DOS: country code) | Ruler and dialog units: `in` or `cm` |
+| `[Quill] Window` | Windows' default | Last window position and size as `x y cx cy maximized` |
 | `[Quill] Font` | `Times New Roman` | Font for new documents |
 | `[Quill] Size` | `12` | Font size for new documents, in points (4–144) |
 | `[Quill] Margins` | `1800 1800 1440 1440` | Left, right, top, bottom margins for new documents, in twips (0–14400 each, leaving at least one inch of text width) |
 | `[Quill] Backup` | `0` | When `1`, Save keeps the previous file as `<name>.BAK` |
+| `[Quill] PictureMemory` | `1024` (Win16), `16384` (Win32), `4096` (DOS) | Most memory, in KB, decoded pictures may hold at once (256–65536) |
+| `[Quill] Zoom` | `100` | Zoom percentage (stretch) |
+| `[Spelling] Language` | `en-CA` | `en-CA`, `en-US` or `en-GB` |
+| `[Spelling] AsYouType` | `0` (Win16), `1` (others) | Check spelling as you type |
+| `[Spelling] IgnoreCaps` | `1` | Skip words in all capitals |
 | `[Recent] File1`–`File4` | Empty | Recent files, most recent first (Win16 and DOS) |
 | `[Recent32] File1`–`File4` | Empty | Recent files for the Win32 build |
 | `[Quill] Rows` | `25` | DOS text mode rows: `25` or `50` |
 | `[Quill] Graphics` | `0` | DOS: start in graphics mode |
 | `[Quill] Scheme` | `colour` | DOS text mode attributes: `colour` or `mono` |
-| `[Debug] Trace` | `0` | When `1`, write a trace to `QUILL.LOG` next to `QUILL.EXE` |
+| `[Debug] Trace` | `0` | When `1`, write a trace to `QUILL.LOG` beside the program |
 
 ## Security and privacy
 
-- Quill reads and writes only the files the user opens or saves, the temporary file beside a file being saved, `QUILL.INI`, the emergency file after an internal error, and `QUILL.LOG` when tracing is on.
-- It never opens a network connection, never starts another program and never runs anything embedded in a document. Embedded objects and pictures in RTF are skipped, not decoded.
-- The RTF, native and text readers treat every file as untrusted: every count, length and nesting depth is checked against the limits below, and they are fuzzed (see [docs/testing.md](docs/testing.md)).
+- Quill reads and writes only the files the user opens, saves or inserts, the temporary file beside a file being saved, `QUILL.INI`, `CUSTOM.DIC`, the dictionaries and help files it ships, the emergency file after an internal error, and `QUILL.LOG` when tracing is on.
+- It never opens a network connection, never starts another program except WinHelp for its own help, and never runs anything embedded in a document. Embedded objects and metafiles in RTF are skipped, not decoded.
+- The RTF, native, text, BMP, PNG, dictionary and help readers treat every file as untrusted: every count, length, dimension and nesting depth is checked against the limits below before memory is reserved, and each reader is fuzzed (see [docs/testing.md](docs/testing.md)).
 - The trace records commands and timings, never document text.
+- **Attribution.** The dictionaries are built from SCOWL and VarCon (Copyright 2000–2020 Kevin Atkinson and contributors, under the SCOWL licence, which permits redistribution with its notices kept). Each `.DIC` carries the notice, the About box names it, and `docs/` keeps the full text. The DOS graphics faces are Desk's, under the SIL Open Font License 1.1.
 
 ## Limits
 
 | Limit | Value | At the limit |
 |---|---|---|
-| Document length | 1,048,575 characters | The edit or open is refused: `The document is too large for Quill.` |
+| Body text | 1,048,575 characters | The edit or open is refused: `The document is too large for Quill.` |
+| Header and footer text | 4,096 characters each | As above, in the header view |
 | Paragraphs | 32,767 | As above |
-| Characters in one paragraph | 65,535 | Typing or pasting that would pass it is refused with the same message |
-| Fonts in one document | 64 | Further fonts are mapped to the nearest family already in the table |
-| Character formats | 4,096 distinct | As fonts: unused formats are collected first, then the edit is refused |
+| Characters in one paragraph | 65,535 | Typing or pasting past it is refused with the same message |
+| Fonts in one document | 64 | Further fonts map to the nearest family in the table |
+| Colours in one document | 256 | Further colours map to the nearest in the table |
+| Character formats | 4,096 distinct | Unused formats are collected first, then the edit is refused |
 | Paragraph formats | 1,024 distinct | As character formats |
+| Tab stops | 16 per paragraph, 256 distinct tab sets | The Tabs dialog and ruler refuse a 17th stop |
+| Lists | 64 list definitions, 9 levels | Further lists reuse the last definition |
+| Pictures | 256 per document, each at most 4,096 × 4,096 pixels and 4 MB of file data | Larger pictures are refused on insert; in an opened file they become placeholders and are kept |
+| Decoded picture memory | `[Quill] PictureMemory` | Pictures out of view are dropped; one that still does not fit shows the placeholder |
 | Undo history | 100 steps or 64 KB | Oldest steps are dropped |
-| Clipboard copy | Whole document | Copy that cannot get global memory says `There is not enough memory to copy the selection.` |
+| User dictionary | 5,000 words | `The user dictionary is full.` |
+| Spelling suggestions | 8, within two edits, about 0.5 s | `More...` continues the search |
 | Recent files | 4 | Oldest is dropped |
 | Path length | 127 characters on Win16 and DOS, 259 on Win32 | Longer paths cannot be chosen in the dialogs |
-| Memory | Win16 runs in 2 MB, with 4 MB the design target; Win32 needs what Windows 95 needs; DOS needs 4 MB | See the out-of-memory behaviour above |
+| Memory | Win16 runs in 2 MB, with 4 MB the design target; Win32 needs what Windows 95 needs; DOS needs 4 MB | See the out-of-memory behaviour |
 
-The document limits are the same in every build, even where a build has room for more, so any document one build writes, the others open.
+The document limits are the same in every build, even where a build has room for more, so any document one build writes, the others open. What 4 MB means in practice on Windows 3.1: a 100-page document with a dozen screen-sized pictures and spelling as you type is comfortable; a 1 MB document is possible but slow to lay out on a 386SX; a single photograph larger than the screen is shown reduced and prints in bands, and a 24-bit picture at 2,000 × 2,000 pixels is near the edge of what a 4 MB machine can print at all.
