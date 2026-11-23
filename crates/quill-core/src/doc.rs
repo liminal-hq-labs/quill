@@ -626,10 +626,18 @@ impl Doc {
 				break;
 			}
 			len += n as u32;
-			if len > MAX_PICTURE_BYTES {
-				return Err(Error::TooLarge);
+			let r = if len > MAX_PICTURE_BYTES {
+				Err(Error::TooLarge)
+			} else {
+				self.pic_data
+					.append(s, buf.get(..n).unwrap_or(&[]))
+					.map(|_| ())
+			};
+			if let Err(e) = r {
+				// The bytes taken so far go back, so a refused picture leaves the document as it was.
+				self.pic_data.truncate(s, offset);
+				return Err(e);
 			}
-			self.pic_data.append(s, buf.get(..n).unwrap_or(&[]))?;
 		}
 		let (mut sw, mut sh) = (i32::from(w) * 15, i32::from(h) * 15);
 		if sw > max_w && sw > 0 {

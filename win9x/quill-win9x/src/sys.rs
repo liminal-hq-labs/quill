@@ -177,8 +177,39 @@ extern "system" {
 	pub fn ReleaseDC(hwnd: Handle, dc: Handle) -> i32;
 }
 
+/// The header of a device-independent bitmap.
+#[repr(C)]
+pub struct BitmapInfoHeader {
+	pub size: u32,
+	pub width: i32,
+	pub height: i32,
+	pub planes: u16,
+	pub bit_count: u16,
+	pub compression: u32,
+	pub size_image: u32,
+	pub x_pels: i32,
+	pub y_pels: i32,
+	pub clr_used: u32,
+	pub clr_important: u32,
+}
+
 #[link(name = "gdi32", kind = "raw-dylib", import_name_type = "undecorated")]
 extern "system" {
+	#[allow(clippy::too_many_arguments)]
+	pub fn SetDIBitsToDevice(
+		dc: Handle,
+		x: i32,
+		y: i32,
+		w: u32,
+		h: u32,
+		src_x: i32,
+		src_y: i32,
+		start_scan: u32,
+		lines: u32,
+		bits: *const u8,
+		info: *const BitmapInfoHeader,
+		usage: u32,
+	) -> i32;
 	pub fn CreateFontA(
 		height: i32,
 		width: i32,

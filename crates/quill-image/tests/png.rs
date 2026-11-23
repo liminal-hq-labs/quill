@@ -98,7 +98,12 @@ fn encode(
 		z.extend_from_slice(&(!(b.len() as u16)).to_le_bytes());
 		z.extend_from_slice(b);
 	}
-	z.extend_from_slice(&[0; 4]);
+	let (mut a, mut b2) = (1u32, 0u32);
+	for v in &raw {
+		a = (a + u32::from(*v)) % 65521;
+		b2 = (b2 + a) % 65521;
+	}
+	z.extend_from_slice(&((b2 << 16) | a).to_be_bytes());
 	if split_idat {
 		for part in z.chunks(7) {
 			chunk(&mut out, b"IDAT", part);
@@ -266,6 +271,41 @@ fn interlaced_oversize_and_damaged_files_are_refused() {
 	big[16..20].copy_from_slice(&5000u32.to_be_bytes());
 	assert_eq!(decode(&big).err(), Some(ImageError::TooLarge));
 	assert_eq!(decode(b"not a png").err(), Some(ImageError::BadFile));
+}
+
+#[test]
+fn a_real_zlib_file_passes_its_checksums() {
+	let bytes = std::fs::read(concat!(
+		env!("CARGO_MANIFEST_DIR"),
+		"/../../tests/docs/pic.png"
+	))
+	.unwrap();
+	let rows = decode(&bytes).unwrap();
+	assert_eq!((rows.len(), rows[0].len()), (48, 64 * 3));
+}
+
+#[test]
+fn checksums_are_checked() {
+	let rows: Vec<Vec<u8>> = (0..6u8)
+		.map(|y| (0..30u8).map(|x| x.wrapping_mul(y)).collect())
+		.collect();
+	let good = encode(10, 6, 8, 2, &[], &rows, 3, true, 0);
+	assert!(decode(&good).is_ok());
+	// Each byte of the IHDR CRC, the IDAT CRC and the zlib Adler-32 matters; so does a byte of pixel data.
+	let idat_crc = good.len() - 12 - 4; // the last chunk is IEND (12 bytes); the IDAT CRC ends before it
+	for at in [29, 30, idat_crc, idat_crc + 3, 41, 60] {
+		let mut b = good.clone();
+		b[at] ^= 0x01;
+		assert_eq!(decode(&b).err(), Some(ImageError::BadFile), "byte {at}");
+	}
+	// Extra data after the stream is refused too.
+	let mut tail = encode(10, 6, 8, 2, &[], &rows, 3, false, 0);
+	let n = tail.len();
+	tail.splice(
+		n - 12..n - 12,
+		[0, 0, 0, 1, b'I', b'D', b'A', b'T', 0, 0, 0, 0, 0],
+	);
+	assert!(decode(&tail).is_err());
 }
 
 proptest! {

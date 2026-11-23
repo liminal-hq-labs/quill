@@ -123,6 +123,7 @@ struct Shell {
 	/// The commands behind the menu items, by menu id.
 	cmds: Vec<Command>,
 	store: HeapStore,
+	pics: gdi::PicCache,
 	files: Win32Files,
 	cw: i32,
 	ch: i32,
@@ -446,7 +447,7 @@ unsafe fn paint(hwnd: Handle) {
 			right: r.right,
 			bottom: r.bottom - sh.ch,
 		};
-		let rows = gdi::paint_page(dc, area, &sh.app, &sh.store);
+		let rows = gdi::paint_page(dc, area, &sh.app, &sh.store, &mut sh.pics);
 		SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
 		sh.app.set_rows(rows);
 		if !sh.app.editing() {
@@ -721,6 +722,7 @@ pub extern "C" fn start() -> ! {
 		grid: text_view,
 		cmds: Vec::new(),
 		store,
+		pics: gdi::PicCache::new(),
 		files,
 		cw: 8,
 		ch: 16,

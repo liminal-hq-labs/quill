@@ -14,6 +14,7 @@ gdi32.dll!GetTextMetricsA
 gdi32.dll!LineTo
 gdi32.dll!MoveToEx
 gdi32.dll!SelectObject
+gdi32.dll!SetDIBitsToDevice
 gdi32.dll!SetBkColor
 gdi32.dll!SetBkMode
 gdi32.dll!SetTextAlign
