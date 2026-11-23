@@ -1,0 +1,22 @@
+# QUILL32.EXE: Quill for Windows 95, 98 and ME.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-win9x"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Quill for Windows 9x"
+license = "Apache-2.0 OR MIT"
+
+[[bin]]
+name = "quill32"
+path = "src/main.rs"
+
+[dependencies]
+quill-app = { path = "../../crates/quill-app" }
+quill-formats = { path = "../../crates/quill-formats" }
+quill-grid = { path = "../../crates/quill-grid" }
+quill-heap = { path = "../../crates/quill-heap" }

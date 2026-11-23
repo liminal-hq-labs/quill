@@ -44,6 +44,12 @@ What is built, how it was shown to work, what is blocked and what was assumed. U
 
 Missing from M2 as the roadmap states it: numbered and bulleted lists, headers and footers, find and replace, the Tabs and Fonts dialogs, the mouse, and the DOS clipboard. The RTF reader skips list and header groups, so such files open with their text and character and paragraph formats.
 
+### M3 (started)
+
+- **Wine.** `win9x/tools/wine-e2e.sh` builds `QUILL32.EXE` (about 116 KB, Pentium target, `core` built from source) and plays seven scenarios into it under Wine on Xvfb with `/PLAY` and `/DUMP`; every screen equals the host's golden frames and the two saved files equal the host's bytes.
+- **Windows ME.** On the VirtualBox VM (snapshot "before quill m3" taken first, audio driver none, restored afterwards) the same program was started from the Run box off the shared folder with `m1-edit.keys`: its 35 screens equal the host's golden frames and the saved `.QLD` is byte-identical. `docs/media/m3-letter-windows-me.png` is a screenshot of the letter on that VM.
+- Not done: the instruction scan for Pentium-only code, the Windows 95 import allowlist, the `.res` writer, the GDI page, menus, dialogs and printing (M3's later half and M4).
+
 ### M1
 
 `dos/tools/e2e.sh` builds `QUILLDOS.EXE` (about 96 KB), copies `tests/docs/plain.qld` to a scratch drive and types `tests/scenarios/m1-edit.keys` into headless DOSBox Staging with `AUTOTYPE`: F10, File > Open, the name, text typed at the start of the centred title, Enter (splitting the paragraph), cursor keys, a letter and a Backspace, File > Save, File > Exit. The program writes every screen it shows, read back from B8000h, and the run is compared with the host's play of the same keys through the same `quill-app` code:
@@ -69,7 +75,7 @@ Run with `win16/tools/run-w31.sh` (DOSBox-X 2025.02.01 in Docker, Xvfb, `machine
 
 Nothing is blocked by the machine. These were not started, in roadmap order, for lack of time in this run:
 
-- **M3 to M4 (Win32).** Needs T3 first: `rust-win9x` copied from `~/source/win9x-rust` with provenance, the `.res` writer, the import allowlist and the instruction scan, then the Windows ME VM and Wine harnesses. `quill-app`, `quill-heap` and the file formats are ready for it; only the platform layer is missing. The ME VM rules in the task (snapshots, audio none, no builds inside) still apply when it is used.
+- **The rest of M3 and M4 (Win32).** Needs T3 first: `rust-win9x` copied from `~/source/win9x-rust` with provenance, the `.res` writer, the import allowlist and the instruction scan, then the Windows ME VM and Wine harnesses. `quill-app`, `quill-heap` and the file formats are ready for it; only the platform layer is missing. The ME VM rules in the task (snapshots, audio none, no builds inside) still apply when it is used.
 - **M5 to M6 (Win16).** T0 and T1 are done: `win16/` has the runtime, packer and a Windows 3.11 harness (`win16/tools/run-w31.sh`). Still to do: resources from JSON (menus, accelerators, icons), the far-memory `Store`, the window procedures, T2's multi-segment code, and the jump-table fault (D64).
 - **M7 to M11.** Pictures, spelling, help, DOS graphics mode and the release disks.
 - **T1 under Wine and on Windows ME, and at the 386SX profile:** not run.

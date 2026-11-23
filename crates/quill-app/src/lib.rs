@@ -17,6 +17,7 @@
 mod find;
 mod form;
 mod paint;
+pub mod script;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
 use quill_core::layout::{layout_story, tab_advance, Line, Stops};
