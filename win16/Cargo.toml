@@ -1,0 +1,36 @@
+# Quill's Win16 workspace: the runtime library and the example programs, built for the custom `win16.json` target.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# A workspace of its own: it needs `-Zbuild-std` and a custom target.
+[workspace]
+
+[package]
+name = "quill-win16-rt"
+version = "0.0.0"
+edition = "2024"
+license = "Apache-2.0 OR MIT"
+description = "The Win16 runtime for Quill: a code16 target, an NE packer and import stubs (copied from rust-win16)"
+publish = false
+autoexamples = false
+autobins = false
+
+[lib]
+name = "w16"
+path = "src/lib.rs"
+
+[[bin]]
+name = "probe"
+path = "examples/probe/main.rs"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+debug = 0
+strip = false
+
+[profile.dev]
+panic = "abort"
