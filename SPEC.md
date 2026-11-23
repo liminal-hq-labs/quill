@@ -230,6 +230,7 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 - Character widths come from the current printer when one is installed, so the lines, page breaks and page numbers on the screen are the ones that print (D10). With no printer installed, Quill lays out for the screen and says `No printer installed: layout uses screen fonts` in the status bar once.
 - A line is as tall as its tallest font or picture, with superscript and subscript raising the line when they reach past it.
 - Changing the printer, the paper or the margins lays the whole document out again; the caret stays on the same character.
+- **Build note (D81).** In the Windows 9x build the page view and the preview use the screen's 96 dpi layout and printing lays the document out again at the printer's resolution, so a line can break differently on paper than on screen; Print Preview is keyboard-driven with a status line (PgUp, PgDn, T for one or two pages, P to print, Esc).
 - The view scrolls to keep the caret visible after every edit and caret movement.
 - **Zoom** (stretch): **Document > Zoom...** offers 50, 75, 100, 150 and 200 percent and `Page width`; it changes only the view.
 

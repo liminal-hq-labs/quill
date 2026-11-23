@@ -6,5 +6,5 @@ down down down
 home f8 end
 f10 right right right right down down down down enter   # Character > Strikethrough
 esc
-f10 down down down down down enter               # File > Exit
+f10 down down down down down down down enter               # File > Exit
 n

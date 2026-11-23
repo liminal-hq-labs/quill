@@ -74,12 +74,14 @@ const DOCUMENT: [Item; 6] = [
 	item("Return to Document", "", Command::View(0)),
 ];
 const HELP: [Item; 1] = [item("About Quill...", "", Command::About)];
-const FILE: [Item; 6] = [
+const FILE: [Item; 8] = [
 	item("New", "Ctrl+N", Command::New),
 	item("Open...", "Ctrl+O", Command::Open),
 	item("Save", "Ctrl+S", Command::Save),
 	item("Save As...", "", Command::SaveAs),
 	item("Print...", "Ctrl+P", Command::Print),
+	item("Print Preview", "", Command::Preview),
+	item("Print Setup...", "", Command::PrintSetup),
 	item("Exit", "Ctrl+Q", Command::Exit),
 ];
 const EDIT: [Item; 2] = [

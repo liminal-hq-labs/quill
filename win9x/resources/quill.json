@@ -8,58 +8,60 @@
 			{ "text": "Save\tCtrl+S", "id": 102 },
 			{ "text": "Save As...", "id": 103 },
 			{ "text": "Print...\tCtrl+P", "id": 104 },
-			{ "text": "Exit\tCtrl+Q", "id": 105 }
+			{ "text": "Print Preview", "id": 105 },
+			{ "text": "Print Setup...", "id": 106 },
+			{ "text": "Exit\tCtrl+Q", "id": 107 }
 		] },
 		{ "title": "Edit", "items": [
-			{ "text": "Undo\tCtrl+Z", "id": 106 },
-			{ "text": "Redo\tCtrl+Y", "id": 107 }
+			{ "text": "Undo\tCtrl+Z", "id": 108 },
+			{ "text": "Redo\tCtrl+Y", "id": 109 }
 		] },
 		{ "title": "Insert", "items": [
-			{ "text": "Picture...", "id": 108 },
-			{ "text": "Page Number", "id": 109 },
-			{ "text": "Page Count", "id": 110 },
-			{ "text": "Date", "id": 111 },
-			{ "text": "File Name", "id": 112 }
+			{ "text": "Picture...", "id": 110 },
+			{ "text": "Page Number", "id": 111 },
+			{ "text": "Page Count", "id": 112 },
+			{ "text": "Date", "id": 113 },
+			{ "text": "File Name", "id": 114 }
 		] },
 		{ "title": "Find", "items": [
-			{ "text": "Find...\tCtrl+F", "id": 113 },
-			{ "text": "Find Next\tF3", "id": 114 },
-			{ "text": "Replace...\tCtrl+H", "id": 115 }
+			{ "text": "Find...\tCtrl+F", "id": 115 },
+			{ "text": "Find Next\tF3", "id": 116 },
+			{ "text": "Replace...\tCtrl+H", "id": 117 }
 		] },
 		{ "title": "Character", "items": [
-			{ "text": "Regular\tF5", "id": 116 },
-			{ "text": "Bold\tCtrl+B", "id": 117 },
-			{ "text": "Italic\tCtrl+I", "id": 118 },
-			{ "text": "Underline\tCtrl+U", "id": 119 },
-			{ "text": "Strikethrough", "id": 120 },
-			{ "text": "Superscript", "id": 121 },
-			{ "text": "Subscript", "id": 122 },
-			{ "text": "Fonts...", "id": 123 }
+			{ "text": "Regular\tF5", "id": 118 },
+			{ "text": "Bold\tCtrl+B", "id": 119 },
+			{ "text": "Italic\tCtrl+I", "id": 120 },
+			{ "text": "Underline\tCtrl+U", "id": 121 },
+			{ "text": "Strikethrough", "id": 122 },
+			{ "text": "Superscript", "id": 123 },
+			{ "text": "Subscript", "id": 124 },
+			{ "text": "Fonts...", "id": 125 }
 		] },
 		{ "title": "Paragraph", "items": [
-			{ "text": "Left\tCtrl+L", "id": 124 },
-			{ "text": "Centred\tCtrl+E", "id": 125 },
-			{ "text": "Right\tCtrl+R", "id": 126 },
-			{ "text": "Justified\tCtrl+J", "id": 127 },
-			{ "text": "Bullets", "id": 128 },
-			{ "text": "Numbering", "id": 129 },
-			{ "text": "Increase Level", "id": 130 },
-			{ "text": "Decrease Level", "id": 131 },
-			{ "text": "Tabs...", "id": 132 },
-			{ "text": "Single Space", "id": 133 },
-			{ "text": "1\u00bd Space", "id": 134 },
-			{ "text": "Double Space", "id": 135 }
+			{ "text": "Left\tCtrl+L", "id": 126 },
+			{ "text": "Centred\tCtrl+E", "id": 127 },
+			{ "text": "Right\tCtrl+R", "id": 128 },
+			{ "text": "Justified\tCtrl+J", "id": 129 },
+			{ "text": "Bullets", "id": 130 },
+			{ "text": "Numbering", "id": 131 },
+			{ "text": "Increase Level", "id": 132 },
+			{ "text": "Decrease Level", "id": 133 },
+			{ "text": "Tabs...", "id": 134 },
+			{ "text": "Single Space", "id": 135 },
+			{ "text": "1\u00bd Space", "id": 136 },
+			{ "text": "Double Space", "id": 137 }
 		] },
 		{ "title": "Document", "items": [
-			{ "text": "Header", "id": 136 },
-			{ "text": "Footer", "id": 137 },
-			{ "text": "First Page Header", "id": 138 },
-			{ "text": "First Page Footer", "id": 139 },
-			{ "text": "Different First Page", "id": 140 },
-			{ "text": "Return to Document", "id": 141 }
+			{ "text": "Header", "id": 138 },
+			{ "text": "Footer", "id": 139 },
+			{ "text": "First Page Header", "id": 140 },
+			{ "text": "First Page Footer", "id": 141 },
+			{ "text": "Different First Page", "id": 142 },
+			{ "text": "Return to Document", "id": 143 }
 		] },
 		{ "title": "Help", "items": [
-			{ "text": "About Quill...", "id": 142 }
+			{ "text": "About Quill...", "id": 144 }
 		] }
 	]
 }

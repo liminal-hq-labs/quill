@@ -19,6 +19,8 @@ rustflags = [
     "-C", "link-arg=/DYNAMICBASE:NO",
     # Menu, icon and version information, written by tools/res_pack.py (build.sh makes it).
     "-C", "link-arg=resources/quill.res",
+    # No jump tables: they are data inside the code section, which the Pentium scan would read as instructions.
+    "-C", "llvm-args=-min-jump-table-entries=1000",
 ]
 
 # The prebuilt \`core\` for i686 assumes SSE2 (D33), so build \`core\` and \`alloc\` here for a Pentium. The build script sets RUSTC_BOOTSTRAP=1.

@@ -177,6 +177,16 @@ extern "system" {
 	pub fn ReleaseDC(hwnd: Handle, dc: Handle) -> i32;
 }
 
+/// What `StartDoc` is told about a print job.
+#[repr(C)]
+pub struct DocInfoA {
+	pub size: i32,
+	pub doc_name: *const u8,
+	pub output: *const u8,
+	pub datatype: *const u8,
+	pub kind: u32,
+}
+
 /// The header of a device-independent bitmap.
 #[repr(C)]
 pub struct BitmapInfoHeader {
@@ -195,6 +205,34 @@ pub struct BitmapInfoHeader {
 
 #[link(name = "gdi32", kind = "raw-dylib", import_name_type = "undecorated")]
 extern "system" {
+	pub fn SaveDC(dc: Handle) -> i32;
+	pub fn RestoreDC(dc: Handle, saved: i32) -> i32;
+	pub fn SetMapMode(dc: Handle, mode: i32) -> i32;
+	pub fn SetWindowExtEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
+	pub fn SetViewportExtEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
+	pub fn GetDeviceCaps(dc: Handle, index: i32) -> i32;
+	pub fn DeleteDC(dc: Handle) -> i32;
+	pub fn StartDocA(dc: Handle, info: *const DocInfoA) -> i32;
+	pub fn EndDoc(dc: Handle) -> i32;
+	pub fn AbortDoc(dc: Handle) -> i32;
+	pub fn StartPage(dc: Handle) -> i32;
+	pub fn EndPage(dc: Handle) -> i32;
+	#[allow(clippy::too_many_arguments)]
+	pub fn StretchDIBits(
+		dc: Handle,
+		x: i32,
+		y: i32,
+		w: i32,
+		h: i32,
+		src_x: i32,
+		src_y: i32,
+		src_w: i32,
+		src_h: i32,
+		bits: *const u8,
+		info: *const BitmapInfoHeader,
+		usage: u32,
+		rop: u32,
+	) -> i32;
 	#[allow(clippy::too_many_arguments)]
 	pub fn SetDIBitsToDevice(
 		dc: Handle,
