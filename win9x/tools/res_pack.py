@@ -4,11 +4,14 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# usage: res_pack.py quill.json out.res
+# usage: res_pack.py quill.json out.res [icon.ico]
 #
 # The menu comes from the app's own menu tree (emit-resources writes the JSON), so the native menu and the DOS menus cannot drift.
+# The icon is assets/icon/QUILL.ICO unless a third argument names another: every image in it becomes an RT_ICON (ids 1 to N) and the
+# RT_GROUP_ICON with id 1 lists them, so LoadIcon(instance, 1) gets the size and depth the display wants.
 # No manifest: Windows 9x ignores one and Quill draws its own chrome (D35).
 import json
+import os
 import struct
 import sys
 
@@ -69,40 +72,29 @@ def version(v):
     return block("VS_VERSION_INFO", fixed, 0, pad4(sfi) + vfi, vlen=len(fixed))
 
 
-VGA = [(0, 0, 0), (0, 0, 170), (0, 170, 0), (0, 170, 170), (170, 0, 0), (170, 0, 170), (170, 85, 0), (170, 170, 170),
-       (85, 85, 85), (85, 85, 255), (85, 255, 85), (85, 255, 255), (255, 85, 85), (255, 85, 255), (255, 255, 85), (255, 255, 255)]
-
-
-def icon():
-    """A 32 by 32, 16-colour icon: parchment page on ink blue with an amber nib."""
-    n = 32
-    px = [[1] * n for _ in range(n)]            # ink blue ground (VGA blue, index 1)
-    for y in range(3, 29):
-        for x in range(5, 27):
-            px[y][x] = 15                       # the page
-    for y in range(8, 24, 4):
-        for x in range(9, 23 - (y // 4 % 2) * 4):
-            px[y][x] = 0                        # lines of text
-    for i in range(14):                         # the nib, amber (VGA yellow, index 14)
-        for x in range(16 - (14 - i) // 2, 17 + (14 - i) // 2):
-            px[18 + i // 2 + 4][x] = 14
-    pal = b"".join(bytes([b, g, r, 0]) for r, g, b in VGA)
-    xor = b""
-    for y in range(n - 1, -1, -1):
-        row = px[y]
-        xor += bytes((row[x] << 4) | row[x + 1] for x in range(0, n, 2))
-    andmask = b"\0" * (4 * n)
-    dib = struct.pack("<IiiHHIIiiII", 40, n, 2 * n, 1, 4, 0, len(xor) + len(andmask), 0, 0, 16, 0) + pal + xor + andmask
-    group = u16(0, 1, 1) + bytes([n, n, 16, 0]) + u16(1, 4) + struct.pack("<I", len(dib)) + u16(1)
-    return group, dib
+def icon(path):
+    """The group and one RT_ICON per image of an .ico file: the file's images are the resources, byte for byte."""
+    data = open(path, "rb").read()
+    reserved, kind, count = struct.unpack_from("<HHH", data, 0)
+    assert (reserved, kind) == (0, 1) and count > 0, path
+    group = u16(0, 1, count)
+    images = []
+    for i in range(count):
+        w, h, colours, res, planes, bits, size, off = struct.unpack_from("<BBBBHHII", data, 6 + 16 * i)
+        images.append(data[off:off + size])
+        group += bytes([w, h, colours, res]) + u16(planes, bits) + struct.pack("<IH", size, i + 1)
+    return group, images
 
 
 def main():
     spec = json.load(open(sys.argv[1], encoding="utf-8"))
     out = struct.pack("<II", 0, 32) + u16(0xFFFF, 0, 0xFFFF, 0) + struct.pack("<IHHII", 0, 0, 0, 0, 0)
     out += entry(RT_MENU, 1, menu(spec["menus"]))
-    group, dib = icon()
-    out += entry(RT_GROUP_ICON, 1, group) + entry(RT_ICON, 1, dib)
+    path = sys.argv[3] if len(sys.argv) > 3 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "assets", "icon", "QUILL.ICO")
+    group, images = icon(path)
+    out += entry(RT_GROUP_ICON, 1, group)
+    for i, image in enumerate(images):
+        out += entry(RT_ICON, i + 1, image)
     out += entry(RT_VERSION, 1, version(spec["version"]))
     open(sys.argv[2], "wb").write(out)
 

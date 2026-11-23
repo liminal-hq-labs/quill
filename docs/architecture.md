@@ -323,7 +323,7 @@ Resources are described in `win16/res/quill.json` (as in the spike), with standa
 |---|---|
 | Menu `QUILL` | The menu tree from `quill-app` |
 | Accelerators `QUILL` | The accelerator table from `quill-app` |
-| Icon `QUILL` | 32 × 32, 16 colours (Program Manager and the About box) |
+| Icon `QUILL` | 32 × 32, 16 colours, from `assets/icon/QUILL31.ICO` (Program Manager and the About box); `QUILL31X.ICO` is the 256-colour option (D76) |
 | Cursors | Selection-margin arrow; the I-beam and others are the system's |
 | Bitmaps | Toolbar strip (16 × 15 glyphs, 16 colours), ruler markers and tab kinds, preview buttons |
 | Dialogs | About, Indents and Spacing, Tabs, Numbering, Page Layout, Header and Footer, Size Picture, Spelling (and its Options), Zoom, Printing (abort) |

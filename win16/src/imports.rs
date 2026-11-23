@@ -1371,6 +1371,36 @@ global_asm!(
 	".byte 0x66, 0xc3",
 );
 
+// USER.84 DrawIcon
+global_asm!(
+	".code16",
+	".section .text.imp_DrawIcon,\"ax\"",
+	".globl DrawIcon",
+	"DrawIcon:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push word ptr [bp+8]",
+	"push word ptr [bp+12]",
+	"push word ptr [bp+16]",
+	"push word ptr [bp+20]",
+	".byte 0x9a",
+	".globl __w16imp_USER_84_DrawIcon",
+	"__w16imp_USER_84_DrawIcon:",
+	".word 0, 0",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
 // USER.87 DialogBox
 global_asm!(
 	".code16",
@@ -2028,6 +2058,34 @@ global_asm!(
 	".byte 0x66, 0xc3",
 );
 
+// GDI.80 GetDeviceCaps
+global_asm!(
+	".code16",
+	".section .text.imp_GetDeviceCaps,\"ax\"",
+	".globl GetDeviceCaps",
+	"GetDeviceCaps:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push word ptr [bp+8]",
+	"push word ptr [bp+12]",
+	".byte 0x9a",
+	".globl __w16imp_GDI_80_GetDeviceCaps",
+	"__w16imp_GDI_80_GetDeviceCaps:",
+	".word 0, 0",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
 // GDI.87 GetStockObject
 global_asm!(
 	".code16",
@@ -2103,6 +2161,7 @@ unsafe extern "C" {
 	pub fn RegisterClass(a0: u32) -> u32;
 	pub fn GetDC(a0: u32) -> u32;
 	pub fn ReleaseDC(a0: u32, a1: u32) -> u32;
+	pub fn DrawIcon(a0: u32, a1: u32, a2: u32, a3: u32) -> u32;
 	pub fn DialogBox(a0: u32, a1: u32, a2: u32, a3: u32) -> u32;
 	pub fn EndDialog(a0: u32, a1: u32) -> u32;
 	pub fn CreateDialog(a0: u32, a1: u32, a2: u32, a3: u32) -> u32;
@@ -2125,5 +2184,6 @@ unsafe extern "C" {
 	pub fn GetSystemMetrics(a0: u32) -> u32;
 	pub fn SetBkMode(a0: u32, a1: u32) -> u32;
 	pub fn TextOut(a0: u32, a1: u32, a2: u32, a3: u32, a4: u32) -> u32;
+	pub fn GetDeviceCaps(a0: u32, a1: u32) -> u32;
 	pub fn GetStockObject(a0: u32) -> u32;
 }
