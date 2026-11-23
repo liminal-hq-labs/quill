@@ -14,16 +14,19 @@
 
 extern crate alloc;
 
+mod gdi;
 mod rt;
 mod sys;
 
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::ffi::c_void;
 use core::fmt::Write;
 use core::mem::MaybeUninit;
 use core::ptr::{null, null_mut};
 
-use quill_app::{App, Dir, Files, Key, Scheme};
+use gdi::GdiMeasure;
+use quill_app::{App, Command, Dir, Files, Key, Scheme};
 use quill_formats::io::{Sink, Source};
 use quill_grid::Grid;
 use quill_heap::HeapStore;
@@ -114,7 +117,11 @@ impl Files for Win32Files {
 }
 
 struct Shell {
-	app: alloc::boxed::Box<App>,
+	app: alloc::boxed::Box<App<GdiMeasure>>,
+	/// The golden-frame mode: the text grid in the OEM font instead of the GDI page.
+	grid: bool,
+	/// The commands behind the menu items, by menu id.
+	cmds: Vec<Command>,
 	store: HeapStore,
 	files: Win32Files,
 	cw: i32,
@@ -166,6 +173,44 @@ fn map_vk(vk: usize, shift: bool, ctrl: bool) -> Option<Key> {
 	})
 }
 
+/// Draws rows `from..to` of the grid as text cells with their attributes, at pixel (`left`, `top`).
+unsafe fn draw_rows(dc: Handle, g: &Grid<25>, from: usize, to: usize, sh: &Shell, left: i32, top: i32) {
+	for (n, y) in (from..to).enumerate() {
+		let mut x = 0usize;
+		while x < 80 {
+			let a = g.get(x, y).map_or(0x07, |c| c.attr);
+			let mut run = [0u8; 80];
+			let mut k = 0;
+			while x + k < 80 {
+				let Some(c) = g.get(x + k, y) else {
+					break;
+				};
+				if c.attr != a {
+					break;
+				}
+				if let Some(slot) = run.get_mut(k) {
+					*slot = if c.ch == 0 { b' ' } else { c.ch };
+				}
+				k += 1;
+			}
+			let fg = VGA.get(usize::from(a & 15)).copied().unwrap_or(0xAAAAAA);
+			let bg = VGA.get(usize::from(a >> 4)).copied().unwrap_or(0);
+			SetTextColor(dc, fg);
+			SetBkColor(dc, bg);
+			SetTextAlign(dc, 0);
+			SetBkMode(dc, OPAQUE);
+			let rect = Rect {
+				left: left + x as i32 * sh.cw,
+				top: top + n as i32 * sh.ch,
+				right: left + (x + k) as i32 * sh.cw,
+				bottom: top + (n as i32 + 1) * sh.ch,
+			};
+			ExtTextOutA(dc, rect.left, rect.top, ETO_OPAQUE, &rect, run.as_ptr(), k as u32, null());
+			x += k;
+		}
+	}
+}
+
 unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam: isize) -> isize {
 	match msg {
 		WM_PAINT => {
@@ -200,6 +245,11 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			play(hwnd);
 			0
 		}
+		WM_ERASEBKGND => 1,
+		WM_COMMAND => {
+			menu_command(hwnd, wparam & 0xFFFF);
+			0
+		}
 		WM_DESTROY => {
 			PostQuitMessage(0);
 			0
@@ -208,9 +258,161 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 	}
 }
 
+/// Builds the native menu bar from the app's own menu tree: one definition for every build.
+unsafe fn build_menu(sh: &mut Shell, instance: Handle) -> Handle {
+	// The menu bar normally comes from the resource (win9x/resources/quill.json, written from the same tree), with the same ids.
+	let from_res = LoadMenuA(instance, 1 as *const u8);
+	let bar = if from_res.is_null() { CreateMenu() } else { null_mut() };
+	for m in 0..quill_app::MENU_COUNT {
+		let items = quill_app::menu_items(m);
+		if items.is_empty() {
+			continue;
+		}
+		let pop = if from_res.is_null() { CreatePopupMenu() } else { null_mut() };
+		for it in items {
+			let mut text: Vec<u8> = it.label.chars().map(|c| c as u32 as u8).collect();
+			if !it.accel.is_empty() {
+				text.push(b'\t');
+				text.extend_from_slice(it.accel.as_bytes());
+			}
+			text.push(0);
+			sh.cmds.push(it.command);
+			if !pop.is_null() {
+				AppendMenuA(pop, MF_STRING, 99 + sh.cmds.len(), text.as_ptr());
+			}
+		}
+		if !pop.is_null() {
+			let mut title = quill_app::menu_title(m).to_vec();
+			title.push(0);
+			AppendMenuA(bar, MF_POPUP, pop as usize, title.as_ptr());
+		}
+	}
+	if from_res.is_null() {
+		bar
+	} else {
+		from_res
+	}
+}
+
+#[repr(C)]
+struct OpenFileNameA {
+	size: u32,
+	owner: Handle,
+	instance: Handle,
+	filter: *const u8,
+	custom: *mut u8,
+	max_custom: u32,
+	filter_index: u32,
+	file: *mut u8,
+	max_file: u32,
+	title_file: *mut u8,
+	max_title: u32,
+	initial_dir: *const u8,
+	title: *const u8,
+	flags: u32,
+	file_offset: u16,
+	file_ext: u16,
+	def_ext: *const u8,
+	cust_data: isize,
+	hook: *const c_void,
+	template: *const u8,
+}
+
+#[link(name = "comdlg32", kind = "raw-dylib", import_name_type = "undecorated")]
+extern "system" {
+	fn GetOpenFileNameA(ofn: *mut OpenFileNameA) -> i32;
+	fn GetSaveFileNameA(ofn: *mut OpenFileNameA) -> i32;
+}
+
+/// Shows the common Open or Save As dialog and returns the chosen path.
+unsafe fn file_dialog(hwnd: Handle, save: bool) -> Option<Vec<u8>> {
+	let mut file = [0u8; 260];
+	let filter =
+		b"Quill Documents (*.qld)\0*.qld\0Rich Text Format (*.rtf)\0*.rtf\0Text Files (*.txt)\0*.txt\0All Files (*.*)\0*.*\0\0";
+	let mut ofn = OpenFileNameA {
+		size: 76,
+		owner: hwnd,
+		instance: null_mut(),
+		filter: filter.as_ptr(),
+		custom: null_mut(),
+		max_custom: 0,
+		filter_index: 1,
+		file: file.as_mut_ptr(),
+		max_file: 260,
+		title_file: null_mut(),
+		max_title: 0,
+		initial_dir: null(),
+		title: null(),
+		// OFN_HIDEREADONLY | OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST (open) or OFN_OVERWRITEPROMPT (save)
+		flags: if save { 0x0002 | 0x0800 } else { 0x0004 | 0x0800 | 0x1000 },
+		file_offset: 0,
+		file_ext: 0,
+		def_ext: b"qld\0".as_ptr(),
+		cust_data: 0,
+		hook: null(),
+		template: null(),
+	};
+	let ok = if save {
+		GetSaveFileNameA(&mut ofn)
+	} else {
+		GetOpenFileNameA(&mut ofn)
+	};
+	if ok == 0 {
+		return None;
+	}
+	let n = file.iter().position(|b| *b == 0).unwrap_or(0);
+	file.get(..n).map(|f| f.to_vec())
+}
+
+unsafe fn menu_command(hwnd: Handle, id: usize) {
+	let Some(sh) = shell() else {
+		return;
+	};
+	let Some(c) = id.checked_sub(100).and_then(|i| sh.cmds.get(i)).copied() else {
+		return;
+	};
+	match c {
+		Command::Open => {
+			if let Some(path) = file_dialog(hwnd, false) {
+				if sh.app.open(&mut sh.store, &mut sh.files, &path).is_err() {
+					sh.app.command(&mut sh.store, &mut sh.files, Command::Open);
+				}
+			}
+		}
+		Command::SaveAs => {
+			if let Some(path) = file_dialog(hwnd, true) {
+				sh.app.save_as(&mut sh.store, &mut sh.files, &path);
+			}
+		}
+		Command::Save if sh.app.name().is_empty() => {
+			if let Some(path) = file_dialog(hwnd, true) {
+				sh.app.save_as(&mut sh.store, &mut sh.files, &path);
+			}
+		}
+		_ => sh.app.command(&mut sh.store, &mut sh.files, c),
+	}
+	retitle(hwnd, sh);
+	InvalidateRect(hwnd, null(), 0);
+	if sh.app.quit() {
+		DestroyWindow(hwnd);
+	}
+}
+
+unsafe fn retitle(hwnd: Handle, sh: &Shell) {
+	let mut t = b"Quill - ".to_vec();
+	if sh.app.name().is_empty() {
+		t.extend_from_slice(b"(Untitled)");
+	} else {
+		t.extend_from_slice(sh.app.name());
+	}
+	t.push(0);
+	SetWindowTextA(hwnd, t.as_ptr());
+}
+
 unsafe fn press(hwnd: Handle, k: Key) {
 	if let Some(sh) = shell() {
 		sh.app.key(&mut sh.store, &mut sh.files, k);
+		retitle(hwnd, sh);
 		InvalidateRect(hwnd, null(), 0);
 		if sh.app.quit() {
 			DestroyWindow(hwnd);
@@ -227,7 +429,34 @@ unsafe fn paint(hwnd: Handle) {
 	SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
 	let mut g = Grid::<25>::new(0);
 	quill_app::draw(&sh.app, &sh.store, &mut g);
-	for y in 0..25usize {
+	let (first, last) = if sh.grid {
+		(0usize, 25usize)
+	} else {
+		// The page view above, then the status line, and the app's own dialogs over the page as text cells.
+		let mut r = Rect {
+			left: 0,
+			top: 0,
+			right: 0,
+			bottom: 0,
+		};
+		GetClientRect(hwnd, &mut r);
+		let area = Rect {
+			left: 0,
+			top: 0,
+			right: r.right,
+			bottom: r.bottom - sh.ch,
+		};
+		let rows = gdi::paint_page(dc, area, &sh.app, &sh.store);
+		SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
+		sh.app.set_rows(rows);
+		if !sh.app.editing() {
+			draw_rows(dc, &g, 7, 21, sh, (r.right - 80 * sh.cw).max(0) / 2, 40);
+		}
+		draw_rows(dc, &g, 24, 25, sh, 0, r.bottom - sh.ch);
+		EndPaint(hwnd, ps.as_ptr());
+		return;
+	};
+	for y in first..last {
 		// One ExtTextOut per run of equal attributes.
 		let mut x = 0usize;
 		while x < 80 {
@@ -306,6 +535,42 @@ unsafe fn play(hwnd: Handle) {
 	}
 }
 
+/// The widths and vertical metrics of the faces Quill's samples use, as the screen reports them: the table the host's
+/// `CapturedMeasure` lays out from. One line per face, size (half points) and style.
+fn capture(dc: Handle) -> String {
+	use quill_core::layout::{FontRef, Measure};
+	let mut out = String::from(
+		"# quill captured metrics 1: face|half points|flags (1 bold, 2 italic)|ascent|descent|leading|widths of 32 to 255\n",
+	);
+	let mut m = GdiMeasure { dc, grid: false };
+	for (face, family) in [("Times New Roman", 1u8), ("Arial", 2), ("Courier New", 3)] {
+		for size in [16u16, 18, 20, 22, 24, 28, 32, 36, 40, 48] {
+			for flags in 0..4u16 {
+				let mut f = [0u8; 31];
+				for (d, s) in f.iter_mut().zip(face.bytes()) {
+					*d = s;
+				}
+				let fr = FontRef {
+					face: f,
+					face_len: face.len() as u8,
+					family,
+					size,
+					flags,
+				};
+				let met = m.metrics(&fr);
+				let mut w = [0u16; 224];
+				m.widths(&fr, &mut w);
+				let _ = write!(out, "{face}|{size}|{flags}|{}|{}|{}|", met.ascent, met.descent, met.leading);
+				for (i, x) in w.iter().enumerate() {
+					let _ = write!(out, "{}{x}", if i == 0 { "" } else { "," });
+				}
+				out.push('\n');
+			}
+		}
+	}
+	out
+}
+
 fn args() -> Vec<Vec<u8>> {
 	// SAFETY: GetCommandLineA returns a NUL-terminated string that lives as long as the process.
 	let mut p = unsafe { GetCommandLineA() };
@@ -340,7 +605,16 @@ fn args() -> Vec<Vec<u8>> {
 pub extern "C" fn start() -> ! {
 	let argv = args();
 	let mut store = HeapStore::new();
-	let mut app = alloc::boxed::Box::new(App::new());
+	// SAFETY: the screen's device context lives for the whole process and is only used from this thread.
+	let screen_dc = unsafe { GetDC(null_mut()) };
+	let text_view = argv
+		.iter()
+		.skip(1)
+		.any(|a| a.eq_ignore_ascii_case(b"/TEXT") || a.eq_ignore_ascii_case(b"/PLAY"));
+	let mut app = alloc::boxed::Box::new(App::with_measure(GdiMeasure {
+		dc: screen_dc,
+		grid: text_view,
+	}));
 	let _ = app.reset(&mut store);
 	let mut files = Win32Files;
 	let mut play_file: Option<Vec<u8>> = None;
@@ -355,6 +629,9 @@ pub extern "C" fn start() -> ! {
 			b"/HOLD" => hold = true,
 			b"/PLAY" => play_file = it.next().cloned(),
 			b"/DUMP" => dump_file = it.next().cloned(),
+			b"/LINES" | b"/CAPTURE" => {
+				it.next();
+			}
 			_ if up.first() == Some(&b'/') => {}
 			_ => scripted_open = Some(a.clone()),
 		}
@@ -391,9 +668,55 @@ pub extern "C" fn start() -> ! {
 		let h = unsafe { CreateFileA(c.as_ptr(), GENERIC_WRITE, 0, null(), CREATE_ALWAYS, 0, null_mut()) };
 		(h != INVALID_HANDLE_VALUE).then_some((h, 0))
 	});
+	let write_text = |name: &[u8], text: &str| {
+		let c = c_name(name);
+		// SAFETY: `c` is NUL-terminated.
+		let h = unsafe { CreateFileA(c.as_ptr(), GENERIC_WRITE, 0, null(), CREATE_ALWAYS, 0, null_mut()) };
+		if h != INVALID_HANDLE_VALUE {
+			let mut out = Win32Sink(h);
+			out.write(text.as_bytes());
+			// SAFETY: the handle is ours.
+			unsafe { CloseHandle(h) };
+		}
+	};
+	if let Some(name) = argv
+		.iter()
+		.skip(1)
+		.position(|a| a.eq_ignore_ascii_case(b"/CAPTURE"))
+		.and_then(|i| argv.get(i + 2))
+	{
+		write_text(name, &capture(screen_dc));
+		// SAFETY: ends the process.
+		unsafe { ExitProcess(0) }
+	}
+	if let Some(name) = argv
+		.iter()
+		.skip(1)
+		.position(|a| a.eq_ignore_ascii_case(b"/LINES"))
+		.and_then(|i| argv.get(i + 2))
+	{
+		let mut out = String::new();
+		let mut m = GdiMeasure {
+			dc: screen_dc,
+			grid: false,
+		};
+		let _ = quill_core::layout::dump_story(
+			app.doc(),
+			&store,
+			&mut m,
+			"windows-96",
+			quill_core::doc::StoryKind::Body,
+			&mut out,
+		);
+		write_text(name, &out);
+		// SAFETY: ends the process.
+		unsafe { ExitProcess(0) }
+	}
 	let playing = play_file.is_some();
 	let sh = alloc::boxed::Box::new(Shell {
 		app,
+		grid: text_view,
+		cmds: Vec::new(),
 		store,
 		files,
 		cw: 8,
@@ -419,7 +742,7 @@ pub extern "C" fn start() -> ! {
 			cls_extra: 0,
 			wnd_extra: 0,
 			instance,
-			icon: null_mut(),
+			icon: LoadIconA(instance, 1 as *const u8),
 			cursor: LoadCursorA(null_mut(), IDC_ARROW as *const u8),
 			background: null_mut(),
 			menu_name: null(),
@@ -440,14 +763,32 @@ pub extern "C" fn start() -> ! {
 			}
 		}
 		let (cw, ch) = SHELL.as_ref().map_or((8, 16), |s| (s.cw, s.ch));
-		let style = WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE;
-		let mut r = Rect {
-			left: 0,
-			top: 0,
-			right: 80 * cw,
-			bottom: 25 * ch,
+		let gridview = text_view;
+		let style = if gridview {
+			WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE
+		} else {
+			WS_OVERLAPPEDWINDOW | WS_VISIBLE
 		};
-		AdjustWindowRect(&mut r, style, 0);
+		let menu = match SHELL.as_mut() {
+			Some(s) if !gridview => build_menu(s, instance),
+			_ => null_mut(),
+		};
+		let mut r = if gridview {
+			Rect {
+				left: 0,
+				top: 0,
+				right: 80 * cw,
+				bottom: 25 * ch,
+			}
+		} else {
+			Rect {
+				left: 0,
+				top: 0,
+				right: 860,
+				bottom: 600 + ch,
+			}
+		};
+		AdjustWindowRect(&mut r, style, i32::from(!menu.is_null()));
 		let hwnd = CreateWindowExA(
 			0,
 			CLASS.as_ptr(),
@@ -458,10 +799,13 @@ pub extern "C" fn start() -> ! {
 			r.right - r.left,
 			r.bottom - r.top,
 			null_mut(),
-			null_mut(),
+			menu,
 			instance,
 			null(),
 		);
+		if let Some(sh) = shell() {
+			retitle(hwnd, sh);
+		}
 		if playing {
 			SetTimer(hwnd, 1, 200, null());
 		}

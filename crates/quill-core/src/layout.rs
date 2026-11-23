@@ -235,7 +235,8 @@ pub fn to_units(twips: i32, res: u16) -> i32 {
 	v.div_euclid(2880) as i32
 }
 
-fn font_ref<S: Store + ?Sized>(doc: &Doc, s: &S, cfmt: u16) -> (FontRef, u8, CFmt) {
+/// The font and vertical position a character format asks for, and the format itself.
+pub fn font_ref<S: Store + ?Sized>(doc: &Doc, s: &S, cfmt: u16) -> (FontRef, u8, CFmt) {
 	let cf = doc
 		.cfmts
 		.get(s, cfmt)
@@ -594,4 +595,80 @@ where
 			done += take as u32;
 		}
 	});
+}
+
+/// Writes a story's layout as text: a header, then one line per line box with its text after a bar. The host's goldens and the Windows
+/// builds' self-checks both use it, so they can be compared byte for byte.
+pub fn dump_story<S, M, W>(
+	doc: &Doc,
+	s: &S,
+	m: &mut M,
+	name: &str,
+	kind: StoryKind,
+	w: &mut W,
+) -> core::fmt::Result
+where
+	S: Store + ?Sized,
+	M: Measure + ?Sized,
+	W: core::fmt::Write,
+{
+	let (rx, ry) = m.resolution();
+	writeln!(w, "# quill layout dump 1")?;
+	writeln!(w, "# measure {name}, {rx} x {ry} units per inch")?;
+	let text = doc.story(kind);
+	let (mut lines, mut chars) = (0u32, 0u32);
+	let pages = layout_story(doc, s, m, kind, |l| {
+		lines += 1;
+		chars = chars.max(l.start + l.len);
+	});
+	writeln!(
+		w,
+		"# {} characters, {} lines, {} pages",
+		text.len(),
+		lines,
+		pages
+	)?;
+	let mut result = Ok(());
+	layout_story(doc, s, m, kind, |l| {
+		if result.is_err() {
+			return;
+		}
+		result = write_line(text, s, l, w);
+	});
+	result
+}
+
+fn write_line<S: Store + ?Sized, W: core::fmt::Write>(
+	text: &crate::doc::StoryText,
+	s: &S,
+	l: &Line,
+	w: &mut W,
+) -> core::fmt::Result {
+	write!(
+		w,
+		"page {} y {} para {} line {} start {} len {} x {} width {} ascent {} descent {} | ",
+		l.page, l.y, l.para, l.line, l.start, l.len, l.x, l.width, l.ascent, l.descent
+	)?;
+	let mut at = 0u32;
+	let mut buf = [0u8; 64];
+	while at < l.len {
+		let take = ((l.len - at) as usize).min(64);
+		let Some(b) = buf.get_mut(..take) else {
+			break;
+		};
+		let n = text.read(s, l.start + at, b);
+		if n == 0 {
+			break;
+		}
+		for &c in b.iter().take(n) {
+			w.write_char(match c {
+				0x09 => '\u{2192}',
+				0x0b => '\u{21b5}',
+				0x20..=0x7e => char::from(c),
+				_ => '.',
+			})?;
+		}
+		at += n as u32;
+	}
+	writeln!(w)
 }

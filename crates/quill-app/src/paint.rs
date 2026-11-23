@@ -360,7 +360,14 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 			.s(" Ln ")
 			.dec(ln_in_page)
 			.s(" Col ");
-		let col = caret.map_or(1, |(_, l)| app.x_of(s, &l, app.caret) + 1);
+		// Col counts columns on the text screen and characters on a device with finer units.
+		let col = caret.map_or(1, |(_, l)| {
+			if app.measure.resolution().0 > 10 {
+				(app.caret - l.start) as i32 + 1
+			} else {
+				app.x_of(s, &l, app.caret) + 1
+			}
+		});
 		st.dec(col as u32).s("   ");
 		let t = &app.doc.body;
 		let cf = if app.caret > 0 {
