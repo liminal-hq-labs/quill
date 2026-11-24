@@ -110,6 +110,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-dialogs"
+version = "0.0.0"
+dependencies = [
+ "quill-host",
+]
+
+[[package]]
 name = "quill-dict"
 version = "0.0.0"
 
