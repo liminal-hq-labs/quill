@@ -3,7 +3,7 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-.PHONY: installer dos validate fmt clippy test headers floats layers goldens wasm
+.PHONY: installer disks dos validate fmt clippy test headers floats layers goldens wasm
 
 validate: fmt clippy test headers floats layers magic wasm
 	@echo "validate: ok"
@@ -42,6 +42,10 @@ goldens:
 # The DOS runtime: format, lints, build and the headless DOSBox golden comparison (fetches the tools first).
 installer:
 	bash installer/tools/check.sh
+
+disks:
+	bash installer/tools/build-disks.sh --stage
+	bash installer/tools/verify-disks.sh
 
 dos:
 	bash dos/tools/fetch-tools.sh
