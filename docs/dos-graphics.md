@@ -1,0 +1,225 @@
+# Quill in DOS graphics mode
+
+The design for a graphics mode beside text mode in `QUILLDOS.EXE`: video modes, fonts, the `QUILL.FNT` file, the `Surface` trait, the painter, input, tests and the order of work. The behaviour a user sees goes into [SPEC.md](../SPEC.md) when the first build lands; the decisions made here are numbered D130 to D144 below (D145 to D147 are in the [QUILL.FNT format page](dos-fnt-format.md) and D148 and D149 in the DOS hardware layer's pull request) and move into [decisions.md](decisions.md) when the open branches that also append to it have merged.
+
+## Table of contents
+
+- [Where things stand](#where-things-stand)
+- [Video modes](#video-modes)
+- [Fonts](#fonts)
+- [The QUILL.FNT file](#the-quillfnt-file)
+- [The Surface trait](#the-surface-trait)
+- [The painter and the chrome](#the-painter-and-the-chrome)
+- [Input, preview and printing](#input-preview-and-printing)
+- [What the core needs and what goes in dos](#what-the-core-needs-and-what-goes-in-dos)
+- [Tests](#tests)
+- [Work list](#work-list)
+- [Decisions](#decisions)
+- [Risks and what is not proven](#risks-and-what-is-not-proven)
+
+## Where things stand
+
+| Piece | Where | State |
+|---|---|---|
+| Text mode | `crates/quill-grid`, `dos/quill-dos` | Built. Stays as it is |
+| `QUILL.FNT` parser, `StrikeMeasure`, strike choice | `crates/quill-strike` | First wave (G2) |
+| `Surface`, `Planar4`, `Linear8`, the page painter | `crates/quill-paint` | First wave (G3) |
+| Font generator, proof sheets, the Windows comparison | `crates/quill-fntgen` | First wave (G1), with the format page [dos-fnt-format.md](dos-fnt-format.md) |
+| Hardware layer copied from Desk | `dos/hal` | First wave (G4) |
+| The graphics shell, chrome, mouse, VBE | `dos/quill-gfx` | Waits for the open DOS branches |
+
+What the code on `main` already gives this work:
+
+- **There is no `Surface` trait.** `quill-app/src/paint.rs` only paints the text `Grid`. The page painter that draws with real fonts is `win9x/quill-win9x/src/gdi.rs`, and it uses only public `App` methods: `doc`, `for_each_line`, `selection`, `caret_xy`, `editing`, `story_view`, `field_text`, plus `line_label` and `walk_chars`. A painter can therefore live in a new crate without editing `quill-app`.
+- **`App<M: Measure + Clone = GridMeasure>` is generic, and `walk_chars` clones the measure on every call.** The DOS measure is one type for both modes (an enum) and cheap to clone. Two instances of `App` in one executable would roughly double the core's code.
+- **The view geometry is 96 dpi.** `quill-app/src/view.rs` has `DPI = 96`, `TB_H = 28`, `RULER_H = 22`, `PageGeom` and the sixteen Windows colours in `COLOURS`.
+- **A Letter page at 96 dpi is 816 pixels wide**, so at 640 × 480 only the 6.5-inch text column (624 pixels) fits beside a scroll bar. The page area is about 346 pixels tall with two toolbar rows, the ruler and the status bar.
+- **The toolbar art is ready for 16 colours.** `assets/toolbar/toolbar.bmp` is 352 × 15, 4 bits per pixel, in the Windows palette.
+- **The runtime already has the DPMI calls.** `dos/rt/src/dpmi.rs` has `map_physical` (0800h), `unmap_physical`, `simulate_int` (0300h) and `alloc_dos_memory` (0100h), and DS has a 4 GiB limit, so a mapped frame buffer is a plain near pointer. Files can seek (`seek_start`), so strikes load lazily.
+- **The DOS target is an i486**, and the unpacked executable budget is 360 KB against about 200 KB today.
+
+Desk (`/liminal-hq/desk`, the commit `dos/PROVENANCE.md` names) has the hardware work: `desk-vga` (modes 12h and 13h, the DAC, planar and linear canvases, VBE 4F00h to 4F05h, a software cursor), `desk-int33`, a planar presenter that never reads video memory, and a DOSBox check that mapped a VBE linear frame buffer at physical C0000000h and checksummed modes 12h, 13h and VBE 640 × 480 × 8. Those results were read from Desk's documents and not rerun for Quill.
+
+## Video modes
+
+| Tier | Mode | Shadow buffer | When |
+|---|---|---|---|
+| Baseline | VGA mode 12h, 640 × 480 × 16, planar | 150 KB (four planes of 38,400 bytes) | Any VGA (INT 10h AX=1A00h returns AL=1Ah) |
+| A | VBE 2.0 linear frame buffer, 640 × 480 × 8 | 300 KB | A VBE BIOS reports mode attribute bit 7 and a `PhysBasePtr` |
+| B | VBE linear frame buffer, 800 × 600 × 8 | 480 KB | Only when asked for (`/G800`), because of memory on 4 MB |
+
+**Dropped:** CGA, Hercules and MDA graphics (those machines keep text mode); EGA mode 10h (640 × 350 is not square, so 96 dpi layout would distort); 1024 × 768 (not in the SPEC, 768 KB of shadow); banked VBE, which falls back to mode 12h.
+
+**Mode 12h** is set with INT 10h AX=0012h, then the identity attribute palette, then the DAC through ports 3C8h and 3C9h. The DAC holds the Windows 16 colours in the standard VGA index order (D136), so a failed DAC load still shows a sensible screen.
+
+**VBE** is detected with 4F00h ("VBE2" signature) and 4F01h through `simulate_int`, with ES:DI pointing at a buffer from `alloc_dos_memory`. The mode is set with 4F02h and bit 14, the frame buffer is mapped with `map_physical(phys, pitch × height)`, and `BytesPerScanLine` is honoured because it can exceed the width. The DAC is loaded through ports unless mode attribute bit 5 says it is not VGA-compatible, and then through 4F09h. Calls that return a real-mode segment (the ROM font pointer, VBE pointers) go through 0300h, because a direct `int 0x10` cannot return a valid real-mode ES.
+
+**Exit** registers `leave` with `cleanup`, as `video.rs` does, so a panic or an exit restores the saved text mode and unmaps the frame buffer.
+
+**Double buffering.** The shell draws into a RAM shadow in the device's own format (four plane arrays in mode 12h, one byte per pixel with VBE), so presenting is a copy. It keeps one 32-bit hash per row per plane instead of a second frame, and presents only rows that changed: map mask to one plane, bit mask FFh, set/reset off, whole bytes with `rep movsd`, and never a read of video memory. The caret and the mouse cursor are composited at present time over a small rectangle and never enter the shadow.
+
+**The 256-colour palette** is a 6 × 6 × 6 cube in entries 0 to 215, then the eight Windows colours that are not on the cube (maroon, green, olive, navy, purple, teal, silver and grey) in 216 to 223 (D136). The other eight (black, white, red, lime, blue, yellow, fuchsia and aqua) are corners of the cube and need no entry of their own. The remaining entries are free for chrome.
+
+## Fonts
+
+**Faces are rendered offline into strikes** (D39 stands), with three changes: grey is rendered at build time, the large sizes are synthesised, and strikes load lazily.
+
+- **Source faces: the Quill Test faces** (D131): the renamed subsets of Liberation 2.1.5 from `docs/linux.md` (D116). They are metric-compatible with Times New Roman, Arial and Courier New, so DOS line breaks come as close to the Windows builds as bitmap advances allow, and their spacing is even. They are SIL OFL 1.1 Modified Versions: the names Liberation, Arimo, Tinos and Cousine do not appear, and the licence text travels with `QUILL.FNT` (`OFL.TXT` on the disk). Desk Serif, Sans and Mono (OFL, no Reserved Font Name, vendored by the font generator) stay available as the alternative set.
+- **Desk's pixel faces** (UI, Title, Fixed, Small) are not part of `QUILL.FNT`. They serve the menus, dialogs and status bar in the Windows 3.1 style.
+- **The generator** (`crates/quill-fntgen`, host only) autohints the outlines at each pixel size with `skrifa` and draws them at 96 dpi with `tiny-skia`; its proof sheets and its Windows ME comparison report are what the face choice was made on.
+- **Grey is 2 bits per pixel** (D132). The four levels map exactly onto white, silver, grey and black of the Windows palette (ink 0, ¼, ½ and 1). Coloured and selected text thresholds the same data at ½, so it stays crisp. `[Quill] Smooth=0` forces 1-bit everywhere.
+- **Sizes** (D133): 8, 10, 12, 14, 18 and 24 point are rendered (11 to 32 pixels). 36, 48 and 72 point are exact doublings and triplings of 18 and 24 point, and the 2× and 3× scales of every strike also give 16, 20, 28 and other sizes. Any other size uses the nearest strike, and the status line says so.
+
+**One engine measures and draws** (the Windows 95 caret-drift lesson, D102). `StrikeMeasure` reports resolution 96 × 96, the strike's integer advances (times 2 or 3 when scaled) and its metrics. The painter puts each glyph at the `x` that `walk_chars` gives. Layout widths, caret positions, hit tests, justification and drawing are therefore the same integers by construction, and both sides pick the strike with the same function, `Strikes::strike_for`. Superscript and subscript arrive from `font_ref` already reduced to two thirds, and use the same mapping.
+
+**Strike choice.** The pixel size wanted is `(half points × 96 + 72) / 144`, the formula the Windows build gives `CreateFontA`. The face is the font's family code (1 roman is face 0 Serif, 2 swiss face 1 Sans, 3 modern face 2 Mono, anything else Serif), or the lowest face the file has strikes for when that one has none. The style is the strike style with the fewest bits different from the bold and italic wanted. Among that face and style's strikes, and the scales 1, 2 and 3, the pair whose pixel size times scale is nearest the wanted size wins, a tie going to the smaller scale and then the smaller strike.
+
+**Size and memory.** Measured by the generator on 72 strikes: 2-bit hinted strikes total 768 KB raw and 344 KB deflated for the Desk faces, and 713 KB raw and 341 KB for the Quill Test faces; 1-bit hinted strikes total 435 to 466 KB raw and 210 to 215 KB deflated. D138 raises the budgets from 250 KB raw and 120 KB packed to about 770 KB raw and 350 KB packed, and the sum for the 1.3 MB disk is rechecked when the pack is built. The fallbacks if it does not fit are grey only up to 14 point, or no bold italic for Mono. Resident memory is the index (about 18 KB for 72 strikes) plus up to 32 KB for each strike in use.
+
+## The QUILL.FNT file
+
+The byte layout is specified in [dos-fnt-format.md](dos-fnt-format.md) (D145 to D147): a 32-byte header with a CRC-32, a directory of 24-byte entries, 224 one-byte advances for every strike, then each strike's 224 six-byte glyph boxes and its bitmaps, all little-endian, uncompressed (the `.QPK` pack deflates it). A strike is one face (0 Serif, 1 Sans, 2 Mono), style (bit 0 bold, bit 1 italic) and size, at 1 or 2 bits per pixel, with data of at most 32 KB so that it fits one `Store` chunk.
+
+Only the index (header, directory and advances, about 18 KB for 72 strikes) is read at start-up; a strike's data is read with a seek when it is first drawn.
+
+### What `quill-strike` checks, and when
+
+`Strikes::parse` is given the index bytes and the file length, and checks **every offset and length the index holds** once: magic and version, the glyph count, first character and entry length, the file length, the reserved bytes, each strike's face, style, size, pixel size, bits per pixel and reserved bytes, that its data lies inside the file after the index and after the strike before it, and that its length is at least the box table and at most 32 KB. After it returns `Ok`, advances, metrics and strike choice cannot fail.
+
+The boxes and bitmaps are read lazily, so `Strikes::glyph` checks each against the strike's block as it reads (a box at most 64 by 64, a bitmap inside the block): a damaged one gives no glyph and nothing else. The checksum is not part of `parse`, because it needs the whole file; `Strikes::verify` streams the file through the CRC-32 when the shell chooses to pay for that read. A reader never panics on any input.
+
+Two rules are stricter than the format page needs, because the generator writes them that way and they make the index checkable without searching: each strike's advances are the 224 bytes at the position its place in the directory gives, directly after the directory, and the directory is strictly ascending by face, style and size, so no strike is repeated. A file the format page would allow but that breaks them is refused.
+
+## The Surface trait
+
+`quill-paint` defines the trait the painter draws through. It is integer, pixel-addressed and generic (no `dyn`, per D31). Rectangles are half-open, `Rgb` is three bytes, and every drawing call is clipped to the surface and to the clip set with `clip`.
+
+```rust
+pub trait Surface {
+	type Font: Copy;
+	fn size(&self) -> (i32, i32);
+	fn clip(&mut self, r: Option<Rect>);
+	fn font(&mut self, f: &FontRef) -> Self::Font;
+	fn advance(&mut self, f: Self::Font, ch: u8) -> i32;
+	fn fill_rect(&mut self, r: Rect, c: Rgb);
+	fn hline(&mut self, x0: i32, x1: i32, y: i32, c: Rgb);
+	fn vline(&mut self, x: i32, y0: i32, y1: i32, c: Rgb);
+	fn glyph_run(&mut self, f: Self::Font, base_y: i32, glyphs: &[(u8, i32)], fg: Rgb, smooth: bool);
+	fn bitmap4(&mut self, x: i32, y: i32, rows: &[u8], w: i32, h: i32, pal: &[Rgb; 16]);
+	fn rgb_row(&mut self, x: i32, y: i32, rgb: &[u8]);
+	fn invert_rect(&mut self, r: Rect);
+}
+```
+
+- **`font`** maps a `FontRef` to a strike and scale with `Strikes::strike_for`; **`advance`** is that strike's advance times the scale, so leaders and fields use the same integers as layout.
+- **`glyph_run`** draws each glyph at the `x` given and the baseline `base_y`. `smooth` asks for the 2-bit grey (D132): it is for black text on white paper, and any other use thresholds at ½.
+- **`bitmap4`** draws 4-bit rows, the high nibble first, each row `(w + 1) / 2` bytes, top row first, with `pal` mapping the nibbles. The toolbar bitmap goes through it.
+- **`rgb_row`** draws one row of red, green, blue bytes at (`x`, `y`), reducing to the surface's palette with a 4 × 4 ordered dither keyed on the pixel's position, so a picture looks the same whichever way it is cut by the clip.
+- **`invert_rect`** inverts colours, for a caret composited later.
+
+Two points differ from the first sketch of the design. The picture call takes decoded rows, not an index: the painter decodes with `quill_app::picture::render` and the surface only reduces colours, so a surface needs no document. And a glyph run has no background colour: the painter fills the selection itself, because a glyph's own cell is not the line's height.
+
+**Surfaces.** `Planar4` is 640 × 480 × 4 planes over a caller's `&mut [u8]` of 153,600 bytes: plane `p` at `p × 38,400`, 80 bytes a row, the leftmost pixel in the top bit, bit `p` of the colour index in plane `p`. `Linear8` is any width and height with a pitch, one byte a pixel. Both are pure code, so the host runs exactly the code DOS runs, and a host golden is byte-identical to a DOS frame read back from video memory.
+
+Both take the parsed strikes (`quill_strike::Strikes`) and a `StrikeSource` that reads the file, which the shell implements over `rt::dos::File` and the host over a slice.
+
+**Colours.** Mode 12h index `i` is the VGA-native order with the Windows values: 0 black, 1 navy, 2 green, 3 teal, 4 maroon, 5 purple, 6 olive, 7 silver, 8 grey, 9 blue, 10 lime, 11 aqua, 12 red, 13 fuchsia, 14 yellow, 15 white. A colour with no entry is the nearest by squared distance. `Linear8` uses the cube and the eight extra entries described under Video modes.
+
+## The painter and the chrome
+
+The painter is written from `gdi.rs` `draw_line`, `paint_page` and `paper_sheet`. It covers runs (each glyph at the layout's `x`), underline, strikethrough, raised and lowered text, colour, tab leaders, list labels, field values, the selection (navy background, white text), the caret, the sheets and the grey between them, and, for a preview sheet, headers and footers. It reads only the public `App` API and the geometry in `view::PageGeom`, so the vertical scroll is the app's own (by line). It draws at 100 %; the preview's fit scale arrives with G11.
+
+**Text mode stays as it is.** `quill_app::draw` into a `Grid`, unchanged. The DOS measure becomes `enum ScreenMeasure { Grid(GridMeasure), Strikes(StrikeMeasure) }` in `dos/quill-dos`; `StrikeMeasure` holds a reference to the parsed index, so `Clone` is a pointer copy and the executable carries one `App<ScreenMeasure>` (D144).
+
+**Choosing the mode** (D135): `/G` picks the best 640 × 480 (VBE 256 colours, else mode 12h), `/G16` mode 12h only, `/G800` 800 × 600 × 256, `[Quill] Graphics=0|1|16|800` sets the default and `/T` overrides it back to text. Quill falls back to text mode, with one status-line message, when there is no VGA, when `QUILL.FNT` is missing or fails its checks, or when the shadow cannot be allocated. `Rows` and `/50` stay text-only. There is no switching while running (D139), because that would need a relayout with a new measure.
+
+**Chrome** keeps the Windows 3.1 look, takes its geometry from `view.rs`, and leaves the logic in `App`: the menu bar and pull-downs from the menu state, the toolbar from `toolbar.bmp` with bevels and pressed or mixed toggles, the face and size boxes as fixed fields, the ruler from `view::ruler_ticks` and `ruler_marks`, scroll bars, and the status bar from `status_text`. There is no caption at 640 × 480 (it costs 20 pixels) and one at 800 × 600 (D137).
+
+**Dialogs** are text cells in v1 (D134): a `quill_app::draw_overlay` paints only menus, prompts, dialogs and the help viewer into a `Grid<30>` whose untouched cells are transparent, and the shell draws the cells at 8 × 16 with the VGA ROM font (exact CP437), mapping text attributes to silver, black, navy and white. That brings every dialog, the file dialog and the help viewer with no new dialog code. Graphical dialogs from `assets/dialogs/dialogs.json` are an optional later item (G12).
+
+**Pictures** are decoded by rows, box-scaled and dithered to the active palette. A failed decode, or one over the cache budget, is a silver box, as on Win32. The dither takes a palette argument (G9): the Windows 16 for mode 12h, the cube for 256 colours.
+
+**Colour schemes.** `Scheme` stays text-only. In graphics, `/MONO` maps everything to black, greys and white.
+
+## Input, preview and printing
+
+**Mouse.** INT 33h function 0 (present), 7 and 8 (range set to the mode's size, because drivers do not know VBE modes), 3 (position and buttons), 5 and 6 (press and release counters, so short clicks are not lost) and 2 (hide the driver's cursor). The arrow is a software cursor composited at present time. Double-click timing comes from the BIOS tick at 0040:046C. The same module gives text mode its missing mouse. The host scenario format gains `@click x y` and `@drag …` lines, and DOS reads them from a `QUILL_MOUSE` file in place of INT 33h, because AUTOTYPE cannot drive a mouse.
+
+**Print preview** fits one or two sheets to the screen, greeks text as grey bars per run below 50 %, and scales pictures, using the painter's page walk. Printing stays plain text (SPEC).
+
+## What the core needs and what goes in dos
+
+Portable work (no floats, `no_std`, no panics, no `alloc`):
+
+- `crates/quill-strike`: the `QUILL.FNT` parser, `StrikeMeasure`, `Strikes::strike_for`, glyph access over a `StrikeSource`.
+- `crates/quill-paint`: `Surface`, `Planar4`, `Linear8`, the page painter, and later the chrome painters.
+- `quill-image`: a palette-parameterised dither (G9). `quill-app` after the open DOS branches merge: `draw_overlay`.
+
+`Store` holds strike bitmaps and the picture cache. The shadow buffers are shell-owned, because `dos/` may use `alloc`.
+
+DOS-specific work:
+
+- **`dos/hal`:** a host-testable workspace with the subset of `desk-hal` that is needed (`port`, `mmio`, `bios`, `video`, `error`), `desk-vga`, `desk-int33` and the register mock, copied from Desk and listed in `dos/PROVENANCE.md`.
+- **`dos/rt`:** `mem.rs` (`rep movsd`, `stosd`; Fizz 2 measured a 64 KB present dropping from 3,589 to 599 µs) and `bios.rs` (`DosBios`).
+- **`dos/quill-gfx`:** mode selection and fallback, VBE and mapping, the DAC, the presenters with row hashes, the ROM font, the mouse, the cursor, the strike loader and the frame read-back.
+- **`dos/quill-dos`:** the `ScreenMeasure` enum, the main loop with non-blocking keys (INT 16h AH=11h and 10h), mouse polling, caret blink, and the choice between text and graphics.
+
+## Tests
+
+- **Host goldens** (`crates/quill-paint/tests`, files in `tests/golden/gfx/`) render `letter.rtf`, `lists.rtf`, `headers.rtf` and `pictures.rtf` through `Planar4` (16 colours) and `Linear8` (256) with a committed small test `QUILL.FNT` that `quill-strike`'s `builder` feature writes (a 5 by 7 pixel alphabet in three faces and two sizes, deterministic), so the goldens do not move when a real font is regenerated. A real file from `quill-fntgen` is checked by `quill-strike` when `QUILL_REAL_FNT` names one. Each frame is a 4- or 8-bit indexed PNG, and a `.sums` file holds `frame N crc32 XXXXXXXX` per frame, the CRC-32 of the surface's native bytes (the four planes in order, or the rows of pixels). `QUILL_UPDATE_GOLDEN=1` rewrites them.
+- **Property tests** (proptest, 10,000 cases each, random documents with fonts, styles, sizes, tabs, leaders and super and subscript): every glyph's `x` equals `walk_chars`' `x`; `pos_at_point` at the caret's point returns the same position; a click left or right of a glyph's half-advance gives `i` or `i + 1`; nothing is drawn outside the clip; the painter never panics on damaged documents.
+- **Scenario frames:** the host player runs `tests/scenarios/*.keys` through `App` and the painter and writes per-frame sums, so DOS frames can be compared to them.
+- **DOSBox:** `QUILL_DUMP` in graphics writes `=== frame N crc32 … ===` per present, computed from video memory read back (planes through the read map select, or the linear frame buffer), as Desk did. `QUILL_SHOTS=D:\` writes `.RAW` and `.PAL` for chosen frames. Runs on `svga_s3`, `vesa_nolfb` and `vgaonly` check each fallback.
+
+## Work list
+
+| Item | Branch | Contents | Acceptance |
+|---|---|---|---|
+| G0 | `docs/dos-graphics` | This page | markdownlint |
+| G1 | `feat/fntgen` | `crates/quill-fntgen`: the `QUILL.FNT` writer, proof sheets, the Windows-metrics report; Desk TTFs vendored with `OFL.txt` and checksums; the format page | Reproducible bytes; size table; proof sheets |
+| G2 | `feat/strike` | `crates/quill-strike` | Damaged and random bytes refused without panics; float ban covers the crate |
+| G3 | `feat/paint` | `crates/quill-paint` | Goldens for four documents at 16 and 256 colours; property tests at 10,000 cases |
+| G4 | `feat/dos-hal` | `dos/hal`, `rt/mem.rs`, `rt/bios.rs` | Desk's tests pass; a 12h and VBE probe checksums in DOSBox |
+| G5 | `feat/dos-gfx-boot` | `dos/quill-gfx`; `/G`, `/G16`, `Graphics=`; `App<ScreenMeasure>`; page-only screen in 12h; row-hash presenter | DOSBox frame CRCs equal the host's sums |
+| G6 | `feat/dos-gfx-chrome` | Menus, toolbar, ruler, scroll bars, status bar | Host goldens per open menu; DOSBox sums equal |
+| G7 | `feat/dos-gfx-overlay` | `draw_overlay`, the ROM font; every text dialog and the help viewer | `m2-dialogs` and `m8-spelling` sums equal; text goldens unchanged |
+| G8 | `feat/dos-mouse` | INT 33h, cursor, click, drag, double-click; text-mode mouse | Host tests on a driver model; scripted sums equal |
+| G9 | `feat/dos-vbe` | VBE 640 × 480 and 800 × 600 × 256, the cube, pictures dithered with a cache budget | Sums equal on `svga_s3`; fallbacks on `vesa_nolfb` and `vgaonly` |
+| G10 | `perf/dos-gfx` | Stopwatch, frame-time log, line damage if needed, the 4 MB run | Times logged; a 3 MB picture document opens in 4 MB |
+| G11 | `feat/dos-preview` | Graphical print preview | Goldens; DOSBox sums |
+| G12 | `feat/dos-gfx-dialogs` | Optional: graphical dialogs from `dialogs.json` | Per-dialog goldens |
+| G13 | `docs/dos-graphics-done` | SPEC, decisions, progress, roadmap budgets, screenshots | docs lint; evidence linked |
+
+G5 and later wait for the open DOS and dialog branches, because they edit `dos/quill-dos/src/main.rs`, `keys.rs`, `video.rs` and the `quill-app` painter and view.
+
+## Decisions
+
+Numbers D130 to D149 are reserved for this work, so they cannot collide with the other open branches: D130 to D144 are here, D145 to D147 are in [dos-fnt-format.md](dos-fnt-format.md), and D148 and D149 are in the DOS hardware layer's pull request. **Decided by the owner** means the owner asked for the graphics mode and took the recommended defaults or answered the question; **Assumed** means chosen without confirmation and standing until confirmed.
+
+| # | Decision | Choice | Why |
+|---|---|---|---|
+| D130 | Graphics mode | **Decided by the owner.** Quill gets its own DOS graphics mode beside text mode, reusing Desk's drivers, behind a `Surface` trait. This settles the open proposal in D79 (the Desk port) in favour of M10 as written; a Desk port stays possible through `Surface` | Text mode stays, and the page looks like the Windows builds |
+| D131 | Faces | **Decided by the owner.** The Quill Test faces (renamed Liberation subsets, even spacing, closest to the Windows widths), not Desk's. Desk's faces stay rendered by the generator as the alternative | Line breaks as close to the Windows builds as bitmap advances allow |
+| D132 | Grey text | **Decided by the owner.** 2 bits per pixel, mapped to white, silver, grey and black, for black text on white; 1-bit for coloured and selected text; `Smooth=0` forces 1-bit | Exact colours in the Windows palette at 16 colours |
+| D133 | Sizes | **Decided by the owner.** Render 8 to 24 point; 36, 48 and 72 point by doubling and tripling | A third of the bytes of rendering every size |
+| D134 | Dialogs | **Decided by the owner.** Text cells over the page in v1; graphical dialogs later or never | Every dialog works with no new dialog code |
+| D135 | Modes | **Decided by the owner.** Mode 12h baseline; VBE linear frame buffer at 640 × 480 × 256; 800 × 600 on request. No banked modes, 1024, EGA, CGA or Hercules. Switches `/G`, `/G16`, `/G800`, `/T` and `Graphics=` | Square pixels, a linear buffer is fast, and each tier fits the memory it needs |
+| D136 | Palettes | **Decided by the owner** for 16 colours: the Windows colours (0x80 and 0xC0 values) in the VGA-native index order. **Assumed** for 256: the 6 × 6 × 6 cube, then the eight Windows colours that are not on it | Document colours, the toolbar bitmap and the greys are exact |
+| D137 | Caption bar | **Decided by the owner.** None at 640 × 480; shown at 800 × 600 | It costs 20 pixels of a short screen |
+| D138 | Font budget | **Decided by the owner.** `QUILL.FNT` may grow to about 770 KB unpacked and 350 KB packed, for 2-bit hinted strikes at every size (measured on 72 strikes) | The first figures, 450 KB and 200 KB, were about half of what the strikes take |
+| D139 | Switching | **Decided by the owner.** No switching between text and graphics while running | It would need a new measure and a relayout |
+| D140 | Font sources | **Decided by the owner.** The twelve Desk TTFs are vendored with their licence and checksums (D147), and the Quill Test faces come from the subset in `docs/linux.md` | Reproducible strikes with no download |
+| D141 | One engine | **Assumed.** `Strikes::strike_for` picks the strike and scale for measuring and drawing alike (the face from the family code); the painter draws at `walk_chars`' `x` | Layout, caret, hit tests and glyphs are the same integers |
+| D142 | The `Surface` trait | **Assumed.** The trait in this page: generic, pixel-addressed, pictures as decoded rows, no background colour in a glyph run, an `advance` for leaders and fields | A surface needs no document, and a run needs no cell geometry |
+| D143 | Frame sums | **Assumed.** A frame's sum is the CRC-32 of the surface's native bytes (four planes in order, or the rows of pixels) | The host and the DOS read-back compare byte for byte |
+| D144 | The shell | **Assumed.** `enum ScreenMeasure` of the grid and the strikes with one `App<ScreenMeasure>`; a shadow in the device's own format with row hashes and no video reads; the cursor composited at present time; INT 33h polled, with scripted clicks from a file in tests | Two `App`s would double the core's code, a keystroke presents a few rows, and the mouse works under any driver and is testable |
+
+## Risks and what is not proven
+
+- **Memory on 4 MB.** The 800 × 600 shadow (480 KB), the picture cache, the dictionary (300 KB) and the document compete. The cache is capped, 800 × 600 is opt-in, and G10 tests with `memsize = 4`. CWSDPMI swapping hides overruns as slowness.
+- **Speed on a 486SX with ISA VGA.** A full mode 12h frame is 150 KB: an estimated 30 to 150 ms on an 8- or 16-bit ISA card and under 15 ms on VLB or PCI. The painter's glyph blit is written for clarity, per pixel; G10 measures and, if needed, adds line damage and byte-wise blits.
+- **VESA and CWSDPMI.** Real cards of 1993 to 1995 often have only VBE 1.2, so they get mode 12h. 0800h under other DPMI hosts and in a Windows DOS box is untested.
+- **Executable size.** About 200 to 217 KB now; graphics adds an estimated 80 to 110 KB against the 360 KB budget. One `App` instance is essential.
+- **Font quality.** The autohinter's output is judged on the generator's proof sheets, not on a real screen, and the strikes were never drawn by the DOS shell.
+- **Conflicts.** G5 to G7 depend on the merge order of the open DOS and dialog branches.
+- **Not verified:** Desk's DOSBox results (read, not rerun); the strikes on a real VGA screen; every size, speed and memory figure above; INT 33h called from protected mode under CWSDPMI; the ROM font pointer through 0300h; DOSBox-X's ET4000 VBE; AUTOTYPE in graphics modes; any real hardware.
