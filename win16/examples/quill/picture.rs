@@ -21,6 +21,7 @@ const BUDGET: u32 = 1 << 20;
 const MAX_SIDE: u32 = 4096;
 
 const BI_RGB: u32 = 0;
+const BI_RLE8: u32 = 1;
 const DIB_RGB_COLORS: u32 = 0;
 const SRCCOPY: u32 = 0x00CC_0020;
 const COLORONCOLOR: u32 = 3;
@@ -34,7 +35,7 @@ pub enum Why {
 	Ready,
 	/// PNG: no decoder fits the data segment.
 	Png,
-	/// Not a bitmap this build hands to GDI: another header, a compression, 16 or 32 bits, top-down rows.
+	/// Not a bitmap this build hands to GDI: another header, a compression other than RLE8, 16 or 32 bits, top-down rows.
 	Format,
 	/// The file ends before its pixels do, or a size is out of range.
 	Damaged,
@@ -75,6 +76,8 @@ impl Slot {
 
 static mut SLOT: [Slot; SLOTS] = [Slot::EMPTY; SLOTS];
 static mut CLOCK: u32 = 0;
+/// Why the file named on the command line did not open, for `PICS.LOG`.
+pub static mut OPEN_FAILED: Option<quill_formats::FormatError> = None;
 
 fn slots() -> &'static mut [Slot; SLOTS] {
 	unsafe { &mut *core::ptr::addr_of_mut!(SLOT) }
@@ -145,9 +148,10 @@ fn build(doc: &Doc, s: &FarStore, idx: u16, fp: u32, at: usize) {
 		le32(&head, 30),
 		le32(&head, 46),
 	);
-	// A 40-byte header with plain rows, bottom-up (Windows 3.x does not draw a negative height).
+	// A 40-byte header with bottom-up rows (GDI here does not draw a negative height), plain or RLE8.
+	let rle = compression == BI_RLE8 && bpp == 8;
 	if bi_size != 40
-		|| compression != BI_RGB
+		|| !(compression == BI_RGB || rle)
 		|| planes != 1
 		|| !matches!(bpp, 1 | 4 | 8 | 24)
 		|| height < 0
@@ -168,7 +172,16 @@ fn build(doc: &Doc, s: &FarStore, idx: u16, fp: u32, at: usize) {
 		used.min(1 << bpp)
 	};
 	let stride = (bpp * width as u32).div_ceil(32) * 4;
-	let pixels = stride * height as u32;
+	// Run-length rows are as long as the header says.
+	let pixels = if rle {
+		le32(&head, 34)
+	} else {
+		stride * height as u32
+	};
+	if rle && pixels == 0 {
+		slot.why = Why::Damaged;
+		return;
+	}
 	if off_bits < 14 + 40 + 4 * colours || off_bits.saturating_add(pixels) > size {
 		slot.why = Why::Damaged;
 		return;
@@ -311,6 +324,33 @@ pub fn write_log() {
 	}
 	if !any {
 		log.s("no pictures asked for").nl();
+	}
+	if let Some(e) = unsafe { OPEN_FAILED } {
+		log.s("the file did not open: ").s(match e {
+			quill_formats::FormatError::BadFile => "not a document, or damaged",
+			quill_formats::FormatError::Newer => "from a newer version",
+			quill_formats::FormatError::TooLarge => "over a document limit",
+			quill_formats::FormatError::NoMemory => "out of memory",
+			quill_formats::FormatError::Write => "write error",
+		});
+		log.nl();
+	}
+	let (held, asked, free) = unsafe { crate::store::REFUSED };
+	let refusals = unsafe { crate::store::REFUSALS };
+	if refusals > 0 {
+		log.s("store: ")
+			.dec(u32::from(refusals))
+			.s(" refused; the first with ")
+			.dec(u32::from(held))
+			.s(" blocks held, asking ")
+			.dec(u32::from(asked))
+			.s(" bytes, ");
+		if free == 0xFFFF_FFFF {
+			log.s("the table full");
+		} else {
+			log.dec(free / 1024).s(" KB free");
+		}
+		log.nl();
 	}
 	let mut path = [0u8; 128];
 	crate::c_name(b"PICS.LOG", &mut path);

@@ -1246,7 +1246,12 @@ fn save_settings() {
 
 #[inline(never)]
 fn open_file(name: &[u8]) {
-	let _ = app().open(store(), &mut Win16Files, name);
+	if let Err(e) = app().open(store(), &mut Win16Files, name) {
+		unsafe { picture::OPEN_FAILED = Some(e) };
+	} else if unsafe { store::REFUSALS } > 0 {
+		// The reader drops a picture it cannot hold and goes on; say so.
+		app().set_message("Picture too large for the memory available");
+	}
 }
 
 /// The stack and local heap sizes `build.sh` gives the packer (it reads these two lines). The stack, the shadow return stack, the data

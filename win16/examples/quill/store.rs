@@ -4,11 +4,11 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // A moveable block in protected mode keeps its selector when Windows moves it, so the far pointer from the single `GlobalLock` stays
-// good until the block is freed. The table of blocks lives in the data segment (128 entries: 4 MB at 32 KB each).
+// good until the block is freed. The table of blocks lives in the data segment (160 entries of 8 bytes: 5 MB at 32 KB each, which holds a 4 MB picture, the most a document takes, and the rest of the document).
 use quill_core::store::{ChunkId, Store};
 use w16::{GlobalAlloc, GlobalFree, GlobalLock, GlobalUnlock, far_read, far_write};
 
-const CHUNKS: usize = 128;
+const CHUNKS: usize = 160;
 const GMEM_MOVEABLE_ZEROINIT: u32 = 0x0042;
 
 /// For tracing: the last place ES was found different from DS, and the two selectors.
@@ -18,6 +18,10 @@ pub static mut BAD: [u16; 4] = [0; 4];
 /// drawing and layout code).
 pub static mut TOP_SP: u16 = 0;
 pub static mut MIN_SP: u16 = 0xFFFF;
+
+/// What the first refusal by Windows looked like, for `PICS.LOG`: the blocks held then, the size asked, and the free space.
+pub static mut REFUSED: (u16, u16, u32) = (0, 0, 0);
+pub static mut REFUSALS: u16 = 0;
 
 unsafe extern "C" {
 	/// The end of the program's data (`link.ld`); the packer puts the shadow return stack right after it, then the stack.
@@ -99,9 +103,24 @@ impl FarStore {
 
 impl Store for FarStore {
 	fn alloc(&mut self, len: u16) -> Option<ChunkId> {
-		let i = self.handle.iter().position(|h| *h == 0)?;
+		let Some(i) = self.handle.iter().position(|h| *h == 0) else {
+			unsafe {
+				if REFUSALS == 0 {
+					REFUSED = (CHUNKS as u16, len, 0xFFFF_FFFF);
+				}
+				REFUSALS = REFUSALS.saturating_add(1);
+			}
+			return None;
+		};
 		let h = unsafe { GlobalAlloc(GMEM_MOVEABLE_ZEROINIT, u32::from(len.max(1))) } as u16;
 		if h == 0 {
+			unsafe {
+				if REFUSALS == 0 {
+					let held = self.handle.iter().filter(|h| **h != 0).count() as u16;
+					REFUSED = (held, len, w16::GetFreeSpace(0));
+				}
+				REFUSALS = REFUSALS.saturating_add(1);
+			}
 			return None;
 		}
 		let p = unsafe { GlobalLock(u32::from(h)) };
