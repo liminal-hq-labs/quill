@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use quill_core::layout::FontRef;
-use quill_strike::{StrikeId, StrikeSource, Strikes, MAX_GLYPH_BYTES};
+use quill_strike::{StrikeId, StrikeSource, Strikes, MAX_GLYPH_BYTES, MAX_GLYPH_SIDE};
 
 use crate::palette::{dither16, dither256, index256, nearest16, rgb256};
 use crate::{Rect, Rgb, Surface};
@@ -57,19 +57,27 @@ impl Device for PlanarDev<'_> {
 	fn span(&mut self, y: i32, x0: i32, x1: i32, i: u8) {
 		let row = y as usize * 80;
 		let (b0, b1) = ((x0 >> 3) as usize, ((x1 - 1) >> 3) as usize);
+		let first = 0xFFu8 >> (x0 & 7);
+		let last = 0xFFu8 << (7 - ((x1 - 1) & 7));
 		for p in 0..4 {
 			let ink = i >> p & 1 != 0;
-			for b in b0..=b1 {
-				let mut mask = 0xFFu8;
-				if b == b0 {
-					mask &= 0xFF >> (x0 & 7);
+			let plane = p * PLANE_BYTES + row;
+			let set = |v: &mut u8, mask: u8| *v = if ink { *v | mask } else { *v & !mask };
+			if b0 == b1 {
+				if let Some(v) = self.buf.get_mut(plane + b0) {
+					set(v, first & last);
 				}
-				if b == b1 {
-					mask &= 0xFFu8 << (7 - ((x1 - 1) & 7));
-				}
-				if let Some(v) = self.buf.get_mut(p * PLANE_BYTES + row + b) {
-					*v = if ink { *v | mask } else { *v & !mask };
-				}
+				continue;
+			}
+			if let Some(v) = self.buf.get_mut(plane + b0) {
+				set(v, first);
+			}
+			// Whole bytes in between are one fill, which the runtime does with string moves.
+			if let Some(mid) = self.buf.get_mut(plane + b0 + 1..plane + b1) {
+				mid.fill(if ink { 0xFF } else { 0x00 });
+			}
+			if let Some(v) = self.buf.get_mut(plane + b1) {
+				set(v, last);
 			}
 		}
 	}
@@ -139,6 +147,9 @@ pub struct Raster<'a, D: Device, S: StrikeSource> {
 	strikes: Strikes<'a>,
 	src: &'a mut S,
 	clip: Rect,
+	/// The last font asked for and the strike it came to: a line asks for the same one for every character, and choosing a strike
+	/// looks at every strike in the file.
+	last_font: Option<(FontRef, StrikeFont)>,
 }
 
 /// A 640 × 480 mode 12h surface.
@@ -182,6 +193,7 @@ impl<'a, D: Device, S: StrikeSource> Raster<'a, D, S> {
 			strikes,
 			src,
 			clip,
+			last_font: None,
 		}
 	}
 
@@ -220,8 +232,15 @@ impl<D: Device, S: StrikeSource> Surface for Raster<'_, D, S> {
 	}
 
 	fn font(&mut self, f: &FontRef) -> StrikeFont {
+		if let Some((key, font)) = &self.last_font {
+			if key == f {
+				return *font;
+			}
+		}
 		let (id, scale) = self.strikes.strike_for(f);
-		StrikeFont { id, scale }
+		let font = StrikeFont { id, scale };
+		self.last_font = Some((*f, font));
+		font
 	}
 
 	fn advance(&mut self, f: StrikeFont, ch: u8) -> i32 {
@@ -267,24 +286,45 @@ impl<D: Device, S: StrikeSource> Surface for Raster<'_, D, S> {
 			let gy = base_y.saturating_sub(g.top * k);
 			for row in 0..g.height {
 				let y0 = gy.saturating_add(row as i32 * k);
+				// The row's ink levels, unpacked once: asking the glyph for each pixel costs several times what drawing it does.
+				let Some(packed) = bits.get(row * g.stride..(row + 1) * g.stride) else {
+					continue;
+				};
+				if packed.iter().all(|b| *b == 0) {
+					continue;
+				}
+				let mut lv = [0u8; MAX_GLYPH_SIDE];
+				if g.bpp == 1 {
+					for (col, l) in lv.iter_mut().enumerate().take(g.width) {
+						let b = packed.get(col >> 3).copied().unwrap_or(0);
+						*l = if (b >> (7 - (col & 7))) & 1 != 0 {
+							3
+						} else {
+							0
+						};
+					}
+				} else {
+					for (col, l) in lv.iter_mut().enumerate().take(g.width) {
+						let b = packed.get(col >> 2).copied().unwrap_or(0);
+						*l = (b >> (6 - 2 * (col & 3))) & 3;
+					}
+				}
 				let mut col = 0;
 				while col < g.width {
-					let level = g.level(&bits, col, row);
-					let colour = if grey {
-						greys.get(usize::from(level)).copied().unwrap_or(0)
-					} else if level >= 2 {
-						ink
-					} else {
-						0
-					};
+					let level = lv.get(col).copied().unwrap_or(0);
 					let paint = if grey { level > 0 } else { level >= 2 };
 					if !paint {
 						col += 1;
 						continue;
 					}
+					let colour = if grey {
+						greys.get(usize::from(level)).copied().unwrap_or(0)
+					} else {
+						ink
+					};
 					// A run of equal pixels is one span.
 					let mut end = col + 1;
-					while end < g.width && g.level(&bits, end, row) == level {
+					while end < g.width && lv.get(end).copied() == Some(level) {
 						end += 1;
 					}
 					let x0 = gx.saturating_add(col as i32 * k);
