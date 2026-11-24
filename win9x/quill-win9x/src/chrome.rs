@@ -531,14 +531,61 @@ impl RulerState {
 
 const TWIPS_PX: i32 = 15; // a pixel at 96 dots per inch is 15 twips
 
-/// The text width in pixels, and where the text's left edge is in the window.
-pub fn text_extent(app: &App<GdiMeasure>, client_w: i32) -> (i32, i32) {
+/// The gap between the window's edge and the page when the page is wider than the window.
+pub const PAGE_PAD: i32 = 8;
+
+/// Where the page's left edge is in a client area `client_w` wide: centred when the page fits with its padding, and otherwise
+/// at the padding, shifted left by `hscroll`.
+pub fn page_x0(client_w: i32, page_w: i32, hscroll: i32) -> i32 {
+	if client_w >= page_w + 2 * PAGE_PAD {
+		(client_w - page_w) / 2
+	} else {
+		PAGE_PAD - hscroll
+	}
+}
+
+/// How far the page can scroll sideways in a client area `client_w` wide: zero when it fits.
+pub fn hscroll_max(app: &App<GdiMeasure>, client_w: i32) -> i32 {
+	let page_w = quill_core::layout::to_units(app.doc().page.paper_w, 96);
+	(page_w + 2 * PAGE_PAD - client_w).max(0)
+}
+
+/// The text width in pixels, and where the text's left edge is in the window, with the page scrolled `hscroll` pixels.
+pub fn text_extent(app: &App<GdiMeasure>, client_w: i32, hscroll: i32) -> (i32, i32) {
 	let page = &app.doc().page;
 	let page_w = quill_core::layout::to_units(page.paper_w, 96);
-	let x0 = ((client_w - page_w) / 2).max(8);
+	let x0 = page_x0(client_w, page_w, hscroll);
 	let left = x0 + quill_core::layout::to_units(page.margin_l, 96);
 	let w = quill_core::layout::to_units(page.paper_w - page.margin_l - page.margin_r, 96);
 	(left, w)
+}
+
+/// A number that changes whenever anything the toolbars and the ruler show changes: the toggles, the colour, the indents and the tabs.
+/// A key press that leaves it alone needs no repaint of them.
+pub fn signature(app: &App<GdiMeasure>, s: &HeapStore) -> u64 {
+	let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+	let mut mix = |v: u64| {
+		h = (h ^ v).wrapping_mul(0x0000_0100_0000_01b3);
+	};
+	let (r0, r1) = rows(app);
+	mix(r0 as u64);
+	mix(r1 as u64);
+	mix(u64::from(app.show_ruler()));
+	for b in layout().buttons.iter() {
+		mix(u64::from(is_on(app, s, b.toggle)));
+	}
+	if let Some((r, g, b)) = app.char_state(s).colour {
+		mix(1 + u64::from(r) + (u64::from(g) << 8) + (u64::from(b) << 16));
+	}
+	let st = RulerState::of(app, s);
+	mix(st.left as u64);
+	mix(st.first as u64);
+	mix(st.right as u64);
+	for t in st.tabs.iter().take(st.ntabs) {
+		mix(t.0 as u64);
+		mix(u64::from(t.1));
+	}
+	h
 }
 
 unsafe fn triangle(dc: Handle, pts: [(i32, i32); 3], fill_colour: u32) {

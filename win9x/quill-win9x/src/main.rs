@@ -36,6 +36,33 @@ use sys::*;
 
 const CLASS: &[u8] = b"Quill32\0";
 
+/// The client size Quill asks for when the screen has room: the page at 96 dots per inch with a little desk either side, and about
+/// 600 lines of it.
+const PREFERRED_W: i32 = 860;
+const PREFERRED_H: i32 = 600;
+
+/// The part of the screen that is not taskbar, or the whole screen when the system will not say.
+unsafe fn work_area() -> Rect {
+	let mut r = Rect {
+		left: 0,
+		top: 0,
+		right: 0,
+		bottom: 0,
+	};
+	if SystemParametersInfoA(SPI_GETWORKAREA, 0, core::ptr::addr_of_mut!(r).cast(), 0) == 0
+		|| r.right <= r.left
+		|| r.bottom <= r.top
+	{
+		r = Rect {
+			left: 0,
+			top: 0,
+			right: GetSystemMetrics(SM_CXSCREEN).max(640),
+			bottom: GetSystemMetrics(SM_CYSCREEN).max(480),
+		};
+	}
+	r
+}
+
 /// The 16 VGA colours as Windows COLORREFs (0x00BBGGRR).
 const VGA: [u32; 16] = [
 	0x000000, 0xAA0000, 0x00AA00, 0xAAAA00, 0x0000AA, 0xAA00AA, 0x0055AA, 0xAAAAAA, 0x555555, 0xFF5555, 0x55FF55, 0xFFFF55,
@@ -162,6 +189,42 @@ struct Shell {
 	ch: i32,
 	dump: Option<(Handle, u32)>,
 	hold: bool,
+	/// How far the page is scrolled sideways, in pixels; zero unless the window is narrower than the page.
+	hscroll: i32,
+	/// The off-screen picture every paint draws into before one copy to the window.
+	back: Option<Back>,
+}
+
+/// An off-screen bitmap, and the memory device context that holds it, the size of the window's client area.
+struct Back {
+	dc: Handle,
+	bmp: Handle,
+	old: Handle,
+	w: i32,
+	h: i32,
+}
+
+impl Back {
+	/// Makes a bitmap `w` by `h` compatible with the screen, or None when the system has no memory for it.
+	unsafe fn new(screen: Handle, w: i32, h: i32) -> Option<Back> {
+		let dc = CreateCompatibleDC(screen);
+		if dc.is_null() {
+			return None;
+		}
+		let bmp = CreateCompatibleBitmap(screen, w.max(1), h.max(1));
+		if bmp.is_null() {
+			DeleteDC(dc);
+			return None;
+		}
+		let old = SelectObject(dc, bmp);
+		Some(Back { dc, bmp, old, w, h })
+	}
+
+	unsafe fn free(self) {
+		SelectObject(self.dc, self.old);
+		DeleteObject(self.bmp);
+		DeleteDC(self.dc);
+	}
 }
 
 static mut SHELL: *mut Shell = null_mut();
@@ -279,7 +342,22 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			play(hwnd);
 			0
 		}
+		// Every pixel of the client area is painted from the off-screen picture, so the system never erases it first.
 		WM_ERASEBKGND => 1,
+		WM_SIZE => {
+			if wparam != SIZE_MINIMIZED {
+				if let Some(sh) = shell() {
+					relayout(hwnd, sh);
+				}
+			}
+			0
+		}
+		WM_HSCROLL => {
+			if let Some(sh) = shell() {
+				hscroll_by(hwnd, sh, wparam & 0xFFFF, ((wparam >> 16) & 0xFFFF) as u16 as i32);
+			}
+			0
+		}
 		WM_COMMAND => {
 			if lparam != 0 {
 				combo_changed(hwnd, wparam);
@@ -647,6 +725,7 @@ unsafe fn run_command(hwnd: Handle, c: Command) {
 		sync_chrome(hwnd, sh);
 	}
 	retitle(hwnd, sh);
+	update_scroll(hwnd, sh);
 	InvalidateRect(hwnd, null(), 0);
 	if sh.app.quit() {
 		DestroyWindow(hwnd);
@@ -678,6 +757,146 @@ unsafe fn combo_changed(hwnd: Handle, wparam: usize) {
 	InvalidateRect(hwnd, null(), 0);
 }
 
+/// Fills `r` in `dc` with one solid colour.
+unsafe fn fill_rect(dc: Handle, r: &Rect, colour: u32) {
+	let b = CreateSolidBrush(colour);
+	FillRect(dc, r, b);
+	DeleteObject(b);
+}
+
+unsafe fn client_size(hwnd: Handle) -> (i32, i32) {
+	let mut r = Rect {
+		left: 0,
+		top: 0,
+		right: 0,
+		bottom: 0,
+	};
+	GetClientRect(hwnd, &mut r);
+	(r.right, r.bottom)
+}
+
+/// The height of the toolbars and the ruler together, which is where the page starts.
+fn chrome_height(sh: &Shell) -> i32 {
+	if sh.grid || sh.preview.is_some() {
+		return 0;
+	}
+	let (h0, h1) = chrome::rows(&sh.app);
+	h0 + h1 + if sh.app.show_ruler() { chrome::RULER_H } else { 0 }
+}
+
+/// Asks for the page, the text below the toolbars and the ruler, and the status line to be painted again, and nothing above them.
+unsafe fn invalidate_page(hwnd: Handle, sh: &Shell) {
+	if sh.grid || sh.preview.is_some() {
+		InvalidateRect(hwnd, null(), 0);
+		return;
+	}
+	let (w, h) = client_size(hwnd);
+	let r = Rect {
+		left: 0,
+		top: chrome_height(sh),
+		right: w,
+		bottom: h,
+	};
+	InvalidateRect(hwnd, &r, 0);
+}
+
+/// Asks for the ruler alone to be painted again.
+unsafe fn invalidate_ruler(hwnd: Handle, sh: &Shell) {
+	if !sh.app.show_ruler() || sh.grid || sh.preview.is_some() {
+		return;
+	}
+	let (w, _) = client_size(hwnd);
+	let top = chrome_height(sh) - chrome::RULER_H;
+	let r = Rect {
+		left: 0,
+		top,
+		right: w,
+		bottom: top + chrome::RULER_H,
+	};
+	InvalidateRect(hwnd, &r, 0);
+}
+
+/// Keeps the sideways scroll inside what the window and the page allow, and shows the scroll bar only when the page is wider than the window.
+unsafe fn update_scroll(hwnd: Handle, sh: &mut Shell) {
+	if sh.grid {
+		return;
+	}
+	let (w, _) = client_size(hwnd);
+	let max = if sh.preview.is_some() {
+		0
+	} else {
+		chrome::hscroll_max(&sh.app, w)
+	};
+	sh.hscroll = sh.hscroll.clamp(0, max);
+	let info = ScrollInfo {
+		size: core::mem::size_of::<ScrollInfo>() as u32,
+		mask: SIF_ALL,
+		min: 0,
+		max: max + w - 1,
+		page: w.max(1) as u32,
+		pos: sh.hscroll,
+		track_pos: 0,
+	};
+	SetScrollInfo(hwnd, SB_HORZ, &info, 1);
+}
+
+/// The window changed size: lays the page, the ruler and the scroll bar out again for the new width.
+unsafe fn relayout(hwnd: Handle, sh: &mut Shell) {
+	update_scroll(hwnd, sh);
+	InvalidateRect(hwnd, null(), 0);
+}
+
+/// Scrolls the page sideways to `pos` pixels and paints the ruler and the page again.
+unsafe fn scroll_to(hwnd: Handle, sh: &mut Shell, pos: i32) {
+	let before = sh.hscroll;
+	sh.hscroll = pos;
+	update_scroll(hwnd, sh);
+	if sh.hscroll != before {
+		invalidate_ruler(hwnd, sh);
+		invalidate_page(hwnd, sh);
+	}
+}
+
+/// A scroll bar message: `code` is what the user did and `thumb` is where the box is.
+unsafe fn hscroll_by(hwnd: Handle, sh: &mut Shell, code: usize, thumb: i32) {
+	let (w, _) = client_size(hwnd);
+	let now = sh.hscroll;
+	let to = match code {
+		SB_LINELEFT => now - 16,
+		SB_LINERIGHT => now + 16,
+		SB_PAGELEFT => now - w,
+		SB_PAGERIGHT => now + w,
+		SB_THUMBTRACK | SB_THUMBPOSITION => thumb,
+		SB_LEFT => 0,
+		SB_RIGHT => i32::MAX / 2,
+		_ => return,
+	};
+	scroll_to(hwnd, sh, to);
+}
+
+/// Scrolls sideways, when the window is narrower than the page, until the caret is in view.
+unsafe fn follow_caret(hwnd: Handle, sh: &mut Shell) {
+	if sh.grid || sh.preview.is_some() || !sh.app.editing() {
+		return;
+	}
+	let (w, _) = client_size(hwnd);
+	if chrome::hscroll_max(&sh.app, w) == 0 {
+		return;
+	}
+	if let Some((_, _, x)) = sh.app.caret_xy(&sh.store) {
+		let margin = quill_core::layout::to_units(sh.app.doc().page.margin_l, 96);
+		let at = chrome::PAGE_PAD + margin + x;
+		let slack = 32.min(w / 4);
+		let mut to = sh.hscroll;
+		if at - to < slack {
+			to = at - slack;
+		} else if at - to > w - slack {
+			to = at - (w - slack);
+		}
+		scroll_to(hwnd, sh, to);
+	}
+}
+
 /// Where the ruler is and where the text's left edge is, for the mouse.
 unsafe fn ruler_geometry(hwnd: Handle, sh: &Shell) -> (i32, i32, i32) {
 	let mut r = Rect {
@@ -687,7 +906,7 @@ unsafe fn ruler_geometry(hwnd: Handle, sh: &Shell) -> (i32, i32, i32) {
 		bottom: 0,
 	};
 	GetClientRect(hwnd, &mut r);
-	let (left, w) = chrome::text_extent(&sh.app, r.right);
+	let (left, w) = chrome::text_extent(&sh.app, r.right, sh.hscroll);
 	let (h0, h1) = chrome::rows(&sh.app);
 	let top = h0 + h1;
 	(top, left, w)
@@ -746,7 +965,7 @@ unsafe fn mouse_move(hwnd: Handle, x: i32) {
 		let (_, left, w) = ruler_geometry(hwnd, sh);
 		chrome::drag_to(&mut d, x, left, w);
 		sh.drag = Some(d);
-		InvalidateRect(hwnd, null(), 0);
+		invalidate_ruler(hwnd, sh);
 	}
 }
 
@@ -817,27 +1036,83 @@ unsafe fn press(hwnd: Handle, k: Key) {
 				}
 				_ => {}
 			}
+			update_scroll(hwnd, sh);
 			InvalidateRect(hwnd, null(), 0);
 			return;
 		}
+		let before = chrome::signature(&sh.app, &sh.store);
 		sh.app.key(&mut sh.store, &mut sh.files, k);
 		if !sh.grid {
 			handle_dialogs(hwnd);
 		}
 		retitle(hwnd, sh);
-		InvalidateRect(hwnd, null(), 0);
+		if sh.grid {
+			InvalidateRect(hwnd, null(), 0);
+		} else {
+			// A key changes the page and the status line; the toolbars and the ruler are painted again only when they show something new.
+			let scrolled = sh.hscroll;
+			update_scroll(hwnd, sh);
+			follow_caret(hwnd, sh);
+			if before != chrome::signature(&sh.app, &sh.store) || scrolled != sh.hscroll {
+				InvalidateRect(hwnd, null(), 0);
+			} else {
+				invalidate_page(hwnd, sh);
+			}
+		}
 		if sh.app.quit() {
 			DestroyWindow(hwnd);
 		}
 	}
 }
 
+/// Handles WM_PAINT: draws the whole picture off-screen, then copies only the damaged rectangle to the window in one call, so the
+/// steps of the drawing (the grey desk, the white page, the toolbar's bevels, then the text) are never on the screen.
 unsafe fn paint(hwnd: Handle) {
 	let Some(sh) = shell() else {
 		return;
 	};
 	let mut ps = MaybeUninit::<PaintStruct>::uninit();
-	let dc = BeginPaint(hwnd, ps.as_mut_ptr());
+	let wdc = BeginPaint(hwnd, ps.as_mut_ptr());
+	let mut damage = ps.assume_init_ref().paint;
+	let (cw, chh) = client_size(hwnd);
+	let stale = sh.back.as_ref().is_none_or(|b| b.w != cw || b.h != chh);
+	if stale {
+		if let Some(old) = sh.back.take() {
+			old.free();
+		}
+		sh.back = Back::new(wdc, cw, chh);
+		// A new bitmap holds nothing yet, so the whole client area is painted into it.
+		damage = Rect {
+			left: 0,
+			top: 0,
+			right: cw,
+			bottom: chh,
+		};
+	}
+	match sh.back.as_ref().map(|b| b.dc) {
+		Some(mdc) => {
+			paint_into(hwnd, mdc, sh, damage);
+			BitBlt(
+				wdc,
+				damage.left,
+				damage.top,
+				damage.right - damage.left,
+				damage.bottom - damage.top,
+				mdc,
+				damage.left,
+				damage.top,
+				SRCCOPY,
+			);
+		}
+		None => paint_into(hwnd, wdc, sh, damage),
+	}
+	EndPaint(hwnd, ps.as_ptr());
+}
+
+/// Draws the window into `dc`, limited to the `damage` rectangle.
+unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
+	let saved = SaveDC(dc);
+	IntersectClipRect(dc, damage.left, damage.top, damage.right, damage.bottom);
 	SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
 	let mut g = Grid::<25>::new(0);
 	quill_app::draw(&sh.app, &sh.store, &mut g);
@@ -852,6 +1127,7 @@ unsafe fn paint(hwnd: Handle) {
 			bottom: 0,
 		};
 		GetClientRect(hwnd, &mut r);
+		fill_rect(dc, &r, 0x00C0_C0C0);
 		let (h0, h1) = chrome::rows(&sh.app);
 		let tb = if sh.preview.is_none() { h0 + h1 } else { 0 };
 		let rl = if sh.app.show_ruler() && sh.preview.is_none() {
@@ -868,13 +1144,16 @@ unsafe fn paint(hwnd: Handle) {
 		};
 		if sh.preview.is_none() {
 			if tb > 0 {
-				chrome::paint_toolbar(dc, r.right, &sh.app, &sh.store);
+				// The boxes follow the caret even when the toolbar's own pixels are not damaged.
 				if let Some(cb) = sh.combos.as_mut() {
 					cb.sync(&sh.app, &sh.store);
 				}
+				if damage.top < tb {
+					chrome::paint_toolbar(dc, r.right, &sh.app, &sh.store);
+				}
 			}
-			if rl > 0 {
-				let (left, w) = chrome::text_extent(&sh.app, r.right);
+			if rl > 0 && damage.top < tb + rl && damage.bottom > tb {
+				let (left, w) = chrome::text_extent(&sh.app, r.right, sh.hscroll);
 				let st = sh
 					.drag
 					.map_or_else(|| chrome::RulerState::of(&sh.app, &sh.store), |d| d.state);
@@ -907,10 +1186,10 @@ unsafe fn paint(hwnd: Handle) {
 				line.len() as u32,
 				null(),
 			);
-			EndPaint(hwnd, ps.as_ptr());
+			RestoreDC(dc, saved);
 			return;
 		}
-		let rows = gdi::paint_page(dc, area, &sh.app, &sh.store, &mut sh.pics);
+		let rows = gdi::paint_page(dc, area, sh.hscroll, &sh.app, &sh.store, &mut sh.pics);
 		SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
 		sh.app.set_rows(rows);
 		if !sh.app.editing() {
@@ -919,7 +1198,7 @@ unsafe fn paint(hwnd: Handle) {
 		if status > 0 {
 			draw_rows(dc, &g, 24, 25, sh, 0, r.bottom - sh.ch);
 		}
-		EndPaint(hwnd, ps.as_ptr());
+		RestoreDC(dc, saved);
 		return;
 	};
 	for y in first..last {
@@ -955,7 +1234,7 @@ unsafe fn paint(hwnd: Handle) {
 			x += n;
 		}
 	}
-	EndPaint(hwnd, ps.as_ptr());
+	RestoreDC(dc, saved);
 }
 
 struct Play {
@@ -1214,6 +1493,8 @@ pub extern "C" fn start() -> ! {
 		ch: 16,
 		dump,
 		hold: hold && playing || (!playing),
+		hscroll: 0,
+		back: None,
 	});
 	// SAFETY: single-threaded start-up; the boxes live for the whole process.
 	unsafe {
@@ -1265,7 +1546,7 @@ pub extern "C" fn start() -> ! {
 		let style = if gridview {
 			WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE
 		} else {
-			WS_OVERLAPPEDWINDOW | WS_VISIBLE
+			WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_HSCROLL | WS_CLIPCHILDREN
 		};
 		let menu = match SHELL.as_mut() {
 			Some(s) if !gridview => build_menu(s, instance),
@@ -1282,20 +1563,35 @@ pub extern "C" fn start() -> ! {
 			Rect {
 				left: 0,
 				top: 0,
-				right: 860,
-				bottom: 600 + ch,
+				right: PREFERRED_W,
+				bottom: PREFERRED_H + ch,
 			}
 		};
 		AdjustWindowRect(&mut r, style, i32::from(!menu.is_null()));
+		let (mut x, mut y, mut w, mut h) = (20, 20, r.right - r.left, r.bottom - r.top);
+		let mut style = style;
+		if !gridview {
+			// The window goes in the middle of the work area (the screen less the taskbar), and when it will not fit there it opens
+			// maximised, so a 640 by 480 or 800 by 600 screen shows the whole of it.
+			let wa = work_area();
+			let (aw, ah) = (wa.right - wa.left, wa.bottom - wa.top);
+			if w > aw || h > ah {
+				style |= WS_MAXIMIZE;
+				w = w.min(aw);
+				h = h.min(ah);
+			}
+			x = wa.left + (aw - w) / 2;
+			y = wa.top + (ah - h) / 2;
+		}
 		let hwnd = CreateWindowExA(
 			0,
 			CLASS.as_ptr(),
 			b"Quill - (Untitled)\0".as_ptr(),
 			style,
-			20,
-			20,
-			r.right - r.left,
-			r.bottom - r.top,
+			x,
+			y,
+			w,
+			h,
 			null_mut(),
 			menu,
 			instance,

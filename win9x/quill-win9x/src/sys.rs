@@ -29,6 +29,26 @@ pub const FW_BOLD: i32 = 700;
 pub const WM_COMMAND: u32 = 0x0111;
 pub const WM_ERASEBKGND: u32 = 0x0014;
 pub const WS_OVERLAPPEDWINDOW: u32 = 0x00CF_0000;
+pub const WS_HSCROLL: u32 = 0x0010_0000;
+pub const WS_MAXIMIZE: u32 = 0x0100_0000;
+pub const WS_CLIPCHILDREN: u32 = 0x0200_0000;
+pub const WM_SIZE: u32 = 0x0005;
+pub const WM_HSCROLL: u32 = 0x0114;
+pub const SIZE_MINIMIZED: usize = 1;
+pub const SB_HORZ: i32 = 0;
+pub const SB_LINELEFT: usize = 0;
+pub const SB_LINERIGHT: usize = 1;
+pub const SB_PAGELEFT: usize = 2;
+pub const SB_PAGERIGHT: usize = 3;
+pub const SB_THUMBPOSITION: usize = 4;
+pub const SB_THUMBTRACK: usize = 5;
+pub const SB_LEFT: usize = 6;
+pub const SB_RIGHT: usize = 7;
+pub const SIF_ALL: u32 = 0x17;
+pub const SPI_GETWORKAREA: u32 = 48;
+pub const SM_CXSCREEN: i32 = 0;
+pub const SM_CYSCREEN: i32 = 1;
+pub const SRCCOPY: u32 = 0x00CC_0020;
 pub const MF_STRING: u32 = 0;
 pub const MF_POPUP: u32 = 0x10;
 pub const VK_SHIFT: i32 = 0x10;
@@ -77,6 +97,18 @@ pub struct Rect {
 	pub top: i32,
 	pub right: i32,
 	pub bottom: i32,
+}
+
+/// What `SetScrollInfo` is told about a scroll bar.
+#[repr(C)]
+pub struct ScrollInfo {
+	pub size: u32,
+	pub mask: u32,
+	pub min: i32,
+	pub max: i32,
+	pub page: u32,
+	pub pos: i32,
+	pub track_pos: i32,
 }
 
 #[repr(C)]
@@ -207,6 +239,9 @@ extern "system" {
 	pub fn AppendMenuA(menu: Handle, flags: u32, id: usize, item: *const u8) -> i32;
 	pub fn SetWindowTextA(hwnd: Handle, text: *const u8) -> i32;
 	pub fn ReleaseDC(hwnd: Handle, dc: Handle) -> i32;
+	pub fn SystemParametersInfoA(action: u32, param: u32, data: *mut c_void, update: u32) -> i32;
+	pub fn GetSystemMetrics(index: i32) -> i32;
+	pub fn SetScrollInfo(hwnd: Handle, bar: i32, info: *const ScrollInfo, redraw: i32) -> i32;
 }
 
 /// What `GlobalMemoryStatus` fills in.
@@ -258,6 +293,9 @@ extern "system" {
 		proc_: unsafe extern "system" fn(*const u8, *const u8, u32, isize) -> i32,
 		lparam: isize,
 	) -> i32;
+	pub fn CreateCompatibleDC(dc: Handle) -> Handle;
+	pub fn CreateCompatibleBitmap(dc: Handle, w: i32, h: i32) -> Handle;
+	pub fn BitBlt(dest: Handle, x: i32, y: i32, w: i32, h: i32, src: Handle, sx: i32, sy: i32, rop: u32) -> i32;
 	pub fn SaveDC(dc: Handle) -> i32;
 	pub fn RestoreDC(dc: Handle, saved: i32) -> i32;
 	pub fn SetMapMode(dc: Handle, mode: i32) -> i32;

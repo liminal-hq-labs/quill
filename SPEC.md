@@ -234,6 +234,7 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 - Changing the printer, the paper or the margins lays the whole document out again; the caret stays on the same character.
 - **Build note (D81).** In the Windows 9x build the page view and the preview use the screen's 96 dpi layout and printing lays the document out again at the printer's resolution, so a line can break differently on paper than on screen; Print Preview is keyboard-driven with a status line (PgUp, PgDn, T for one or two pages, P to print, Esc).
 - The view scrolls to keep the caret visible after every edit and caret movement.
+- **Window size (Windows 9x build, D89).** The window asks for room for the 8.5 inch page at 96 dpi and opens in the middle of the work area (the screen less the taskbar); on a screen too small for that, such as 640 by 480 or 800 by 600, it opens maximised. The page and the ruler are centred in the window when the page fits and otherwise sit at the left edge with a horizontal scroll bar; the ruler scrolls with the page, and typing scrolls sideways to keep the caret in view. Every part of the window is drawn off screen and copied to it in one step, and a key press repaints the page and the status line only, so typing does not flicker.
 - **Zoom** (stretch): **Document > Zoom...** offers 50, 75, 100, 150 and 200 percent and `Page width`; it changes only the view.
 
 ### Spelling
