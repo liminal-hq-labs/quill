@@ -56,6 +56,19 @@ jobs:
       - name: Check SPDX headers
         run: bash scripts/check-headers.sh
 
+  site:
+    name: Site links
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check links and assets in site/
+        run: python3 -I scripts/check-site.py
+
   banner:
     name: Hero banner
     runs-on: ubuntu-24.04

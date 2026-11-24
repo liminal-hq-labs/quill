@@ -1,0 +1,559 @@
+<!doctype html>
+<!--
+	Quill's product page: what it is, what runs where, screenshots and how it is built. Static, relative URLs only.
+
+	(c) Copyright 2026 Liminal HQ, Scott Morris
+	SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
+<html lang="en-CA">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Quill, a word processor for DOS, Windows 3.1 and Windows 95</title>
+		<meta name="description" content="Quill is a small rich-text word processor written in Rust. One shared core drives a DOS text-mode build and a Windows 95, 98 and Me build today; the Windows 3.1 build is in progress. Experimental, with no releases yet.">
+		<meta name="color-scheme" content="light dark">
+		<meta name="theme-color" content="#fffaf0" media="(prefers-color-scheme: light)">
+		<meta name="theme-color" content="#070d24" media="(prefers-color-scheme: dark)">
+		<link rel="canonical" href="https://liminal-hq-labs.github.io/quill/">
+		<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+		<link rel="icon" href="img/quill-small.svg" type="image/svg+xml">
+		<link rel="apple-touch-icon" href="img/quill-256.png">
+		<meta property="og:type" content="website">
+		<meta property="og:site_name" content="Quill">
+		<meta property="og:title" content="Quill, a word processor for DOS, Windows 3.1 and Windows 95">
+		<meta property="og:description" content="A small rich-text word processor in Rust, with one core for DOS, Windows 3.1 and Windows 95, 98 and Me. Experimental.">
+		<meta property="og:url" content="https://liminal-hq-labs.github.io/quill/">
+		<meta property="og:image" content="https://liminal-hq-labs.github.io/quill/img/social-preview.png">
+		<meta property="og:image:width" content="1280">
+		<meta property="og:image:height" content="640">
+		<meta property="og:image:alt" content="The Quill icon: an amber Q whose tail is a pen nib, on an ink-blue square.">
+		<meta property="og:locale" content="en_CA">
+		<meta name="twitter:card" content="summary_large_image">
+		<link rel="stylesheet" href="css/site.css">
+		<script>
+			// Apply a remembered theme before the first paint, so the page does not flash the other one.
+			try {
+				var t = localStorage.getItem("quill-theme");
+				if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+			} catch (e) {}
+		</script>
+		<script src="js/site.js" defer></script>
+	</head>
+	<body>
+		<a class="skip-link" href="#main">Skip to the content</a>
+
+		<header class="site-header">
+			<div class="wrap">
+				<a class="brand" href="./">
+					<img src="img/quill-small.svg" alt="" width="28" height="28">
+					<span>Quill</span>
+				</a>
+				<nav class="site-nav" aria-label="Sections">
+					<ul>
+						<li><a href="#what">What it is</a></li>
+						<li><a href="#core">One core</a></li>
+						<li><a href="#screenshots">Screenshots</a></li>
+						<li><a href="#features">What works</a></li>
+						<li><a href="#platforms">Platforms</a></li>
+						<li><a href="#built">How it's built</a></li>
+						<li><a href="#faq">Questions</a></li>
+					</ul>
+				</nav>
+				<button class="theme-toggle" type="button" data-theme-toggle hidden>
+					<span data-icon-moon><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20 15.3A8.5 8.5 0 0 1 8.7 4a8.5 8.5 0 1 0 11.3 11.3Z"/></svg></span>
+					<span data-icon-sun hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg></span>
+					<span data-theme-label>Dark</span>
+				</button>
+			</div>
+		</header>
+
+		<main id="main">
+			<section class="hero" aria-labelledby="title">
+				<div class="wrap">
+					<div>
+						<div class="hero-title">
+							<img src="img/quill.svg" alt="The Quill icon: an amber Q whose tail is a pen nib" width="96" height="96">
+							<h1 id="title">Quill</h1>
+						</div>
+						<p class="lede">A small word processor for DOS, Windows 3.1 and Windows 95, 98 and Me, written in Rust around one shared core.</p>
+						<p class="status"><span class="chip">Experimental</span> <span>The DOS and Windows 95 builds edit and save documents today. The Windows 3.1 build is still being brought up.</span></p>
+						<div class="actions">
+							<a class="button" href="https://github.com/liminal-hq-labs/quill">View the repository</a>
+							<a class="button button--alt" href="#screenshots">See the screenshots</a>
+						</div>
+						<p class="hero-note">No downloads yet. Release floppies are planned; until then you can <a href="#build">build Quill from source</a>.</p>
+					</div>
+					<figure class="hero-shots">
+						<ul>
+							<li>
+								<img src="img/shots/dos-letter.png" width="720" height="400" alt="Quill's DOS build in blue text mode showing a letter: bold in bright white, italic in cyan, a price list with dot leaders.">
+								<span class="tag">DOS, in DOSBox-X</span>
+							</li>
+							<li>
+								<img src="img/shots/win95-letter.png" width="640" height="480" alt="Quill on Windows 95 with two toolbar rows and a ruler, showing the same letter in Arial and Times New Roman.">
+								<span class="tag">Windows 95, test bed</span>
+							</li>
+							<li>
+								<img src="img/shots/me-letter.png" width="866" height="660" alt="Quill on Windows Me showing the same letter as a white page with real fonts under a native menu bar.">
+								<span class="tag">Windows Me, VirtualBox</span>
+							</li>
+						</ul>
+						<figcaption>One test letter, <code>letter.rtf</code>, opened by the DOS build and by the Windows build on Windows 95 and Windows Me.</figcaption>
+					</figure>
+				</div>
+			</section>
+
+			<section class="section section--band" id="what" aria-labelledby="what-title">
+				<div class="wrap two-col">
+					<div>
+						<p class="eyebrow">What Quill is</p>
+						<h2 id="what-title">A word processor for the PCs of the 1990s</h2>
+						<p>Quill gives you fonts and sizes, bold and italic and the rest of that family, text colour, tab stops with dot leaders, lists, headers and footers with page numbers, find and replace, and a spelling checker that knows Canadian English. It saves its own <code>.QLD</code> files and RTF, and LibreOffice opens the RTF it writes.</p>
+						<p>It comes as separate programs for separate machines. <code>QUILLDOS.EXE</code> runs on DOS in text mode. <code>QUILL32.EXE</code> runs on Windows 95, 98 and Me. <code>QUILL.EXE</code> is the Windows 3.1 build, and it doesn't edit anything yet. They share one Rust core, so a document saved on DOS opens on Windows 95 unchanged, and the other way round.</p>
+						<p>It is small on purpose. As built today, <code>QUILLDOS.EXE</code> is 192 KB with its DPMI host inside, and <code>QUILL32.EXE</code> is 322 KB. Both fit on one 1.44 MB floppy alongside the 300 KB Canadian English dictionary.</p>
+					</div>
+					<aside class="aside-card" aria-labelledby="why-title">
+						<h3 id="why-title">Why I made this</h3>
+						<p>Quill grew out of the <a href="https://github.com/liminal-hq-labs/liminal-installer">Liminal Installer</a>, my experiment in installers for every platform, DOS and old Windows included. Alongside it I'm writing a blog series, <cite>Cross-compiling to the past</cite>, about how Rust runs on DOS, Windows 3.1 and Windows 9x.</p>
+						<p>The series explains the toolchains, and an installer is a small program. Quill is the real application built with all three of them, with menus, dialogs, fonts and files that have to survive the trip between machines. The AI agent and I are building it in the open.</p>
+					</aside>
+				</div>
+			</section>
+
+			<section class="section" id="core" aria-labelledby="core-title">
+				<div class="wrap">
+					<p class="eyebrow">Architecture</p>
+					<h2 id="core-title">One core, three machines</h2>
+					<p class="section-intro">Everything that decides what a document is and how it looks lives in one set of portable Rust crates. Each machine gets a thin shell that turns its keys into commands and draws what the core lays out.</p>
+
+					<figure class="diagram" aria-labelledby="diagram-caption">
+						<figcaption id="diagram-caption" class="visually-hidden">Diagram: the portable core at the top, connected to three shells below it for DOS text mode, Windows 3.1 and Windows 95, 98 and Me.</figcaption>
+						<div class="diagram-core">
+							<h3>The portable core</h3>
+							<p><code>no_std</code> Rust with no heap allocator, no floating point and no panics. Nothing in it names DOS or Windows.</p>
+							<ul aria-label="Core crates">
+								<li><code>quill-core</code> document, editing, undo, layout</li>
+								<li><code>quill-formats</code> .QLD, RTF, text</li>
+								<li><code>quill-image</code> BMP, PNG</li>
+								<li><code>quill-inflate</code> deflate</li>
+								<li><code>quill-spell</code> spelling</li>
+								<li><code>quill-app</code> commands, menus, dialogs</li>
+								<li><code>quill-grid</code> text screens</li>
+							</ul>
+							<p class="seam">Shells plug in through traits: <code>Store</code> for memory, <code>Measure</code> for font widths, <code>Files</code> for the disk.</p>
+						</div>
+						<div class="diagram-links" aria-hidden="true"><span></span><span></span><span></span></div>
+						<ul class="diagram-shells">
+							<li class="shell shell--dos">
+								<h3>DOS text mode</h3>
+								<p class="file">QUILLDOS.EXE · go32</p>
+								<p>A 32-bit protected-mode program with CWSDPMI inside the executable. It copies the core's character grid to VGA text memory.</p>
+								<p><span class="pill pill--ok">Works</span></p>
+							</li>
+							<li class="shell shell--w16">
+								<h3>Windows 3.1</h3>
+								<p class="file">QUILL.EXE · NE</p>
+								<p>16-bit code from Rust's <code>code16</code> target, packed into a Windows 3.x executable with several 64 KB code segments. It opens a document on Windows for Workgroups 3.11, then stops with a General Protection Fault that isn't fixed yet.</p>
+								<p><span class="pill pill--part">In progress</span></p>
+							</li>
+							<li class="shell shell--w32">
+								<h3>Windows 95, 98 and Me</h3>
+								<p class="file">QUILL32.EXE · PE</p>
+								<p>Windows 9x's own Win32, ANSI calls only, compiled for a Pentium. It draws the page with GDI fonts and uses the system's menus and dialogs.</p>
+								<p><span class="pill pill--ok">Works</span></p>
+							</li>
+						</ul>
+					</figure>
+					<p class="footnote">Layout uses integers only, so the same document and the same font widths give the same lines on every machine. The font widths Windows Me reported were captured and replayed on the host, and the host broke the letter into the same lines Windows Me did.</p>
+				</div>
+			</section>
+
+			<section class="section section--band" id="screenshots" aria-labelledby="shots-title">
+				<div class="wrap">
+					<p class="eyebrow">Screenshots</p>
+					<h2 id="shots-title">Captured from Quill, running</h2>
+					<p class="section-intro">Every picture here is a capture of Quill itself, and each caption says where it ran. None come from real hardware yet. Select a screenshot to see it full size; the arrow keys step through a group.</p>
+
+					<section class="gallery-group" aria-labelledby="g-dos">
+						<h3 id="g-dos">DOS text mode</h3>
+						<ul class="gallery">
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/dos-letter.png" data-shot="dos"><img src="img/shots/dos-letter.png" width="720" height="400" loading="lazy" alt="Quill for DOS showing a letter in blue text mode, with coloured formatting and a price list with dot leaders."></a>
+									<figcaption>The test letter in text mode. Bold shows as bright white, italic as cyan, underline as magenta, and the price list keeps its dot leaders. Code page 437 has no curly quotes, so they show as shaded blocks. <span class="where">QUILLDOS.EXE LETTER.RTF in DOSBox-X</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/dos-spelling.png" data-shot="dos"><img src="img/shots/dos-spelling.png" width="758" height="569" loading="lazy" alt="Quill for DOS with a Spelling box drawn in text: Not in dictionary, Teh, with eight suggestions starting with The."></a>
+									<figcaption>F7 on a paragraph typed with planted mistakes. For “Teh” the Spelling box offers eight suggestions, closest first. <span class="where">QUILLDOS.EXE in DOSBox Staging, keys typed by its AUTOTYPE command</span></figcaption>
+								</figure>
+							</li>
+						</ul>
+					</section>
+
+					<section class="gallery-group" aria-labelledby="g-w31">
+						<h3 id="g-w31">Windows 3.1</h3>
+						<p>The Windows 3.1 editor doesn't run yet, so these come from a small test program that shows Quill's icon. They are here because getting an icon right on a 16-colour display is a real part of the job.</p>
+						<ul class="gallery">
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/w311-icon-16-colours.png" data-shot="w31"><img src="img/shots/w311-icon-16-colours.png" width="640" height="480" loading="lazy" alt="Windows for Workgroups 3.11 Program Manager with a window titled Quill icon showing the Q icon, and the same icon minimised on the desktop."></a>
+									<figcaption>Quill's 16-colour icon on Windows for Workgroups 3.11, in a window and minimised on the desktop. <span class="where">ICONTEST.EXE in DOSBox-X, VGA at 640 × 480</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/w311-icon-high-colour.png" data-shot="w31"><img src="img/shots/w311-icon-high-colour.png" width="800" height="600" loading="lazy" alt="Windows for Workgroups 3.11 at 800 by 600 showing Quill's 256-colour icon with smooth gradients."></a>
+									<figcaption>The 256-colour icon on a 64K-colour display, where Windows 3.11 draws its gradients. A 256-colour display only gives it the 20 system colours. <span class="where">ICONT256.EXE in DOSBox-X, S3 Trio at 800 × 600</span></figcaption>
+								</figure>
+							</li>
+						</ul>
+					</section>
+
+					<section class="gallery-group" aria-labelledby="g-w95">
+						<h3 id="g-w95">Windows 95 and Me</h3>
+						<ul class="gallery">
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/win95-letter.png" data-shot="w95"><img src="img/shots/win95-letter.png" width="640" height="480" loading="lazy" alt="Quill on Windows 95 with the test letter open: title in Arial, body in Times New Roman, a red word, raised and lowered text and a price list with dot leaders."></a>
+									<figcaption>The letter on Windows 95, in fonts from Windows itself. At 640 × 480 the window is wider than the screen, and the justified paragraph isn't spread to the margin yet. <span class="where">QUILL32.EXE on the Windows 95 test bed (OSR2.5 in DOSBox-X)</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/win95-spelling.png" data-shot="w95"><img src="img/shots/win95-spelling.png" width="640" height="480" loading="lazy" alt="The Spelling dialog on Windows 95 stopped at the word speling, suggesting spelling, spieling and spewing."></a>
+									<figcaption>Spelling on Windows 95 with the Canadian dictionary beside the program. It let “harbour” through and stopped at “speling”. <span class="where">QUILL32.EXE on the Windows 95 test bed</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/win95-file-menu.png" data-shot="w95"><img src="img/shots/win95-file-menu.png" width="640" height="480" loading="lazy" alt="Quill's File menu open on Windows 95: New, Open, Save, Save As, Print, Print Preview, Print Setup and Exit, with keyboard shortcuts."></a>
+									<figcaption>The File menu, opened with the mouse. <span class="where">QUILL32.EXE on the Windows 95 test bed</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/me-letter.png" data-shot="w95"><img src="img/shots/me-letter.png" width="866" height="660" loading="lazy" alt="Quill on Windows Me showing the letter on a white page in Times New Roman and Arial under a native menu bar."></a>
+									<figcaption>The same page on Windows Me, drawn with GDI fonts under the native menu bar. <span class="where">QUILL32.EXE on a Windows Me guest in VirtualBox</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/me-text-view.png" data-shot="w95"><img src="img/shots/me-text-view.png" width="646" height="326" loading="lazy" alt="A Windows Me window titled Quill showing the letter as a blue text-mode screen, identical to the DOS build."></a>
+									<figcaption>The Windows build can also draw the DOS text screen in a window, from the code DOS uses. On Windows Me all 35 screens of a test script matched the host's. <span class="where">QUILL32.EXE on a Windows Me guest in VirtualBox</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/wine-style-preset.png" data-shot="w95"><img src="img/shots/wine-style-preset.png" width="640" height="512" loading="lazy" alt="Two views of Quill: above, a paragraph in the Heading 2 style chosen from the style box; below, the same paragraph back to normal after Undo."></a>
+									<figcaption>The style box applies one of eight built-in paragraph presets. Above, Heading 2; below, the same paragraph after one Undo. <span class="where">QUILL32.EXE under Wine</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/wine-pictures.png" data-shot="w95"><img src="img/shots/wine-pictures.png" width="330" height="280" loading="lazy" alt="A Quill document with a colour gradient picture from a PNG, the same gradient from a BMP, and a plain grey box for a damaged PNG."></a>
+									<figcaption>Pictures in a document: a PNG, the same gradient as a BMP, and a damaged PNG that fails its checksum and shows as a grey box. <span class="where">QUILL32.EXE under Wine</span></figcaption>
+								</figure>
+							</li>
+						</ul>
+					</section>
+
+					<section class="gallery-group" aria-labelledby="g-dlg">
+						<h3 id="g-dlg">Windows 95 dialogs and toolbar</h3>
+						<p>Windows 95 draws all of these itself, from Quill's dialog resources and its own common dialogs, at 640 × 480 in 16 colours. The two toolbar rows and the ruler are behind each one.</p>
+						<ul class="gallery">
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/win95-dialog-about.png" data-shot="dlg"><img src="img/shots/win95-dialog-about.png" width="640" height="480" loading="lazy" alt="The About Quill dialog on Windows 95: icon, Version 0.1 (experimental), copyright, licence, platform and free memory."></a>
+									<figcaption>About Quill, with the version, licence, platform and free memory. <span class="where">QUILL32.EXE on the Windows 95 test bed</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/win95-dialog-find.png" data-shot="dlg"><img src="img/shots/win95-dialog-find.png" width="640" height="480" loading="lazy" alt="The Find dialog on Windows 95 with a Find what box, Match case and Whole word check boxes, and Find Next and Close buttons."></a>
+									<figcaption>Find, with Match case and Whole word. <span class="where">QUILL32.EXE on the Windows 95 test bed</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/win95-dialog-replace.png" data-shot="dlg"><img src="img/shots/win95-dialog-replace.png" width="640" height="480" loading="lazy" alt="The Replace dialog on Windows 95 with Find what and Replace with boxes and Find Next, Replace, Replace All and Close buttons."></a>
+									<figcaption>Replace adds a second field and two buttons to the same dialog. <span class="where">QUILL32.EXE on the Windows 95 test bed</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/win95-dialog-fonts.png" data-shot="dlg"><img src="img/shots/win95-dialog-fonts.png" width="640" height="480" loading="lazy" alt="The Fonts dialog on Windows 95 with Times New Roman chosen, size 12, and Bold, Italic, Underline and Strikeout check boxes."></a>
+									<figcaption>Fonts lists the TrueType faces installed on the machine. <span class="where">QUILL32.EXE on the Windows 95 test bed</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/win95-dialog-tabs.png" data-shot="dlg"><img src="img/shots/win95-dialog-tabs.png" width="640" height="480" loading="lazy" alt="The Tabs dialog on Windows 95 with a position box, Kind options Left, Centre, Right and Decimal, Leader options, and Set, Clear, Clear All and Close buttons."></a>
+									<figcaption>Tabs: position, kind and leader, spelled “Centre”. <span class="where">QUILL32.EXE on the Windows 95 test bed</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/win95-dialog-open.png" data-shot="dlg"><img src="img/shots/win95-dialog-open.png" width="640" height="480" loading="lazy" alt="The Windows 95 Open dialog over Quill, looking in drive D: with Files of type set to Quill Documents (*.qld)."></a>
+									<figcaption>Open uses the system's file dialog, filtered to Quill documents. <span class="where">QUILL32.EXE on the Windows 95 test bed</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/win95-dialog-insert-picture.png" data-shot="dlg"><img src="img/shots/win95-dialog-insert-picture.png" width="640" height="480" loading="lazy" alt="The Insert Picture dialog on Windows 95 with Files of type set to Pictures (*.bmp;*.png)."></a>
+									<figcaption>Insert Picture, filtered to BMP and PNG. <span class="where">QUILL32.EXE on the Windows 95 test bed</span></figcaption>
+								</figure>
+							</li>
+							<li>
+								<figure class="shot">
+									<a class="shot-button" href="img/shots/win95-dialog-confirm-save.png" data-shot="dlg"><img src="img/shots/win95-dialog-confirm-save.png" width="640" height="480" loading="lazy" alt="A Quill message box on Windows 95 asking whether to save the changes to (Untitled) before another document opens, with Yes, No and Cancel."></a>
+									<figcaption>The unsaved-changes question, as a standard message box. <span class="where">QUILL32.EXE on the Windows 95 test bed</span></figcaption>
+								</figure>
+							</li>
+						</ul>
+					</section>
+				</div>
+			</section>
+
+			<section class="section" id="features" aria-labelledby="features-title">
+				<div class="wrap">
+					<p class="eyebrow">Features</p>
+					<h2 id="features-title">What works today</h2>
+					<p class="section-intro">This list stops at what has been built and checked. Each card names the builds it was checked on, and says so where the only check ran under Wine. None of it runs on Windows 3.1 yet.</p>
+					<ul class="feature-grid">
+						<li>
+							<h3>Character formats</h3>
+							<p>Fonts and sizes, bold, italic, underline, strikethrough, superscript, subscript and text colour. DOS shows them as screen colours; Windows draws the real fonts.</p>
+							<p class="where"><span class="pill pill--ok">DOS</span> <span class="pill pill--ok">Windows 9x</span></p>
+						</li>
+						<li>
+							<h3>Paragraphs</h3>
+							<p>Left, centred, right and justified alignment, indents and line spacing. On Windows, justified lines aren't spread to the margin yet, and a style box offers eight built-in presets.</p>
+							<p class="where"><span class="pill pill--ok">DOS</span> <span class="pill pill--part">Windows 9x, no justification</span></p>
+						</li>
+						<li>
+							<h3>Tab stops</h3>
+							<p>Left, centre, right and decimal stops with dot, hyphen or underline leaders, from the Tabs dialog or, on Windows, a click on the ruler.</p>
+							<p class="where"><span class="pill pill--ok">DOS</span> <span class="pill pill--ok">Windows 9x</span></p>
+						</li>
+						<li>
+							<h3>Lists</h3>
+							<p>Bulleted and numbered lists, with levels you raise and lower from the Paragraph menu.</p>
+							<p class="where"><span class="pill pill--ok">DOS</span> <span class="pill pill--ok">Windows 9x</span></p>
+						</li>
+						<li>
+							<h3>Headers and footers</h3>
+							<p>With page number, page count, date and file name fields, shown in print and, on Windows, in Print Preview.</p>
+							<p class="where"><span class="pill pill--ok">DOS</span> <span class="pill pill--part">Windows 9x, Wine only</span></p>
+						</li>
+						<li>
+							<h3>Find and replace</h3>
+							<p>Match case and whole word, with Replace All. Windows uses real dialogs; DOS draws its own in text.</p>
+							<p class="where"><span class="pill pill--ok">DOS</span> <span class="pill pill--ok">Windows 9x</span></p>
+						</li>
+						<li>
+							<h3>Undo, redo and overtype</h3>
+							<p>Multi-level undo and redo, for typing and formatting alike. The Insert key switches to overtype.</p>
+							<p class="where"><span class="pill pill--ok">DOS</span> <span class="pill pill--ok">Windows 9x</span></p>
+						</li>
+						<li>
+							<h3>Spelling</h3>
+							<p>F7 checks from the caret, with Ignore, Ignore All, Change, Change All and Add. Canadian English by default; American and British dictionaries are built too, chosen in <code>QUILL.INI</code> for now.</p>
+							<p class="where"><span class="pill pill--ok">DOS</span> <span class="pill pill--ok">Windows 9x</span></p>
+						</li>
+						<li>
+							<h3>Files</h3>
+							<p>Quill's own <code>.QLD</code>, RTF and plain text. The RTF is checked by opening it in LibreOffice and comparing the text and the count of each kind of formatting with the original.</p>
+							<p class="where"><span class="pill pill--ok">DOS</span> <span class="pill pill--ok">Windows 9x</span></p>
+						</li>
+						<li>
+							<h3>Pictures</h3>
+							<p>BMP and PNG pictures inside documents and RTF, drawn in the Windows page at their shown size. DOS keeps them and shows a placeholder box.</p>
+							<p class="where"><span class="pill pill--part">DOS, placeholder</span> <span class="pill pill--part">Windows 9x, Wine only</span></p>
+						</li>
+						<li>
+							<h3>Printing</h3>
+							<p>Windows prints through the system Print dialog and has Print Preview, checked under Wine by rendering its PostScript with Ghostscript. DOS prints plain text, headers and footers included, to a printer port or a file.</p>
+							<p class="where"><span class="pill pill--ok">DOS</span> <span class="pill pill--part">Windows 9x, Wine only</span></p>
+						</li>
+						<li>
+							<h3>Toolbar, ruler and status bar</h3>
+							<p>Two toolbar rows sized for a 640 × 480 screen, a ruler with draggable indent markers, and a status bar. Each one can be hidden, and Quill remembers which.</p>
+							<p class="where"><span class="pill pill--ok">Windows 9x</span></p>
+						</li>
+					</ul>
+
+					<section class="planned" aria-labelledby="planned-title">
+						<h3 id="planned-title">Planned, or in progress</h3>
+						<ul>
+							<li>The Windows 3.1 editor (in progress)</li>
+							<li>Help: Quill's own WinHelp compiler is in progress, and there is no help file yet</li>
+							<li>The mouse in the text and a scroll bar on Windows; the mouse on DOS</li>
+							<li>Spelling as you type, and an Options page to pick the dictionary</li>
+							<li>A DOS graphics mode with real fonts</li>
+							<li>Printing pictures</li>
+							<li>Dragging tab stops on the ruler, and toolbar tooltips</li>
+							<li>Release floppies, one per platform, each with an installer</li>
+							<li>JPEG pictures, if a small enough decoder fits</li>
+						</ul>
+					</section>
+				</div>
+			</section>
+
+			<section class="section section--band" id="platforms" aria-labelledby="platforms-title">
+				<div class="wrap">
+					<p class="eyebrow">Platforms and requirements</p>
+					<h2 id="platforms-title">What each build needs, and where it has run</h2>
+					<p class="section-intro">Every run so far has been in an emulator, under Wine or in a virtual machine. Nothing has run on real hardware yet.</p>
+					<div class="table-scroll" role="region" aria-labelledby="platforms-caption" tabindex="0">
+						<table>
+							<caption id="platforms-caption">Quill's three builds</caption>
+							<thead>
+								<tr>
+									<th scope="col">Build</th>
+									<th scope="col">Needs</th>
+									<th scope="col">Has run on</th>
+									<th scope="col">Not yet</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<th scope="row">DOS<br><code>QUILLDOS.EXE</code></th>
+									<td data-label="Needs">MS-DOS 5 or later on a 486 or later, a VGA and 4 MB of memory. DPMI comes from CWSDPMI, which is built into the executable, so there's nothing else to install.</td>
+									<td data-label="Has run on">
+										<ul>
+											<li>DOSBox Staging, headless, where every test screen is compared with the host's</li>
+											<li>DOSBox-X, for screenshots</li>
+										</ul>
+									</td>
+									<td data-label="Not yet">Real hardware; the 4 MB memory run in DOSBox-X</td>
+								</tr>
+								<tr>
+									<th scope="row">Windows 95, 98 and Me<br><code>QUILL32.EXE</code></th>
+									<td data-label="Needs">Windows 95, 98 or Me on a Pentium or later. Quill uses no MMX or SSE, and a scan of the executable checks for them.</td>
+									<td data-label="Has run on">
+										<ul>
+											<li>Wine on Linux: the test scripts, every dialog and printing</li>
+											<li>The Windows 95 OSR2.5 test bed in DOSBox-X: dialogs, menus, the toolbar, the letter and spelling</li>
+											<li>A Windows Me guest in VirtualBox: the text view's test script, the GDI page and its font widths</li>
+										</ul>
+									</td>
+									<td data-label="Not yet">Windows 98; printing on Windows Me; real hardware</td>
+								</tr>
+								<tr>
+									<th scope="row">Windows 3.1<br><code>QUILL.EXE</code></th>
+									<td data-label="Needs">Windows 3.1 or 3.11 in 386 Enhanced mode, on a 386 or later. 4 MB is the design target.</td>
+									<td data-label="Has run on">
+										<ul>
+											<li>Windows for Workgroups 3.11 in DOSBox-X: register probes, a three-segment test program, the icon test and the editor up to its fault</li>
+										</ul>
+									</td>
+									<td data-label="Not yet">A working editor; Wine, whose 16-bit support wasn't installed; real hardware</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+					<p class="footnote">Windows 95 on a 486 is meant to use the Windows 3.1 build once it works, because the Windows 95 build needs a Pentium. Neither Windows build needs Win32s or any other add-on.</p>
+				</div>
+			</section>
+
+			<section class="section" id="built" aria-labelledby="built-title">
+				<div class="wrap">
+					<p class="eyebrow">For the curious</p>
+					<h2 id="built-title">How it's built</h2>
+					<p>The portable crates are <code>no_std</code> Rust with no allocator, no floating point and no panics. Document-sized data lives in a <code>Store</code> of chunks no bigger than 32 KB, which is what lets the same code run with 16-bit Windows' 64 KB segments and with DOS's flat memory.</p>
+					<p>Tests run on the host first. Property tests drive the piece table and its undo against a plain <code>String</code> model, with chunks small enough that edits keep crossing their edges. Golden screens hold the DOS build to the host: it runs in headless DOSBox, writes out every screen it shows, and each character and colour must match the host's run of the same keys. The same key scripts play into the Windows build under Wine.</p>
+					<p>There's no C compiler anywhere. The DOS program is a Rust ELF file rewrapped as a go32 executable behind CWSDPMI's stub, on a foundation copied from <a href="https://github.com/liminal-hq/desk">Desk</a>. The Windows 95 build links with <code>rust-lld</code> for a Pentium, and its imports are checked against an allowlist of ANSI functions. The Windows 3.1 build uses the <code>code16</code> target and the NE packer from <a href="https://github.com/liminal-hq-labs/rust-win16">rust-win16</a>. Quill taught that packer to spread code over several 64 KB segments, and that change is on its way back to rust-win16.</p>
+					<p>Release disks will carry their files in a compressed pack. Quill has a provisional format of its own for that, and the plan is to switch to the Liminal Pack format the Liminal Installer is building, so one reader serves both.</p>
+
+					<h3 id="build">Build it yourself</h3>
+					<p>There are no releases yet. Until the floppies exist, you can build both working programs from the repository. These are the commands, as run on Linux with <code>rustup</code> (the repository pins the Rust version) and Python 3:</p>
+<pre tabindex="0"><code>git clone https://github.com/liminal-hq-labs/quill.git
+cd quill
+cargo test --workspace          # the portable core, on the host
+bash win9x/build.sh             # win9x/dist/QUILL32.EXE
+bash dos/tools/fetch-tools.sh   # CWSDPMI and DOSBox Staging, checked by SHA-256
+bash dos/build.sh               # dos/dist/QUILLDOS.EXE</code></pre>
+					<p>Copy <code>QUILL32.EXE</code> to a Windows 95, 98 or Me machine, or run it under Wine. <code>QUILLDOS.EXE</code> runs in DOSBox or DOSBox-X. For spelling, put <code>EN_CA.DIC</code> beside the program; <code>cargo run -p quill-dict -- OUTDIR</code> builds it.</p>
+				</div>
+			</section>
+
+			<section class="section section--band" id="faq" aria-labelledby="faq-title">
+				<div class="wrap">
+					<p class="eyebrow">Questions</p>
+					<h2 id="faq-title">Plain answers</h2>
+					<div class="faq">
+						<details>
+							<summary>Why a word processor for old machines?</summary>
+							<div>
+								<p>A word processor needs a bit of everything those machines offer: the keyboard, the screen, fonts, files, the printer and not much memory. If one Rust core can handle all of that on DOS, Windows 3.1 and Windows 95, the approach should carry other programs too.</p>
+								<p>It's also the worked example for the <cite>Cross-compiling to the past</cite> series, which explains the toolchains Quill is built with.</p>
+							</div>
+						</details>
+						<details>
+							<summary>Is it finished?</summary>
+							<div>
+								<p>No. Quill is a <a href="https://github.com/liminal-hq-labs">Liminal HQ Labs</a> experiment, so file formats and behaviour can change between any two commits. The DOS and Windows 95 builds edit, save, check spelling and print. The Windows 3.1 build doesn't run the editor yet, there's no help file, and there's no release.</p>
+							</div>
+						</details>
+						<details>
+							<summary>Which file formats does it read and write?</summary>
+							<div>
+								<p>Quill's own <code>.QLD</code>, RTF and plain text. The DOS and Windows 95 builds write the same bytes as the host does for the same document, and the tests compare them. Pictures in RTF are kept as PNG or BMP, and LibreOffice shows them in both the original file and Quill's rewrite of it.</p>
+								<p>There's no <code>.DOC</code> support, and Windows Write's <code>.WRI</code> is on the list for later.</p>
+							</div>
+						</details>
+						<details>
+							<summary>Does it need any Microsoft files?</summary>
+							<div>
+								<p>No. Quill ships no Microsoft files and needs nothing beyond the Windows you run it on. The DOS build carries CWSDPMI, a free DPMI host, inside its executable. The spelling dictionaries are built from the SCOWL word lists, and their notice travels in each dictionary file.</p>
+								<p>The Windows 3.11, 95 and Me installations used for testing stay on the author's machines and are never published.</p>
+							</div>
+						</details>
+						<details>
+							<summary>Can I help?</summary>
+							<div>
+								<p>Yes. Issues and pull requests are welcome on <a href="https://github.com/liminal-hq-labs/quill">GitHub</a>. The house rules are in <code>AGENTS.md</code>, and running Quill on a real 486 or Pentium would answer a question nobody has answered yet.</p>
+							</div>
+						</details>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<footer class="site-footer">
+			<div class="wrap">
+				<a class="brand" href="./">
+					<img src="img/quill-small.svg" alt="" width="28" height="28">
+					<span>Quill</span>
+				</a>
+				<div>
+					<ul aria-label="Project links">
+						<li><a href="https://github.com/liminal-hq-labs/quill">Repository</a></li>
+						<li><a href="https://github.com/liminal-hq-labs">Liminal HQ Labs</a></li>
+						<li><a href="https://github.com/liminal-hq-labs/quill/blob/main/LICENSE-APACHE">Apache-2.0</a></li>
+						<li><a href="https://github.com/liminal-hq-labs/quill/blob/main/LICENSE-MIT">MIT</a></li>
+					</ul>
+					<p>Quill is a Liminal HQ Labs experiment, licensed under Apache-2.0 OR MIT, at your option.</p>
+					<p>© 2026 Liminal HQ, Scott Morris. Windows and MS-DOS are trademarks of Microsoft; Quill is not affiliated with Microsoft.</p>
+				</div>
+			</div>
+		</footer>
+
+		<dialog class="lightbox" data-lightbox aria-label="Screenshot">
+			<div class="lightbox-inner">
+				<div class="lightbox-bar">
+					<span class="lightbox-count" data-lightbox-count aria-live="polite"></span>
+					<button type="button" data-lightbox-prev aria-label="Previous screenshot">‹ Previous</button>
+					<button type="button" data-lightbox-next aria-label="Next screenshot">Next ›</button>
+					<button type="button" data-lightbox-close>Close</button>
+				</div>
+				<figure>
+					<img data-lightbox-img src="img/quill-small.svg" alt="">
+					<figcaption data-lightbox-caption></figcaption>
+				</figure>
+			</div>
+		</dialog>
+	</body>
+</html>
