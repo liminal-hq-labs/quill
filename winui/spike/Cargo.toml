@@ -1,0 +1,41 @@
+# The WinUI 3 spike workspace: a Windows Reactor window for x86_64 Windows 11, outside the root Cargo workspace.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[workspace]
+members = ["."]
+resolver = "2"
+
+[package]
+name = "quill-winui-spike"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "Spike S0a: can Windows Reactor show a pixel-exact page in a SwapChainPanel from a Linux-built self-contained zip"
+
+[[bin]]
+name = "quill-winui-spike"
+path = "src/main.rs"
+
+[dependencies]
+windows-reactor = "=0.100.0"
+# The same windows-core Reactor uses: its swap-chain call takes this crate's `IUnknown`.
+reactor-core = { package = "windows-core", version = "=0.100.0" }
+windows = { version = "0.62", features = [
+	"Win32_Foundation",
+	"Win32_Graphics_Direct3D",
+	"Win32_Graphics_Direct3D11",
+	"Win32_Graphics_Dxgi",
+	"Win32_Graphics_Dxgi_Common",
+	"Win32_System_Threading",
+] }
+skrifa = "0.50"
+tiny-skia = "0.12"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

@@ -1,0 +1,8 @@
+# Pins the toolchain the spike builds with (stable Rust 1.98.0, the same release as the host workspace).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[toolchain]
+channel = "1.98.0"
+components = ["rustfmt", "clippy", "rust-src"]
