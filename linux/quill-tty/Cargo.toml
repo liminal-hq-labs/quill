@@ -1,0 +1,21 @@
+[package]
+name = "quill-tty"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Quill in a terminal: the DOS text screen on crossterm, over the same editor core"
+
+[[bin]]
+name = "quill-tty"
+path = "src/main.rs"
+
+[dependencies]
+quill-app = { path = "../../crates/quill-app" }
+quill-grid = { path = "../../crates/quill-grid" }
+quill-formats = { path = "../../crates/quill-formats" }
+quill-host = { path = "../../crates/quill-host" }
+crossterm = "0.29"
+
+[dev-dependencies]
+tempfile = "3"
