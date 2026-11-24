@@ -434,6 +434,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-clip"
+version = "0.0.0"
+dependencies = [
+ "proptest",
+ "quill-core",
+ "quill-formats",
+ "quill-heap",
+ "quill-image",
+]
+
+[[package]]
 name = "quill-core"
 version = "0.0.0"
 dependencies = [
