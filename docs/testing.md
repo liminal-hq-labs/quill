@@ -60,6 +60,7 @@ A script is lines of words; `#` starts a comment, a word may be `"quoted"` (with
 | `fonts "Face" HALF-POINTS [bold] [italic] [underline] [strike]` | Fonts OK |
 | `print "DEST"` | Print OK |
 | `close` | Closes Find, Tabs or About |
+| `rm NAME` | Removes a file from the disk, as another program might |
 | `dump` | Writes the state into the transcript |
 
 What `expect` checks, by kind: `ask "text" [default Yes] [buttons=YesNoCancel]`; `file SaveAs|Open|Picture [folder="..."] [name="..."] [type=N]`; `dialog Find|Replace|Tabs|Fonts|About|Print`; `spell "word" [with="..."]`; and `notice "text" [Info|Warn|Status]`. Anything not named is not checked, but it is in the transcript. A question or dialog may be answered without an `expect`; a notice may not, and a script that leaves one unexpected fails with its line number. Keys and commands are refused while a dialog is open. `Status` is a line for the status bar, not a box.
