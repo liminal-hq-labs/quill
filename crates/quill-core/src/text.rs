@@ -250,6 +250,7 @@ pub struct Text<const PC: usize, const BC: usize, const UC: usize> {
 	group: Option<u8>,
 	group_begun: bool,
 	cursor: Cell<(u32, u32)>,
+	rev: u32,
 }
 
 impl<const PC: usize, const BC: usize, const UC: usize> Default for Text<PC, BC, UC> {
@@ -276,7 +277,18 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			group: None,
 			group_begun: false,
 			cursor: Cell::new((0, 0)),
+			rev: 0,
 		}
+	}
+
+	/// The story's revision: a number that changes (wrapping, by one) whenever the text, a format run or the objects in it change,
+	/// and never otherwise. Undo history, groups and reads do not touch it. Two equal revisions of one story mean equal content.
+	pub const fn revision(&self) -> u32 {
+		self.rev
+	}
+
+	const fn touch(&mut self) {
+		self.rev = self.rev.wrapping_add(1);
 	}
 
 	/// Characters in the story.
@@ -340,6 +352,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			return Err(Error::TooLarge);
 		}
 		self.pieces.reserve(s, 1)?;
+		self.touch();
 		let start = self.orig.append(s, bytes)?;
 		let at = self.pieces.len();
 		self.pieces.push(
@@ -372,6 +385,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			return Err(Error::TooLarge);
 		}
 		self.pieces.reserve(s, 1)?;
+		self.touch();
 		self.pieces.push(
 			s,
 			Piece {
@@ -395,6 +409,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		index: u32,
 	) -> Result<()> {
 		self.pieces.reserve(s, 3)?;
+		self.touch();
 		let ia = self.split_at(s, pos)?;
 		self.split_at(s, pos + 1)?;
 		let p = self.piece(s, ia).ok_or(Error::Range)?;
@@ -422,6 +437,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 
 	/// Frees everything, including the history.
 	pub fn clear<S: Store + ?Sized>(&mut self, s: &mut S) {
+		self.touch();
 		self.pieces.clear(s);
 		self.orig.clear(s);
 		self.add.clear(s);
@@ -720,6 +736,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		self.pieces.reserve(s, 3)?;
 		self.reserve_log(s, Log::Undo, 3)?;
 		let start = self.add.append(s, bytes)?;
+		self.touch();
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		let (ia, _) = self.remove_range(s, pos, 0, Log::Undo)?;
@@ -772,6 +789,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		}
 		self.pieces.reserve(s, 3)?;
 		self.reserve_log(s, Log::Undo, 3)?;
+		self.touch();
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		let (ia, _) = self.remove_range(s, pos, 0, Log::Undo)?;
@@ -817,6 +835,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		let k = self.overlapping(s, pos, len);
 		self.pieces.reserve(s, 3)?;
 		self.reserve_log(s, Log::Undo, k + 3)?;
+		self.touch();
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		let (ia, n) = self.remove_range(s, pos, len, Log::Undo)?;
@@ -890,6 +909,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		let k = self.overlapping(s, pos, len);
 		self.pieces.reserve(s, 3)?;
 		self.reserve_log(s, Log::Undo, k + 3)?;
+		self.touch();
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		self.fmt_range(s, pos, len, Log::Undo, change)
@@ -1034,6 +1054,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			}
 			count
 		};
+		self.touch();
 		self.pieces
 			.reserve(s, n.saturating_mul(2).saturating_add(4))?;
 		self.reserve_log(s, to, n.saturating_add(8))?;

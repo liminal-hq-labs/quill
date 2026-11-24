@@ -568,6 +568,8 @@ pub struct Doc {
 	pub first_header: StoryText,
 	/// The first page's footer story.
 	pub first_footer: StoryText,
+	/// What the document's own changes (the page setup, the pictures and a reset) add to [`Doc::revision`].
+	rev: u32,
 }
 
 impl Default for Doc {
@@ -594,7 +596,32 @@ impl Doc {
 			footer: Text::new(),
 			first_header: Text::new(),
 			first_footer: Text::new(),
+			rev: 0,
 		}
+	}
+
+	/// The document's revision: a number that changes whenever anything layout reads changes (the text and format runs of any story,
+	/// the page setup, the pictures, a reset, a load, undo and redo) and never for a read. It is the wrapping sum of a counter in each
+	/// story and one for the document itself, so it moves by one for each change and equal values mean equal content. The interned
+	/// tables (fonts, colours, formats) are append-only and change nothing until a story's run names a new entry, which moves the
+	/// story's counter, so they are not counted. Anything that changes `page` must go through [`Doc::set_page`].
+	pub fn revision(&self) -> u32 {
+		self.rev
+			.wrapping_add(self.body.revision())
+			.wrapping_add(self.header.revision())
+			.wrapping_add(self.footer.revision())
+			.wrapping_add(self.first_header.revision())
+			.wrapping_add(self.first_footer.revision())
+	}
+
+	fn touch(&mut self) {
+		self.rev = self.rev.wrapping_add(1);
+	}
+
+	/// Replaces the page setup and counts it in [`Doc::revision`].
+	pub fn set_page(&mut self, page: PageSetup) {
+		self.touch();
+		self.page = page;
 	}
 
 	/// Resets to an empty document: Times New Roman 12 point, the default paragraph format and one empty paragraph.
@@ -631,6 +658,7 @@ impl Doc {
 			return Err(Error::TooLarge);
 		}
 		self.pictures.reserve(s, 1)?;
+		self.touch();
 		let offset = self.pic_data.len();
 		let mut buf = [0u8; 512];
 		let mut len = 0u32;
@@ -694,6 +722,7 @@ impl Doc {
 
 	/// Frees everything.
 	pub fn reset<S: Store + ?Sized>(&mut self, s: &mut S) {
+		self.touch();
 		self.page = PageSetup::LETTER;
 		self.fonts.clear(s);
 		self.colours.clear(s);
