@@ -582,7 +582,12 @@ impl<M: Measure + Clone> App<M> {
 	fn set_name(&mut self, n: &[u8]) {
 		self.name_len = n.len().min(NAME_MAX);
 		for (d, s) in self.name.iter_mut().zip(n.iter()) {
-			*d = s.to_ascii_uppercase();
+			// DOS and Windows 3.1 keep names in capitals; a build with long names keeps what the file system returned, case and all.
+			*d = if cfg!(feature = "long-names") {
+				*s
+			} else {
+				s.to_ascii_uppercase()
+			};
 		}
 	}
 
@@ -842,11 +847,15 @@ impl<M: Measure + Clone> App<M> {
 		let name = name.get(..self.name_len).unwrap_or(&[]);
 		let mut w = f.create(name).ok_or(FormatError::Write)?;
 		let ext = name.len().checked_sub(4).and_then(|i| name.get(i..));
-		let kind = match ext {
-			Some(b".QLD") => 0,
-			Some(b".RTF") => 1,
-			Some(b".TXT") => 2,
-			_ => self.fmt,
+		let is = |e: &[u8]| ext.is_some_and(|x| x.eq_ignore_ascii_case(e));
+		let kind = if is(b".QLD") {
+			0
+		} else if is(b".RTF") {
+			1
+		} else if is(b".TXT") {
+			2
+		} else {
+			self.fmt
 		};
 		match kind {
 			1 => rtf::write(&self.doc, s, &mut w)?,

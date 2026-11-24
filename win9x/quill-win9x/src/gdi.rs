@@ -354,6 +354,9 @@ struct LineCtx<'a> {
 	/// The page the line is on, and the number of pages when fields should show their values.
 	page: u32,
 	fields: Option<u32>,
+	/// Draw each character at its own layout position (a zoomed screen), so no rounding of the font's widths or of the layout's
+	/// advances builds up along the line.
+	per_char: bool,
 }
 
 /// How pictures reach the device: from a cache of renderings (the screen) or in bands (the printer).
@@ -393,11 +396,15 @@ unsafe fn draw_line(
 	}
 	// Runs of one format and selection state, split at tabs and objects.
 	let mut run = [0u8; 200];
+	// The layout's advance of each character of the run, which the drawing follows: a zoomed font is hinted to whole pixels and its own
+	// widths drift from the layout's, and each advance given to the system is rounded alone, so a run drawn in one call ends away from
+	// where the caret and the clicks think.
+	let mut adv = [0i32; 200];
 	let mut n = 0usize;
 	let mut run_x = 0;
 	let mut run_cf = 0u16;
 	let mut run_sel = false;
-	let flush = |n: &mut usize, run: &[u8; 200], x: i32, cf: u16, selected: bool| {
+	let flush = |n: &mut usize, run: &[u8; 200], adv: &[i32; 200], x: i32, cf: u16, selected: bool| {
 		if *n == 0 {
 			return;
 		}
@@ -409,6 +416,32 @@ unsafe fn draw_line(
 			2 => l.ascent / 4,
 			_ => 0,
 		};
+		if cx.per_char {
+			let total: i32 = adv.iter().take(*n).sum();
+			if selected {
+				let r = Rect {
+					left: tx + x,
+					top: y_top,
+					right: tx + x + total,
+					bottom: y_top + l.ascent + l.descent,
+				};
+				let b = CreateSolidBrush(0x0080_0000);
+				FillRect(dc, &r, b);
+				DeleteObject(b);
+				SetTextColor(dc, 0x00FF_FFFF);
+			} else {
+				SetTextColor(dc, colour_of(app, s, &cfmt));
+			}
+			SetBkMode(dc, TRANSPARENT);
+			let mut at = 0;
+			for (ch, a) in run.iter().zip(adv.iter()).take(*n) {
+				TextOutA(dc, tx + x + at, base + shift, ch, 1);
+				at += *a;
+			}
+			SelectObject(dc, old);
+			*n = 0;
+			return;
+		}
 		if selected {
 			SetBkMode(dc, OPAQUE);
 			SetBkColor(dc, 0x0080_0000);
@@ -417,7 +450,16 @@ unsafe fn draw_line(
 			SetBkMode(dc, TRANSPARENT);
 			SetTextColor(dc, colour_of(app, s, &cfmt));
 		}
-		TextOutA(dc, tx + x, base + shift, run.as_ptr(), *n as i32);
+		ExtTextOutA(
+			dc,
+			tx + x,
+			base + shift,
+			0,
+			core::ptr::null(),
+			run.as_ptr(),
+			*n as u32,
+			adv.as_ptr(),
+		);
 		SelectObject(dc, old);
 		*n = 0;
 	};
@@ -429,7 +471,7 @@ unsafe fn draw_line(
 	quill_core::layout::walk_line(doc, s, &mut m, cx.kind, l, |p, c, x, w, leader, cf| {
 		let selected = sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
 		if c == 0x01 {
-			flush(&mut n, &run, run_x, run_cf, run_sel);
+			flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
 			if let Some((pw, ph)) = quill_core::layout::picture_size(doc, s, text, p, dpi, dpi) {
 				let idx = text.object_at(s, p).map_or(0, |v| v & 0xFFFF) as u16;
 				match pics {
@@ -472,7 +514,7 @@ unsafe fn draw_line(
 			}
 		}
 		if c == 0x09 || c == 0x01 {
-			flush(&mut n, &run, run_x, run_cf, run_sel);
+			flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
 			if c == 0x09 && w > 0 {
 				let (fr, _, cfmt) = font_ref(doc, s, cf);
 				let old = SelectObject(dc, fhandle(&fr, 0));
@@ -514,7 +556,7 @@ unsafe fn draw_line(
 			return;
 		}
 		if n > 0 && (cf != run_cf || selected != run_sel || n == run.len()) {
-			flush(&mut n, &run, run_x, run_cf, run_sel);
+			flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
 		}
 		if n == 0 {
 			run_x = x;
@@ -523,10 +565,13 @@ unsafe fn draw_line(
 		}
 		if let Some(slot) = run.get_mut(n) {
 			*slot = c;
+			if let Some(a) = adv.get_mut(n) {
+				*a = w;
+			}
 			n += 1;
 		}
 	});
-	flush(&mut n, &run, run_x, run_cf, run_sel);
+	flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
 }
 
 /// The number of sheets of paper the body takes on the screen.
@@ -569,7 +614,8 @@ unsafe fn map_pages(dc: Handle, pct: i32, x: i32, y: i32) {
 }
 
 /// Paints the page view into the client rectangle `area`, scrolled `hscroll` pixels sideways and `vpos` page units down, at `pct`
-/// percent. Returns how many lines a screenful holds and how many sheets the document takes.
+/// percent. `mdc` is a device context with no mapping set, which character widths are asked of: under the zoom's mapping a font's widths
+/// come back in scaled, hinted units and no longer agree with the layout. Returns how many lines a screenful holds and how many sheets the document takes.
 ///
 /// # Safety
 /// `dc` must be a valid device context.
@@ -581,6 +627,7 @@ pub unsafe fn paint_page(
 	pct: i32,
 	app: &App<GdiMeasure>,
 	s: &HeapStore,
+	mdc: Handle,
 	cache: &mut PicCache,
 ) -> (usize, u32) {
 	use crate::view::{dev, log, page_x0, paper, rel, stride};
@@ -636,9 +683,10 @@ pub unsafe fn paint_page(
 				kind: StoryKind::Body,
 				dpi: 96,
 				sel,
-				mdc: dc,
+				mdc,
 				page: l.page,
 				fields,
+				per_char: pct != 100,
 			},
 			&mut Pics::Cache(cache),
 			l,
@@ -675,6 +723,8 @@ struct PageLayout<'a> {
 	offy: i32,
 	/// A device context to ask for widths.
 	mdc: Handle,
+	/// Whether the sheet is drawn scaled, so characters are placed one at a time.
+	per_char: bool,
 }
 
 /// Draws page `p`: the header, the footer and the body lines of the page, with the paper's top left at (`ox`, `oy`) in the units of `dc`.
@@ -739,6 +789,7 @@ unsafe fn draw_page(
 				mdc: pl.mdc,
 				page: p,
 				fields: Some(pages),
+				per_char: pl.per_char,
 			};
 			let label = line_label(app, s, l, &mut c, dpi);
 			draw_line(dc, &cx, &mut Pics::Banded(cache), l, label, tx, oy + top + l.y - pl.offy);
@@ -758,6 +809,7 @@ unsafe fn draw_page(
 			mdc: pl.mdc,
 			page: p,
 			fields: Some(pages),
+			per_char: pl.per_char,
 		};
 		draw_line(
 			dc,
@@ -865,6 +917,7 @@ pub unsafe fn paint_preview(
 		offx: 0,
 		offy: 0,
 		mdc,
+		per_char: pct != 100,
 	};
 	for k in 0..n {
 		let p = first + k as u32;
@@ -948,6 +1001,7 @@ pub unsafe fn print_document(
 		offx,
 		offy,
 		mdc: pdc,
+		per_char: false,
 	};
 	for p in from.max(1)..=to.min(pages) {
 		StartPage(pdc);

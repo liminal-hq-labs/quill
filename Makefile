@@ -16,6 +16,7 @@ clippy:
 
 test:
 	cargo nextest run --workspace --locked
+	cargo nextest run -p quill-host --features long-names --test names --locked
 
 headers:
 	bash scripts/check-headers.sh
