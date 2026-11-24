@@ -1,0 +1,20 @@
+# G6: the graphics shell. Open the letter, italicise, embolden and underline a selection through the Character menu, type two
+# lines (Backspace and Delete among them), move about, save and exit. Played into QUILLDOS.EXE with /G16 and with /G, and on the host
+# through quill-paint's shell, which gives the CRC-32 of every frame. F8 starts extending the selection (AUTOTYPE cannot hold Shift).
+@copy letter.rtf
+@open LETTER.RTF
+f8 right right right right right    # select "Quill" in the title
+f10 right right right right down down enter     # Character > Italic
+esc
+down down down                      # into the paragraph of mixed formats
+home f8 right right right right right right right
+f10 right right right right down enter          # Character > Bold
+f10 right right right right down down down enter  # Character > Underline
+esc
+home
+g r a p h i c s space m o d e x bspace enter    # typed with a slip, mended
+d r a w n space b y space q u i l l period
+left left left delete
+up end
+f10 down down enter                 # File > Save
+f10 down down down down down down down enter       # File > Exit
