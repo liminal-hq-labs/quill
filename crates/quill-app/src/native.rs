@@ -89,19 +89,27 @@ impl<M: Measure + Clone> App<M> {
 			Command::Picture => Dialog::Picture,
 			Command::Print => Dialog::Print,
 			Command::Find => Dialog::Find(false),
+			// Find Next before any search has no text to look for: it asks for the Find dialog, as Find does.
+			Command::FindNext if self.last_find.is_none() => Dialog::Find(false),
 			Command::Replace => Dialog::Find(true),
 			Command::Spelling => Dialog::Spelling,
 			_ => return None,
 		})
 	}
 
-	/// Says the document has no unsaved changes (the user chose not to save them).
+	/// Says the document has no unsaved changes (the user chose not to save them). When `run_confirmed` follows, the changes
+	/// count as unsaved until that command completes, so cancelling its dialog loses nothing.
 	pub fn discard_changes(&mut self) {
+		self.discarded = self.modified;
 		self.modified = false;
 	}
 
-	/// Runs `c` as though the confirmation had been answered, after the shell has saved or discarded.
+	/// Runs `c` as though the confirmation had been answered, after the shell has saved or discarded. A discard takes effect
+	/// only when `c` completes (a new document, a file opened, Exit): until then the document stays modified.
 	pub fn run_confirmed<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, c: Command) {
+		if core::mem::take(&mut self.discarded) {
+			self.modified = true;
+		}
 		self.pending = Some(c);
 		self.command(s, f, c);
 		self.pending = None;
@@ -181,12 +189,10 @@ impl<M: Measure + Clone> App<M> {
 		let found = match action {
 			FindAction::Next => self.find_next(s, &st),
 			FindAction::Replace => {
-				if self.selection().is_none() {
-					self.find_next(s, &st)
-				} else {
+				if self.selection_matches(s, &st) {
 					self.replace_here(s, &st);
-					self.find_next(s, &st)
 				}
+				self.find_next(s, &st)
 			}
 			FindAction::ReplaceAll => {
 				self.replace_all(s, &st);

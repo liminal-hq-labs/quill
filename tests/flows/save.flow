@@ -1,0 +1,16 @@
+# Save: a document with no name asks for one; with a name it saves in the format its extension names, with no dialog.
+cmd Save
+expect file SaveAs name="" type=0
+cancel
+dump
+type "Dear Sir"
+cmd Save
+expect file SaveAs
+choose "C:\\LETTERS\\DEAR.RTF"
+dump
+type " or Madam"
+cmd Save
+dump
+# A save that worked clears the modified flag, so New does not ask.
+cmd New
+dump

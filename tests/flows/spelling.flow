@@ -1,0 +1,25 @@
+# Spelling with a dictionary: Change with an empty field does nothing; Ignore and Change move on; the end is a box.
+@copy en_ca.dic
+type "The quikc fox jumpd over the lazy dgo"
+key ctrlhome
+cmd Spelling
+expect spell "quikc" with="quick"
+spell change ""
+spell change "quick"
+expect spell "jumpd"
+spell ignoreall
+expect spell "dgo"
+spell change "dog"
+expect notice "The spelling check is complete." Info
+dump
+# Nothing left to fix is the same box, and Cancel closes with no box.
+key ctrlhome
+cmd Spelling
+expect notice "The spelling check is complete." Info
+key ctrlend
+type " zzq"
+key ctrlhome
+cmd Spelling
+expect spell "zzq"
+cancel
+dump

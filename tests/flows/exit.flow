@@ -1,0 +1,14 @@
+# Exit asks "before Quill closes?" when there are unsaved changes; Cancel keeps the document, Yes saves it and quits.
+@copy plain.qld
+cmd Open
+expect file Open
+choose "PLAIN.QLD"
+type "x"
+cmd Exit
+expect ask "Save the changes to PLAIN.QLD before Quill closes?" default Yes
+cancel
+dump
+cmd Exit
+expect ask "Save the changes to PLAIN.QLD before Quill closes?" default Yes
+answer Yes
+dump

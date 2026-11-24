@@ -1,0 +1,32 @@
+> type "precious"
+> cmd New
+< ask "Save the changes to (Untitled) before a new document starts?" buttons="YesNoCancel" default="Yes"
+> answer Yes
+< file SaveAs folder="" name="" type="0"
+> cancel
+> dump
+= state
+text: "precious"
+caret: 8  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Exit
+< ask "Save the changes to (Untitled) before Quill closes?" buttons="YesNoCancel" default="Yes"
+> cancel
+= state
+text: "precious"
+caret: 8  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false

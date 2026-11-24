@@ -1,0 +1,11 @@
+# Print: OK prints the text to the destination; a destination that cannot be written says so on the status line.
+@locked LPT1
+type "page one"
+cmd Print
+expect dialog Print
+print "OUT.TXT"
+dump
+cmd Print
+print "LPT1"
+expect notice "Quill could not print." Status
+dump

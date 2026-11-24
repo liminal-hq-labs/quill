@@ -1,0 +1,77 @@
+> type "tabbed"
+> cmd Tabs
+< dialog Tabs
+> tabs set "abc"
+< notice Warn "Type a position in inches, such as 1.25."
+> tabs set "1.25" kind=1 leader=1
+> tabs set "0.50"
+> dump
+= state
+text: "tabbed"
+caret: 6  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: [720:0:0, 1800:1:1]
+quit: false
+> tabs clear "1.25"
+> dump
+= state
+text: "tabbed"
+caret: 6  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: [720:0:0]
+quit: false
+> tabs set "2.5" kind=2
+> tabs clearall
+> dump
+= state
+text: "tabbed"
+caret: 6  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> tabs set "1"
+> tabs set "2"
+> tabs set "3"
+> tabs set "4"
+> tabs set "5"
+> tabs set "6"
+> tabs set "7"
+> tabs set "8"
+> tabs set "9"
+> tabs set "10"
+> tabs set "11"
+> tabs set "12"
+> tabs set "13"
+> tabs set "14"
+> tabs set "15"
+> tabs set "16"
+> tabs set "17"
+< notice Status "A paragraph holds at most 16 tab stops."
+> close
+> dump
+= state
+text: "tabbed"
+caret: 6  selection: none
+name: ""
+modified: true
+status: "A paragraph holds at most 16 tab stops."
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: [1440:0:0, 2880:0:0, 4320:0:0, 5760:0:0, 7200:0:0, 8640:0:0, 10080:0:0, 11520:0:0, 12960:0:0, 14400:0:0, 15840:0:0, 17280:0:0, 18720:0:0, 20160:0:0, 21600:0:0, 23040:0:0]
+quit: false

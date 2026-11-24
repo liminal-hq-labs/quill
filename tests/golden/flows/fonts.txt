@@ -1,0 +1,47 @@
+> type "plain words"
+> key ctrlhome shift-right shift-right shift-right shift-right shift-right
+> cmd Fonts
+< dialog Fonts
+> fonts "Arial" 28 bold underline
+> dump
+= state
+text: "plain words"
+caret: 5  selection: 0..5
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Arial" size=28 flags=5
+tabs: []
+quit: false
+> cmd Fonts
+< dialog Fonts
+> fonts "Courier New" 20
+> dump
+= state
+text: "plain words"
+caret: 5  selection: 0..5
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Courier New" size=20 flags=0
+tabs: []
+quit: false
+> cmd Fonts
+< dialog Fonts
+> cancel
+> dump
+= state
+text: "plain words"
+caret: 5  selection: 0..5
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Courier New" size=20 flags=0
+tabs: []
+quit: false

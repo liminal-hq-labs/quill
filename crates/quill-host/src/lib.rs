@@ -5,6 +5,7 @@
 
 pub mod captured;
 pub mod docs;
+pub mod flow;
 pub mod png;
 pub mod render;
 pub mod script;

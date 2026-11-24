@@ -1,0 +1,23 @@
+# Open: the dialog starts in the last folder, remembers the folder of what was chosen, and a file that cannot be read says so.
+@copy plain.qld
+@file "C:\\DOCS\\NOTES.TXT" "plain words"
+cmd Open
+expect file Open folder="" name="" type=0
+choose "C:\\DOCS\\MISSING.QLD"
+expect notice "Quill cannot open that file." Status
+dump
+cmd Open
+expect file Open folder="C:\\DOCS\\"
+choose "C:\\DOCS\\NOTES.TXT"
+dump
+# With unsaved changes Open asks first, and the answer decides whether the dialog follows.
+type "!"
+cmd Open
+expect ask "Save the changes to C:\\DOCS\\NOTES.TXT before another document opens?" default Yes
+cancel
+cmd Open
+expect ask default Yes
+answer No
+expect file Open folder="C:\\DOCS\\"
+cancel
+dump

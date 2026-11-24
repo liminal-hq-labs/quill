@@ -27,7 +27,45 @@ Figure 1. From the cheapest tests at the bottom to the most real at the top.
 - **Pictures.** A corpus of BMPs (1, 4, 8, 24 bit, top-down and bottom-up, RLE refused cleanly) and PNGs (every colour type and bit depth, interlaced, filtered, with and without palettes and transparency); decoded and dithered rows are hashed and compared with goldens. A large-picture test checks the decoder's peak `Store` use against the budget.
 - **Spelling.** `quill-dict` output size and word count; every word in the source list is found and a list of near-misses is not; suggestion goldens for a set of misspellings; the time budget measured as nodes visited, so it is deterministic.
 - **Help compiler.** `hlpc` then `hlpdump` gives back the topic tree; byte goldens for small projects; `hlpdump` reads every `.HLP` file in the Windows 3.11 tree without error (local, since the files are not ours to commit).
+- **Flow scripts** (below) for the dialogs and what each answer does.
 - **Cross-platform agreement.** Self-test scripts (below) run on the host through `quill-app` and save files; the same scripts on each platform must produce byte-identical files.
+
+## Flow scripts
+
+A `.flow` script in `tests/flows/` says what a person does and what the editor must ask back, in terms every build shares, and its transcript in `tests/golden/flows/` records how the dialogs behave: which question, with which words and default button; which file dialog, starting in which folder with which name and type; which notice; and the document, file name, modified flag, recent files, last folder, saved files and status line at the end. `quill_app::flow` produces the questions and notices and applies the answers, so the script tests the flow, not any shell's painting.
+
+`NativeStub` (`quill-host/src/flow.rs`) plays a script as the Windows shells do: it takes each `take_dialog()` request, shows it as an event, and answers through the `flow` entry points. Another shell plays the same script by implementing the `Driver` trait (keys, commands, a reply to a dialog and a state) and must give the same transcript. A text-cell shell turns each reply into keys.
+
+A script is lines of words; `#` starts a comment, a word may be `"quoted"` (with `\"`, `\\`, `\n` and `\t`) and `key=value` gives a field. Directives come first:
+
+| Directive | Meaning |
+|---|---|
+| `@copy NAME` | A file of `tests/docs` is on the disk under that name, in capitals |
+| `@file NAME "text"` | A file with this text is on the disk |
+| `@locked NAME` | The name cannot be created (a read-only file) |
+| `@full NAME` | Writing the name cannot be finished (a full disk) |
+
+| Step | Meaning |
+|---|---|
+| `type "text"` | Types the characters (`\n` is Enter) |
+| `key TOKEN...` | Keys: the `.keys` names, `ctrl-a`, `ctrlhome`, `ctrlend`, `shift-left` and its kin |
+| `cmd NAME [N]` | A menu command: `New`, `Open`, `Save`, `SaveAs`, `Exit`, `Print`, `Find`, `FindNext`, `Replace`, `Spelling`, `Fonts`, `Tabs`, `About`, `Picture`, `Undo`, `Redo`, `Recent N` and others |
+| `expect KIND ...` | Checks the next question, dialog or notice the editor raised |
+| `answer Yes\|No\|Cancel` | Answers a question |
+| `choose "PATH"` | Presses OK in a file dialog |
+| `cancel` | Dismisses the dialog (Esc) |
+| `find next\|replace\|all "text" [with="x"] [case] [word]` | A button of Find or Replace; the dialog stays open |
+| `spell ignore\|ignoreall\|change "x"\|changeall "x"\|add` | A button of the spelling dialog |
+| `tabs set\|clear "1.25" [kind=N] [leader=N]`, `tabs clearall` | A button of Tabs; the dialog stays open |
+| `fonts "Face" HALF-POINTS [bold] [italic] [underline] [strike]` | Fonts OK |
+| `print "DEST"` | Print OK |
+| `close` | Closes Find, Tabs or About |
+| `rm NAME` | Removes a file from the disk, as another program might |
+| `dump` | Writes the state into the transcript |
+
+What `expect` checks, by kind: `ask "text" [default Yes] [buttons=YesNoCancel]`; `file SaveAs|Open|Picture [folder="..."] [name="..."] [type=N]`; `dialog Find|Replace|Tabs|Fonts|About|Print`; `spell "word" [with="..."]`; and `notice "text" [Info|Warn|Status]`. Anything not named is not checked, but it is in the transcript. A question or dialog may be answered without an `expect`; a notice may not, and a script that leaves one unexpected fails with its line number. Keys and commands are refused while a dialog is open. `Status` is a line for the status bar, not a box.
+
+`QUILL_UPDATE_GOLDEN=1 cargo nextest run -p quill-host --test flows` rewrites the transcripts; review the diff like code. `every_script_is_listed` fails when a script has no test.
 
 ## Fuzzing
 

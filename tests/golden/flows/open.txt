@@ -1,0 +1,52 @@
+> cmd Open
+< file Open folder="" name="" type="0"
+> choose "C:\\DOCS\\MISSING.QLD"
+< notice Status "Quill cannot open that file."
+> dump
+= state
+text: ""
+caret: 0  selection: none
+name: ""
+modified: false
+status: "Quill cannot open that file."
+recent: []
+folder: "C:\\DOCS\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Open
+< file Open folder="C:\\DOCS\\" name="" type="0"
+> choose "C:\\DOCS\\NOTES.TXT"
+> dump
+= state
+text: "plain words"
+caret: 0  selection: none
+name: "C:\\DOCS\\NOTES.TXT"
+modified: false
+status: ""
+recent: ["C:\\DOCS\\NOTES.TXT"]
+folder: "C:\\DOCS\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> type "!"
+> cmd Open
+< ask "Save the changes to C:\\DOCS\\NOTES.TXT before another document opens?" buttons="YesNoCancel" default="Yes"
+> cancel
+> cmd Open
+< ask "Save the changes to C:\\DOCS\\NOTES.TXT before another document opens?" buttons="YesNoCancel" default="Yes"
+> answer No
+< file Open folder="C:\\DOCS\\" name="" type="0"
+> cancel
+> dump
+= state
+text: "!plain words"
+caret: 1  selection: none
+name: "C:\\DOCS\\NOTES.TXT"
+modified: true
+status: ""
+recent: ["C:\\DOCS\\NOTES.TXT"]
+folder: "C:\\DOCS\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false

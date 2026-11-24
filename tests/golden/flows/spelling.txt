@@ -1,0 +1,44 @@
+> type "The quikc fox jumpd over the lazy dgo"
+> key ctrlhome
+> cmd Spelling
+< spell "quikc" with="quick"
+> spell change ""
+> spell change "quick"
+< spell "jumpd" with="jumped"
+> spell ignoreall
+< spell "dgo" with="dog"
+> spell change "dog"
+< notice Info "The spelling check is complete."
+> dump
+= state
+text: "The quick fox jumpd over the lazy dog"
+caret: 37  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> key ctrlhome
+> cmd Spelling
+< notice Info "The spelling check is complete."
+> key ctrlend
+> type " zzq"
+> key ctrlhome
+> cmd Spelling
+< spell "zzq" with=""
+> cancel
+> dump
+= state
+text: "The quick fox jumpd over the lazy dog zzq"
+caret: 41  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false

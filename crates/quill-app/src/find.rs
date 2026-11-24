@@ -182,6 +182,13 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	/// True when the selection is exactly a match for `st`, so Replace may replace it.
+	pub(crate) fn selection_matches<S: Store + ?Sized>(&self, s: &S, st: &FindState) -> bool {
+		self.selection().is_some_and(|(lo, hi)| {
+			hi - lo == st.flen as u32 && self.search(s, lo, hi, st) == Some(lo)
+		})
+	}
+
 	pub(crate) fn replace_here<S: Store + ?Sized>(&mut self, s: &mut S, st: &FindState) -> bool {
 		let Some((lo, hi)) = self.selection() else {
 			return false;
@@ -335,12 +342,10 @@ impl<M: Measure + Clone> App<M> {
 								self.find_next(s, &st);
 							}
 							1 => {
-								if self.selection().is_none() {
-									self.find_next(s, &st);
-								} else {
+								if self.selection_matches(s, &st) {
 									self.replace_here(s, &st);
-									self.find_next(s, &st);
 								}
+								self.find_next(s, &st);
 							}
 							_ => self.replace_all(s, &st),
 						}

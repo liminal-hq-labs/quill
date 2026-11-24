@@ -1,0 +1,63 @@
+> type "one two one"
+> key ctrlhome
+> cmd Replace
+< dialog Replace find="" with="" case="false" word="false"
+> find next "two"
+> find replace "one" with="1"
+> dump
+= state
+text: "one two one"
+caret: 11  selection: 8..11
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> find replace "one" with="1"
+> dump
+= state
+text: "one two 1"
+caret: 3  selection: 0..3
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> find all "two" with="2"
+< notice Info "Quill made 1 replacement."
+> find all "x" with="y"
+< notice Info "Quill made 0 replacements."
+> find all "1" with="uno"
+< notice Info "Quill made 1 replacement."
+> dump
+= state
+text: "one 2 uno"
+caret: 3  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> close
+> key ctrl-z
+> dump
+= state
+text: "one 2 1"
+caret: 3  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false

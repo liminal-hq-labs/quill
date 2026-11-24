@@ -1,0 +1,61 @@
+> cmd Save
+< file SaveAs folder="" name="" type="0"
+> cancel
+> dump
+= state
+text: ""
+caret: 0  selection: none
+name: ""
+modified: false
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> type "Dear Sir"
+> cmd Save
+< file SaveAs folder="" name="" type="0"
+> choose "C:\\LETTERS\\DEAR.RTF"
+> dump
+= state
+text: "Dear Sir"
+caret: 8  selection: none
+name: "C:\\LETTERS\\DEAR.RTF"
+modified: false
+status: ""
+recent: ["C:\\LETTERS\\DEAR.RTF"]
+folder: "C:\\LETTERS\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file C:\LETTERS\DEAR.RTF: 215 bytes "{\\rtf1\\ansi\\ansicpg1252\\deff0\n{\\fonttbl{\\f0\\froman Times New Roman;}}\n{\\colortbl;}\n\\paperw12240\\paperh15840\\margl1800\\margr1800\\margt1440\\margb1440\\headery720\\footery720\n\\pard\\ql \\plain\\f0\\fs24 Dear Sir\\par\n}\n"
+> type " or Madam"
+> cmd Save
+> dump
+= state
+text: "Dear Sir or Madam"
+caret: 17  selection: none
+name: "C:\\LETTERS\\DEAR.RTF"
+modified: false
+status: ""
+recent: ["C:\\LETTERS\\DEAR.RTF"]
+folder: "C:\\LETTERS\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file C:\LETTERS\DEAR.RTF: 224 bytes "{\\rtf1\\ansi\\ansicpg1252\\deff0\n{\\fonttbl{\\f0\\froman Times New Roman;}}\n{\\colortbl;}\n\\paperw12240\\paperh15840\\margl1800\\margr1800\\margt1440\\margb1440\\headery720\\footery720\n\\pard\\ql \\plain\\f0\\fs24 Dear Sir or Madam\\par\n}\n"
+> cmd New
+> dump
+= state
+text: ""
+caret: 0  selection: none
+name: ""
+modified: false
+status: ""
+recent: ["C:\\LETTERS\\DEAR.RTF"]
+folder: "C:\\LETTERS\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file C:\LETTERS\DEAR.RTF: 224 bytes "{\\rtf1\\ansi\\ansicpg1252\\deff0\n{\\fonttbl{\\f0\\froman Times New Roman;}}\n{\\colortbl;}\n\\paperw12240\\paperh15840\\margl1800\\margr1800\\margt1440\\margb1440\\headery720\\footery720\n\\pard\\ql \\plain\\f0\\fs24 Dear Sir or Madam\\par\n}\n"

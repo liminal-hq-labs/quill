@@ -1,0 +1,31 @@
+> cmd Picture
+< file Picture folder="" name="" type="0"
+> choose "C:\\PICS\\NOTE.TXT"
+< notice Status "Quill cannot use that picture."
+> dump
+= state
+text: ""
+caret: 0  selection: none
+name: ""
+modified: false
+status: "Quill cannot use that picture."
+recent: []
+folder: "C:\\PICS\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Picture
+< file Picture folder="C:\\PICS\\" name="" type="0"
+> choose "PIC.BMP"
+> dump
+= state
+text: ""
+caret: 1  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false

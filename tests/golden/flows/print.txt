@@ -1,0 +1,34 @@
+> type "page one"
+> cmd Print
+< dialog Print
+> print "OUT.TXT"
+> dump
+= state
+text: "page one"
+caret: 8  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file OUT.TXT: 36 bytes fnv1a=b5321e7733468d2d
+> cmd Print
+< dialog Print
+> print "LPT1"
+< notice Status "Quill could not print."
+> dump
+= state
+text: "page one"
+caret: 8  selection: none
+name: ""
+modified: true
+status: "Quill could not print."
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file OUT.TXT: 36 bytes fnv1a=b5321e7733468d2d

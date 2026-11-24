@@ -1,0 +1,33 @@
+> type "draft"
+> cmd Exit
+< ask "Save the changes to (Untitled) before Quill closes?" buttons="YesNoCancel" default="Yes"
+> answer Yes
+< file SaveAs folder="" name="" type="0"
+> cancel
+> dump
+= state
+text: "draft"
+caret: 5  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Exit
+< ask "Save the changes to (Untitled) before Quill closes?" buttons="YesNoCancel" default="Yes"
+> answer No
+> dump
+= state
+text: "draft"
+caret: 5  selection: none
+name: ""
+modified: false
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: true

@@ -262,9 +262,9 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 - A file is read by its content: a RIFF header with form type `QLD1` is native, `{\rtf` is RTF, anything else is plain text.
 - **Save** writes the format the document was opened in, or `.QLD` for a new one. Saving as text asks first: `Saving in text format will remove all formatting, pictures, headers and footers. Save anyway?`.
 - Saving writes a temporary file in the same directory, then replaces the original, so a failed save leaves the original untouched and says why: `Quill cannot save LETTER.QLD: the disk is full.`.
-- Closing, New, Open, opening a recent file and Exit ask `Save changes to LETTER.QLD?` with Yes, No and Cancel when there are unsaved changes.
+- Closing, New, Open, opening a recent file and Exit ask `Save the changes to LETTER.QLD before a new document starts?` (`before another document opens?` for Open and a recent file, `before Quill closes?` for Exit; `(Untitled)` for a document with no name) with Yes, No and Cancel, Yes the default, when there are unsaved changes. Yes saves first, asking for a name when there is none, and goes on only if the save worked; No goes on without saving, and the changes are dropped only when the command completes: if the Open dialog that follows is cancelled, the document is still modified and still asks on the next close; Cancel does nothing.
 - The recent-file list holds the last four files, most recent first, each once; Open and Save As add to it. On the Windows 95 build it shows in the File menu between Print Setup and Exit, set off by rules, as `1 D:\LETTER.QLD` with the digit as the mnemonic and a long path shortened in the middle (`D:\...\Letters\LETTER.QLD`). Choosing one asks about unsaved changes first. A missing file is removed from the list with the message `Quill cannot find D:\LETTER.QLD.` (D101).
-- **Save As** starts with the document's own file name, in the folder of the last file dialog and the type that matches its extension; a document with no name starts empty with the default extension `QLD`. Changing `Save as type` keeps the name and swaps only the extension (`LETTER.QLD` to `LETTER.RTF`) on the Windows 95 build, whose Explorer-style dialog reports the change to a hook (D101).
+- **Save As** starts with the document's own file name, in the folder of the last file dialog and the type that matches its extension; a document with no name starts empty with the default extension `QLD`. Changing `Save as type` keeps the name and swaps only the extension (`LETTER.QLD` to `LETTER.RTF`) on the Windows 95 build, whose Explorer-style dialog reports the change to a hook (D101). A save that fails leaves the document's name, format and recent list as they were.
 - A file Quill cannot read says why (`LETTER.RTF is not a document Quill can read.` or `...is too large for Quill.`) and leaves the current document open.
 - `QUILL.EXE LETTER.RTF` opens the file; `QUILL.EXE /P LETTER.RTF` prints it on the default printer and exits, as File Manager's Print command expects.
 
@@ -281,8 +281,8 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 ### Find and replace
 
 - **Find...** and **Replace...** open the common modeless find and replace dialogs with Match case and Match whole word only; Find has Up and Down. The dialog stays open while editing continues.
-- A search starts at the selection and wraps once, then says `Quill has finished searching the document.`; text not found says `Cannot find "<text>".`. Find searches the body text, or the header or footer when that view is open.
-- **Replace All** replaces every match as one undo step and says `Quill made N replacements.`. **Find Next** (F3) repeats the last search.
+- A search starts at the selection and wraps once, then says `Quill has finished searching the document.`; text not found says `Quill cannot find that text.` in a message box (F3 says `Cannot find "<text>".` on the status line). Find searches the body text, or the header or footer when that view is open.
+- **Replace** replaces the selection only when it is a match for the text in the box, then finds the next one. **Replace All** replaces every match as one undo step and says `Quill made N replacements.` in a message box. **Find Next** (F3) repeats the last search; before any search it opens the Find dialog.
 
 ### Printing and preview
 
