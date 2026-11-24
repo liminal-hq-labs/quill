@@ -11,5 +11,13 @@ license = "Apache-2.0 OR MIT"
 publish = false
 description = "Quill's dialog logic: 8.3 names, file types, Save As naming, widgets and the file dialog, with no drawing and no platform"
 
+[dependencies]
+quill-core = { path = "../quill-core" }
+
+[features]
+# `fake`: an in-memory file system tree (`fake::FakeFs`) for the shells' host tests; it uses `std`, so it is off by default.
+fake = []
+
 [dev-dependencies]
+quill-heap = { path = "../quill-heap" }
 proptest = { version = "1", default-features = false, features = ["std"] }

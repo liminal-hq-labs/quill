@@ -12,6 +12,8 @@
 //! - [`savename`]: the name and type Save As starts with, the extension swap when the type changes, and the default extension.
 //! - [`key`], [`widgets`] and [`focus`]: the keys a dialog understands, the state of its widgets (text field, list, drop-down, check
 //!   box, radio group) and the focus ring with mnemonics and the default button. None of them draws.
+//! - [`fs`] and [`filedlg`]: the file system the dialog needs (a trait the shells implement) and the file dialog itself: a state
+//!   machine that takes keys and answers with what to do next. Its lists live in `Store` chunks and are freed when it closes.
 //!
 //! The crate is `no_std`, allocates nothing, uses no floating point and cannot panic on any input.
 
@@ -23,13 +25,19 @@
 	clippy::indexing_slicing
 )]
 
+#[cfg(any(test, feature = "fake"))]
+pub mod fake;
+pub mod filedlg;
+#[cfg(test)]
+mod filedlg_tests;
 pub mod focus;
+pub mod fs;
 pub mod key;
 pub mod name83;
 pub mod savename;
 pub mod types;
 pub mod widgets;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "fake"))]
 #[macro_use]
 extern crate std;
