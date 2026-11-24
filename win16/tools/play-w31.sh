@@ -180,7 +180,7 @@ if [ "$NATIVE" = 1 ]; then CDIR="$RUN/c" DDIR="$RUN/d"; else CDIR=/c DDIR=/d; fi
 CONF="$RUN/play.conf"
 [ "$NATIVE" = 1 ] || CONF=/run/play.conf
 
-XARGS=(-e "DISPLAY=$DISPLAY" -e SDL_VIDEODRIVER=x11 -v /tmp/.X11-unix:/tmp/.X11-unix --hostname "$(uname -n)")
+XARGS=(-e "DISPLAY=$DISPLAY" -e SDL_VIDEODRIVER=x11 -e LIBGL_ALWAYS_SOFTWARE=1 -v /tmp/.X11-unix:/tmp/.X11-unix --hostname "$(uname -n)")
 XA="${XAUTHORITY:-$HOME/.Xauthority}"
 [ ! -f "$XA" ] || XARGS+=(-v "$XA:/tmp/.Xauthority:ro" -e XAUTHORITY=/tmp/.Xauthority)
 if [ "$XHOST" = 1 ]; then
