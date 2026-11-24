@@ -21,6 +21,7 @@ mod form;
 mod native;
 mod paint;
 pub mod picture;
+pub mod platform;
 mod pointer;
 mod print;
 pub mod recent;

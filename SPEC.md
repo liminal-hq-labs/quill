@@ -299,6 +299,8 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 
 **About Quill...** shows the icon, `Quill`, the version, `A Liminal HQ Labs experiment`, the licence, the mode (`386 Enhanced Mode`), free memory in KB and free system resources as a percentage, in the manner of Program Manager's About box.
 
+On Windows 95, 98 and Me the Win32 build names the system exactly and shows free memory in MB. The platform line names the system it runs on and how it was found (`Windows 98 SE (Win32, 4.10)`, `Windows 11 (Win32, 10.0.26100)`, `Windows 8 under Wine 11.21 (Win32)`): Windows 9x by version and build, Windows NT by version, with 10.0 from build 22000 called Windows 11, and Wine by `wine_get_version`. On Windows NT the version is read with `RtlGetVersion`, because `GetVersionEx` tells a program without a manifest that it runs on Windows 8 from Windows 8.1 on. The memory line is `Free memory: 40 MB of 64 MB`, in GB with one decimal from 4 GB total, read with `GlobalMemoryStatusEx` where the system has it.
+
 ### DOS text mode
 
 `QUILLDOS.EXE` starts in the VGA's 80 × 25 colour text mode (80 × 50 with `/50`), in the spirit of WordPerfect 5.1 and Word for DOS 5.5: white on blue, with the page's text in the middle of the screen.
