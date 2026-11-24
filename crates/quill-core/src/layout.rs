@@ -293,8 +293,8 @@ where
 	let (rx, ry) = m.resolution();
 	let text = doc.story(kind);
 	let total = text.len();
-	let text_w = to_units(doc.page.paper_w - doc.page.margin_l - doc.page.margin_r, rx);
-	let text_h = to_units(doc.page.paper_h - doc.page.margin_t - doc.page.margin_b, ry);
+	let text_w = to_units(doc.page.text_w(), rx);
+	let text_h = to_units(doc.page.text_h(), ry);
 	let mut cache = FontCache::new();
 	let mut page = 1u32;
 	let mut y = 0i32;

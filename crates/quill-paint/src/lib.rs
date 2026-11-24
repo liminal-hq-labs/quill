@@ -22,11 +22,13 @@
 #[cfg(feature = "pixel")]
 extern crate alloc;
 
+pub mod damage;
 pub mod page;
 pub mod palette;
 #[cfg(feature = "pixel")]
 pub mod pixel;
 pub mod raster;
+pub mod shell;
 
 use quill_core::layout::FontRef;
 

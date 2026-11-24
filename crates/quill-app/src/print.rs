@@ -100,7 +100,7 @@ impl<M: Measure + Clone> App<M> {
 		let rows = (to_units(page.paper_h, 6) as usize).min(MAX_ROWS);
 		let head_row = to_units(page.header_dist, 6) as usize;
 		let foot_row = rows.saturating_sub(to_units(page.footer_dist, 6) as usize + 1);
-		let text_w = to_units(page.paper_w - page.margin_l - page.margin_r, 10) as usize;
+		let text_w = to_units(page.text_w(), 10) as usize;
 		let mut pages = 0u32;
 		self.lines(s, |_, l| pages = pages.max(l.page));
 		let mut counters: crate::ListCounters = [[0; 9]; 4];

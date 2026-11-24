@@ -1,6 +1,6 @@
 # Quill in DOS graphics mode
 
-The design for a graphics mode beside text mode in `QUILLDOS.EXE`: video modes, fonts, the `QUILL.FNT` file, the `Surface` trait, the painter, input, tests and the order of work. The behaviour a user sees goes into [SPEC.md](../SPEC.md) when the first build lands; the decisions made here are numbered D130 to D144 below (D145 to D147 are in the [QUILL.FNT format page](dos-fnt-format.md) and D148 and D149 in the DOS hardware layer's pull request) and move into [decisions.md](decisions.md) when the open branches that also append to it have merged.
+The design for a graphics mode beside text mode in `QUILLDOS.EXE`: video modes, fonts, the `QUILL.FNT` file, the `Surface` trait, the painter, input, tests and the order of work. The behaviour a user sees goes into [SPEC.md](../SPEC.md) when the first build lands; the decisions made here are numbered D130 to D144 and DOS-3 to DOS-9 (the area prefix scheme; they were D201 to D207 before it) below (D145 to D147 are in the [QUILL.FNT format page](dos-fnt-format.md) and D148 and D149 in the DOS hardware layer's pull request) and move into [decisions.md](decisions.md) when the open branches that also append to it have merged.
 
 ## Table of contents
 
@@ -13,6 +13,7 @@ The design for a graphics mode beside text mode in `QUILLDOS.EXE`: video modes, 
 - [Input, preview and printing](#input-preview-and-printing)
 - [What the core needs and what goes in dos](#what-the-core-needs-and-what-goes-in-dos)
 - [Tests](#tests)
+- [The first slice: a page in graphics mode](#the-first-slice-a-page-in-graphics-mode)
 - [Work list](#work-list)
 - [Decisions](#decisions)
 - [Risks and what is not proven](#risks-and-what-is-not-proven)
@@ -26,7 +27,8 @@ The design for a graphics mode beside text mode in `QUILLDOS.EXE`: video modes, 
 | `Surface`, `Planar4`, `Linear8`, the page painter | `crates/quill-paint` | First wave (G3) |
 | Font generator, proof sheets, the Windows comparison | `crates/quill-fntgen` | First wave (G1), with the format page [dos-fnt-format.md](dos-fnt-format.md) |
 | Hardware layer copied from Desk | `dos/hal` | First wave (G4) |
-| The graphics shell, chrome, mouse, VBE | `dos/quill-gfx` | Waits for the open DOS branches |
+| The graphics shell: start-up, the page, ruler, menu bar and status line, the presenters for mode 12h and VBE | `crates/quill-paint` (`shell`, `damage`), `dos/quill-dos` (`gfx`, `measure`) | First slice built (G5, and the plain part of G6): see [the first slice](#the-first-slice-a-page-in-graphics-mode) |
+| Menu drawing, toolbar, scroll bars, dialogs, mouse, pictures, 800 × 600 | | Not started |
 
 What the code on `main` already gives this work:
 
@@ -171,6 +173,51 @@ DOS-specific work:
 - **Scenario frames:** the host player runs `tests/scenarios/*.keys` through `App` and the painter and writes per-frame sums, so DOS frames can be compared to them.
 - **DOSBox:** `QUILL_DUMP` in graphics writes `=== frame N crc32 … ===` per present, computed from video memory read back (planes through the read map select, or the linear frame buffer), as Desk did. `QUILL_SHOTS=D:\` writes `.RAW` and `.PAL` for chosen frames. Runs on `svga_s3`, `vesa_nolfb` and `vgaonly` check each fallback.
 
+## The first slice: a page in graphics mode
+
+`QUILLDOS.EXE /G16` (mode 12h) or `/G` (a VBE 640 × 480 mode with 256 colours if the card has one, else mode 12h) switches into graphics, draws the document page with the `QUILL.FNT` strikes and edits it from the keyboard. Text mode is still the default, and its golden screens did not change.
+
+![Mode 12h: the letter on a 640 by 480 screen](media/dos-gfx-12h-page.png)
+
+![Typing into the letter: two new lines of text, the caret and the status line](media/dos-gfx-typing.png)
+
+The screens are 1:1 captures of the DOSBox window in a private Xvfb (the typing one after `down end enter`, two typed lines, a slip mended with Backspace and a letter removed with Delete), with the strikes the generator wrote from the Quill Test faces. `media/dos-gfx-vbe-page.png` is the same page under `/G` on the `svga_s3` machine, where the VBE mode is chosen; with 256 colours the chrome and the black-on-white text use the same colours as the 16-colour palette, so it is pixel for pixel the same picture; the DOSBox run, which compares each frame's checksum with the 256-colour golden, is what shows the mode.
+
+### What works
+
+- **Start-up** (DOS-3): `/G`, `/GFX`, `/G16`, `/T` and `[Quill] Graphics=0|1|16`, read before the screen is touched. Text mode is the default. The mode is set first, the clean-up that restores the saved mode and unmaps the frame buffer is registered with the runtime's list before anything can fail, and a fatal error or a panic after the mode is set therefore leaves text mode. If there is no VGA, no `QUILL.FNT` (or `QUILL_FNT` names none), or the font fails its checks, Quill runs in text mode and prints one line on leaving saying why. The setting is kept in `QUILL.INI` when Quill saves its settings.
+- **The screen** (DOS-4): a 20-pixel menu bar of the nine titles, the 22-pixel ruler of `view.rs` (the scale, inch numbers, tab stops and the indent markers for the paragraph at the caret), the page area on its grey desk with the sheet, and a 20-pixel status line with the app's own status text. The sheet is scrolled sideways so that the 6.5-inch text column fits in 640 pixels. Everything but the page is plain Windows 3.1 chrome without the toolbar, to be polished later.
+- **The page** is `quill-paint`'s painter: each glyph at the `x` that `walk_chars` gives, bold, italic, underline, strikethrough, colours, raised and lowered text, tab leaders, lists, the selection and a two-pixel caret. Mixed faces and sizes come from the strikes (the proof is the letter in the screenshots, which has Times, Arial and Courier in several sizes).
+- **Editing** goes through the same `quill-app` core as text mode: typing, Backspace, Delete, Enter, the arrows, Home and End, selection with F8, and Save with its file written exactly as the host writes it. `App<ScreenMeasure>` holds the text grid's measure or the strikes' (DOS-9), so one executable carries one copy of the core.
+- **Presenting** (DOS-5): the whole page is redrawn into a shadow in the device's own format after each key, and only the rows that differ from the frame last presented are written to the card (a run of rows is one string move per plane in mode 12h, one move in VBE). In mode 12h video memory is written with whole bytes and read only by the dump.
+- **Checks.** The host test plays `tests/scenarios/g6-gfx.keys` (90 frames: a selection formatted through the Character menu, two typed lines, Backspace, Delete, a save) through the shell with the committed test font and writes the CRC-32 of every frame in both formats to `tests/golden/gfx/g6-gfx.16.sums` and `g6-gfx.256.sums`. `dos/tools/e2e.sh` plays the same keys into `QUILLDOS.EXE` under headless DOSBox and requires, for every one of the 90 frames, that the DOS shadow has the host's CRC-32 and that the CRC-32 of the video memory read back from the card (planes through the read map select, or the frame buffer) equals it, and that the saved `LETTER.RTF` is byte-identical to the host's. It does this for `/G16` on `svga_s3`, for `/G` on `svga_s3` (VBE 256 colours), and for `/G` on `vesa_nolfb` (VBE without a linear frame buffer, which falls back to mode 12h and equals the 16-colour sums). A fourth run checks that a missing `QUILL.FNT` gives text mode and the note.
+
+### What does not work yet
+
+- **Menus and dialogs are not drawn.** F10 and the menu keys still drive the app's menu, and the file, Save As, Find and other dialogs still open, but nothing shows them (G7 draws them); while one is open the status line says so and Esc closes it. The menu bar's titles are only titles.
+- **No toolbar, no scroll bars, no mouse** (G6 and G8). The ruler is a picture and cannot be dragged.
+- **Pictures** are painted by the painter's dithering code but were not exercised on DOS (G9). 800 × 600, graphics print preview and `/MONO` in graphics are not done.
+- **The caret does not blink** and is part of the shadow, because nothing in the loop waits on a timer yet.
+- **Speed** (below): every key redraws the whole page, and the laid-out document is rebuilt several times for each redraw. That is slow on anything but a fast machine; line damage and a layout cache belong to G10.
+- **VBE and the real world:** only DOSBox Staging's `svga_s3` and `vesa_nolfb` were run, and DOSBox-X for the timing. No real card, no other DPMI host and no 4 MB run.
+
+### Measured
+
+All measured on this slice, with the 730,135-byte `QUILL.FNT` the generator writes for the Quill Test faces (`quill-fntgen --set test`, 2 bits per pixel, hinted), the letter (`tests/docs/letter.rtf`, 15 lines, 518 characters), and 43 characters typed into it by `QUILL_KEYS` (`the quick brown fox jumps over the lazy dog`), so the numbers do not depend on how fast the emulator types. `QUILL_TIMES` reads timer channel 0 (put in rate-generator mode for the run, 1.193182 MHz), the BIOS tick and the counter together.
+
+| Where | CPU setting | Mode | Paint (median) | Present (median, 33 rows) | Per key |
+|---|---|---|---|---|---|
+| DOSBox Staging 0.83, normal core, `cputype = 486` | `cpu_cycles = 25000` | 12h | 560 ms | 14.5 ms | 575 ms |
+| the same | `cpu_cycles = 10000` | 12h | 1,401 ms | 36.3 ms | 1,438 ms |
+| the same | `cpu_cycles = 25000` | VBE 256 colours | 428 ms | 19.4 ms | 447 ms |
+| DOSBox-X in a container, normal core, `cputype = 486`, `svga_s3` | `cycles = fixed 25000` | 12h | 569 ms | 14.6 ms | 583 ms |
+
+- **What the cycle counts mean.** DOSBox runs a fixed number of instructions for each emulated millisecond, so the times are in emulated time and repeatable. They are not measurements of any real 486 (the usual rule of thumb is that 25,000 is a 486DX2 and 10,000 about a 386DX or a slow 486, which this page did not check). The first frame, which fills every row and loads the font pages, took 555 ms to paint and 4.4 ms to present at 25,000 cycles in mode 12h.
+- **Where a key's time goes.** One pass over the laid-out document is 27 ms at 25,000 cycles. The painter and the status line need several of them for every redraw (the page geometry, the sheet count, the lines and their characters, the caret, the status position), which accounts for roughly half of the paint; the rest is drawing about 500 glyphs. The first working version took 1,222 ms to paint at 25,000 cycles; filling spans with string moves, comparing rows by words, unpacking a glyph row once and remembering the last strike chosen halved it. About 14,500 µs of present is comparing the two frames and copying 33 changed rows of 80 bytes to four planes.
+- **Rows presented for one typed letter:** 29 to 33 for 42 of the 43 letters (the characters go into the centred title, so only its line changes), and 317 for the last one, where the title wrapped to a second line and pushed the page down.
+- **Memory.** The heap had taken 1,048,576 bytes from DPMI by the end of the 12h run and 1,409,024 with VBE (the shadow and the presented copy are 153,600 bytes each in mode 12h and 307,200 each in VBE); 17 pages of 4 KB of the font file, 68 KB, were in memory, because the cache holds only the pages that were read. These are the heap's own figures (`HEAP.total_bytes`), not the DPMI host's.
+- **Executable size.** `QUILLDOS.EXE` is 319,488 bytes, against 229,376 for `main` at `f204786` built the same way, so graphics costs 90,112 bytes; the unpacked budget is 360 KB.
+
 ## Work list
 
 | Item | Branch | Contents | Acceptance |
@@ -194,7 +241,7 @@ G5 and later wait for the open DOS and dialog branches, because they edit `dos/q
 
 ## Decisions
 
-Numbers D130 to D149 are reserved for this work, so they cannot collide with the other open branches: D130 to D144 are here, D145 to D147 are in [dos-fnt-format.md](dos-fnt-format.md), and D148 and D149 are in the DOS hardware layer's pull request. **Decided by the owner** means the owner asked for the graphics mode and took the recommended defaults or answered the question; **Assumed** means chosen without confirmation and standing until confirmed.
+Numbers D130 to D149 are reserved for this work, so they cannot collide with the other open branches: D130 to D144 are here and DOS-3 to DOS-9 (the first slice's) follow, D145 to D147 are in [dos-fnt-format.md](dos-fnt-format.md), and D148 and D149 are in the DOS hardware layer's pull request. **Decided by the owner** means the owner asked for the graphics mode and took the recommended defaults or answered the question; **Assumed** means chosen without confirmation and standing until confirmed.
 
 | # | Decision | Choice | Why |
 |---|---|---|---|
@@ -213,11 +260,18 @@ Numbers D130 to D149 are reserved for this work, so they cannot collide with the
 | D142 | The `Surface` trait | **Assumed.** The trait in this page: generic, pixel-addressed, pictures as decoded rows, no background colour in a glyph run, an `advance` for leaders and fields | A surface needs no document, and a run needs no cell geometry |
 | D143 | Frame sums | **Assumed.** A frame's sum is the CRC-32 of the surface's native bytes (four planes in order, or the rows of pixels) | The host and the DOS read-back compare byte for byte |
 | D144 | The shell | **Assumed.** `enum ScreenMeasure` of the grid and the strikes with one `App<ScreenMeasure>`; a shadow in the device's own format with row hashes and no video reads; the cursor composited at present time; INT 33h polled, with scripted clicks from a file in tests | Two `App`s would double the core's code, a keystroke presents a few rows, and the mouse works under any driver and is testable |
+| DOS-3 | Graphics start-up | **Assumed.** `/G` and `/GFX` take the best 640 × 480 (VBE with 256 colours, else mode 12h), `/G16` mode 12h only, `/T` text over the setting; `[Quill] Graphics=` takes `0` (text, the default), `1` or `16`, is kept when settings are saved, and the command line wins. The mode is set after a VGA check (INT 10h AX=1A00h), the clean-up that gives the saved mode back is registered first, and a missing or damaged `QUILL.FNT` or a card with no 640 × 480 mode runs text mode with one line on leaving | The design page (D135) already chose VBE first for `/G`; both orders are one function, and `/G16` is there to force the other (instead of: Mode 12h before VBE under `/G`; a switch only) |
+| DOS-4 | The graphics screen | **Assumed.** A fixed 640 × 480 layout: a 20-pixel menu bar, the 22-pixel ruler, the page area, a 20-pixel status line; the sheet is scrolled sideways so the 6.5-inch text column starts at the page padding. The painters for the bar, the ruler and the status line are `quill-paint::shell`, so the host runs the code DOS runs. Menus and dialogs are not drawn, and the status line says one is open | The plan's `dos/quill-gfx` is the hardware half only (`dos/quill-dos/src/gfx.rs`), and everything portable is host-tested with a golden for every frame; the toolbar and scroll bars need the mouse work to be worth drawing (instead of: A `dos/quill-gfx` crate for the shell; the toolbar and scroll bars in the first slice) |
+| DOS-5 | Rows presented | **Decided by a failing test.** The shell keeps the frame it last presented and compares the new shadow with it by 32-bit words, row by row, then writes only the rows that differ. This replaces the row hashes of D144: a first version summed each row's words, and on the frame where a menu opened and the caret went away (the same bits changing in all four planes, which add up to nothing in 32 bits) one row was not presented, which the video read-back caught | A wrong hash is a stale row on the screen, and the exact comparison costs one word compare a word for 150 KB or 300 KB more memory (instead of: Hash the rows with a better mixing function) |
+| DOS-6 | Reading `QUILL.FNT` | **Assumed.** The index is read once and leaked; glyphs are read through a cache of 4 KB file pages (at most 160) with a seek for each miss, instead of two DOS calls for every glyph | A glyph is a six-byte box and a few bytes of bitmap, so a DOS call each would cost more than drawing it, and a page of text touches only a few dozen pages (instead of: A seek and a read per glyph; the whole file in memory) |
+| DOS-7 | Proving the presenter | **Assumed.** The DOS shell writes `frame N crc32 X video Y` for every screen when `QUILL_DUMP` is set: the shadow's CRC-32 and the CRC-32 of the video memory read back. The DOSBox run requires `X` to be the host's golden and `Y` to equal `X`. The disk carries the committed test font as `QUILL.FNT`, so the frames are the same bytes on the host and in DOS | A frame that is wrong in one pixel fails, and no emulator window is involved (instead of: Compare screenshots) |
+| DOS-8 | Measuring | **Assumed.** `QUILL_TIMES` writes a line of microseconds per screen (paint, present, rows, and one pass over the layout), puts timer channel 0 in rate-generator mode with a count of 65,536 for the run (the BIOS tick keeps its rate, and the BIOS's square wave is restored on leaving), and `QUILL_KEYS` types its characters instead of reading the keyboard | A slow emulated machine drops keys the emulator types faster than the BIOS buffer drains, so a timing run needs no typist (instead of: AUTOTYPE keys at a fixed pace) |
+| DOS-9 | One measure for both screens | **Assumed.** `enum ScreenMeasure { Grid, Strikes }` in `dos/quill-dos` delegates each call to its variant, so the executable has one `App<ScreenMeasure>` and one copy of the core; text mode lays out exactly as `App<GridMeasure>` did, and its golden screens are unchanged | Two instances would roughly double the core's code, which is the largest part of the executable (instead of: Two `App` types in one executable) |
 
 ## Risks and what is not proven
 
 - **Memory on 4 MB.** The 800 × 600 shadow (480 KB), the picture cache, the dictionary (300 KB) and the document compete. The cache is capped, 800 × 600 is opt-in, and G10 tests with `memsize = 4`. CWSDPMI swapping hides overruns as slowness.
-- **Speed on a 486SX with ISA VGA.** A full mode 12h frame is 150 KB: an estimated 30 to 150 ms on an 8- or 16-bit ISA card and under 15 ms on VLB or PCI. The painter's glyph blit is written for clarity, per pixel; G10 measures and, if needed, adds line damage and byte-wise blits.
+- **Speed on a 486SX with ISA VGA.** A full mode 12h frame is 150 KB: an estimated 30 to 150 ms on an 8- or 16-bit ISA card and under 15 ms on VLB or PCI. The painter's glyph blit is written for clarity, per pixel; [The first slice measured it](#measured): 575 ms a key at 25,000 emulated cycles, so G10 adds line damage and a cache of the laid-out lines.
 - **VESA and CWSDPMI.** Real cards of 1993 to 1995 often have only VBE 1.2, so they get mode 12h. 0800h under other DPMI hosts and in a Windows DOS box is untested.
 - **Executable size.** About 200 to 217 KB now; graphics adds an estimated 80 to 110 KB against the 360 KB budget. One `App` instance is essential.
 - **Font quality.** The autohinter's output is judged on the generator's proof sheets, not on a real screen, and the strikes were never drawn by the DOS shell.

@@ -664,7 +664,7 @@ impl<M: Measure + Clone> App<M> {
 				quill_image::png::read_size(&mut f.open(name).ok_or(bad)?).map_err(|_| bad)?;
 			(1u8, w, h)
 		};
-		let text_w = self.doc.page.paper_w - self.doc.page.margin_l - self.doc.page.margin_r;
+		let text_w = self.doc.page.text_w();
 		let mut src = f.open(name).ok_or(bad)?;
 		let idx = self
 			.doc
@@ -2094,10 +2094,7 @@ impl<M: Measure + Clone> App<M> {
 			self.top = self.top_to_show(s, idx, &caret_line);
 		} else if self.measure.resolution().1 <= 6 {
 			// On the text screen a row is a unit of layout, so spacing and tall lines count: move down until the caret's line fits.
-			let page_rows = quill_core::layout::to_units(
-				self.doc.page.paper_h - self.doc.page.margin_t - self.doc.page.margin_b,
-				6,
-			);
+			let page_rows = quill_core::layout::to_units(self.doc.page.text_h(), 6);
 			let cum = |l: &Line| (l.page as i32 - 1) * page_rows + l.y;
 			let mut top = self.top;
 			loop {
