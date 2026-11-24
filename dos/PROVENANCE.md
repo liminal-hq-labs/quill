@@ -12,7 +12,7 @@ The Rust-on-DOS foundation in this folder comes from [Desk](https://github.com/l
 | `dos-elf.json`, `link.ld`, `.cargo/config.toml`, `rustfmt.toml` | The installer's `dos/` | None. The i486 ELF target, its linker script, the `-Zbuild-std` settings and the wider rustfmt width |
 | `rt/` (`start`, `dpmi`, `dos`, `heap`, `env`, `fpu`, `io`, `panic`, `cleanup`) | The installer's `dos/rt/` | None. Entry, DPMI client, INT 21h, heap, command tail and environment, x87, `println!`, panic and clean-up |
 | `tools/elf2go32.py`, `tools/dosrun.sh`, `tools/fetch-tools.sh`, `tools/frames.py` | The installer's `dos/tools/` | None. Packs the ELF behind a go32 stub; runs a command in headless DOSBox Staging with typed keys and a scratch drive; fetches DOSBox Staging and CWSDPMI with checksums |
-| `quill-dos/src/video.rs` | The installer's `dos/setup/src/video.rs` | Draws a `quill_grid::Grid` instead of the installer's `Cells`; adds `read_back` and `wait_key` |
+| `quill-dos/src/video.rs` | The installer's `dos/setup/src/video.rs` | Draws a `quill_grid::Grid` instead of the installer's `Cells`; adds `read_back` and `wait_key`; `enter` takes the rows and sets 80 × 50 with INT 10h AX=1112h when the BIOS accepts it |
 | `build.sh`, `check.sh` | The installer's `dos/` | Build `quill-dos` and pack it as `QUILLDOS.EXE` |
 
 ## What is Quill's own

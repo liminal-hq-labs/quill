@@ -384,7 +384,7 @@ The same forms work for `QUILL32.EXE` and `QUILLDOS.EXE`; options are case-insen
 | `QUILL.EXE FILE` | Open `FILE`, of any supported type |
 | `QUILL.EXE /P FILE` | Print `FILE` on the default printer (DOS: to `LPT1`), then exit |
 | `QUILL.EXE /SELFTEST SCRIPT` | Run a test script, write results to `QUILL.LOG` and exit (on Windows 3.1, exit Windows too). Test builds only; see [docs/testing.md](docs/testing.md) |
-| `QUILLDOS.EXE /50`, `/G`, `/MONO` | 80 × 50 text mode, graphics mode, the mono attribute scheme |
+| `QUILLDOS.EXE /50`, `/G`, `/MONO` | 80 × 50 text mode (a screen with no 50-row mode stays at 80 × 25; the switch is not saved), graphics mode, the mono attribute scheme (D124) |
 
 ### Native format (`.QLD`)
 
@@ -496,7 +496,7 @@ Settings live in `QUILL.INI` in the Windows directory (both Windows builds share
 | `[Spelling] IgnoreCaps` | `1` | Skip words in all capitals |
 | `[Recent] File1`–`File4` | Empty | Recent files, most recent first (Win16 and DOS) |
 | `[Recent32] File1`–`File4` | Empty | Recent files for the Win32 build |
-| `[Quill] Rows` | `25` | DOS text mode rows: `25` or `50` |
+| `[Quill] Rows` | `25` | DOS text mode rows: `25` or `50`; the same as `/50`, and kept when Quill saves its settings (D124) |
 | `[Quill] Graphics` | `0` | DOS: start in graphics mode |
 | `[Quill] Scheme` | `colour` | DOS text mode attributes: `colour` or `mono` |
 | `[Debug] Trace` | `0` | When `1`, write a trace to `QUILL.LOG` beside the program |
