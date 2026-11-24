@@ -1,6 +1,6 @@
 # Quill on Windows 11
 
-What is planned for a native Windows 11 build of Quill, and why. The behaviour of each client is in [SPEC.md](../SPEC.md). The decisions made here are numbered D160 to D169 below and move into [decisions.md](decisions.md) when the open branches that also append to it have merged. The range is D160 to D169 because D100 to D119 belong to Linux ([linux.md](linux.md)), D120 to D129 to the DOS dialogs and polish, D130 to D149 to DOS graphics, and D150 and D151 are already taken by the flow work.
+What is planned for a native Windows 11 build of Quill, and why. The behaviour of each client is in [SPEC.md](../SPEC.md). The decisions made here are numbered D160 to D169 below and move into [decisions.md](decisions.md) when the open branches that also append to it have merged. The range is D160 to D169 because D100 to D105 are the Windows 9x decisions, D120 to D129 belong to the DOS dialogs and polish, D130 to D149 to DOS graphics, D150 and D151 to the flow work, D170 to the About box, and D180 to D199 to Linux ([linux.md](linux.md)).
 
 Claims are marked **[V]** when a source or the repository confirms them and **[U]** when they are unverified. The spikes in the work list exist to settle the unverified ones.
 
@@ -89,7 +89,7 @@ Source for C: <https://learn.microsoft.com/windows/apps/windows-app-sdk/release-
 
 ### One text engine
 
-- Layout widths always come from `OutlineMeasure` (skrifa, never hinted, 1440 units an inch, D106).
+- Layout widths always come from `OutlineMeasure` (skrifa, never hinted, 1440 units an inch, D186).
 - The font bytes are the files DirectWrite resolves from the system font collection, so the font box lists only faces Quill can load.
 - Drawing places every glyph at the layout's x. The v1 drawing is the pure-Rust raster (greyscale antialiasing), so pixel goldens run on the host and match Linux.
 - An optional later `Surface` over Direct2D `DrawGlyphRun` would pass explicit advances from the layout, so only the rasterizing differs, never the positions.
@@ -98,8 +98,8 @@ Source for C: <https://learn.microsoft.com/windows/apps/windows-app-sdk/release-
 
 **Unicode** (the core stays Windows-1252, D11)
 
-- **Typed and IME text.** UTF-16 is converted to 1252 through C4's public table. A character with no 1252 form is refused with a status message, as D108 does on Linux.
-- **File names.** The shell keeps the real UTF-16 path in a name table, and the app sees a 1252 display name, as `LinuxFiles` (D103) does.
+- **Typed and IME text.** UTF-16 is converted to 1252 through C4's public table. A character with no 1252 form is refused with a status message, as D188 does on Linux.
+- **File names.** The shell keeps the real UTF-16 path in a name table, and the app sees a 1252 display name, as `LinuxFiles` (D183) does.
 - **Safe save.** Write a temporary file, then `ReplaceFileW` or `MoveFileExW`.
 - **Settings and recent files.** `%APPDATA%\Quill\QUILL.INI`, with a `[RecentWinUI]` section holding UTF-16 paths.
 - **Clipboard** (after C1): `CF_UNICODETEXT`, `Rich Text Format` (`\ansicpg1252`) and `CF_DIB`.
@@ -217,8 +217,8 @@ Proposed, and recorded here as D160 to D169 until they move into `decisions.md`.
 - **D162. An unpackaged self-contained zip first, then MSIX.** Not framework-dependent: that needs a runtime install, and Reactor's bootstrap is Windows 11 only.
 - **D163. Windows 11 22H2 (22621) or later and x64.** Windows 10 is untested, and ARM64 comes later.
 - **D164. Draw with the shared raster.** Glyphs are placed at layout positions; Direct2D drawing is optional later.
-- **D165. `OutlineMeasure` at 1440 units an inch,** as on Linux (D106).
-- **D166. Characters with no 1252 form are refused when typed and become `?` when read** (the D108 rule).
+- **D165. `OutlineMeasure` at 1440 units an inch,** as on Linux (D186).
+- **D166. Characters with no 1252 form are refused when typed and become `?` when read** (the D188 rule).
 - **D167. Workspace `winui/quill-winui`, binary `Quill.exe`,** app ID `LiminalHQ.Quill` unless a domain is chosen.
 - **D168. A classic `MenuBar` plus two `CommandBar` rows,** no ribbon.
 - **D169. Print through `PrintDlgExW` and GDI** with raster bands.
