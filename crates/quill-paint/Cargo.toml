@@ -1,0 +1,25 @@
+# quill-paint: the Surface trait, the 16 and 256 colour surfaces and the page painter of the DOS graphics mode.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-paint"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Quill's page painter over a Surface trait, with planar 16-colour and linear 256-colour surfaces: no_std, no alloc, no floats"
+
+[dependencies]
+quill-core = { path = "../quill-core" }
+quill-app = { path = "../quill-app" }
+quill-strike = { path = "../quill-strike" }
+quill-image = { path = "../quill-image" }
+
+[dev-dependencies]
+quill-strike = { path = "../quill-strike", features = ["builder"] }
+quill-host = { path = "../quill-host" }
+quill-heap = { path = "../quill-heap" }
+quill-formats = { path = "../quill-formats" }
+proptest = { version = "1", default-features = false, features = ["std"] }
