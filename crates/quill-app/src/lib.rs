@@ -23,6 +23,7 @@ pub mod picture;
 mod print;
 pub mod script;
 mod spelling;
+pub mod view;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
 use quill_core::layout::{layout_story, Line, Measure};
@@ -36,7 +37,9 @@ pub use chrome::{
 	tab_stop, CharState, CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR, STYLE_NAMES,
 };
 pub use native::{Dialog, FindAction, VERSION};
-pub use paint::{draw, line_label, menu_items, menu_title, Cursor, Item, ListCounters, MENU_COUNT};
+pub use paint::{
+	draw, line_label, menu_items, menu_title, status_text, Cursor, Item, ListCounters, MENU_COUNT,
+};
 
 /// A key, as the platform decodes it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

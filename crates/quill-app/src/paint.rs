@@ -201,6 +201,8 @@ pub type Cursor = (usize, usize);
 struct Row {
 	buf: [u8; COLS],
 	n: usize,
+	/// Keep ANSI text as it is instead of converting it to code page 437.
+	ansi: bool,
 }
 
 impl Row {
@@ -208,6 +210,7 @@ impl Row {
 		Row {
 			buf: [b' '; COLS],
 			n: 0,
+			ansi: false,
 		}
 	}
 	fn s(&mut self, t: &str) -> &mut Self {
@@ -218,7 +221,7 @@ impl Row {
 	}
 	fn bytes(&mut self, t: &[u8]) -> &mut Self {
 		for b in t {
-			self.byte(ansi_to_cp437(*b));
+			self.byte(if self.ansi { *b } else { ansi_to_cp437(*b) });
 		}
 		self
 	}
@@ -247,6 +250,108 @@ impl Row {
 		}
 		self
 	}
+}
+
+/// The status line's text into `st`: the message the last command left, or the file name, the caret's page, line and column, the font
+/// at the caret and the modes.
+fn status_into<M: Measure + Clone, S: Store + ?Sized>(
+	app: &App<M>,
+	s: &S,
+	caret: Option<(u32, quill_core::layout::Line)>,
+	caret_page: u32,
+	ln_in_page: u32,
+	st: &mut Row,
+) {
+	if app.msg.is_empty() {
+		st.s(" ");
+		match app.view {
+			1 => {
+				st.s("[Header] ");
+			}
+			2 => {
+				st.s("[Footer] ");
+			}
+			3 => {
+				st.s("[First header] ");
+			}
+			4 => {
+				st.s("[First footer] ");
+			}
+			_ => {}
+		}
+		if app.name_len == 0 {
+			st.s("(Untitled)");
+		} else {
+			st.bytes(app.name());
+		}
+		st.s("   Pg ")
+			.dec(caret_page)
+			.s(" Ln ")
+			.dec(ln_in_page)
+			.s(" Col ");
+		// Col counts columns on the text screen and characters on a device with finer units.
+		let col = caret.map_or(1, |(_, l)| {
+			if app.measure.resolution().0 > 10 {
+				(app.caret - l.start) as i32 + 1
+			} else {
+				app.x_of(s, &l, app.caret) + 1
+			}
+		});
+		st.dec(col as u32).s("   ");
+		let t = &app.doc.body;
+		let cf = if app.caret > 0 {
+			t.cfmt_at(s, app.caret - 1)
+		} else {
+			t.cfmt_at(s, 0)
+		}
+		.unwrap_or(0);
+		if let Some(c) = app.doc.cfmts.get(s, cf) {
+			if let Some(f) = app.doc.fonts.get(s, c.font) {
+				st.bytes(f.name()).s(" ").dec(u32::from(c.size / 2));
+				if c.size % 2 == 1 {
+					st.s(".5");
+				}
+			}
+		}
+		if app.overtype {
+			st.s("   OVR");
+		}
+		if app.extend {
+			st.s("   EXT");
+		}
+		if app.modified {
+			st.s("   Mod");
+		}
+	} else {
+		st.s(" ").bytes(app.msg.bytes());
+	}
+}
+
+/// The status line as the Windows builds show it, in ANSI (not code page 437): what the text screen's bottom row says, at most 80
+/// bytes of it. Returns the length written to `out`.
+pub fn status_text<M: Measure + Clone, S: Store + ?Sized>(
+	app: &App<M>,
+	s: &S,
+	out: &mut [u8],
+) -> usize {
+	let caret = app.caret_line(s);
+	let caret_page = caret.map_or(1, |(_, l)| l.page);
+	let mut ln_in_page = 0u32;
+	if let Some((ci, _)) = caret {
+		app.lines(s, |i, l| {
+			if l.page == caret_page && i <= ci {
+				ln_in_page += 1;
+			}
+		});
+	}
+	let mut st = Row::new();
+	st.ansi = true;
+	status_into(app, s, caret, caret_page, ln_in_page, &mut st);
+	let n = st.n.min(COLS).min(out.len());
+	for (d, b) in out.iter_mut().zip(st.buf.iter().take(n)) {
+		*d = *b;
+	}
+	n
 }
 
 /// Paints the whole screen and returns where the hardware cursor belongs (none while a menu is open).
@@ -389,69 +494,7 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 	let last = ROWS - 1;
 	g.fill(0, last, COLS, 1, b' ', attr::CHROME);
 	let mut st = Row::new();
-	if app.msg.is_empty() {
-		st.s(" ");
-		match app.view {
-			1 => {
-				st.s("[Header] ");
-			}
-			2 => {
-				st.s("[Footer] ");
-			}
-			3 => {
-				st.s("[First header] ");
-			}
-			4 => {
-				st.s("[First footer] ");
-			}
-			_ => {}
-		}
-		if app.name_len == 0 {
-			st.s("(Untitled)");
-		} else {
-			st.bytes(app.name());
-		}
-		st.s("   Pg ")
-			.dec(caret_page)
-			.s(" Ln ")
-			.dec(ln_in_page)
-			.s(" Col ");
-		// Col counts columns on the text screen and characters on a device with finer units.
-		let col = caret.map_or(1, |(_, l)| {
-			if app.measure.resolution().0 > 10 {
-				(app.caret - l.start) as i32 + 1
-			} else {
-				app.x_of(s, &l, app.caret) + 1
-			}
-		});
-		st.dec(col as u32).s("   ");
-		let t = &app.doc.body;
-		let cf = if app.caret > 0 {
-			t.cfmt_at(s, app.caret - 1)
-		} else {
-			t.cfmt_at(s, 0)
-		}
-		.unwrap_or(0);
-		if let Some(c) = app.doc.cfmts.get(s, cf) {
-			if let Some(f) = app.doc.fonts.get(s, c.font) {
-				st.bytes(f.name()).s(" ").dec(u32::from(c.size / 2));
-				if c.size % 2 == 1 {
-					st.s(".5");
-				}
-			}
-		}
-		if app.overtype {
-			st.s("   OVR");
-		}
-		if app.extend {
-			st.s("   EXT");
-		}
-		if app.modified {
-			st.s("   Mod");
-		}
-	} else {
-		st.s(" ").bytes(app.msg.bytes());
-	}
+	status_into(app, s, caret, caret_page, ln_in_page, &mut st);
 	g.text(0, last, st.buf.get(..COLS).unwrap_or(&[]), attr::CHROME);
 
 	// Menus and prompts on top.
