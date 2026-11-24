@@ -208,6 +208,26 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	/// Where the caret is for a status bar: the page it is on, its line on that page and its column (a character count on a device
+	/// with finer units than the text screen), all counted from 1.
+	pub fn status_position<S: Store + ?Sized>(&self, s: &S) -> (u32, u32, u32) {
+		let Some((index, line)) = self.caret_line(s) else {
+			return (1, 1, 1);
+		};
+		let mut ln = 0;
+		self.lines(s, |i, l| {
+			if l.page == line.page && i <= index {
+				ln += 1;
+			}
+		});
+		let col = if self.measure.resolution().0 > 10 {
+			self.caret - line.start + 1
+		} else {
+			self.x_of(s, &line, self.caret) as u32 + 1
+		};
+		(line.page, ln, col)
+	}
+
 	/// How many lines a screenful holds, for the keys that page.
 	pub fn page_rows(&self) -> usize {
 		self.rows

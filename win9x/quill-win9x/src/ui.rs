@@ -66,7 +66,7 @@ pub enum Hover {
 /// The page area: under the toolbars and the ruler (or the preview's bar), above the status line.
 pub unsafe fn page_area(hwnd: Handle, sh: &Shell) -> Rect {
 	let (w, h) = client_size(hwnd);
-	let status = if sh.app.show_status() { sh.ch } else { 0 };
+	let status = sh.status_h;
 	let (vw, hh) = bar_sizes();
 	let top = crate::chrome_height(sh);
 	Rect {
@@ -203,6 +203,7 @@ unsafe fn set_bar(bar: Handle, max: i32, page: i32, pos: i32, k: i32) {
 
 /// The window changed size: lays the page, the ruler, the preview's bar and the scroll bars out again.
 pub unsafe fn relayout(hwnd: Handle, sh: &mut Shell) {
+	status_layout(hwnd, sh);
 	preview_layout(hwnd, sh);
 	update_scroll(hwnd, sh);
 	tips_rebuild(hwnd, sh);
@@ -622,7 +623,7 @@ pub unsafe fn set_hover(hwnd: Handle, sh: &mut Shell, h: Hover) {
 	if changed_button {
 		invalidate_toolbar(hwnd, sh);
 	}
-	invalidate_status(hwnd, sh);
+	status_update(hwnd, sh);
 }
 
 unsafe fn invalidate_toolbar(hwnd: Handle, sh: &Shell) {
@@ -633,21 +634,6 @@ unsafe fn invalidate_toolbar(hwnd: Handle, sh: &Shell) {
 		top: 0,
 		right: w,
 		bottom: h0 + h1,
-	};
-	InvalidateRect(hwnd, &r, 0);
-}
-
-/// Asks for the status line to be painted again.
-pub unsafe fn invalidate_status(hwnd: Handle, sh: &Shell) {
-	if !sh.app.show_status() {
-		return;
-	}
-	let (w, h) = client_size(hwnd);
-	let r = Rect {
-		left: 0,
-		top: h - sh.ch,
-		right: w,
-		bottom: h,
 	};
 	InvalidateRect(hwnd, &r, 0);
 }
@@ -978,6 +964,135 @@ pub unsafe fn refresh_clock(sh: &mut Shell) {
 	if n > 1 {
 		if let Ok(t) = core::str::from_utf8(buf.get(..n as usize - 1).unwrap_or(&[])) {
 			sh.app.set_print_time(t);
+		}
+	}
+}
+
+// ---- the status bar --------------------------------------------------------------------------------------------------------------
+
+const SB_SETTEXTA: u32 = 0x0401;
+const SB_SETPARTS: u32 = 0x0404;
+const CCS_BOTTOM: u32 = 0x0003;
+const SBARS_SIZEGRIP: u32 = 0x0100;
+
+/// Makes the status bar: the common control of COMCTL32 4.00, with its size grip, along the bottom of the window.
+pub unsafe fn create_status(hwnd: Handle, instance: Handle) -> Handle {
+	InitCommonControls();
+	CreateWindowExA(
+		0,
+		b"msctls_statusbar32\0".as_ptr(),
+		null(),
+		WS_CHILD | 0x1000_0000 | CCS_BOTTOM | SBARS_SIZEGRIP,
+		0,
+		0,
+		0,
+		0,
+		hwnd,
+		null_mut(),
+		instance,
+		null(),
+	)
+}
+
+/// Shows or hides the status bar, puts it along the bottom, divides it into its panes for the window's width and notes its height, which
+/// the page area leaves out.
+pub unsafe fn status_layout(hwnd: Handle, sh: &mut Shell) {
+	if sh.sb.is_null() {
+		return;
+	}
+	if !sh.app.show_status() {
+		ShowWindow(sh.sb, 0);
+		sh.status_h = 0;
+		return;
+	}
+	ShowWindow(sh.sb, 5);
+	// The bar lines itself up along the bottom when its parent says the size changed.
+	SendMessageA(sh.sb, 5, 0, 0);
+	let mut r = Rect {
+		left: 0,
+		top: 0,
+		right: 0,
+		bottom: 0,
+	};
+	GetWindowRect(sh.sb, &mut r);
+	sh.status_h = r.bottom - r.top;
+	let (w, _) = client_size(hwnd);
+	// Message or hint (the rest), the document, the position, the font and size, the state.
+	let state = 70;
+	let font = 130;
+	let pos = 105;
+	let name = 105;
+	let edges: [i32; 5] = [
+		(w - state - font - pos - name).max(60),
+		(w - state - font - pos).max(80),
+		(w - state - font).max(100),
+		(w - state).max(120),
+		-1,
+	];
+	SendMessageA(sh.sb, SB_SETPARTS, 5, edges.as_ptr() as isize);
+	sh.sb_text = Default::default();
+	status_update(hwnd, sh);
+	let _ = hwnd;
+}
+
+/// Puts the current words in the panes, touching only the ones whose text changed, so nothing flickers.
+pub unsafe fn status_update(_hwnd: Handle, sh: &mut Shell) {
+	if sh.sb.is_null() || !sh.app.show_status() {
+		return;
+	}
+	let name: Vec<u8> = if sh.app.name().is_empty() {
+		b"(Untitled)".to_vec()
+	} else {
+		sh.app.name().to_vec()
+	};
+	let mut text: [Vec<u8>; 5] = Default::default();
+	text[0] = sh.app.message().to_vec();
+	text[1] = name;
+	if sh.preview.is_some() {
+		if text[0].is_empty() {
+			text[0] = b"Esc closes the preview".to_vec();
+		}
+		let first = sh.preview.map_or(1, |p| p.first);
+		text[2] = alloc::format!("Page {} of {}", first, sh.pv_pages.max(1)).into_bytes();
+	} else {
+		let (pg, ln, col) = sh.app.status_position(&sh.store);
+		let tag: &[u8] = match sh.app.story_view() {
+			1 => b"[Header] ",
+			2 => b"[Footer] ",
+			3 => b"[First header] ",
+			4 => b"[First footer] ",
+			_ => b"",
+		};
+		let mut n = tag.to_vec();
+		n.extend_from_slice(&text[1]);
+		text[1] = n;
+		text[2] = alloc::format!("Pg {pg} Ln {ln} Col {col}").into_bytes();
+		let cs = sh.app.char_state(&sh.store);
+		let mut f = cs.face.get(..usize::from(cs.face_len)).unwrap_or(&[]).to_vec();
+		f.extend_from_slice(alloc::format!(" {}", cs.size / 2).as_bytes());
+		if cs.size % 2 == 1 {
+			f.extend_from_slice(b".5");
+		}
+		text[3] = f;
+		let mut st = Vec::new();
+		if sh.app.overtype() {
+			st.extend_from_slice(b"OVR ");
+		}
+		if sh.app.modified() {
+			st.extend_from_slice(b"Modified");
+		}
+		text[4] = st;
+	}
+	for (i, t) in text.iter().enumerate() {
+		if sh.sb_text.get(i) == Some(t) {
+			continue;
+		}
+		let mut z = t.clone();
+		z.push(0);
+		// Pane `i`, drawn sunken (type 0).
+		SendMessageA(sh.sb, SB_SETTEXTA, i, z.as_ptr() as isize);
+		if let Some(slot) = sh.sb_text.get_mut(i) {
+			*slot = t.clone();
 		}
 	}
 }

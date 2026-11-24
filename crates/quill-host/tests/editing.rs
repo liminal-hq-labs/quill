@@ -765,3 +765,15 @@ fn every_field_kind_inserts_in_the_body_and_shows_its_text() {
 		);
 	}
 }
+
+#[test]
+fn the_status_position_counts_page_line_and_column_from_one() {
+	let (mut app, mut s, mut f) = setup();
+	assert_eq!(app.status_position(&s), (1, 1, 1));
+	type_text(&mut app, &mut s, &mut f, "abc\nde");
+	assert_eq!(app.status_position(&s), (1, 2, 3));
+	app.key(&mut s, &mut f, Key::Home);
+	assert_eq!(app.status_position(&s), (1, 2, 1));
+	app.key(&mut s, &mut f, Key::CtrlHome);
+	assert_eq!(app.status_position(&s), (1, 1, 1));
+}

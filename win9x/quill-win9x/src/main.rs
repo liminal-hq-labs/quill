@@ -214,6 +214,11 @@ struct Shell {
 	tips: Option<tips::Tips>,
 	pv_btns: [Handle; 6],
 	wheel_msg: u32,
+	/// The status bar control, its height (0 when hidden), the text now in each pane, and how many pages the preview shows.
+	sb: Handle,
+	status_h: i32,
+	sb_text: [Vec<u8>; 5],
+	pv_pages: u32,
 	/// The scroll bars, which are controls placed in the page area, and whether each shows.
 	vbar: Handle,
 	hbar: Handle,
@@ -483,8 +488,7 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 				};
 				sh.app.set_message(text);
 				sh.hint_on = !text.is_empty();
-				ui::invalidate_status(hwnd, sh);
-				UpdateWindow(hwnd);
+				ui::status_update(hwnd, sh);
 			}
 			0
 		}
@@ -1169,7 +1173,7 @@ unsafe fn mouse_down(hwnd: Handle, x: i32, y: i32) {
 		sh.pressed = Some(i);
 		SetCapture(hwnd);
 		ui::set_hover(hwnd, sh, ui::Hover::Button(i));
-		ui::invalidate_status(hwnd, sh);
+		ui::status_update(hwnd, sh);
 		InvalidateRect(hwnd, null(), 0);
 		return;
 	}
@@ -1285,6 +1289,7 @@ unsafe fn sync_chrome(hwnd: Handle, sh: &mut Shell) {
 			}
 		}
 	}
+	ui::status_layout(hwnd, sh);
 	ui::sync_recent_menu(hwnd, sh);
 	ui::tips_rebuild(hwnd, sh);
 	InvalidateRect(hwnd, null(), 0);
@@ -1419,6 +1424,7 @@ unsafe fn paint(hwnd: Handle) {
 unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 	if !sh.grid {
 		ui::refresh_clock(sh);
+		ui::status_update(hwnd, sh);
 	}
 	let saved = SaveDC(dc);
 	IntersectClipRect(dc, damage.left, damage.top, damage.right, damage.bottom);
@@ -1444,7 +1450,6 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 		} else {
 			0
 		};
-		let status = if sh.app.show_status() { sh.ch } else { 0 };
 		let area = ui::page_area(hwnd, sh);
 		let pct = ui::pct(sh, area.right - area.left);
 		if sh.preview.is_none() {
@@ -1492,39 +1497,10 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 				0x0080_8080,
 			);
 			let size = gdi::paint_preview(dc, area, &sh.app, &sh.store, sh.screen_dc, &pv, &mut sh.pics);
-			SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
-			let mut line = if sh.hint_on {
-				let mut l = b" ".to_vec();
-				l.extend_from_slice(sh.app.message());
-				l
-			} else {
-				let last = if pv.two { (pv.first + 1).min(size.pages) } else { pv.first };
-				if last > pv.first {
-					alloc::format!(" Pages {}-{} of {}   Esc: close", pv.first, last, size.pages)
-				} else {
-					alloc::format!(" Page {} of {}   Esc: close", pv.first, size.pages)
-				}
-				.into_bytes()
-			};
-			line.truncate(200);
-			SetBkMode(dc, OPAQUE);
-			SetBkColor(dc, 0x00C0_C0C0);
-			SetTextColor(dc, 0);
-			ExtTextOutA(
-				dc,
-				0,
-				r.bottom - sh.ch,
-				ETO_OPAQUE,
-				&Rect {
-					left: 0,
-					top: r.bottom - sh.ch,
-					right: r.right,
-					bottom: r.bottom,
-				},
-				line.as_ptr(),
-				line.len() as u32,
-				null(),
-			);
+			if sh.pv_pages != size.pages {
+				sh.pv_pages = size.pages;
+				ui::status_update(hwnd, sh);
+			}
 			RestoreDC(dc, saved);
 			return;
 		}
@@ -1543,9 +1519,6 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 		sh.app.set_rows(rows);
 		if !sh.app.editing() {
 			draw_rows(dc, &g, 7, 21, sh, (r.right - 80 * sh.cw).max(0) / 2, 40);
-		}
-		if status > 0 {
-			draw_rows(dc, &g, 24, 25, sh, 0, r.bottom - sh.ch);
 		}
 		RestoreDC(dc, saved);
 		return;
@@ -1861,6 +1834,10 @@ pub extern "C" fn start() -> ! {
 		pv_btns: [null_mut(); 6],
 		wheel_msg: 0,
 		recent_rule: false,
+		sb: null_mut(),
+		status_h: 0,
+		sb_text: Default::default(),
+		pv_pages: 1,
 		vbar: null_mut(),
 		hbar: null_mut(),
 		vbar_on: false,
@@ -1982,6 +1959,8 @@ pub extern "C" fn start() -> ! {
 				sh.combos = Some(cb);
 				sh.pv_btns = ui::create_preview_buttons(hwnd, instance);
 				(sh.vbar, sh.hbar) = ui::create_bars(hwnd, instance);
+				sh.sb = ui::create_status(hwnd, instance);
+				ui::status_layout(hwnd, sh);
 				sh.wheel_msg = RegisterWindowMessageA(b"MSWHEEL_ROLLMSG\0".as_ptr());
 				sh.tips = tips::Tips::new(hwnd, instance);
 				sync_chrome(hwnd, sh);
