@@ -97,13 +97,19 @@ impl<M: Measure + Clone> App<M> {
 		})
 	}
 
-	/// Says the document has no unsaved changes (the user chose not to save them).
+	/// Says the document has no unsaved changes (the user chose not to save them). When `run_confirmed` follows, the changes
+	/// count as unsaved until that command completes, so cancelling its dialog loses nothing.
 	pub fn discard_changes(&mut self) {
+		self.discarded = self.modified;
 		self.modified = false;
 	}
 
-	/// Runs `c` as though the confirmation had been answered, after the shell has saved or discarded.
+	/// Runs `c` as though the confirmation had been answered, after the shell has saved or discarded. A discard takes effect
+	/// only when `c` completes (a new document, a file opened, Exit): until then the document stays modified.
 	pub fn run_confirmed<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, c: Command) {
+		if core::mem::take(&mut self.discarded) {
+			self.modified = true;
+		}
 		self.pending = Some(c);
 		self.command(s, f, c);
 		self.pending = None;

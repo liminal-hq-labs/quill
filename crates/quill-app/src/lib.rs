@@ -356,6 +356,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	/// Help > Contents was chosen and the shell has not taken the request.
 	pub(crate) help: bool,
 	pending: Option<Command>,
+	/// `discard_changes` cleared the modified flag and the command it was for has not run yet.
+	discarded: bool,
 	/// The other end of the selection, when there is one.
 	pub(crate) anchor: Option<u32>,
 	pub(crate) extend: bool,
@@ -430,6 +432,7 @@ impl<M: Measure + Clone> App<M> {
 			msg: Msg::new(),
 			help: false,
 			pending: None,
+			discarded: false,
 			anchor: None,
 			extend: false,
 			overtype: false,
@@ -509,6 +512,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Runs a command, as a menu does.
 	pub fn command<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, c: Command) {
+		self.discarded = false;
 		self.msg.clear();
 		self.run(s, f, c);
 		self.scroll(s);
@@ -1307,7 +1311,10 @@ impl<M: Measure + Clone> App<M> {
 				};
 			}
 			Command::Exit => {
-				self.pending = None;
+				// Exiting after a No completes the discard.
+				if self.pending.take().is_some() {
+					self.modified = false;
+				}
 				self.quit = true;
 			}
 			Command::Regular => self.char_command(
@@ -1684,6 +1691,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Handles one key.
 	pub fn key<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, k: Key) {
+		self.discarded = false;
 		self.msg.set("");
 		match self.mode {
 			Mode::Edit => self.key_edit(s, f, k),
@@ -1712,9 +1720,11 @@ impl<M: Measure + Clone> App<M> {
 					}
 				}
 				Key::Char(b'n' | b'N') => {
+					// The changes go only when `c` completes: a cancelled Open leaves them unsaved.
 					self.mode = Mode::Edit;
-					self.modified = false;
+					self.pending = Some(c);
 					self.run(s, f, c);
+					self.pending = None;
 				}
 				Key::Esc => self.mode = Mode::Edit,
 				_ => {}
