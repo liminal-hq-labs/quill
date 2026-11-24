@@ -5,7 +5,7 @@
 
 use crate::bytes::{Pod, Reader, Writer};
 use crate::farvec::FarVec;
-use crate::store::Store;
+use crate::store::{ReadStore, Store};
 use crate::text::{ByteBuf, Text};
 use crate::{Error, Result};
 
@@ -362,7 +362,7 @@ impl<T: Pod + PartialEq, const CH: usize> Intern<T, CH> {
 	}
 
 	/// The value at `i`.
-	pub fn get<S: Store + ?Sized>(&self, s: &S, i: u16) -> Option<T> {
+	pub fn get<S: ReadStore + ?Sized>(&self, s: &S, i: u16) -> Option<T> {
 		self.v.get(s, u32::from(i))
 	}
 
@@ -703,7 +703,7 @@ impl Doc {
 	}
 
 	/// Copies picture `idx`'s file bytes from `pos` into `out`.
-	pub fn picture_bytes<S: Store + ?Sized>(
+	pub fn picture_bytes<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		idx: u16,

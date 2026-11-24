@@ -9,7 +9,7 @@
 // the same way.
 use quill_core::doc::cflag;
 use quill_core::layout::{to_units, Line, Measure};
-use quill_core::store::Store;
+use quill_core::store::ReadStore;
 
 use crate::{App, Command};
 
@@ -207,7 +207,7 @@ pub struct RulerState {
 
 impl RulerState {
 	/// The state at the caret.
-	pub fn of<M: Measure + Clone, S: Store + ?Sized>(app: &App<M>, s: &S) -> Self {
+	pub fn of<M: Measure + Clone, S: ReadStore + ?Sized>(app: &App<M>, s: &S) -> Self {
 		let pf = app.para_state(s);
 		let mut tabs = [(0, 0u8); 16];
 		let ntabs = app.tab_stops(s, &mut tabs);
@@ -269,7 +269,7 @@ pub fn button_at<M: Measure + Clone>(app: &App<M>, x: i32, y: i32) -> Option<(Bu
 }
 
 /// Whether the toggle's property holds at the caret.
-pub fn is_on<M: Measure + Clone, S: Store + ?Sized>(app: &App<M>, s: &S, t: Toggle) -> bool {
+pub fn is_on<M: Measure + Clone, S: ReadStore + ?Sized>(app: &App<M>, s: &S, t: Toggle) -> bool {
 	match t {
 		Toggle::No => false,
 		Toggle::Bold => app.char_state(s).flags & cflag::BOLD != 0,
@@ -283,7 +283,7 @@ pub fn is_on<M: Measure + Clone, S: Store + ?Sized>(app: &App<M>, s: &S, t: Togg
 
 /// A number that changes whenever anything the toolbars and the ruler show changes: the rows, the toggles, the colour, the indents and
 /// the tabs. A key that leaves it alone needs no repaint of them.
-pub fn signature<M: Measure + Clone, S: Store + ?Sized>(app: &App<M>, s: &S) -> u32 {
+pub fn signature<M: Measure + Clone, S: ReadStore + ?Sized>(app: &App<M>, s: &S) -> u32 {
 	let mut h: u32 = 0x811c_9dc5;
 	let mut mix = |v: u32| {
 		for b in v.to_le_bytes() {
@@ -494,7 +494,7 @@ pub struct PageGeom {
 
 impl PageGeom {
 	/// The geometry for the document as it is scrolled now.
-	pub fn of<M: Measure + Clone, S: Store + ?Sized>(app: &App<M>, s: &S) -> Self {
+	pub fn of<M: Measure + Clone, S: ReadStore + ?Sized>(app: &App<M>, s: &S) -> Self {
 		let page = &app.doc().page;
 		let mut g = PageGeom {
 			page_h: to_units(page.paper_h, DPI),
@@ -536,7 +536,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// The first line to show so that line `idx` (`l`), at or after the current first line, fits in the page area: the current one when
 	/// it already does.
-	pub(crate) fn top_to_show<S: Store + ?Sized>(&self, s: &S, idx: u32, l: &Line) -> u32 {
+	pub(crate) fn top_to_show<S: ReadStore + ?Sized>(&self, s: &S, idx: u32, l: &Line) -> u32 {
 		let g = PageGeom::of(self, s);
 		let room = self.view_h - PAGE_TOP;
 		let need = g.cum(l) + (l.ascent + l.descent).max(1) - room;
@@ -554,18 +554,18 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// How many lines the body has, laid out for the app's device.
-	pub fn line_total<S: Store + ?Sized>(&self, s: &S) -> u32 {
+	pub fn line_total<S: ReadStore + ?Sized>(&self, s: &S) -> u32 {
 		self.line_count(s)
 	}
 
 	/// Shows line `top` first (a scroll bar moved). The caret stays where it is until a key moves it.
-	pub fn scroll_to<S: Store + ?Sized>(&mut self, s: &S, top: u32) {
+	pub fn scroll_to<S: ReadStore + ?Sized>(&mut self, s: &S, top: u32) {
 		self.top = top.min(self.line_count(s).saturating_sub(1));
 	}
 
 	/// The line under the window's `y` in a page area whose top is `area_top`, as its index: the line `y` is in, the nearer of the two
 	/// lines around a gap (space before or after a paragraph, a page break), the first line shown above the text and the last below it.
-	pub fn line_at_y<S: Store + ?Sized>(&self, s: &S, area_top: i32, y: i32) -> Option<u32> {
+	pub fn line_at_y<S: ReadStore + ?Sized>(&self, s: &S, area_top: i32, y: i32) -> Option<u32> {
 		let g = PageGeom::of(self, s);
 		let mut above: Option<(u32, i32)> = None;
 		let mut below: Option<(u32, i32)> = None;
@@ -590,7 +590,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// A click in the text: the caret goes to the character nearest `x` (pixels from the left margin) on line `line`. With `extend`
 	/// (Shift held) the selection runs from where the caret was; without it, a drag that follows selects from here.
-	pub fn click<S: Store + ?Sized>(&mut self, s: &S, line: u32, x: i32, extend: bool) {
+	pub fn click<S: ReadStore + ?Sized>(&mut self, s: &S, line: u32, x: i32, extend: bool) {
 		let Some(l) = self.line_at(s, line) else {
 			return;
 		};
@@ -608,7 +608,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The pointer moved to `x` on line `line` with the button down: the selection runs from the click to here.
-	pub fn drag_select_line<S: Store + ?Sized>(&mut self, s: &S, line: u32, x: i32) {
+	pub fn drag_select_line<S: ReadStore + ?Sized>(&mut self, s: &S, line: u32, x: i32) {
 		let Some(l) = self.line_at(s, line) else {
 			return;
 		};

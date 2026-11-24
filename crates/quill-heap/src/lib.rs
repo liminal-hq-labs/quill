@@ -11,7 +11,7 @@ extern crate alloc;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use quill_core::store::{ChunkId, Store, MAX_CHUNK};
+use quill_core::store::{ChunkId, ReadStore, Store, MAX_CHUNK};
 
 /// Chunks on the host heap, with an optional limit on live chunks to test out-of-memory paths.
 #[derive(Default)]
@@ -47,6 +47,19 @@ impl HeapStore {
 	}
 }
 
+impl ReadStore for HeapStore {
+	fn read(&self, id: ChunkId, offset: u16, out: &mut [u8]) {
+		out.fill(0);
+		if let Some(Some(b)) = self.chunks.get(usize::from(id.0)) {
+			let start = usize::from(offset);
+			if let Some(src) = b.get(start..) {
+				let n = src.len().min(out.len());
+				out[..n].copy_from_slice(&src[..n]);
+			}
+		}
+	}
+}
+
 impl Store for HeapStore {
 	fn alloc(&mut self, len: u16) -> Option<ChunkId> {
 		if usize::from(len) > MAX_CHUNK {
@@ -71,17 +84,6 @@ impl Store for HeapStore {
 			if slot.take().is_some() {
 				self.live -= 1;
 				self.free.push(id.0);
-			}
-		}
-	}
-
-	fn read(&self, id: ChunkId, offset: u16, out: &mut [u8]) {
-		out.fill(0);
-		if let Some(Some(b)) = self.chunks.get(usize::from(id.0)) {
-			let start = usize::from(offset);
-			if let Some(src) = b.get(start..) {
-				let n = src.len().min(out.len());
-				out[..n].copy_from_slice(&src[..n]);
 			}
 		}
 	}

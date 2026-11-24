@@ -7,7 +7,7 @@ use core::cell::Cell;
 
 use crate::bytes::{Pod, Reader, Writer};
 use crate::farvec::FarVec;
-use crate::store::{ChunkId, Store, MAX_CHUNK};
+use crate::store::{ChunkId, ReadStore, Store, MAX_CHUNK};
 use crate::{Error, Result};
 
 /// The most characters a body story holds.
@@ -149,7 +149,7 @@ impl<const CH: usize> ByteBuf<CH> {
 	}
 
 	/// Copies `out.len()` bytes starting at `pos`. Bytes past the end read as zero.
-	pub fn read<S: Store + ?Sized>(&self, s: &S, pos: u32, out: &mut [u8]) {
+	pub fn read<S: ReadStore + ?Sized>(&self, s: &S, pos: u32, out: &mut [u8]) {
 		let mut done = 0usize;
 		while done < out.len() {
 			let at = pos + done as u32;
@@ -449,12 +449,12 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		self.cursor.set((0, 0));
 	}
 
-	fn piece(&self, s: &(impl Store + ?Sized), i: u32) -> Option<Piece> {
+	fn piece(&self, s: &(impl ReadStore + ?Sized), i: u32) -> Option<Piece> {
 		self.pieces.get(s, i)
 	}
 
 	/// The piece holding character `pos`: its index, the piece and the position where it starts.
-	fn find<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<(u32, Piece, u32)> {
+	fn find<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<(u32, Piece, u32)> {
 		if pos >= self.len {
 			return None;
 		}
@@ -472,7 +472,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// Copies characters from `pos` into `out` and returns how many there were. Inline objects read as `0x01`.
-	pub fn read<S: Store + ?Sized>(&self, s: &S, pos: u32, out: &mut [u8]) -> usize {
+	pub fn read<S: ReadStore + ?Sized>(&self, s: &S, pos: u32, out: &mut [u8]) -> usize {
 		let mut done = 0usize;
 		let Some((mut i, mut p, mut at)) = self.find(s, pos) else {
 			return 0;
@@ -504,14 +504,14 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// The `start` of the inline object at `pos` (its kind in the high half), when the character there is one.
-	pub fn object_at<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u32> {
+	pub fn object_at<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<u32> {
 		self.find(s, pos)
 			.filter(|(_, p, _)| p.source == SRC_OBJECT)
 			.map(|(_, p, _)| p.start)
 	}
 
 	/// The character at `pos`.
-	pub fn read_byte<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u8> {
+	pub fn read_byte<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<u8> {
 		let mut b = [0u8; 1];
 		(self.read(s, pos, &mut b) == 1)
 			.then_some(b)
@@ -519,7 +519,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// Calls `f(position, piece)` for each stretch of one format inside `[pos, pos + len)`, the pieces trimmed to it.
-	pub fn for_each_run<S: Store + ?Sized>(
+	pub fn for_each_run<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		pos: u32,
@@ -548,7 +548,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// Copies the characters of one trimmed piece (as given to `for_each_run`) into `out`, starting `skip` into it.
-	pub fn read_piece<S: Store + ?Sized>(&self, s: &S, p: &Piece, skip: u32, out: &mut [u8]) {
+	pub fn read_piece<S: ReadStore + ?Sized>(&self, s: &S, p: &Piece, skip: u32, out: &mut [u8]) {
 		match p.source {
 			SRC_ORIGINAL => self.orig.read(s, p.start + skip, out),
 			SRC_ADD => self.add.read(s, p.start + skip, out),
@@ -585,7 +585,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// Number of pieces that overlap `[pos, pos + len)`.
-	fn overlapping<S: Store + ?Sized>(&self, s: &S, pos: u32, len: u32) -> u32 {
+	fn overlapping<S: ReadStore + ?Sized>(&self, s: &S, pos: u32, len: u32) -> u32 {
 		let mut n = 0;
 		self.for_each_run(s, pos, len, |_, _| n += 1);
 		n
@@ -883,12 +883,12 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// The paragraph format of the paragraph mark at `pos`.
-	pub fn pfmt_at<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u16> {
+	pub fn pfmt_at<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<u16> {
 		self.find(s, pos).map(|(_, p, _)| p.pfmt)
 	}
 
 	/// The character format of the character at `pos`.
-	pub fn cfmt_at<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u16> {
+	pub fn cfmt_at<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<u16> {
 		self.find(s, pos).map(|(_, p, _)| p.cfmt)
 	}
 
@@ -991,16 +991,16 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// The label of the step Undo would undo.
-	pub fn undo_label<S: Store + ?Sized>(&self, s: &S) -> Option<u8> {
+	pub fn undo_label<S: ReadStore + ?Sized>(&self, s: &S) -> Option<u8> {
 		Self::top_label(&self.undo, s)
 	}
 
 	/// The label of the step Redo would redo.
-	pub fn redo_label<S: Store + ?Sized>(&self, s: &S) -> Option<u8> {
+	pub fn redo_label<S: ReadStore + ?Sized>(&self, s: &S) -> Option<u8> {
 		Self::top_label(&self.redo, s)
 	}
 
-	fn top_label<S: Store + ?Sized>(log: &FarVec<Rec, UC>, s: &S) -> Option<u8> {
+	fn top_label<S: ReadStore + ?Sized>(log: &FarVec<Rec, UC>, s: &S) -> Option<u8> {
 		let mut i = log.len();
 		while i > 0 {
 			i -= 1;

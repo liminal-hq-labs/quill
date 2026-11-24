@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use quill_core::layout::Measure;
-use quill_core::store::Store;
+use quill_core::store::ReadStore;
 use quill_grid::{ansi_to_cp437, attr, Grid, COLS};
 
 use quill_core::doc::cflag;
@@ -412,7 +412,7 @@ impl Row {
 
 /// The status line's text into `st`: the message the last command left, or the file name, the caret's page, line and column, the font
 /// at the caret and the modes.
-fn status_into<M: Measure + Clone, S: Store + ?Sized>(
+fn status_into<M: Measure + Clone, S: ReadStore + ?Sized>(
 	app: &App<M>,
 	s: &S,
 	caret: Option<(u32, quill_core::layout::Line)>,
@@ -487,7 +487,7 @@ fn status_into<M: Measure + Clone, S: Store + ?Sized>(
 
 /// The status line as the Windows builds show it, in ANSI (not code page 437): what the text screen's bottom row says, at most 80
 /// bytes of it. Returns the length written to `out`.
-pub fn status_text<M: Measure + Clone, S: Store + ?Sized>(
+pub fn status_text<M: Measure + Clone, S: ReadStore + ?Sized>(
 	app: &App<M>,
 	s: &S,
 	out: &mut [u8],
@@ -513,7 +513,7 @@ pub fn status_text<M: Measure + Clone, S: Store + ?Sized>(
 }
 
 /// Paints the whole screen and returns where the hardware cursor belongs (none while a menu is open).
-pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
+pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 	app: &App<M>,
 	s: &S,
 	g: &mut Grid<ROWS>,
@@ -1003,7 +1003,7 @@ pub type ListCounters = [[u32; 9]; 4];
 /// The list label of a line, when it is the first line of a list paragraph: the label bytes (a bullet is 0x07 as in CP437), their
 /// number, and the x the label starts at in device units at `rx` units per inch. Call it for every line in order, so the counters
 /// stay right.
-pub fn line_label<M: Measure + Clone, S: Store + ?Sized>(
+pub fn line_label<M: Measure + Clone, S: ReadStore + ?Sized>(
 	app: &App<M>,
 	s: &S,
 	l: &quill_core::layout::Line,

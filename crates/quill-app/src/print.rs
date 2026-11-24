@@ -5,7 +5,7 @@
 
 use quill_core::doc::{PFmt, StoryKind};
 use quill_core::layout::{to_units, Measure};
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 use quill_formats::io::Sink;
 use quill_grid::ansi_to_cp437;
 
@@ -93,7 +93,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	#[inline(never)]
-	fn print_pages<S: Store + ?Sized, K: Sink>(&self, s: &S, k: &mut K) -> bool {
+	fn print_pages<S: ReadStore + ?Sized, K: Sink>(&self, s: &S, k: &mut K) -> bool {
 		let page = self.doc.page;
 		let top = to_units(page.margin_t, 6) as usize;
 		let left = to_units(page.margin_l, 10) as usize;
@@ -186,7 +186,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// One header or footer row: its first paragraph, fields filled in, aligned inside the text width.
 	#[inline(never)]
-	fn margin_row<S: Store + ?Sized>(
+	fn margin_row<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		kind: StoryKind,

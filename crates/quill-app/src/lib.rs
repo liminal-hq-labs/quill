@@ -35,7 +35,7 @@ pub mod view;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
 use quill_core::layout::{layout_story, Line, Measure};
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 use quill_core::Error;
 use quill_formats::io::{Sink, Source};
 use quill_formats::{qld, rtf, text, FormatError};
@@ -568,12 +568,12 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Calls `f(index, line)` for each line of the body (or the story being edited), laid out for the app's device.
-	pub fn for_each_line<S: Store + ?Sized>(&self, s: &S, f: impl FnMut(u32, &Line)) {
+	pub fn for_each_line<S: ReadStore + ?Sized>(&self, s: &S, f: impl FnMut(u32, &Line)) {
 		self.lines(s, f);
 	}
 
 	/// Calls `f(position, character, x, width, leader, character format)` for each character of a line.
-	pub fn walk_chars<S: Store + ?Sized>(
+	pub fn walk_chars<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		line: &Line,
@@ -590,7 +590,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The index of the line holding the caret, the line, and the caret's x within it.
-	pub fn caret_xy<S: Store + ?Sized>(&self, s: &S) -> Option<(u32, Line, i32)> {
+	pub fn caret_xy<S: ReadStore + ?Sized>(&self, s: &S) -> Option<(u32, Line, i32)> {
 		let (i, l) = self.caret_line(s)?;
 		Some((i, l, self.x_of(s, &l, self.caret)))
 	}
@@ -934,7 +934,7 @@ impl<M: Measure + Clone> App<M> {
 		Ok(())
 	}
 
-	pub(crate) fn lines<S: Store + ?Sized>(&self, s: &S, mut f: impl FnMut(u32, &Line)) {
+	pub(crate) fn lines<S: ReadStore + ?Sized>(&self, s: &S, mut f: impl FnMut(u32, &Line)) {
 		let mut i = 0;
 		layout_story(
 			&self.doc,
@@ -949,12 +949,12 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The index and line holding the caret.
-	pub(crate) fn caret_line<S: Store + ?Sized>(&self, s: &S) -> Option<(u32, Line)> {
+	pub(crate) fn caret_line<S: ReadStore + ?Sized>(&self, s: &S) -> Option<(u32, Line)> {
 		self.line_for(s, self.caret)
 	}
 
 	/// The index and line holding position `pos`: the line it is on, except that the end of a line that wraps belongs to the next one.
-	pub(crate) fn line_for<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<(u32, Line)> {
+	pub(crate) fn line_for<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<(u32, Line)> {
 		let caret = pos;
 		let mut found: Option<(u32, Line)> = None;
 		let mut prev: Option<(u32, Line)> = None;
@@ -984,7 +984,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// The x of each character of a line, calling `f(position, character, x, width, leader)`. The leader is 0 except for a tab
 	/// that has one (1 dots, 2 hyphens, 3 underline).
-	pub(crate) fn walk<S: Store + ?Sized>(
+	pub(crate) fn walk<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		line: &Line,
@@ -1001,7 +1001,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The x of position `pos` in `line`.
-	pub(crate) fn x_of<S: Store + ?Sized>(&self, s: &S, line: &Line, pos: u32) -> i32 {
+	pub(crate) fn x_of<S: ReadStore + ?Sized>(&self, s: &S, line: &Line, pos: u32) -> i32 {
 		let mut x = line.x;
 		let mut end = line.x;
 		self.walk(s, line, |p, _, cx, w, _| {
@@ -1017,7 +1017,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
-	fn pos_at_x<S: Store + ?Sized>(&self, s: &S, line: &Line, want: i32) -> u32 {
+	fn pos_at_x<S: ReadStore + ?Sized>(&self, s: &S, line: &Line, want: i32) -> u32 {
 		let mut best = (line.start, i32::MAX);
 		self.walk(s, line, |p, _, x, _, _| {
 			let d = (x - want).abs();
@@ -1032,7 +1032,7 @@ impl<M: Measure + Clone> App<M> {
 		best.0
 	}
 
-	fn line_at<S: Store + ?Sized>(&self, s: &S, idx: u32) -> Option<Line> {
+	fn line_at<S: ReadStore + ?Sized>(&self, s: &S, idx: u32) -> Option<Line> {
 		let mut out = None;
 		self.lines(s, |i, l| {
 			if i == idx {
@@ -1042,7 +1042,7 @@ impl<M: Measure + Clone> App<M> {
 		out
 	}
 
-	fn line_count<S: Store + ?Sized>(&self, s: &S) -> u32 {
+	fn line_count<S: ReadStore + ?Sized>(&self, s: &S) -> u32 {
 		let mut n = 0;
 		self.lines(s, |_, _| n += 1);
 		n
@@ -1056,7 +1056,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The position of the paragraph mark that ends the paragraph holding `pos`.
-	fn para_mark<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u32> {
+	fn para_mark<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<u32> {
 		let t = &self.doc.body;
 		let mut at = pos;
 		let mut buf = [0u8; 64];
@@ -1237,7 +1237,7 @@ impl<M: Measure + Clone> App<M> {
 		self.doc.body.end_group();
 	}
 
-	fn move_vertical<S: Store + ?Sized>(&mut self, s: &S, delta: i32, keep_x: bool) {
+	fn move_vertical<S: ReadStore + ?Sized>(&mut self, s: &S, delta: i32, keep_x: bool) {
 		let Some((idx, line)) = self.caret_line(s) else {
 			return;
 		};
@@ -1692,7 +1692,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The paragraph format of the paragraph holding `pos`.
-	pub(crate) fn para_pfmt<S: Store + ?Sized>(&self, s: &S, pos: u32) -> PFmt {
+	pub(crate) fn para_pfmt<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> PFmt {
 		self.para_mark(s, pos)
 			.and_then(|m| self.doc.body.pfmt_at(s, m))
 			.and_then(|i| self.doc.pfmts.get(s, i))
@@ -1700,7 +1700,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The position where the paragraph holding `pos` starts.
-	pub(crate) fn para_start<S: Store + ?Sized>(&self, s: &S, pos: u32) -> u32 {
+	pub(crate) fn para_start<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> u32 {
 		let t = &self.doc.body;
 		let mut end = pos;
 		let mut buf = [0u8; 64];
@@ -1781,7 +1781,7 @@ impl<M: Measure + Clone> App<M> {
 		self.scroll(s);
 	}
 
-	fn move_caret<S: Store + ?Sized>(&mut self, s: &S, d: Dir) {
+	fn move_caret<S: ReadStore + ?Sized>(&mut self, s: &S, d: Dir) {
 		let len = self.doc.body.len();
 		match d {
 			Dir::Left => {
@@ -2082,7 +2082,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Keeps the caret on the screen.
-	fn scroll<S: Store + ?Sized>(&mut self, s: &S) {
+	fn scroll<S: ReadStore + ?Sized>(&mut self, s: &S) {
 		let Some((idx, caret_line)) = self.caret_line(s) else {
 			return;
 		};

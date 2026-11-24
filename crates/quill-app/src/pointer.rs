@@ -8,7 +8,7 @@
 //! page's paper. Nothing here knows about windows or zoom: the shell turns pixels into these units and back.
 
 use quill_core::layout::{to_units, Line, Measure};
-use quill_core::store::Store;
+use quill_core::store::ReadStore;
 
 use crate::{App, Dir};
 
@@ -35,7 +35,7 @@ impl<M: Measure + Clone> App<M> {
 	/// The character position nearest the point (`x`, `y`), measured from the first page's paper corner with the pages `stride`
 	/// units apart. A point above, below or beside the text, or in the gap between pages, gives the nearest position. Never fails: an
 	/// empty document gives 0.
-	pub fn pos_at_point<S: Store + ?Sized>(&self, s: &S, x: i32, y: i32, stride: i32) -> u32 {
+	pub fn pos_at_point<S: ReadStore + ?Sized>(&self, s: &S, x: i32, y: i32, stride: i32) -> u32 {
 		let (rx, _) = self.measure.resolution();
 		let want = x - to_units(self.doc.page.margin_l, rx);
 		// The line whose rows are nearest `y`; the first of equals, so a point on the border of two lines belongs to the lower one.
@@ -79,7 +79,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Where position `pos` is: the stacked top of its line, the line's height, and the x of the position from the paper's left edge.
-	pub fn point_of<S: Store + ?Sized>(
+	pub fn point_of<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		pos: u32,
@@ -97,7 +97,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Puts the caret at `pos`. With `extend` the selection grows from where it started (the caret's old place when there was none);
 	/// without, any selection is dropped.
-	pub fn place_caret<S: Store + ?Sized>(&mut self, s: &S, pos: u32, extend: bool) {
+	pub fn place_caret<S: ReadStore + ?Sized>(&mut self, s: &S, pos: u32, extend: bool) {
 		self.end_typing();
 		self.typing_fmt = None;
 		let pos = pos.min(self.doc.body.len().saturating_sub(1));
@@ -114,7 +114,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Selects `lo` to `hi`, with the caret at `hi`; `lo` may be above `hi`.
-	pub fn select_range<S: Store + ?Sized>(&mut self, s: &S, lo: u32, hi: u32) {
+	pub fn select_range<S: ReadStore + ?Sized>(&mut self, s: &S, lo: u32, hi: u32) {
 		self.end_typing();
 		self.typing_fmt = None;
 		let end = self.doc.body.len().saturating_sub(1);
@@ -126,7 +126,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// The word at `pos` and the spaces that follow it, as a double click selects them; on a run of spaces, that run. Punctuation
 	/// stays with the word it touches, as in Write. The paragraph mark is never part of it.
-	pub fn word_range<S: Store + ?Sized>(&self, s: &S, pos: u32) -> (u32, u32) {
+	pub fn word_range<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> (u32, u32) {
 		let t = &self.doc.body;
 		let end = t.len().saturating_sub(1);
 		let pos = pos.min(end);
@@ -156,7 +156,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The paragraph at `pos` with its paragraph mark, as a triple click selects it.
-	pub fn paragraph_range<S: Store + ?Sized>(&self, s: &S, pos: u32) -> (u32, u32) {
+	pub fn paragraph_range<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> (u32, u32) {
 		let lo = self.para_start(s, pos);
 		let hi = self
 			.para_mark(s, pos)
@@ -166,7 +166,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// The line at `pos`, as a click in the left margin selects it: the line's own characters, or the whole line and the break that
 	/// follows it when the line ends the paragraph.
-	pub fn line_range<S: Store + ?Sized>(&self, s: &S, pos: u32) -> (u32, u32) {
+	pub fn line_range<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> (u32, u32) {
 		match self.line_for(s, pos) {
 			Some((_, l)) => {
 				let hi = l.start + l.len;
@@ -178,7 +178,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The range a grain of selection covers at `pos`.
-	pub fn grain_range<S: Store + ?Sized>(&self, s: &S, pos: u32, grain: Grain) -> (u32, u32) {
+	pub fn grain_range<S: ReadStore + ?Sized>(&self, s: &S, pos: u32, grain: Grain) -> (u32, u32) {
 		match grain {
 			Grain::Char => (pos, pos),
 			Grain::Word => self.word_range(s, pos),
@@ -189,7 +189,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Grows the selection that began as `start` (the range a click selected) to take in `pos`, a grain at a time. The caret goes to
 	/// the end of the range on the side of the pointer.
-	pub fn drag_select<S: Store + ?Sized>(
+	pub fn drag_select<S: ReadStore + ?Sized>(
 		&mut self,
 		s: &S,
 		start: (u32, u32),
@@ -210,7 +210,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Where the caret is for a status bar: the page it is on, its line on that page and its column (a character count on a device
 	/// with finer units than the text screen), all counted from 1.
-	pub fn status_position<S: Store + ?Sized>(&self, s: &S) -> (u32, u32, u32) {
+	pub fn status_position<S: ReadStore + ?Sized>(&self, s: &S) -> (u32, u32, u32) {
 		let Some((index, line)) = self.caret_line(s) else {
 			return (1, 1, 1);
 		};
@@ -234,7 +234,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Moves the caret as a page key does, for a shell that scrolls by pixels and wants to know how far the caret went.
-	pub fn move_page<S: Store + ?Sized>(&mut self, s: &S, down: bool, extend: bool) {
+	pub fn move_page<S: ReadStore + ?Sized>(&mut self, s: &S, down: bool, extend: bool) {
 		self.end_typing();
 		self.typing_fmt = None;
 		if extend {

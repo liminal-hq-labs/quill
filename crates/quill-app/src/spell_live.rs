@@ -16,7 +16,7 @@
 // The word being typed is not looked at until the caret leaves it: a word an edit has just touched, with the caret on it, is held back
 // and checked when the caret has moved away, as Word does.
 use quill_core::layout::Measure;
-use quill_core::store::{ChunkId, Store};
+use quill_core::store::{ChunkId, ReadStore, Store};
 use quill_spell::{is_letter, lower, Suggestions, MAX_WORD};
 
 use crate::{App, Files, Mode};
@@ -310,7 +310,7 @@ impl<M: Measure + Clone> App<M> {
 		l.synced = len;
 	}
 
-	fn mark_get<S: Store + ?Sized>(&self, s: &S, i: usize) -> Option<Mark> {
+	fn mark_get<S: ReadStore + ?Sized>(&self, s: &S, i: usize) -> Option<Mark> {
 		read_mark(s, self.spell.live.chunk?, i)
 	}
 
@@ -437,7 +437,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The start of the word `p` is in or at the end of.
-	fn word_start<S: Store + ?Sized>(&self, s: &S, mut p: u32) -> u32 {
+	fn word_start<S: ReadStore + ?Sized>(&self, s: &S, mut p: u32) -> u32 {
 		for _ in 0..WIDEN {
 			let Some(q) = p.checked_sub(1) else {
 				break;
@@ -457,7 +457,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The end of the word `p` is in or at the start of.
-	fn word_end<S: Store + ?Sized>(&self, s: &S, mut p: u32, total: u32) -> u32 {
+	fn word_end<S: ReadStore + ?Sized>(&self, s: &S, mut p: u32, total: u32) -> u32 {
 		for _ in 0..WIDEN {
 			if p >= total {
 				break;
@@ -614,7 +614,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The marked words that overlap `lo..hi`, each as its first position and the position after its last, in order.
-	pub fn spell_marks<'a, S: Store + ?Sized>(
+	pub fn spell_marks<'a, S: ReadStore + ?Sized>(
 		&self,
 		s: &'a S,
 		lo: u32,
@@ -634,7 +634,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The marked word at `pos` (in it, or just after it), as its first position and the position after its last.
-	pub fn spell_mark_at<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<(u32, u32)> {
+	pub fn spell_mark_at<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<(u32, u32)> {
 		self.spell_marks(s, pos, pos.saturating_add(1))
 			.next()
 			.or_else(|| {
@@ -644,7 +644,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The text of the marked word at `pos`, in `out`; its length.
-	pub fn spell_word_at<S: Store + ?Sized>(
+	pub fn spell_word_at<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		pos: u32,
@@ -664,7 +664,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Up to eight suggestions for the marked word at `pos`, closest first; none when no word is marked there.
-	pub fn spell_suggestions_at<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Suggestions {
+	pub fn spell_suggestions_at<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Suggestions {
 		let mut w = [0u8; MAX_WORD];
 		let n = self.spell_word_at(s, pos, &mut w);
 		match (&self.spell.dict, w.get(..n)) {
@@ -750,7 +750,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 }
 
-fn read_mark<S: Store + ?Sized>(s: &S, c: ChunkId, i: usize) -> Option<Mark> {
+fn read_mark<S: ReadStore + ?Sized>(s: &S, c: ChunkId, i: usize) -> Option<Mark> {
 	if i >= CAP {
 		return None;
 	}

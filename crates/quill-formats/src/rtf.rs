@@ -10,7 +10,7 @@ use quill_core::doc::{
 	cflag, CFmt, Colour, Doc, Font, PFmt, StoryKind, TabSet, TabStop, MAX_COLOURS, MAX_FONTS,
 	MAX_STOPS, NO_TABS,
 };
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 use quill_core::text::MAX_TEXT;
 
 use crate::io::{Sink, Source};
@@ -80,7 +80,7 @@ fn family_word(f: u8) -> &'static str {
 }
 
 /// Writes `doc` as RTF. The same document always gives the same bytes.
-pub fn write<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<()> {
+pub fn write<S: ReadStore + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<()> {
 	let mut o = Out {
 		k,
 		ok: true,
@@ -158,7 +158,12 @@ pub fn write<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<
 	}
 }
 
-fn write_story<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, kind: StoryKind) {
+fn write_story<S: ReadStore + ?Sized, K: Sink>(
+	o: &mut Out<'_, K>,
+	doc: &Doc,
+	s: &S,
+	kind: StoryKind,
+) {
 	let t = doc.story(kind);
 	let total = t.len();
 	let mut para_start = 0u32;
@@ -223,7 +228,7 @@ fn write_story<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S,
 }
 
 /// Writes picture `idx` as a `\pict` group: PNG as `\pngblip`, a BMP as a `\dibitmap0` without its file header.
-fn picture<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, idx: u32) {
+fn picture<S: ReadStore + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, idx: u32) {
 	let Some(p) = doc.pictures.get(s, idx) else {
 		return;
 	};
@@ -286,7 +291,7 @@ fn hex(n: u8) -> u8 {
 	}
 }
 
-fn para_end<S: Store + ?Sized>(doc: &Doc, s: &S, kind: StoryKind, from: u32) -> Option<u32> {
+fn para_end<S: ReadStore + ?Sized>(doc: &Doc, s: &S, kind: StoryKind, from: u32) -> Option<u32> {
 	let t = doc.story(kind);
 	let mut at = from;
 	let mut buf = [0u8; 128];
@@ -305,7 +310,7 @@ fn para_end<S: Store + ?Sized>(doc: &Doc, s: &S, kind: StoryKind, from: u32) -> 
 	None
 }
 
-fn para_props<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, pf: &PFmt) {
+fn para_props<S: ReadStore + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, pf: &PFmt) {
 	let mut group = false;
 	o.s("\\pard");
 	o.s(match pf.align {
@@ -395,7 +400,7 @@ fn para_props<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, 
 	}
 }
 
-fn char_props<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, cf: u16) {
+fn char_props<S: ReadStore + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, cf: u16) {
 	let c = doc.cfmts.get(s, cf).unwrap_or(CFmt {
 		font: 0,
 		size: 24,

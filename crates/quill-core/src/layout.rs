@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use crate::doc::{cflag, CFmt, Doc, Font, PFmt, StoryKind, MAX_STOPS, NO_TABS};
-use crate::store::Store;
+use crate::store::ReadStore;
 use crate::text::Piece;
 
 /// Number of characters a width table covers: ANSI 0x20 to 0xFF.
@@ -150,7 +150,7 @@ pub struct Stops {
 
 impl Stops {
 	/// The stops of paragraph format `pf`, converted at `rx` units per inch.
-	pub fn for_para<S: Store + ?Sized>(doc: &Doc, s: &S, pf: &PFmt, rx: u16) -> Stops {
+	pub fn for_para<S: ReadStore + ?Sized>(doc: &Doc, s: &S, pf: &PFmt, rx: u16) -> Stops {
 		let mut st = Stops {
 			n: 0,
 			set: [Stop::default(); MAX_STOPS],
@@ -236,7 +236,7 @@ pub fn to_units(twips: i32, res: u16) -> i32 {
 }
 
 /// The font and vertical position a character format asks for, and the format itself.
-pub fn font_ref<S: Store + ?Sized>(doc: &Doc, s: &S, cfmt: u16) -> (FontRef, u8, CFmt) {
+pub fn font_ref<S: ReadStore + ?Sized>(doc: &Doc, s: &S, cfmt: u16) -> (FontRef, u8, CFmt) {
 	let cf = doc
 		.cfmts
 		.get(s, cfmt)
@@ -286,7 +286,7 @@ enum End {
 /// Lays out one story with `m`, calling `f` for each line, and returns the number of pages.
 pub fn layout_story<S, M, F>(doc: &Doc, s: &S, m: &mut M, kind: StoryKind, mut f: F) -> u32
 where
-	S: Store + ?Sized,
+	S: ReadStore + ?Sized,
 	M: Measure + ?Sized,
 	F: FnMut(&Line),
 {
@@ -483,7 +483,12 @@ where
 }
 
 /// The position after the paragraph mark that ends the paragraph starting at `pos` (or the end of the text).
-fn para_end<S: Store + ?Sized>(text: &crate::doc::StoryText, s: &S, pos: u32, total: u32) -> u32 {
+fn para_end<S: ReadStore + ?Sized>(
+	text: &crate::doc::StoryText,
+	s: &S,
+	pos: u32,
+	total: u32,
+) -> u32 {
 	let mut at = pos;
 	let mut buf = [0u8; 128];
 	while at < total {
@@ -512,7 +517,7 @@ fn segment<S, M>(
 	end: u32,
 ) -> (i32, i32)
 where
-	S: Store + ?Sized,
+	S: ReadStore + ?Sized,
 	M: Measure + ?Sized,
 {
 	let text = &doc.body;
@@ -553,7 +558,7 @@ where
 /// (from the left margin, the line's alignment included). Tabs take the width layout gave them, so a painter and the layout agree.
 pub fn walk_line<S, M, F>(doc: &Doc, s: &S, m: &mut M, kind: StoryKind, line: &Line, mut f: F)
 where
-	S: Store + ?Sized,
+	S: ReadStore + ?Sized,
 	M: Measure + ?Sized,
 	F: FnMut(u32, u8, i32, i32, u8, u16),
 {
@@ -623,7 +628,7 @@ pub fn dump_story<S, M, W>(
 	w: &mut W,
 ) -> core::fmt::Result
 where
-	S: Store + ?Sized,
+	S: ReadStore + ?Sized,
 	M: Measure + ?Sized,
 	W: core::fmt::Write,
 {
@@ -653,7 +658,7 @@ where
 	result
 }
 
-fn write_line<S: Store + ?Sized, W: core::fmt::Write>(
+fn write_line<S: ReadStore + ?Sized, W: core::fmt::Write>(
 	text: &crate::doc::StoryText,
 	s: &S,
 	l: &Line,
@@ -704,7 +709,7 @@ fn field_digits(object: Option<u32>, rx: u16) -> i32 {
 }
 
 /// The size in device units of the picture at `pos`, when the object there is one (kind 0).
-pub fn picture_size<S: Store + ?Sized>(
+pub fn picture_size<S: ReadStore + ?Sized>(
 	doc: &Doc,
 	s: &S,
 	text: &crate::doc::StoryText,

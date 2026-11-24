@@ -6,7 +6,7 @@
 #![no_main]
 
 use quill_app::{App, Files, Key};
-use quill_core::store::{ChunkId, Store};
+use quill_core::store::{ChunkId, ReadStore, Store};
 use quill_formats::io::{Sink, Source};
 use quill_grid::Grid;
 use w16 as _;
@@ -15,6 +15,16 @@ static mut ARENA: [u8; 6000] = [0; 6000];
 
 struct Arena {
 	used: [bool; 12],
+}
+
+impl ReadStore for Arena {
+	fn read(&self, id: ChunkId, offset: u16, out: &mut [u8]) {
+		let base = usize::from(id.0) * 500 + usize::from(offset);
+		let a = unsafe { &*core::ptr::addr_of!(ARENA) };
+		if let Some(s) = a.get(base..base + out.len()) {
+			out.copy_from_slice(s);
+		}
+	}
 }
 
 impl Store for Arena {
@@ -28,15 +38,7 @@ impl Store for Arena {
 	}
 	fn free(&mut self, id: ChunkId) {
 		self.used[usize::from(id.0) % 12] = false;
-	}
-	fn read(&self, id: ChunkId, offset: u16, out: &mut [u8]) {
-		let base = usize::from(id.0) * 500 + usize::from(offset);
-		let a = unsafe { &*core::ptr::addr_of!(ARENA) };
-		if let Some(s) = a.get(base..base + out.len()) {
-			out.copy_from_slice(s);
-		}
-	}
-	fn write(&mut self, id: ChunkId, offset: u16, data: &[u8]) {
+	}	fn write(&mut self, id: ChunkId, offset: u16, data: &[u8]) {
 		let base = usize::from(id.0) * 500 + usize::from(offset);
 		let a = unsafe { &mut *core::ptr::addr_of_mut!(ARENA) };
 		if let Some(s) = a.get_mut(base..base + data.len()) {

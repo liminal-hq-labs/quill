@@ -7,7 +7,7 @@
 // plain text file, `QUILL.UDC`, one word a line, shared by every language. Words in all capitals, words with digits, words in the
 // user dictionary and words ignored for this session are skipped.
 use quill_core::layout::Measure;
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 use quill_spell::{is_letter, lower, upper, Dict, Suggestions, MAX_WORD};
 
 use crate::find::FindState;
@@ -163,7 +163,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The next word from `from` before `limit`: its start and length, with the letters, apostrophes and digits it is made of.
-	pub(crate) fn scan_word<S: Store + ?Sized>(
+	pub(crate) fn scan_word<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		mut p: u32,
@@ -196,7 +196,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// True when the word at `start` of `len` bytes is one to look at: it has no digits, is not in capitals, and is long enough.
-	pub(crate) fn checkable<S: Store + ?Sized>(
+	pub(crate) fn checkable<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		start: u32,
@@ -289,7 +289,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The sentence around the word, up to 70 bytes, for the dialog.
-	pub fn spell_context<S: Store + ?Sized>(&self, s: &S, out: &mut [u8; 72]) -> usize {
+	pub fn spell_context<S: ReadStore + ?Sized>(&self, s: &S, out: &mut [u8; 72]) -> usize {
 		let Some((lo, hi)) = self.selection() else {
 			return 0;
 		};
@@ -308,7 +308,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The suggestions for the word the dialog shows.
-	pub fn spell_suggestions<S: Store + ?Sized>(&self, s: &S) -> Suggestions {
+	pub fn spell_suggestions<S: ReadStore + ?Sized>(&self, s: &S) -> Suggestions {
 		match &self.spell.dict {
 			Some(d) => d.suggest(s, self.spell_word(), BUDGET),
 			None => Suggestions::new(),
@@ -397,7 +397,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Opens the text dialog on the word that was just found.
-	pub(crate) fn open_spell_dialog<S: Store + ?Sized>(&mut self, s: &S) {
+	pub(crate) fn open_spell_dialog<S: ReadStore + ?Sized>(&mut self, s: &S) {
 		let sg = self.spell_suggestions(s);
 		let mut dlg = SpellDlg {
 			sel: if sg.is_empty() { 255 } else { 0 },

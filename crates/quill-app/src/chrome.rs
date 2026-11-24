@@ -5,7 +5,7 @@
 
 use quill_core::doc::{cflag, CFmt, Colour, Font, PFmt, TabSet, TabStop, NO_TABS};
 use quill_core::layout::Measure;
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 
 use crate::App;
 
@@ -122,7 +122,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The character format a toolbar shows: the typing format, or the one at the start of the selection or before the caret.
-	pub fn char_state<S: Store + ?Sized>(&self, s: &S) -> CharState {
+	pub fn char_state<S: ReadStore + ?Sized>(&self, s: &S) -> CharState {
 		let at = self
 			.selection()
 			.map_or(self.caret.saturating_sub(1), |(lo, _)| lo);
@@ -156,12 +156,12 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The paragraph format at the caret.
-	pub fn para_state<S: Store + ?Sized>(&self, s: &S) -> PFmt {
+	pub fn para_state<S: ReadStore + ?Sized>(&self, s: &S) -> PFmt {
 		self.para_pfmt(s, self.caret)
 	}
 
 	/// The tab stops of the paragraph at the caret: (position in twips, kind).
-	pub fn tab_stops<S: Store + ?Sized>(&self, s: &S, out: &mut [(i32, u8); 16]) -> usize {
+	pub fn tab_stops<S: ReadStore + ?Sized>(&self, s: &S, out: &mut [(i32, u8); 16]) -> usize {
 		let pf = self.para_pfmt(s, self.caret);
 		if pf.tabset == NO_TABS {
 			return 0;
@@ -175,7 +175,11 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The tab stops of the paragraph at the caret with their leaders: (position in twips, kind, leader).
-	pub fn tab_stops_full<S: Store + ?Sized>(&self, s: &S, out: &mut [(i32, u8, u8); 16]) -> usize {
+	pub fn tab_stops_full<S: ReadStore + ?Sized>(
+		&self,
+		s: &S,
+		out: &mut [(i32, u8, u8); 16],
+	) -> usize {
 		let pf = self.para_pfmt(s, self.caret);
 		if pf.tabset == NO_TABS {
 			return 0;
@@ -239,7 +243,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The index of the preset the paragraph at the caret matches exactly (paragraph format and the character format at its start), if any.
-	pub fn style_of<S: Store + ?Sized>(&self, s: &S) -> Option<usize> {
+	pub fn style_of<S: ReadStore + ?Sized>(&self, s: &S) -> Option<usize> {
 		let pf = self.para_pfmt(s, self.caret);
 		let start = self.para_start(s, self.caret);
 		let cf = self

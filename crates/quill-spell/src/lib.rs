@@ -14,7 +14,7 @@
 	clippy::indexing_slicing
 )]
 
-use quill_core::store::{ChunkId, Store, MAX_CHUNK};
+use quill_core::store::{ChunkId, ReadStore, Store, MAX_CHUNK};
 use quill_formats::io::Source;
 
 const HEADER: usize = 32;
@@ -294,7 +294,7 @@ impl Dict {
 	}
 
 	/// Copies part of the licence text (SCOWL's, carried in every file) into `out`, from `from`.
-	pub fn licence<S: Store + ?Sized>(&self, s: &S, from: u32, out: &mut [u8]) -> usize {
+	pub fn licence<S: ReadStore + ?Sized>(&self, s: &S, from: u32, out: &mut [u8]) -> usize {
 		let n = (self.lic_len.saturating_sub(from) as usize).min(out.len());
 		let mut done = 0;
 		while done < n {
@@ -309,7 +309,7 @@ impl Dict {
 		n
 	}
 
-	fn edge<S: Store + ?Sized>(&self, s: &S, i: u32) -> u32 {
+	fn edge<S: ReadStore + ?Sized>(&self, s: &S, i: u32) -> u32 {
 		if i >= self.edges {
 			return LAST;
 		}
@@ -322,7 +322,7 @@ impl Dict {
 	}
 
 	/// True when exactly `word` is in the dictionary.
-	pub fn contains_exact<S: Store + ?Sized>(&self, s: &S, word: &[u8]) -> bool {
+	pub fn contains_exact<S: ReadStore + ?Sized>(&self, s: &S, word: &[u8]) -> bool {
 		if word.is_empty() {
 			return false;
 		}
@@ -357,7 +357,7 @@ impl Dict {
 
 	/// True when `word` is known under the case rules: it is in the dictionary as written, or it is all lower case, capitalised or all
 	/// capitals and its lower-case form is.
-	pub fn known<S: Store + ?Sized>(&self, s: &S, word: &[u8]) -> bool {
+	pub fn known<S: ReadStore + ?Sized>(&self, s: &S, word: &[u8]) -> bool {
 		if self.contains_exact(s, word) {
 			return true;
 		}
@@ -395,7 +395,7 @@ impl Dict {
 	/// The words within two edits of `word` (a letter added, removed or changed, or two neighbours swapped), closest first, found by a
 	/// walk of the automaton that stops after `budget` nodes. The words are in the dictionary's case, capitalised or in capitals to
 	/// match `word`.
-	pub fn suggest<S: Store + ?Sized>(&self, s: &S, word: &[u8], budget: u32) -> Suggestions {
+	pub fn suggest<S: ReadStore + ?Sized>(&self, s: &S, word: &[u8], budget: u32) -> Suggestions {
 		let mut out = Suggestions::new();
 		let m = word.len();
 		if m == 0 || m > MAX_WORD - 4 {
@@ -438,7 +438,7 @@ impl Dict {
 		out
 	}
 
-	fn walk<S: Store + ?Sized>(
+	fn walk<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		st: &mut Walk,
