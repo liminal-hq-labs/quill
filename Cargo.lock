@@ -102,6 +102,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-cli"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+ "quill-formats",
+ "quill-host",
+]
+
+[[package]]
 name = "quill-core"
 version = "0.0.0"
 dependencies = [
