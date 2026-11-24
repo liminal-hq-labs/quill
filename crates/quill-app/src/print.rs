@@ -14,13 +14,24 @@ use crate::{App, Files};
 const WIDTH: usize = 132;
 const MAX_ROWS: usize = 70;
 
-/// A list label: the line it belongs to, its bytes, their number and the x it starts at.
-type Label = (u32, [u8; 16], usize, usize);
-
 fn put(row: &mut [u8; WIDTH], x: usize, b: u8) {
 	if let Some(slot) = row.get_mut(x) {
 		*slot = b;
 	}
+}
+
+/// Writes the page's rows up to `last`, then a form feed, and clears the grid for the next page.
+fn flush_page<K: Sink>(k: &mut K, grid: &mut [[u8; WIDTH]; MAX_ROWS], last: &mut usize) -> bool {
+	let mut ok = true;
+	for row in grid.iter().take(*last) {
+		ok &= emit(k, row);
+	}
+	ok &= k.write(b"\x0c");
+	for row in grid.iter_mut() {
+		row.fill(b' ');
+	}
+	*last = 0;
+	ok
 }
 
 fn emit<K: Sink>(k: &mut K, row: &[u8; WIDTH]) -> bool {
@@ -92,6 +103,8 @@ impl<M: Measure + Clone> App<M> {
 		f.close(k) && ok
 	}
 
+	/// Prints the pages in one pass over the layout: lines come in order, so a page is finished when the next one's first line arrives,
+	/// and list labels (which count across pages) are worked out as the lines go by.
 	#[inline(never)]
 	fn print_pages<S: ReadStore + ?Sized, K: Sink>(&self, s: &S, k: &mut K) -> bool {
 		let page = self.doc.page;
@@ -101,24 +114,12 @@ impl<M: Measure + Clone> App<M> {
 		let head_row = to_units(page.header_dist, 6) as usize;
 		let foot_row = rows.saturating_sub(to_units(page.footer_dist, 6) as usize + 1);
 		let text_w = to_units(page.text_w(), 10) as usize;
-		let mut pages = 0u32;
-		self.lines(s, |_, l| pages = pages.max(l.page));
 		let mut counters: crate::ListCounters = [[0; 9]; 4];
-		// Labels count across pages, so one pass collects them; the per-page passes below only place text.
-		let mut labels: [Option<Label>; 128] = [None; 128];
-		let mut n_labels = 0;
-		self.lines(s, |_, l| {
-			if let Some((lab, n, x)) = crate::line_label(self, s, l, &mut counters, 10) {
-				if let Some(slot) = labels.get_mut(n_labels) {
-					*slot = Some((l.start, lab, n, x));
-					n_labels += 1;
-				}
-			}
-		});
+		let mut grid = [[b' '; WIDTH]; MAX_ROWS];
+		let mut last = 0usize;
+		let mut cur = 0u32;
 		let mut ok = true;
-		for p in 1..=pages.max(1) {
-			let mut grid = [[b' '; WIDTH]; MAX_ROWS];
-			let mut last = 0usize;
+		let begin = |p: u32, grid: &mut [[u8; WIDTH]; MAX_ROWS], last: &mut usize| {
 			let first = p == 1 && page.flags & 1 != 0;
 			let (hk, fk) = if first {
 				(StoryKind::FirstHeader, StoryKind::FirstFooter)
@@ -130,58 +131,62 @@ impl<M: Measure + Clone> App<M> {
 				grid.get_mut(head_row),
 			) {
 				*row = r;
-				last = last.max(head_row + 1);
+				*last = (*last).max(head_row + 1);
 			}
 			if let (Some(r), Some(row)) = (
 				self.margin_row(s, fk, p, text_w, left),
 				grid.get_mut(foot_row),
 			) {
 				*row = r;
-				last = last.max(foot_row + 1);
+				*last = (*last).max(foot_row + 1);
 			}
-			self.lines(s, |_, l| {
-				if l.page != p {
-					return;
+		};
+		self.lines(s, |_, l| {
+			if l.page != cur {
+				if cur != 0 {
+					ok &= flush_page(k, &mut grid, &mut last);
 				}
-				let y = top + l.y as usize;
-				let Some(row) = grid.get_mut(y) else {
-					return;
-				};
-				last = last.max(y + 1);
-				for (st, lab, n, x) in labels.iter().flatten() {
-					if *st == l.start {
-						for (i, b) in lab.iter().take(*n).enumerate() {
-							put(
-								row,
-								left + x + i,
-								ansi_to_cp437(if *b == 0x07 { 0x95 } else { *b }),
-							);
-						}
-					}
+				cur = l.page;
+				begin(cur, &mut grid, &mut last);
+			}
+			// The label comes first whether or not the line fits the sheet: the counters follow every line.
+			let label = crate::line_label(self, s, l, &mut counters, 10);
+			let y = top + l.y as usize;
+			let Some(row) = grid.get_mut(y) else {
+				return;
+			};
+			last = last.max(y + 1);
+			if let Some((lab, n, x)) = label {
+				for (i, b) in lab.iter().take(n).enumerate() {
+					put(
+						row,
+						left + x + i,
+						ansi_to_cp437(if *b == 0x07 { 0x95 } else { *b }),
+					);
 				}
-				self.walk(s, l, |_, c, x, w, leader| {
-					let xx = left + x as usize;
-					if c == 0x09 {
-						let fill = match leader {
-							1 => b'.',
-							2 => b'-',
-							3 => b'_',
-							_ => b' ',
-						};
-						for i in 0..w as usize {
-							put(row, xx + i, fill);
-						}
-					} else if c != 0x01 {
-						put(row, xx, ansi_to_cp437(c));
+			}
+			self.walk(s, l, |_, c, x, w, leader| {
+				let xx = left + x as usize;
+				if c == 0x09 {
+					let fill = match leader {
+						1 => b'.',
+						2 => b'-',
+						3 => b'_',
+						_ => b' ',
+					};
+					for i in 0..w as usize {
+						put(row, xx + i, fill);
 					}
-				});
+				} else if c != 0x01 {
+					put(row, xx, ansi_to_cp437(c));
+				}
 			});
-			for row in grid.iter().take(last) {
-				ok &= emit(k, row);
-			}
-			ok &= k.write(b"\x0c");
+		});
+		if cur == 0 {
+			// No lines at all: one page that holds the header and footer.
+			begin(1, &mut grid, &mut last);
 		}
-		ok
+		ok & flush_page(k, &mut grid, &mut last)
 	}
 
 	/// One header or footer row: its first paragraph, fields filled in, aligned inside the text width.

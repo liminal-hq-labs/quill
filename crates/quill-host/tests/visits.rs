@@ -125,3 +125,33 @@ fn typing_in_a_one_megabyte_document() {
 		assert!(m <= 3);
 	}
 }
+
+/// Printing lays the body out once: each paragraph is visited one time, however many pages come out.
+#[test]
+fn printing_makes_one_pass_over_the_document() {
+	for (name, pages) in [("print3.rtf", 3), ("letter.rtf", 1), ("headers.rtf", 1)] {
+		let mut s = HostStore::new();
+		let mut f = MemFiles::default();
+		f.files.insert(
+			name.to_ascii_uppercase(),
+			std::fs::read(root().join(format!("tests/docs/{name}"))).unwrap(),
+		);
+		let mut app = App::new();
+		app.reset(&mut s).unwrap();
+		app.open(&mut s, &mut f, name.to_ascii_uppercase().as_bytes())
+			.unwrap();
+		let mut paras = 0;
+		app.for_each_line(&s, |_, l| paras = paras.max(l.para + 1));
+		assert!(
+			app.page_total(&s) >= pages,
+			"{name} has {pages} pages or more"
+		);
+		let v0 = app.layout_visits();
+		assert!(app.print_text(&mut s, &mut f, b"OUT.PRN"));
+		assert_eq!(
+			app.layout_visits() - v0,
+			paras,
+			"{name}: one visit to each paragraph"
+		);
+	}
+}
