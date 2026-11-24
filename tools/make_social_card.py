@@ -39,7 +39,7 @@ chip = ImageFont.truetype(fonts[2], 28)
 x = 520
 draw.text((x, 120), "Quill", font=title, fill=PARCHMENT)
 draw.text((x, 330), "A small word processor in Rust", font=body, fill=MUTED)
-draw.text((x, 384), "for DOS and Windows 95", font=body, fill=MUTED)
+draw.text((x, 384), "for DOS and Windows", font=body, fill=MUTED)
 label = "Experimental"
 l, t, r, b = draw.textbbox((0, 0), label, font=chip)
 cx, cy = x, 470
