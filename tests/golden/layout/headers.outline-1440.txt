@@ -1,0 +1,4 @@
+# quill layout dump 1
+# measure outline, 1440 x 1440 units per inch
+# 51 characters, 1 lines, 1 pages
+page 1 y 0 para 0 line 0 start 0 len 50 x 0 width 4972 ascent 214 descent 52 | The body of a document with a header and a footer.
