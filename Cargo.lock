@@ -189,6 +189,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-text"
+version = "0.0.0"
+dependencies = [
+ "proptest",
+ "quill-grid",
+]
+
+[[package]]
 name = "r-efi"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

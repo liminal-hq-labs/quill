@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-hits=$(grep -rnE '\b(f32|f64)\b' crates/quill-core/src crates/quill-formats/src crates/quill-dlg/src || true)
+hits=$(grep -rnE '\b(f32|f64)\b' crates/quill-core/src crates/quill-formats/src crates/quill-dlg/src crates/quill-text/src || true)
 if [ -n "$hits" ]; then
 	echo "check-no-floats: floating point in a portable crate:" >&2
 	echo "$hits" >&2

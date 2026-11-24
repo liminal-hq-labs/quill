@@ -1,0 +1,17 @@
+[package]
+name = "quill-text"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "Quill's character tables: Windows-1252 and CP437 to Unicode and back, and the UTF-8 reading rule for text files"
+
+[dev-dependencies]
+quill-grid = { path = "../quill-grid" }
+proptest = { version = "1", default-features = false, features = ["std"] }
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = false
+float = false
