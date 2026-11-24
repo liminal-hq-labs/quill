@@ -135,6 +135,11 @@ fn cmd_self() -> i32 {
 		&mut fails,
 	);
 	check(
+		"free_space takes A: as 0: C: answers and E: is refused with 0Fh",
+		dos::free_space(2).is_ok() && dos::free_space(4) == Err(DosError(0x0F)),
+		&mut fails,
+	);
+	check(
 		"find on an invalid drive fails without hanging",
 		dos::find_first("E:\\*.*", 0x10).is_err(),
 		&mut fails,
@@ -281,7 +286,7 @@ fn cmd_probe(root: &str) -> i32 {
 			"drive {letter}: 4409h {:?}  440Eh {:?}  free {:?}  cwd {:?}",
 			dos::drive_attributes(d),
 			dos::logical_drive_map(d),
-			dos::free_space(d + 1).map(|b| b / 1024),
+			dos::free_space(d).map(|b| b / 1024),
 			dos::current_dir(d)
 		);
 	}
