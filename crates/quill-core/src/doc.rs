@@ -418,6 +418,20 @@ pub struct PageSetup {
 }
 
 impl PageSetup {
+	/// The width between the margins, in twips; a damaged file's numbers saturate instead of overflowing.
+	pub fn text_w(&self) -> i32 {
+		self.paper_w
+			.saturating_sub(self.margin_l)
+			.saturating_sub(self.margin_r)
+	}
+
+	/// The height between the margins, in twips, saturating as `text_w` does.
+	pub fn text_h(&self) -> i32 {
+		self.paper_h
+			.saturating_sub(self.margin_t)
+			.saturating_sub(self.margin_b)
+	}
+
 	/// Letter paper, 1.25 inch side margins, 1 inch top and bottom, as the SPEC's defaults.
 	pub const LETTER: PageSetup = PageSetup {
 		paper_w: 12240,

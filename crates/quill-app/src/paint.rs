@@ -413,8 +413,7 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 	};
 	*g = Grid::new(base);
 	let sel = app.selection();
-	let text_w = ((app.doc.page.paper_w - app.doc.page.margin_l - app.doc.page.margin_r) * 10
-		/ 1440) as usize;
+	let text_w = (app.doc.page.text_w().saturating_mul(10) / 1440) as usize;
 	let margin = COLS.saturating_sub(text_w) / 2;
 
 	// The page.
@@ -424,10 +423,7 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 	let mut counters: ListCounters = [[0u32; 9]; 4];
 	let mut cursor = None;
 	// Rows are the layout's own: a line sits where its page and y put it, so spacing and tall lines show.
-	let page_rows = quill_core::layout::to_units(
-		app.doc.page.paper_h - app.doc.page.margin_t - app.doc.page.margin_b,
-		6,
-	);
+	let page_rows = quill_core::layout::to_units(app.doc.page.text_h(), 6);
 	let cum = |l: &quill_core::layout::Line| (l.page as i32 - 1) * page_rows + l.y;
 	let mut top_cum = 0;
 	app.lines(s, |i, l| {

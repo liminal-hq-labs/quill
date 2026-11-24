@@ -338,7 +338,7 @@ pub fn text_extent<M: Measure + Clone>(app: &App<M>, client_w: i32, hscroll: i32
 	let page = &app.doc().page;
 	let x0 = page_x0(client_w, page_width(app), hscroll);
 	let left = x0 + to_units(page.margin_l, DPI);
-	let w = to_units(page.paper_w - page.margin_l - page.margin_r, DPI);
+	let w = to_units(page.text_w(), DPI);
 	(left, w)
 }
 
