@@ -230,6 +230,9 @@ struct Shell {
 	back: Option<Back>,
 	/// What is on the screen has changed since Check Spelling as You Type was told, so the idle timer asks again before it checks.
 	spell_view: bool,
+	/// The positions whose marks changed since the page was last painted for them, and how many batches ago that was.
+	spell_chg: (u32, u32),
+	spell_since: u8,
 }
 
 /// An off-screen bitmap, and the memory device context that holds it, the size of the window's client area.
@@ -1947,6 +1950,8 @@ pub extern "C" fn start() -> ! {
 		hbar_on: false,
 		back: None,
 		spell_view: true,
+		spell_chg: (0, 0),
+		spell_since: 0,
 	});
 	// SAFETY: single-threaded start-up; the boxes live for the whole process.
 	unsafe {

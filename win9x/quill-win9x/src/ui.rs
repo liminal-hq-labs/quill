@@ -35,8 +35,9 @@ pub const TIMER_SPELL: usize = 4;
 /// milliseconds (the system clock ticks every 55).
 const SPELL_QUIET: u32 = 300;
 const SPELL_STEP: u32 = 55;
-/// The words checked in one batch.
+/// The words checked in one batch, and how many batches go by before the lines they marked are painted.
 const SPELL_WORDS: u32 = 6;
+const SPELL_BATCHES: u8 = 4;
 
 const WS_CHILD: u32 = 0x4000_0000;
 const WS_TABSTOP: u32 = 0x0001_0000;
@@ -500,8 +501,16 @@ pub unsafe fn spell_tick(hwnd: Handle, sh: &mut Shell) {
 		return;
 	}
 	let more = sh.app.spell_idle(&mut sh.store, SPELL_WORDS);
+	// Painting costs far more than checking, so the lines whose marks changed are painted once for a few batches, and at the end.
 	if let Some((lo, hi)) = sh.app.spell_take_changed() {
+		let (a, b) = sh.spell_chg;
+		sh.spell_chg = if a >= b { (lo, hi) } else { (a.min(lo), b.max(hi)) };
+	}
+	sh.spell_since += 1;
+	if (!more || sh.spell_since >= SPELL_BATCHES) && sh.spell_chg.0 < sh.spell_chg.1 {
+		let (lo, hi) = core::mem::take(&mut sh.spell_chg);
 		invalidate_range(hwnd, sh, lo, hi);
+		sh.spell_since = 0;
 	}
 	if more {
 		SetTimer(hwnd, TIMER_SPELL, SPELL_STEP, null());
