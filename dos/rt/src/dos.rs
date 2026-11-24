@@ -337,11 +337,12 @@ pub fn attributes(path: &str) -> Result<u16, DosError> {
 	Ok(r.ecx as u16)
 }
 
-/// AH=36h: the free space on a drive (0 is the current drive, 1 is A:), in bytes. DOS reports at most 2 GiB.
+/// AH=36h: the free space on a drive (0 for A:, like every drive number in this module), in bytes. DOS reports at most 2 GiB. Error
+/// 0Fh means no such drive.
 pub fn free_space(drive: u8) -> Result<u64, DosError> {
 	let mut r = RealRegs {
 		eax: 0x3600,
-		edx: u32::from(drive),
+		edx: u32::from(drive) + 1,
 		..RealRegs::default()
 	};
 	rm21(&mut r)?;
