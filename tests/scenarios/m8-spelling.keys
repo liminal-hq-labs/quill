@@ -7,5 +7,5 @@ enter
 left left enter             # sentense: Ignore
 enter                       # speling
 tab tab enter               # Zorb: Add to the user dictionary
-f10 down down down down down down down enter    # File > Exit
+f10 down down down down down enter    # File > Exit
 n

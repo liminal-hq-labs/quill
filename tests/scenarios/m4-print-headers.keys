@@ -4,5 +4,5 @@
 f10 right right right right right right down down down down enter   # Document > Different First Page (off)
 f10 down down down down enter          # File > Print...
 o u t period p r n enter
-f10 down down down down down down down enter     # File > Exit
+f10 down down down down down enter     # File > Exit
 n
