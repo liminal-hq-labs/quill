@@ -76,6 +76,7 @@ The rule that keeps it honest: **the core never names a platform.** Anything tha
 | `quill-help` | `std`, also a library | `hlpc`, the WinHelp 3.1 compiler, and `hlpdump`, its reader; written to move to a `rust-winhelp` repository |
 | `quill-dict` | `std` | Builds `.DIC` files from SCOWL and VarCon |
 | `quill-host` | `std` | `HostStore`, the measures (`GridMeasure`, `CapturedMeasure`, `LiberationMeasure`, `DeskMeasure`), `quill-render`, the golden test runner and the fuzz targets |
+| `quill-fntgen` | `std`, floats allowed | Host-only tool: renders the Desk and Quill Test faces into the 1- or 2-bit hinted strikes of `QUILL.FNT` ([format](dos-fnt-format.md)), the proof sheets, the size table and the Windows ME comparison report. Never linked into a platform build |
 | `quill-win16` | Win16 binary | `QUILL.EXE`: window procedures, GDI, COMMDLG, clipboard, printing, files, the far-memory `Store` |
 | `quill-win9x` | Win32 binary | `QUILL32.EXE`: the same, over Win32's flat memory and ANSI APIs |
 | `quill-dos` | DOS binary | `QUILLDOS.EXE`: text video, keyboard, mouse, files, ports, and graphics mode |
