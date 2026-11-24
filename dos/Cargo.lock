@@ -50,10 +50,15 @@ version = "0.0.0"
 name = "quill-dos"
 version = "0.0.0"
 dependencies = [
+ "desk-hal",
+ "desk-vga",
  "quill-app",
+ "quill-core",
  "quill-formats",
  "quill-grid",
  "quill-heap",
+ "quill-paint",
+ "quill-strike",
  "rt",
 ]
 
@@ -91,11 +96,28 @@ name = "quill-inflate"
 version = "0.0.0"
 
 [[package]]
+name = "quill-paint"
+version = "0.0.0"
+dependencies = [
+ "quill-app",
+ "quill-core",
+ "quill-image",
+ "quill-strike",
+]
+
+[[package]]
 name = "quill-spell"
 version = "0.0.0"
 dependencies = [
  "quill-core",
  "quill-formats",
+]
+
+[[package]]
+name = "quill-strike"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
 ]
 
 [[package]]
