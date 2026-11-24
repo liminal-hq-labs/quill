@@ -8,7 +8,7 @@ set -euo pipefail
 
 # Usage: win16/build.sh [--regen]
 #
-# Writes out/PROBE.EXE, out/ICONTEST.EXE (the 16-colour Windows 3.x icon) and out/ICONT256.EXE (the same program with the 256-colour one). `--regen` rebuilds src/imports.rs from tools/imports.tbl first. Set CARGO_TARGET_DIR to
+# Writes out/QUILL.EXE and out/QUILL.HLP (the help file it opens), out/PROBE.EXE, out/ICONTEST.EXE (the 16-colour Windows 3.x icon) and out/ICONT256.EXE (the same program with the 256-colour one). `--regen` rebuilds src/imports.rs from tools/imports.tbl first. Set CARGO_TARGET_DIR to
 # keep the build output outside the tree and OUT_DIR to move the executables.
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -44,8 +44,13 @@ for prog in probe icontest segtest quill stackprobe helptest; do
 	python3 tools/ne_pack.py --module "$upper" --description "Quill Win16 $prog" --map "$out/$upper.MAP" \
 		${PACK_ARGS[@]+"${PACK_ARGS[@]}"} ${RES_ARGS[@]+"${RES_ARGS[@]}"} "$elf_dir/$prog" "$out/$upper.EXE"
 	python3 tools/check_segments.py "$out/$upper.EXE"
+	# The icon, the toolbar bitmap and the five dialogs.
+	[ "$prog" != quill ] || python3 tools/check_resources.py "$out/$upper.EXE" 14:1 2:2 5:1001 5:1002 5:1003 5:1004 5:1005
 	echo "built: $out/$upper.EXE ($(wc -c <"$out/$upper.EXE") bytes)"
 done
+# The help file goes beside QUILL.EXE, where Help > Contents looks for it (the program's own directory, from GetModuleFileName).
+out_abs="$(cd "$out" && pwd)"
+(cd .. && env -u CARGO_TARGET_DIR -u RUSTC_BOOTSTRAP cargo run -q --release --locked -p quill-help --bin hlpc -- assets/help/quill.qhm "$out_abs/QUILL.HLP")
 python3 tools/ne_pack.py --module ICONT256 --description "Quill Win16 icontest (256 colours)" \
 	--resources examples/icontest/resources-256.json "$elf_dir/icontest" "$out/ICONT256.EXE"
 echo "built: $out/ICONT256.EXE ($(wc -c <"$out/ICONT256.EXE") bytes)"
