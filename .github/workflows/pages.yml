@@ -1,5 +1,6 @@
 # Publishes the product page in site/ to GitHub Pages when a change to it reaches main, or when run by hand. The site is
 # static, so the build job checks its links (the outside ones too) and uploads the folder; the deploy job publishes it.
+# The site is served at http://labs.liminalhq.ca/quill/ (the organization's custom domain).
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
