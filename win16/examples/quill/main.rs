@@ -1424,7 +1424,7 @@ fn open_file(name: &[u8]) {
 /// The stack and local heap sizes `build.sh` gives the packer (it reads these two lines). The stack, the shadow return stack, the data
 /// and the heap must fit one 64 KB segment, and a play-back reports how much of the stack it used (`STACK.LOG`): running past the
 /// bottom overwrites the program's statics, which showed up as four zero bytes in the screen dump.
-const STACK_SIZE: u32 = 0x7000;
+const STACK_SIZE: u32 = 0x7400;
 const HEAP_SIZE: u32 = 0x1000;
 
 /// Where the window goes and how big it is: the preferred size, centred, or maximised when the screen is smaller (Windows 3.1 has no

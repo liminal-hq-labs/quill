@@ -477,7 +477,7 @@ pub fn dos_mkdir(path: *const u8) -> u16 {
 
 /// Today's date from DOS (function 2Ah): year, month and day.
 pub fn dos_date() -> (u16, u8, u8) {
-	let mut out = [0u16; 2];
+	let mut out = [0u8; 4];
 	unsafe {
 		asm!(
 			"push ebx",
@@ -487,7 +487,8 @@ pub fn dos_date() -> (u16, u8, u8) {
 			"movzx esp, sp",
 			"int 0x21",
 			"mov word ptr [{p}], cx",
-			"mov word ptr [{p} + 2], dx",
+			"mov byte ptr [{p} + 2], dh",
+			"mov byte ptr [{p} + 3], dl",
 			".byte 0x66, 0xe8",
 			".long w16_sync_alias - . - 4",
 			"mov ss, word ptr [__w16_ss32]",
@@ -504,7 +505,8 @@ pub fn dos_date() -> (u16, u8, u8) {
 			options(nostack),
 		);
 	}
-	(out[0], (out[1] >> 8) as u8, out[1] as u8)
+	// The month and day come out of DH and DL as bytes of their own: a shift of a word the other way round turns into `bswap`, a 486 instruction.
+	(u16::from(out[0]) | u16::from(out[1]) << 8, out[2], out[3])
 }
 
 // A small text buffer for the result log. There is no `core::fmt`, which would cost tens of kilobytes of code.
