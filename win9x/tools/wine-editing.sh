@@ -41,7 +41,7 @@ shot() {
 # The colour of one pixel of a screenshot, as hex.
 px() { $IM "$WORK/$1.png" -format "%[hex:p{$2,$3}]" info:; }
 # How many pixels of one colour a rectangle of a screenshot holds: SHOT COLOUR X Y W H.
-count() { $IM "$WORK/$1.png" -crop "$5x$6+$3+$4" +repage -fill black +opaque "#$2" -fill white -opaque "#$2" -format '%[fx:round(mean*w*h)]' info:; }
+count() { $IM "$WORK/$1.png" -crop "$5x$6+$3+$4" +repage -fill '#FF00FE' -opaque "#$2" -fill black +opaque '#FF00FE' -fill white -opaque '#FF00FE' -format '%[fx:round(mean*w*h)]' info:; }
 # How many pixels differ between two screenshots.
 differ() { compare -metric AE "$WORK/$1.png" "$WORK/$2.png" null: 2>&1 | cut -d' ' -f1 | cut -d. -f1 || true; }
 
@@ -74,6 +74,23 @@ echo "wine-editing: the page runs from x=$left to x=$right on a 640 pixel screen
 [ "$left" -ge 4 ] && [ "$left" -le 30 ] || fail "the page does not start near the left edge ($left)"
 d=$((left - (622 - right)))
 [ "${d#-}" -le 6 ] || fail "the page is not centred: $left pixels on the left, $((622 - right)) on the right"
+
+# 1b. The caret is where the layout puts the end of the text, which is where the glyphs end: a zoomed font is hinted to whole pixels and
+# drifts from the layout's widths unless each character is drawn at its layout position. With the caret at the start, the text's
+# right-most ink is at R; with it at the end, the caret (the right-most ink) is at C, and C - R is the side bearing of the last letter.
+xdotool type --delay 40 "This is  Quill, a simple Rust based rich text editor"
+xdotool key Home
+sleep 1
+shot caret_home
+xdotool key End
+sleep 1
+shot caret_end
+edge() { for x in $(seq 600 -1 120); do if [ "$(count "$1" 000000 "$x" 195 1 30)" -gt 0 ]; then echo "$x"; return; fi; done; echo 0; }
+r=$(edge caret_home)
+c=$(edge caret_end)
+echo "wine-editing: the text ends at x=$r and the caret is at x=$c"
+[ "$r" -gt 120 ] && [ "$((c - r))" -ge 0 ] && [ "$((c - r))" -le 8 ] || fail "the caret is not at the end of the text (text $r, caret $c)"
+xdotool key ctrl+a BackSpace
 
 # 2. Ctrl+I: Italic switches on (its button shows pressed, light grey) and no tab is typed.
 xdotool type --delay 80 "abc"
@@ -113,9 +130,10 @@ sleep 0.3
 xdotool mousemove 131 65
 sleep 2
 shot tip
-# The tip is pale yellow on Windows and white under Wine, on the grey of the preview's desk.
-tip=$(( $(count tip FFFFE1 90 75 100 30) + $(count tip FFFFFF 90 75 100 30) ))
-[ "$tip" -gt 100 ] || fail "no tooltip over the preview's Next Page button ($tip pixels)"
+xdotool mousemove 330 300
+sleep 1.5
+shot notip
+[ "$(differ tip notip)" -gt 300 ] || fail "no tooltip over the preview's Next Page button"
 xdotool key Escape
 xdotool mousemove 330 300
 sleep 2

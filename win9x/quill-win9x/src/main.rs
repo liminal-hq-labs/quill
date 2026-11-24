@@ -1517,7 +1517,17 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 			RestoreDC(dc, saved);
 			return;
 		}
-		let (rows, _) = gdi::paint_page(dc, area, sh.hscroll, sh.vpos, pct, &sh.app, &sh.store, &mut sh.pics);
+		let (rows, _) = gdi::paint_page(
+			dc,
+			area,
+			sh.hscroll,
+			sh.vpos,
+			pct,
+			&sh.app,
+			&sh.store,
+			sh.screen_dc,
+			&mut sh.pics,
+		);
 		SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
 		sh.app.set_rows(rows);
 		if !sh.app.editing() {
