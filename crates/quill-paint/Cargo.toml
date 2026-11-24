@@ -27,3 +27,9 @@ quill-host = { path = "../quill-host" }
 quill-heap = { path = "../quill-heap" }
 quill-formats = { path = "../quill-formats" }
 proptest = { version = "1", default-features = false, features = ["std"] }
+
+[package.metadata.quill]
+layer = "kit"
+no_std = true
+alloc = true
+float = false

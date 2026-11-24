@@ -3,9 +3,9 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-.PHONY: dos validate fmt clippy test headers floats goldens wasm
+.PHONY: dos validate fmt clippy test headers floats layers goldens wasm
 
-validate: fmt clippy test headers floats magic wasm
+validate: fmt clippy test headers floats layers magic wasm
 	@echo "validate: ok"
 
 fmt:
@@ -28,6 +28,9 @@ floats:
 wasm:
 	rustup target add wasm32-unknown-unknown
 	cargo check --target wasm32-unknown-unknown -p quill-paint --features pixel --locked
+
+layers:
+	python3 -I scripts/check-layers.py
 
 magic:
 	bash scripts/check-magic.sh

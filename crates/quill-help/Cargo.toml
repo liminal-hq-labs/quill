@@ -16,3 +16,9 @@ path = "src/bin/hlpdump.rs"
 [[bin]]
 name = "hlpc"
 path = "src/bin/hlpc.rs"
+
+[package.metadata.quill]
+layer = "tool"
+no_std = false
+alloc = true
+float = true

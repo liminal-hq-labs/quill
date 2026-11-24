@@ -15,3 +15,9 @@ skrifa = "0.50"
 quill-app = { path = "../quill-app" }
 quill-formats = { path = "../quill-formats" }
 quill-host = { path = "../quill-host" }
+
+[package.metadata.quill]
+layer = "kit"
+no_std = false
+alloc = false
+float = true

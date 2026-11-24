@@ -12,3 +12,9 @@ path = "src/lib.rs"
 [[bin]]
 name = "quill-dict"
 path = "src/main.rs"
+
+[package.metadata.quill]
+layer = "tool"
+no_std = false
+alloc = true
+float = true
