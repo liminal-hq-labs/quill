@@ -1,0 +1,13 @@
+# Fonts: OK applies the face, the size and the styles together to the selection.
+type "plain words"
+key ctrlhome shift-right shift-right shift-right shift-right shift-right
+cmd Fonts
+expect dialog Fonts
+fonts "Arial" 28 bold underline
+dump
+cmd Fonts
+fonts "Courier New" 20
+dump
+cmd Fonts
+cancel
+dump

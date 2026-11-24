@@ -1,0 +1,21 @@
+# Find and Find Next: F3 before any search asks for the Find dialog; not found is a box; Find Next afterwards has no dialog.
+type "one two one"
+key ctrlhome
+key f3
+expect dialog Find find="" with=""
+find next "absent"
+expect notice "Quill cannot find that text." Info
+find next "two"
+dump
+close
+key f3
+dump
+cmd FindNext
+dump
+cmd Find
+expect dialog Find find="two" case=false
+find next "ONE" case
+expect notice "Quill cannot find that text." Info
+find next "ONE"
+close
+dump

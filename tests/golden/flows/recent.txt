@@ -1,0 +1,62 @@
+> cmd Open
+< file Open folder="" name="" type="0"
+> choose "ONE.TXT"
+> cmd Open
+< file Open folder="" name="" type="0"
+> choose "TWO.TXT"
+> dump
+= state
+text: "two"
+caret: 0  selection: none
+name: "TWO.TXT"
+modified: false
+status: ""
+recent: ["TWO.TXT", "ONE.TXT"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Recent 1
+> dump
+= state
+text: "one"
+caret: 0  selection: none
+name: "ONE.TXT"
+modified: false
+status: ""
+recent: ["ONE.TXT", "TWO.TXT"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> type "!"
+> cmd Recent 1
+< ask "Save the changes to ONE.TXT before another document opens?" buttons="YesNoCancel" default="Yes"
+> cancel
+> dump
+= state
+text: "!one"
+caret: 1  selection: none
+name: "ONE.TXT"
+modified: true
+status: ""
+recent: ["ONE.TXT", "TWO.TXT"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Recent 1
+< ask "Save the changes to ONE.TXT before another document opens?" buttons="YesNoCancel" default="Yes"
+> answer No
+> dump
+= state
+text: "two"
+caret: 0  selection: none
+name: "TWO.TXT"
+modified: false
+status: ""
+recent: ["TWO.TXT", "ONE.TXT"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false

@@ -1,0 +1,19 @@
+# New: asks first only when there are unsaved changes; Yes saves (asking for a name), No discards, Cancel keeps everything.
+cmd New
+dump
+type "hello"
+cmd New
+expect ask "Save the changes to (Untitled) before a new document starts?" default Yes
+cancel
+dump
+cmd New
+expect ask default Yes
+answer No
+dump
+type "again"
+cmd New
+expect ask "Save the changes to (Untitled) before a new document starts?" default Yes
+answer Yes
+expect file SaveAs name="" type=0
+choose "AGAIN.QLD"
+dump

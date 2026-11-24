@@ -1,0 +1,22 @@
+# Recent files: opening one asks about unsaved changes with the Open wording; a file that has gone leaves the list and says so.
+@copy plain.qld
+@file "ONE.TXT" "one"
+@file "TWO.TXT" "two"
+cmd Open
+expect file Open
+choose "ONE.TXT"
+cmd Open
+expect file Open
+choose "TWO.TXT"
+dump
+cmd Recent 1
+dump
+type "!"
+cmd Recent 1
+expect ask "Save the changes to ONE.TXT before another document opens?" default Yes
+cancel
+dump
+cmd Recent 1
+expect ask default Yes
+answer No
+dump

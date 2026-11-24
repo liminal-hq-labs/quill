@@ -1,0 +1,12 @@
+# Insert Picture: the dialog starts in the last folder, and a file that is not a picture says so on the status line.
+@copy pic.bmp
+@file "NOTE.TXT" "not a picture"
+cmd Picture
+expect file Picture folder="" name=""
+choose "C:\\PICS\\NOTE.TXT"
+expect notice "Quill cannot use that picture." Status
+dump
+cmd Picture
+expect file Picture folder="C:\\PICS\\"
+choose "PIC.BMP"
+dump

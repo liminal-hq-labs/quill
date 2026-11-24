@@ -1,0 +1,35 @@
+> cmd Open
+< file Open folder="" name="" type="0"
+> choose "PLAIN.QLD"
+> type "x"
+> cmd Exit
+< ask "Save the changes to PLAIN.QLD before Quill closes?" buttons="YesNoCancel" default="Yes"
+> cancel
+> dump
+= state
+text: "xQuill: a plain document\nQuill is a small word processor for DOS, Windows 3.1 and Windows 95, written in Rust. This paragraph is long enough to wrap onto several lines in a sixty column text area, and its lines break after spaces and hyphens, never in the middle of a word unless the word is wider than the line.\n\nName\tQuantity\tPrice\nQuills\t12\t3.50\nInk bottles\t3\t8.25\n\nA line breakkeeps the paragraph together, and a supercalifragilisticexpialidocious-looking-word-that-has-no-spaces-and-is-far-longer-than-a-line is cut where it must be.\nThe end."
+caret: 1  selection: none
+name: "PLAIN.QLD"
+modified: true
+status: ""
+recent: ["PLAIN.QLD"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Exit
+< ask "Save the changes to PLAIN.QLD before Quill closes?" buttons="YesNoCancel" default="Yes"
+> answer Yes
+> dump
+= state
+text: "xQuill: a plain document\nQuill is a small word processor for DOS, Windows 3.1 and Windows 95, written in Rust. This paragraph is long enough to wrap onto several lines in a sixty column text area, and its lines break after spaces and hyphens, never in the middle of a word unless the word is wider than the line.\n\nName\tQuantity\tPrice\nQuills\t12\t3.50\nInk bottles\t3\t8.25\n\nA line breakkeeps the paragraph together, and a supercalifragilisticexpialidocious-looking-word-that-has-no-spaces-and-is-far-longer-than-a-line is cut where it must be.\nThe end."
+caret: 1  selection: none
+name: "PLAIN.QLD"
+modified: false
+status: ""
+recent: ["PLAIN.QLD"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: true
+file PLAIN.QLD: 860 bytes fnv1a=dc18aa32f040c3ae

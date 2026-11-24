@@ -1,0 +1,64 @@
+> type "one two one"
+> key ctrlhome
+> key f3
+< dialog Find find="" with="" case="false" word="false"
+> find next "absent"
+< notice Info "Quill cannot find that text."
+> find next "two"
+> dump
+= state
+text: "one two one"
+caret: 7  selection: 4..7
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> close
+> key f3
+> dump
+= state
+text: "one two one"
+caret: 7  selection: 4..7
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd FindNext
+> dump
+= state
+text: "one two one"
+caret: 7  selection: 4..7
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Find
+< dialog Find find="two" with="" case="false" word="false"
+> find next "ONE" case
+< notice Info "Quill cannot find that text."
+> find next "ONE"
+> close
+> dump
+= state
+text: "one two one"
+caret: 11  selection: 8..11
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false

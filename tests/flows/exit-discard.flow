@@ -1,0 +1,12 @@
+# Exit with No quits and leaves the file as it was; an untitled document asks for a name first, and cancelling that stays.
+type "draft"
+cmd Exit
+expect ask "Save the changes to (Untitled) before Quill closes?" default Yes
+answer Yes
+expect file SaveAs name=""
+cancel
+dump
+cmd Exit
+expect ask default Yes
+answer No
+dump

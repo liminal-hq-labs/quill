@@ -1,0 +1,18 @@
+# Save As: the name is filled in and the type follows its extension; the format follows the extension; the folder is remembered.
+type "words"
+cmd SaveAs
+expect file SaveAs folder="" name="" type=0
+choose "C:\\A\\ONE.TXT"
+dump
+cmd SaveAs
+expect file SaveAs folder="C:\\A\\" name="ONE.TXT" type=2
+choose "C:\\B\\TWO.QLD"
+dump
+cmd SaveAs
+expect file SaveAs folder="C:\\B\\" name="TWO.QLD" type=0
+choose "C:\\B\\THREE.RTF"
+dump
+cmd SaveAs
+expect file SaveAs name="THREE.RTF" type=1
+cancel
+dump

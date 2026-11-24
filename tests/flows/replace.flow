@@ -1,0 +1,20 @@
+# Replace replaces only a selection that matches; Replace All says how many, as one undo step.
+type "one two one"
+key ctrlhome
+cmd Replace
+expect dialog Replace
+find next "two"
+find replace "one" with="1"
+dump
+find replace "one" with="1"
+dump
+find all "two" with="2"
+expect notice "Quill made 1 replacement." Info
+find all "x" with="y"
+expect notice "Quill made 0 replacements." Info
+find all "1" with="uno"
+expect notice "Quill made 1 replacement." Info
+dump
+close
+key ctrl-z
+dump
