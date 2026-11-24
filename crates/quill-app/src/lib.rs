@@ -23,6 +23,7 @@ pub mod picture;
 mod print;
 pub mod script;
 mod spelling;
+pub mod view;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
 use quill_core::layout::{layout_story, Line, Measure};
@@ -36,7 +37,9 @@ pub use chrome::{
 	tab_stop, CharState, CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR, STYLE_NAMES,
 };
 pub use native::{Dialog, FindAction, VERSION};
-pub use paint::{draw, line_label, menu_items, menu_title, Cursor, Item, ListCounters, MENU_COUNT};
+pub use paint::{
+	draw, line_label, menu_items, menu_title, status_text, Cursor, Item, ListCounters, MENU_COUNT,
+};
 
 /// A key, as the platform decodes it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -172,6 +175,8 @@ pub enum Command {
 	Tabs,
 	/// Help > About Quill.
 	About,
+	/// Help > Contents (F1): the Windows builds open QUILL.HLP in WinHelp.
+	Help,
 	/// Insert > Picture.
 	Picture,
 	/// File > Print.
@@ -306,6 +311,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) measure: M,
 	/// Lines the view shows at once (23 on an 80 by 25 screen); the shell sets it.
 	pub(crate) rows: usize,
+	/// The height in pixels of a window's page area, which scrolling keeps the caret inside; 0 on the text screen.
+	pub(crate) view_h: i32,
 	pub(crate) doc: Doc,
 	pub(crate) caret: u32,
 	pub(crate) top: u32,
@@ -317,6 +324,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	typing: bool,
 	quit: bool,
 	pub(crate) msg: Msg,
+	/// Help > Contents was chosen and the shell has not taken the request.
+	pub(crate) help: bool,
 	pending: Option<Command>,
 	/// The other end of the selection, when there is one.
 	pub(crate) anchor: Option<u32>,
@@ -373,6 +382,7 @@ impl<M: Measure + Clone> App<M> {
 		App {
 			measure,
 			rows: paint::TEXT_ROWS,
+			view_h: 0,
 			doc: Doc::new(),
 			caret: 0,
 			top: 0,
@@ -384,6 +394,7 @@ impl<M: Measure + Clone> App<M> {
 			typing: false,
 			quit: false,
 			msg: Msg::new(),
+			help: false,
 			pending: None,
 			anchor: None,
 			extend: false,
@@ -457,6 +468,15 @@ impl<M: Measure + Clone> App<M> {
 	) -> bool {
 		self.set_name(name);
 		self.do_save(s, f)
+	}
+
+	/// True once when Help > Contents (or F1) was chosen: the shell opens its help and the message the editor left is cleared.
+	pub fn take_help(&mut self) -> bool {
+		let h = core::mem::take(&mut self.help);
+		if h {
+			self.msg.clear();
+		}
+		h
 	}
 
 	/// Puts a message on the status line.
@@ -1299,6 +1319,11 @@ impl<M: Measure + Clone> App<M> {
 			Command::Fonts => self.open_fonts(s),
 			Command::Tabs => self.open_tabs(),
 			Command::About => self.mode = Mode::About,
+			Command::Help => {
+				self.help = true;
+				// Shells that show help take the request and clear this.
+				self.set_message("Help is in the Windows builds for now");
+			}
 			Command::Picture => {
 				self.mode = Mode::Prompt {
 					kind: Prompt::Picture,
@@ -1653,6 +1678,7 @@ impl<M: Measure + Clone> App<M> {
 			Key::Insert => self.overtype = !self.overtype,
 			Key::F(5) => self.run(s, f, Command::Regular),
 			Key::F(3) => self.run(s, f, Command::FindNext),
+			Key::F(1) => self.run(s, f, Command::Help),
 			Key::F(7) => self.run(s, f, Command::Spelling),
 			Key::Ctrl(b'f') => self.run(s, f, Command::Find),
 			Key::Ctrl(b'h') => self.run(s, f, Command::Replace),
@@ -1810,12 +1836,15 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Keeps the caret on the screen.
 	fn scroll<S: Store + ?Sized>(&mut self, s: &S) {
-		let Some((idx, _)) = self.caret_line(s) else {
+		let Some((idx, caret_line)) = self.caret_line(s) else {
 			return;
 		};
 		let rows = self.rows as u32;
 		if idx < self.top {
 			self.top = idx;
+		} else if self.view_h > 0 {
+			// A window that draws pages one under another: the caret's line must fit in the page area's pixels, gaps and all.
+			self.top = self.top_to_show(s, idx, &caret_line);
 		} else if self.measure.resolution().1 <= 6 {
 			// On the text screen a row is a unit of layout, so spacing and tall lines count: move down until the caret's line fits.
 			let page_rows = quill_core::layout::to_units(

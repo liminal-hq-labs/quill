@@ -25,6 +25,10 @@ name = "probe"
 path = "examples/probe/main.rs"
 
 [[bin]]
+name = "quill"
+path = "examples/quill/main.rs"
+
+[[bin]]
 name = "segtest"
 path = "examples/segtest/main.rs"
 
@@ -36,12 +40,24 @@ path = "examples/sizeprobe/main.rs"
 name = "icontest"
 path = "examples/icontest/main.rs"
 
+[features]
+noalias = []
+
+[[bin]]
+name = "stackprobe"
+path = "examples/stackprobe/main.rs"
+
+[[bin]]
+name = "helptest"
+path = "examples/helptest/main.rs"
+
 [dependencies]
 quill-core = { path = "../crates/quill-core" }
 quill-formats = { path = "../crates/quill-formats" }
 quill-grid = { path = "../crates/quill-grid" }
 quill-image = { path = "../crates/quill-image" }
 quill-app = { path = "../crates/quill-app" }
+quill-inflate = { path = "../crates/quill-inflate" }
 
 [profile.release]
 opt-level = "z"

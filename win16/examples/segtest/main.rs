@@ -16,7 +16,7 @@ static mut PATH: [u8; 96] = [0; 96];
 
 #[inline(never)]
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.seg2.add")]
+#[unsafe(link_section = ".text.seg3.add")]
 pub extern "C" fn s2_add(a: u32, b: u32) -> u32 {
 	black_box(a).wrapping_add(black_box(b))
 }
@@ -24,7 +24,7 @@ pub extern "C" fn s2_add(a: u32, b: u32) -> u32 {
 /// Calls back into segment 3, which calls back here: depth `n` of alternating segments.
 #[inline(never)]
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.seg2.ping")]
+#[unsafe(link_section = ".text.seg3.ping")]
 pub extern "C" fn s2_ping(n: u32, acc: u32) -> u32 {
 	if n == 0 {
 		return acc;
@@ -34,7 +34,7 @@ pub extern "C" fn s2_ping(n: u32, acc: u32) -> u32 {
 
 #[inline(never)]
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.seg2.many")]
+#[unsafe(link_section = ".text.seg3.many")]
 pub extern "C" fn s2_many(a: u32, b: u32, c: u32, d: u32, e: u32, f: u32, g: u32, h: u32) -> u32 {
 	black_box(a)
 		+ 2 * black_box(b)
@@ -48,7 +48,7 @@ pub extern "C" fn s2_many(a: u32, b: u32, c: u32, d: u32, e: u32, f: u32, g: u32
 
 #[inline(never)]
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.seg2.ptr")]
+#[unsafe(link_section = ".text.seg3.ptr")]
 pub extern "C" fn s2_via_table(i: u32, x: u32) -> u32 {
 	let f = unsafe { TABLE[black_box(i) as usize % 3] };
 	f(x)
@@ -56,7 +56,7 @@ pub extern "C" fn s2_via_table(i: u32, x: u32) -> u32 {
 
 #[inline(never)]
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.seg3.pong")]
+#[unsafe(link_section = ".text.seg4.pong")]
 pub extern "C" fn s3_pong(n: u32, acc: u32) -> u32 {
 	if n == 0 {
 		return acc;
@@ -66,14 +66,14 @@ pub extern "C" fn s3_pong(n: u32, acc: u32) -> u32 {
 
 #[inline(never)]
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.seg3.mul")]
+#[unsafe(link_section = ".text.seg4.mul")]
 pub extern "C" fn s3_mul(a: u32, b: u32) -> u64 {
 	u64::from(black_box(a)) * u64::from(black_box(b)) % 1_000_003
 }
 
 #[inline(never)]
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.seg3.ptr")]
+#[unsafe(link_section = ".text.seg4.ptr")]
 pub extern "C" fn s3_via_table(i: u32, x: u32) -> u32 {
 	let f = unsafe { TABLE[black_box(i) as usize % 3] };
 	f(x)
@@ -87,14 +87,14 @@ pub extern "C" fn s1_inc(x: u32) -> u32 {
 
 #[inline(never)]
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.seg2.dbl")]
+#[unsafe(link_section = ".text.seg3.dbl")]
 pub extern "C" fn s2_dbl(x: u32) -> u32 {
 	black_box(x) * 2
 }
 
 #[inline(never)]
 #[unsafe(no_mangle)]
-#[unsafe(link_section = ".text.seg3.sq")]
+#[unsafe(link_section = ".text.seg4.sq")]
 pub extern "C" fn s3_sq(x: u32) -> u32 {
 	black_box(x) * black_box(x)
 }

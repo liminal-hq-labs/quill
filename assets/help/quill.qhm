@@ -1,0 +1,38 @@
+title: Quill Help
+copyright: (c) Copyright 2026 Liminal HQ, Scott Morris
+
+= start | Quill Help | 1
+# Quill Help
+Quill is a rich-text word processor for DOS, Windows 3.1 and Windows 95, 98 and Me. Choose a topic.
+- [Typing and editing](editing)
+- [Formatting text](formatting)
+- [Saving and opening documents](files)
+- [Keyboard shortcuts](keys)
+A [.QLD file](!qld) is Quill's own format.
+
+= editing | Typing and editing | 10
+# Typing and editing
+Type where the caret is. Use the arrow keys, Home, End, Page Up and Page Down to move, and Backspace and Delete to remove text. **Ctrl+Z** undoes the last change and **Ctrl+Y** repeats it.
+Choose Find from the Find menu to search; Replace changes every match you choose. [Back to the contents](start).
+
+= formatting | Formatting text | 20
+# Formatting text
+**Ctrl+B** makes the selection bold, **Ctrl+I** italic and **Ctrl+U** underlined. The Format menu sets the font, the size, the colour, the alignment and the tab stops.
+- Bullets and numbering come from the Format menu.
+- A paragraph style sets a whole paragraph at once.
+[Back to the contents](start).
+
+= files | Saving and opening documents | 30
+# Saving and opening documents
+Quill saves its own [.QLD files](!qld) and reads and writes Rich Text Format (.RTF) and plain text. Choose Save As to pick the format. [Back to the contents](start).
+
+= keys | Keyboard shortcuts | 40
+# Keyboard shortcuts
+- Ctrl+N new, Ctrl+O open, Ctrl+S save
+- Ctrl+X cut, Ctrl+C copy, Ctrl+V paste
+- F7 checks the spelling
+- F1 opens this help
+[Back to the contents](start).
+
+= qld | QLD file
+A QLD file is Quill's native document format. It keeps text, styles and pictures, and it can be recovered after a crash.

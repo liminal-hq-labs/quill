@@ -1,0 +1,18 @@
+[package]
+name = "quill-help"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "A WinHelp 3.1 help compiler (hlpc) and reader (hlpdump); depends on nothing in Quill"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "hlpdump"
+path = "src/bin/hlpdump.rs"
+
+[[bin]]
+name = "hlpc"
+path = "src/bin/hlpc.rs"

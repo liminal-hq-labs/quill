@@ -36,5 +36,10 @@ Real captures from Quill running on its target systems, small PNGs at native siz
 | `w31-icon-256-colour-video.png` | The optional 256-colour icon on the same 256-colour display: Windows 3.11 draws it with the 20 static system colours, so the gradients become flat patches and the ground turns black in places. | `ICONT256.EXE` in DOSBox-X, as above |
 | `w31-icon-256-on-16-colour-video.png` | The 256-colour icon on a 16-colour display: the shape and mask are right, the ink-blue ground maps to black. | `ICONT256.EXE` in DOSBox-X, as the 16-colour capture |
 | `w31-icon-256-high-colour.png` | The 256-colour icon on a 64K-colour display: here Windows draws its gradients. | `ICONT256.EXE` in DOSBox-X (`machine=svga_s3`, `S3TRIO.DRV`, 800 by 600) |
+| `winhelp-quill-help-w311.png` | `QUILL.HLP`, compiled by `hlpc` from `assets/help/quill.qhm`, in the real WinHelp of Windows for Workgroups 3.11: the heading, body text, green jump links and the dotted pop-up link. | `HELPTEST.EXE` (calls `WinHelp(HELP_CONTENTS)`) in DOSBox-X, Windows 3.11 |
+| `help-f1-win32-wine.png` | F1 in `QUILL32.EXE`: the Help > Contents command opens `QUILL.HLP` in WinHelp (Wine's `winhlp32`) over the editor window. | `QUILL32.EXE` under Wine and Xvfb, key F1 |
+| `help-jump-wine.png` | A jump followed in `QUILL.HLP`: the Keyboard shortcuts topic, reached by clicking its link on the contents page (the context hashes and topic offsets the compiler wrote resolve). | `winhlp32 QUILL.HLP` under Wine, one mouse click |
+| `help-jump-w311.png` | A jump followed in the real WinHelp of Windows 3.11: Tab to the fourth link and Enter on the contents page opens Keyboard shortcuts (so the context hash and topic offset the compiler wrote resolve), with Back now enabled. | `HELPTEST.EXE` and `QUILL.HLP` in DOSBox-X, keys sent with `xdotool` |
+| `help-f1-win16-w311.png` | F1 in the Win16 `QUILL.EXE` on Windows for Workgroups 3.11: Help > Contents opens `QUILL.HLP` in the real WinHelp. | `QUILL.EXE` in DOSBox-X, `/PLAY` with the key `f1` |
 
-More arrive with the milestones: Windows 3.11 (from M5), the real GDI page (from M3's later half), print preview and the help file.
+More arrive with the milestones: Windows 3.11 (from M5), the real GDI page (from M3's later half), print preview and the Win16 chrome.

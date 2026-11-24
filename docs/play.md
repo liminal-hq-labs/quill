@@ -23,7 +23,7 @@ Two scripts start a real Windows in a real DOSBox-X window on your desktop, with
 
 | Program | Built by | Found at |
 | --- | --- | --- |
-| `QUILL.EXE` (Win16) | `win16/build.sh` | `win16/out/QUILL.EXE`, or `$OUT_DIR/QUILL.EXE` if you set `OUT_DIR` for the build |
+| `QUILL.EXE` and `QUILL.HLP` (Win16) | `win16/build.sh` | `win16/out/`, or `$OUT_DIR` if you set `OUT_DIR` for the build; the help file goes on `D:` beside the program, where Help > Contents looks for it |
 | `QUILL32.EXE` (Win32) | `win9x/build.sh` | `win9x/dist/QUILL32.EXE` |
 | `QUILLDOS.EXE` (DOS) | `dos/build.sh` | `dos/dist/QUILLDOS.EXE` |
 

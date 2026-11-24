@@ -562,8 +562,28 @@ unsafe fn save_current(hwnd: Handle, sh: &mut Shell) -> bool {
 	!sh.app.modified()
 }
 
+/// Opens QUILL.HLP (beside the program) in WinHelp at its contents.
+unsafe fn open_help(hwnd: Handle) {
+	const HELP_CONTENTS: u32 = 3;
+	let mut path = [0u8; 280];
+	// SAFETY: `path` holds 280 bytes and the call is told 260.
+	let n = unsafe { GetModuleFileNameA(null_mut(), path.as_mut_ptr(), 260) } as usize;
+	let dir = path.get(..n).and_then(|p| p.iter().rposition(|b| *b == b'\\')).map_or(0, |i| i + 1);
+	let name = b"QUILL.HLP\0";
+	if let Some(dst) = path.get_mut(dir..dir + name.len()) {
+		dst.copy_from_slice(name);
+	}
+	// SAFETY: `path` is NUL-terminated.
+	unsafe { WinHelpA(hwnd, path.as_ptr(), HELP_CONTENTS, 0) };
+}
+
 /// Shows every dialog the editor has asked for, as a real dialog (D86), and applies the answers.
 unsafe fn handle_dialogs(hwnd: Handle) {
+	if let Some(sh) = shell() {
+		if sh.app.take_help() {
+			open_help(hwnd);
+		}
+	}
 	while let Some(sh) = shell() {
 		let Some(d) = sh.app.take_dialog() else {
 			return;

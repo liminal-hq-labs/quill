@@ -101,6 +101,8 @@ mkdir -p "$RUN/c" "$RUN/d" "$RUN/stage" "$RUN/out"
 # What goes on D:.
 W16OUT="${OUT_DIR:-$REPO/win16/out}"
 [ ! -f "$W16OUT/QUILL.EXE" ] || cp "$W16OUT/QUILL.EXE" "$RUN/stage/"
+# Help > Contents opens QUILL.HLP from the program's own directory; win16/build.sh writes it beside QUILL.EXE.
+[ ! -f "$W16OUT/QUILL.HLP" ] || cp "$W16OUT/QUILL.HLP" "$RUN/stage/"
 for f in win9x/dist/QUILL32.EXE dos/dist/QUILLDOS.EXE tests/docs/letter.rtf tests/docs/letter.qld tests/docs/plain.qld; do
 	[ ! -f "$REPO/$f" ] || cp "$REPO/$f" "$RUN/stage/"
 done

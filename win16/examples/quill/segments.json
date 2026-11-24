@@ -1,0 +1,9 @@
+{
+	"segments": {
+		"1": { "name": "MAIN", "budget": 40000 },
+		"3": { "name": "FILE", "place": ["quill_formats::*", "quill_image::*", "quill_inflate::*"] },
+		"4": { "name": "EDIT", "place": ["quill_spell::*", "quill_app::spelling::*", "quill_app::find::*", "quill_app::form::*", "quill_app::print::*", "quill_app::native::*"] },
+		"5": { "name": "VIEW", "place": ["quill_app::paint::*"] }
+	},
+	"auto": { "budget": 50000 }
+}
