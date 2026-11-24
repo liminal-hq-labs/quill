@@ -118,6 +118,8 @@ name = "quill-dlg"
 version = "0.0.0"
 dependencies = [
  "proptest",
+ "quill-core",
+ "quill-heap",
 ]
 
 [[package]]
