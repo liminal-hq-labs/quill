@@ -27,6 +27,7 @@ mod pointer;
 mod print;
 pub mod recent;
 pub mod script;
+mod spell_live;
 mod spelling;
 pub mod view;
 
@@ -47,6 +48,7 @@ pub use paint::{
 	ListCounters, MENU_COUNT,
 };
 pub use pointer::Grain;
+pub use quill_spell::{Candidate, Suggestions};
 
 /// A key, as the platform decodes it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -192,6 +194,8 @@ pub enum Command {
 	Chrome(u8),
 	/// Find > Spelling (F7).
 	Spelling,
+	/// Find > Check Spelling as You Type.
+	SpellAsYouType,
 	/// File > Print Preview (Windows builds only).
 	Preview,
 	/// File > Print Setup (Windows builds only).
@@ -462,6 +466,7 @@ impl<M: Measure + Clone> App<M> {
 	/// Starts an empty, untitled document.
 	pub fn reset<S: Store + ?Sized>(&mut self, s: &mut S) -> Result<(), Error> {
 		self.doc.init(s)?;
+		self.spell_forget();
 		self.caret = 0;
 		self.top = 0;
 		self.name_len = 0;
@@ -665,6 +670,7 @@ impl<M: Measure + Clone> App<M> {
 		self.doc
 			.body
 			.insert_object(s, self.caret, u32::from(idx), cf, pfi, label::TYPING)?;
+		self.spell_note_edit(s, self.caret, 0, 1);
 		self.caret += 1;
 		self.modified = true;
 		Ok(())
@@ -691,6 +697,11 @@ impl<M: Measure + Clone> App<M> {
 		if self.spell.lang != 0 {
 			f(b"Quill", b"Language", &[b'0' + self.spell.lang]);
 		}
+		f(
+			b"Quill",
+			b"AsYouType",
+			if self.spell.live.on { b"1" } else { b"0" },
+		);
 		if self.folder_len > 0 {
 			f(
 				b"Quill",
@@ -742,6 +753,8 @@ impl<M: Measure + Clone> App<M> {
 		let is = |k: &[u8]| key.eq_ignore_ascii_case(k);
 		if is(b"Language") {
 			self.spell.lang = value.first().map_or(0, |b| b.saturating_sub(b'0').min(2));
+		} else if is(b"AsYouType") {
+			self.set_spell_live(value.first() != Some(&b'0'));
 		} else if is(b"Zoom") {
 			self.zoom = parse_zoom(value);
 		} else if is(b"Folder") {
@@ -856,6 +869,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 		self.doc.reset(s);
 		core::mem::swap(&mut self.doc, &mut fresh);
+		self.spell_forget();
 		self.caret = 0;
 		self.top = 0;
 		self.modified = false;
@@ -1066,6 +1080,7 @@ impl<M: Measure + Clone> App<M> {
 		};
 		self.anchor = None;
 		if hi > lo && self.doc.body.delete(s, lo, hi - lo, label::DELETE).is_ok() {
+			self.spell_note_edit(s, lo, hi - lo, 0);
 			self.caret = lo;
 			self.modified = true;
 			true
@@ -1104,8 +1119,13 @@ impl<M: Measure + Clone> App<M> {
 			&& c != 0x0D
 			&& self.caret + 1 < self.doc.body.len()
 			&& self.doc.body.read_byte(s, self.caret) != Some(0x0D)
+			&& self
+				.doc
+				.body
+				.delete(s, self.caret, 1, label::TYPING)
+				.is_ok()
 		{
-			let _ = self.doc.body.delete(s, self.caret, 1, label::TYPING);
+			self.spell_note_edit(s, self.caret, 1, 0);
 		}
 		match self
 			.doc
@@ -1113,6 +1133,7 @@ impl<M: Measure + Clone> App<M> {
 			.insert(s, self.caret, &[c], cfmt, pfmt, label::TYPING)
 		{
 			Ok(()) => {
+				self.spell_note_edit(s, self.caret, 0, 1);
 				self.caret += 1;
 				self.modified = true;
 			}
@@ -1135,6 +1156,7 @@ impl<M: Measure + Clone> App<M> {
 			return;
 		}
 		if self.doc.body.delete(s, pos, 1, label::DELETE).is_ok() {
+			self.spell_note_edit(s, pos, 1, 0);
 			self.caret = pos;
 			self.modified = true;
 		}
@@ -1188,6 +1210,7 @@ impl<M: Measure + Clone> App<M> {
 			.flatten();
 		self.doc.body.begin_group(label::DELETE);
 		if self.doc.body.delete(s, mark, 1, label::DELETE).is_ok() {
+			self.spell_note_edit(s, mark, 1, 0);
 			self.caret = mark;
 			self.modified = true;
 			if let (Some(pf), Some(end)) = (keep, self.para_mark(s, first)) {
@@ -1458,6 +1481,7 @@ impl<M: Measure + Clone> App<M> {
 					.insert_object(s, self.caret, u32::from(k) << 16, cf, pfi, label::TYPING)
 					.is_ok()
 				{
+					self.spell_note_edit(s, self.caret, 0, 1);
 					self.caret += 1;
 					self.modified = true;
 				}
@@ -1486,6 +1510,14 @@ impl<M: Measure + Clone> App<M> {
 				}
 			}
 			Command::Chrome(bit) => self.chrome ^= bit,
+			Command::SpellAsYouType => {
+				self.set_spell_live(!self.spell.live.on);
+				self.msg.set(if self.spell.live.on {
+					"Spelling is checked as you type."
+				} else {
+					"Spelling is not checked as you type."
+				});
+			}
 			Command::Zoom(z) => self.set_zoom(z),
 			Command::Preview | Command::PrintSetup => {
 				self.msg.set("That is not available in this version.")
@@ -1530,12 +1562,14 @@ impl<M: Measure + Clone> App<M> {
 			}
 			Command::Undo => {
 				if self.doc.body.undo(s).unwrap_or(false) {
+					self.spell_forget();
 					self.modified = true;
 					self.caret = self.caret.min(self.doc.body.len().saturating_sub(1));
 				}
 			}
 			Command::Redo => {
 				if self.doc.body.redo(s).unwrap_or(false) {
+					self.spell_forget();
 					self.modified = true;
 					self.caret = self.caret.min(self.doc.body.len().saturating_sub(1));
 				}

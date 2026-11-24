@@ -213,6 +213,12 @@ fn m8_spelling_script_matches_its_golden_screens_and_user_dictionary() {
 }
 
 #[test]
+fn m10_spell_live_script_matches_its_golden_screens_and_marks() {
+	let (_, frames) = scenario("m10-spell-live");
+	compare("tests/golden/screens/m10-spell-live.frames.txt", &frames);
+}
+
+#[test]
 fn m1_edit_script_matches_its_golden_screens_and_file() {
 	let (files, frames) = scenario("m1-edit");
 	compare("tests/golden/screens/m1-edit.frames.txt", &frames);

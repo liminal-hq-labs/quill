@@ -228,6 +228,11 @@ struct Shell {
 	recent_rule: bool,
 	/// The off-screen picture every paint draws into before one copy to the window.
 	back: Option<Back>,
+	/// What is on the screen has changed since Check Spelling as You Type was told, so the idle timer asks again before it checks.
+	spell_view: bool,
+	/// The positions whose marks changed since the page was last painted for them, and how many batches ago that was.
+	spell_chg: (u32, u32),
+	spell_since: u8,
 }
 
 /// An off-screen bitmap, and the memory device context that holds it, the size of the window's client area.
@@ -411,6 +416,11 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 						ui::poll_hover(hwnd, sh);
 					}
 				}
+				ui::TIMER_SPELL => {
+					if let Some(sh) = shell() {
+						ui::spell_tick(hwnd, sh);
+					}
+				}
 				ui::TIMER_DRAG => {
 					if let Some(sh) = shell() {
 						if let Some(d) = sh.sel {
@@ -526,6 +536,19 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 		0x0202 => {
 			let (x, y) = xy(lparam);
 			mouse_up(hwnd, x, y);
+			0
+		}
+		// WM_CONTEXTMENU, from the right button or the keyboard (`lParam` is -1): a misspelt word offers its corrections. Anywhere else the
+		// system has nothing to show.
+		0x007B => {
+			if lparam == -1 {
+				spell_menu(hwnd, None);
+			} else {
+				let (sx, sy) = xy(lparam);
+				let mut o = Point { x: 0, y: 0 };
+				ClientToScreen(hwnd, &mut o);
+				spell_menu(hwnd, Some((sx - o.x, sy - o.y)));
+			}
 			0
 		}
 		0x0010 => {
@@ -1032,10 +1055,17 @@ unsafe fn run_command(hwnd: Handle, c: Command) {
 		sync_chrome(hwnd, sh);
 		if matches!(
 			c,
-			Command::Chrome(_) | Command::Zoom(_) | Command::Recent(_) | Command::Open | Command::SaveAs | Command::Save
+			Command::Chrome(_)
+				| Command::Zoom(_)
+				| Command::Recent(_)
+				| Command::Open
+				| Command::SaveAs
+				| Command::Save
+				| Command::SpellAsYouType
 		) {
 			ui::ini_save(sh);
 		}
+		ui::spell_arm(hwnd, sh);
 	}
 	retitle(hwnd, sh);
 	story_changed(sh);
@@ -1200,7 +1230,80 @@ unsafe fn mouse_down(hwnd: Handle, x: i32, y: i32) {
 	}
 	if ui::in_page(hwnd, sh, x, y) {
 		ui::page_down(hwnd, sh, x, y);
+		ui::spell_arm(hwnd, sh);
 	}
+}
+
+/// The ids of the pop-up menu on a misspelt word: up to five suggestions, then Ignore All and Add to Dictionary.
+const ID_SPELL: usize = 700;
+const ID_SPELL_IGNORE: usize = 705;
+const ID_SPELL_ADD: usize = 706;
+const MF_GRAYED: u32 = 1;
+const TPM_RIGHTBUTTON: u32 = 2;
+const TPM_RETURNCMD: u32 = 0x100;
+
+/// The context menu was asked for, with the pointer at (`x`, `y`) in the client area or, from the keyboard (Shift+F10 or the menu key),
+/// at the caret: over a misspelt word it opens a menu of the word's suggestions, Ignore All and Add to Dictionary.
+unsafe fn spell_menu(hwnd: Handle, at: Option<(i32, i32)>) {
+	let Some(sh) = shell() else {
+		return;
+	};
+	if sh.preview.is_some() || sh.grid || !sh.app.spell_live() || !sh.app.editing() {
+		return;
+	}
+	let (pos, x, y) = match at {
+		Some((x, y)) if ui::in_page(hwnd, sh, x, y) => (ui::pos_under(hwnd, sh, x, y), x, y),
+		Some(_) => return,
+		None => {
+			let Some((x, y)) = ui::caret_point(hwnd, sh) else {
+				return;
+			};
+			(sh.app.caret(), x, y)
+		}
+	};
+	let Some((lo, _)) = sh.app.spell_mark_at(&sh.store, pos) else {
+		return;
+	};
+	let sg = sh.app.spell_suggestions_at(&sh.store, lo);
+	let menu = CreatePopupMenu();
+	let shown = sg.len().min(5);
+	for i in 0..shown {
+		if let Some(c) = sg.get(i) {
+			let mut text = c.text.get(..usize::from(c.len)).unwrap_or(&[]).to_vec();
+			text.push(0);
+			AppendMenuA(menu, MF_STRING, ID_SPELL + i, text.as_ptr());
+		}
+	}
+	if shown == 0 {
+		AppendMenuA(menu, MF_STRING | MF_GRAYED, 0, b"(No suggestions)\0".as_ptr());
+	}
+	AppendMenuA(menu, MF_SEPARATOR, 0, null());
+	AppendMenuA(menu, MF_STRING, ID_SPELL_IGNORE, b"Ignore All\0".as_ptr());
+	AppendMenuA(menu, MF_STRING, ID_SPELL_ADD, b"Add to Dictionary\0".as_ptr());
+	let mut at = Point { x, y };
+	ClientToScreen(hwnd, &mut at);
+	let id = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, at.x, at.y, 0, hwnd, null()) as usize;
+	DestroyMenu(menu);
+	sh.app.set_message("");
+	sh.hint_on = false;
+	let done = match id {
+		ID_SPELL..=704 => sg.get(id - ID_SPELL).is_some_and(|c| {
+			let with = c.text.get(..usize::from(c.len)).unwrap_or(&[]);
+			sh.app.spell_replace_at(&mut sh.store, lo, with)
+		}),
+		ID_SPELL_IGNORE => sh.app.spell_ignore_at(&mut sh.store, lo),
+		ID_SPELL_ADD => sh.app.spell_add_at(&mut sh.store, &mut sh.files, lo),
+		_ => false,
+	};
+	if done {
+		retitle(hwnd, sh);
+		story_changed(sh);
+		ui::update_scroll(hwnd, sh);
+		ui::ensure_visible(hwnd, sh);
+		invalidate_page(hwnd, sh);
+		ui::spell_arm(hwnd, sh);
+	}
+	ui::status_update(hwnd, sh);
 }
 
 unsafe fn mouse_move(hwnd: Handle, x: i32, y: i32) {
@@ -1282,6 +1385,7 @@ unsafe fn sync_chrome(hwnd: Handle, sh: &mut Shell) {
 			let on = match c {
 				Command::Chrome(bit) => Some(sh.app.chrome_on(*bit)),
 				Command::Zoom(z) => Some(sh.app.zoom() == *z),
+				Command::SpellAsYouType => Some(sh.app.spell_live()),
 				_ => None,
 			};
 			if let Some(on) = on {
@@ -1370,6 +1474,7 @@ unsafe fn press(hwnd: Handle, k: Key) {
 		} else {
 			invalidate_page(hwnd, sh);
 		}
+		ui::spell_arm(hwnd, sh);
 	}
 	if sh.app.quit() {
 		DestroyWindow(hwnd);
@@ -1510,6 +1615,7 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 			sh.hscroll,
 			sh.vpos,
 			pct,
+			damage,
 			&sh.app,
 			&sh.store,
 			sh.screen_dc,
@@ -1843,6 +1949,9 @@ pub extern "C" fn start() -> ! {
 		vbar_on: false,
 		hbar_on: false,
 		back: None,
+		spell_view: true,
+		spell_chg: (0, 0),
+		spell_since: 0,
 	});
 	// SAFETY: single-threaded start-up; the boxes live for the whole process.
 	unsafe {
@@ -1953,6 +2062,8 @@ pub extern "C" fn start() -> ! {
 			if !gridview {
 				sh.faces = chrome::enumerate_faces(sh.screen_dc);
 				sh.instance = instance;
+				// Windows 95 checks spelling as you type unless QUILL.INI says otherwise.
+				sh.app.set_spell_live_default(true);
 				ui::ini_load(sh);
 				let cb = chrome::create_combos(hwnd, instance, &sh.faces);
 				cb.show(&sh.app, false);

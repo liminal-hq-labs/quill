@@ -11,6 +11,7 @@ use quill_core::store::Store;
 use quill_spell::{is_letter, lower, upper, Dict, Suggestions, MAX_WORD};
 
 use crate::find::FindState;
+use crate::spell_live::Live;
 use crate::{App, Files, Key, Mode};
 use quill_formats::io::{Sink, Source};
 
@@ -37,6 +38,8 @@ pub(crate) struct SpellData {
 	/// Where the check began, and whether it has wrapped round the end of the document.
 	origin: u32,
 	wrapped: bool,
+	/// Check Spelling as You Type: whether it is on, and what the idle scanner keeps.
+	pub live: Live,
 }
 
 impl SpellData {
@@ -53,6 +56,7 @@ impl SpellData {
 			wlen: 0,
 			origin: 0,
 			wrapped: false,
+			live: Live::new(),
 		}
 	}
 }
@@ -100,6 +104,7 @@ impl<M: Measure + Clone> App<M> {
 				d.free(s);
 			}
 			self.spell.lang = lang;
+			self.spell_recheck();
 		}
 	}
 
@@ -110,16 +115,22 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Opens the dictionary and the user dictionary if they are not open. False (with a message) when there is no dictionary.
 	pub fn spell_ready<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F) -> bool {
+		let ok = self.spell_load(s, f);
+		if !ok {
+			self.msg.set("The spelling dictionary was not found.");
+		}
+		ok
+	}
+
+	/// Opens the dictionary and the user dictionary if they are not open, and says nothing when it cannot.
+	pub(crate) fn spell_load<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F) -> bool {
 		if self.spell.dict.is_none() {
 			let loaded = f
 				.open(dic_name(self.spell.lang))
 				.and_then(|mut r| Dict::load(s, &mut r).ok());
 			match loaded {
 				Some(d) => self.spell.dict = Some(d),
-				None => {
-					self.msg.set("The spelling dictionary was not found.");
-					return false;
-				}
+				None => return false,
 			}
 			if self.spell.user_len == 0 {
 				if let Some(mut r) = f.open(b"QUILL.UDC") {
@@ -131,7 +142,7 @@ impl<M: Measure + Clone> App<M> {
 		true
 	}
 
-	fn user_has(&self, w: &[u8]) -> bool {
+	pub(crate) fn user_has(&self, w: &[u8]) -> bool {
 		self.spell
 			.user
 			.get(..self.spell.user_len)
@@ -140,7 +151,7 @@ impl<M: Measure + Clone> App<M> {
 			.any(|l| same_word(l.strip_suffix(b"\r").unwrap_or(l), w))
 	}
 
-	fn ignored(&self, w: &[u8]) -> bool {
+	pub(crate) fn ignored(&self, w: &[u8]) -> bool {
 		(0..self.spell.ignore_n).any(|i| {
 			let n = usize::from(self.spell.ignore_len.get(i).copied().unwrap_or(0));
 			self.spell
@@ -152,7 +163,12 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The next word from `from` before `limit`: its start and length, with the letters, apostrophes and digits it is made of.
-	fn scan_word<S: Store + ?Sized>(&self, s: &S, mut p: u32, limit: u32) -> Option<(u32, u32)> {
+	pub(crate) fn scan_word<S: Store + ?Sized>(
+		&self,
+		s: &S,
+		mut p: u32,
+		limit: u32,
+	) -> Option<(u32, u32)> {
 		let t = &self.doc.body;
 		let wordish = |b: u8| is_letter(b) || b.is_ascii_digit();
 		while p < limit {
@@ -180,7 +196,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// True when the word at `start` of `len` bytes is one to look at: it has no digits, is not in capitals, and is long enough.
-	fn checkable<S: Store + ?Sized>(
+	pub(crate) fn checkable<S: Store + ?Sized>(
 		&self,
 		s: &S,
 		start: u32,
@@ -299,20 +315,29 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	/// Remembers `w` as a word to leave alone for this session.
+	pub(crate) fn ignore_word(&mut self, w: &[u8]) {
+		let n = w.len().min(MAX_WORD);
+		let i = self.spell.ignore_n % IGNORE;
+		if let (Some(d), Some(l)) = (
+			self.spell.ignore.get_mut(i),
+			self.spell.ignore_len.get_mut(i),
+		) {
+			*d = [0; MAX_WORD];
+			if let (Some(dst), Some(src)) = (d.get_mut(..n), w.get(..n)) {
+				dst.copy_from_slice(src);
+			}
+			*l = n as u8;
+		}
+		self.spell.ignore_n = (self.spell.ignore_n + 1).min(IGNORE);
+	}
+
 	/// Leaves the word as it is for this one occurrence and goes on.
 	pub fn spell_ignore<S: Store + ?Sized>(&mut self, s: &mut S, all: bool) -> bool {
 		if all {
-			let n = self.spell.wlen.min(MAX_WORD);
-			let i = self.spell.ignore_n % IGNORE;
 			let w = self.spell.word;
-			if let (Some(d), Some(l)) = (
-				self.spell.ignore.get_mut(i),
-				self.spell.ignore_len.get_mut(i),
-			) {
-				*d = w;
-				*l = n as u8;
-			}
-			self.spell.ignore_n = (self.spell.ignore_n + 1).min(IGNORE);
+			self.ignore_word(w.get(..self.spell.wlen).unwrap_or(&[]));
+			self.spell_recheck();
 		}
 		self.anchor = None;
 		self.spell_next(s)
@@ -340,27 +365,33 @@ impl<M: Measure + Clone> App<M> {
 		self.spell_next(s)
 	}
 
+	/// Adds `w` to the user dictionary and writes the file. False when the dictionary is full.
+	pub(crate) fn user_add<F: Files>(&mut self, f: &mut F, w: &[u8]) -> bool {
+		let n = w.len();
+		if self.spell.user_len + n + 2 > USER {
+			self.msg.set("The user dictionary is full.");
+			return false;
+		}
+		let at = self.spell.user_len;
+		if let Some(d) = self.spell.user.get_mut(at..at + n) {
+			d.copy_from_slice(w);
+		}
+		if let Some(d) = self.spell.user.get_mut(at + n..at + n + 2) {
+			d.copy_from_slice(b"\r\n");
+		}
+		self.spell.user_len = at + n + 2;
+		if let Some(mut out) = f.create(b"QUILL.UDC") {
+			let _ = out.write(self.spell.user.get(..self.spell.user_len).unwrap_or(&[]));
+			f.close(out);
+		}
+		true
+	}
+
 	/// Adds the word to the user dictionary file and goes on.
 	pub fn spell_add<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F) -> bool {
-		let w = self.spell_word();
-		let n = w.len();
-		if self.spell.user_len + n + 2 <= USER {
-			let at = self.spell.user_len;
-			let word = self.spell.word;
-			if let Some(d) = self.spell.user.get_mut(at..at + n) {
-				d.copy_from_slice(word.get(..n).unwrap_or(&[]));
-			}
-			if let Some(d) = self.spell.user.get_mut(at + n..at + n + 2) {
-				d.copy_from_slice(b"\r\n");
-			}
-			self.spell.user_len = at + n + 2;
-			if let Some(mut w) = f.create(b"QUILL.UDC") {
-				let _ = w.write(self.spell.user.get(..self.spell.user_len).unwrap_or(&[]));
-				f.close(w);
-			}
-		} else {
-			self.msg.set("The user dictionary is full.");
-		}
+		let w = self.spell.word;
+		self.user_add(f, w.get(..self.spell.wlen).unwrap_or(&[]));
+		self.spell_recheck();
 		self.anchor = None;
 		self.spell_next(s)
 	}

@@ -250,9 +250,10 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 - **Find > Spelling...** (F7) checks from the caret to the end and then from the start, skipping words in all capitals, words with digits, and text marked by Ignore All. Each unknown word is selected and the Spelling dialog shows it with the sentence around it and up to eight suggestions, closest first.
 - Buttons: `Ignore`, `Ignore All` (for this session and document), `Change`, `Change All` (every occurrence in the document, one undo step), `Add` (to the user dictionary), `Suggest` (when suggestions are off for speed), `Cancel`. Finishing says `The spelling check is complete.`.
 - Suggestions are words within two edits (a letter added, removed, changed, or two letters swapped). The search stops after a time budget so the dialog never pauses for more than about half a second on a 386; when it stops early, the list says `More...` and Suggest continues.
-- **Check Spelling as You Type** marks unknown words with a wavy red underline, checked only when Quill is idle and only for the visible paragraphs. On Win16 it is off by default.
+- **Check Spelling as You Type** (Find menu, ticked when on) marks unknown words with a wavy red underline, checked only when the keyboard and the mouse have been quiet for about 0.3 s and only for the lines on the screen, a few words at a time, so typing is never slowed. The rules are the F7 check's: words in all capitals, words with digits, one-letter words, the user dictionary and Ignore All are skipped. The word being typed is not looked at until the caret leaves it, and a mark goes the moment the text under it changes. Scrolling checks the lines that come into view. The marks live in `Store` chunks, 64 at most. It is on by default in the Windows 95 build and off in the others (each build says; `[Quill] AsYouType` overrides it) (D201, D202).
+- **Right-click menu (Windows 95).** On a marked word the right button, or the menu key or Shift+F10 with the caret in or against the word, opens a menu of up to five suggestions, closest first, then `Ignore All` and `Add to Dictionary`. A suggestion replaces the word in one undo step; the caret stays where it was in the text.
 - Languages are Canadian English (default), American English and British English, set in **Find > Spelling... > Options**. The user dictionary is shared by all languages.
-- **Build note (D88).** The dictionary is a file, `EN_CA.DIC`, `EN_US.DIC` or `EN_GB.DIC`, found in the current folder or beside the program, and read whole into memory when the first check begins; the user dictionary is `QUILL.UDC`, a text file with one word a line. The language is set by `[Quill] Language` in `QUILL.INI` (0 Canadian, 1 American, 2 British) until the Options page is built.
+- **Build note (D88).** The dictionary is a file, `EN_CA.DIC`, `EN_US.DIC` or `EN_GB.DIC`, found in the current folder or beside the program, and read whole into memory when the first check begins; the user dictionary is `QUILL.UDC`, a text file with one word a line. The language is set by `[Quill] Language` in `QUILL.INI` (0 Canadian, 1 American, 2 British) until the Options page is built; `[Quill] AsYouType` (`0` or `1`) is the as-you-type setting.
 
 ### Files
 
@@ -369,7 +370,7 @@ Every build keeps every property of the document. The table says what each shows
 | Zoom (stretch) | Yes | Yes | No | No |
 | Printing | Windows printer drivers | Windows printer drivers | Plain text | Plain text; PostScript stretch |
 | Clipboard | Windows: RTF, DIB, text | Windows: RTF, DIB, text | Own; Windows text in a DOS box | As text mode |
-| Spelling as you type | Off by default | On by default | On by default | On by default |
+| Spelling as you type | Off by default, not built yet | On by default | Off by default, not built yet | As text mode |
 | Help | WinHelp 3.1 | WinHelp 4 (same file) | Own viewer, `QUILL.HLX` | As text mode |
 | File names | 8.3 | Long names | 8.3 | 8.3 |
 | Common dialogs | `COMMDLG.DLL` | `COMDLG32.DLL` | Quill's own | Quill's own |
@@ -501,7 +502,7 @@ Settings live in `QUILL.INI` in the Windows directory (both Windows builds share
 | `[Quill] PictureMemory` | `1024` (Win16), `16384` (Win32), `4096` (DOS) | Most memory, in KB, decoded pictures may hold at once (256–65536) |
 | `[Quill] Zoom` | `Width` | Zoom: `Width` (the page fits the window, never larger than 100 percent) or a percentage from 25 to 200 |
 | `[Spelling] Language` | `en-CA` | `en-CA`, `en-US` or `en-GB` |
-| `[Spelling] AsYouType` | `0` (Win16), `1` (others) | Check spelling as you type |
+| `[Quill] AsYouType` | `0` (Win16 and DOS, not built yet), `1` (Windows 95) | Check spelling as you type |
 | `[Spelling] IgnoreCaps` | `1` | Skip words in all capitals |
 | `[Recent] File1`–`File4` | Empty | Recent files, most recent first (Win16 and DOS) |
 | `[Recent32] File1`–`File4` | Empty | Recent files for the Win32 build |

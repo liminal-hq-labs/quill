@@ -1,0 +1,189 @@
+diff --git a/win9x/quill-win9x/src/main.rs b/win9x/quill-win9x/src/main.rs
+index 38580b1..d80c582 100644
+--- a/win9x/quill-win9x/src/main.rs
++++ b/win9x/quill-win9x/src/main.rs
+@@ -1456,6 +1456,7 @@ unsafe fn press(hwnd: Handle, k: Key) {
+ 		}
+ 	}
+ 	let before = chrome::signature(&sh.app, &sh.store);
++	ui::B_KEY = ui::qpc();
+ 	sh.app.key(&mut sh.store, &mut sh.files, k);
+ 	if !sh.grid {
+ 		handle_dialogs(hwnd);
+@@ -1487,6 +1488,7 @@ unsafe fn paint(hwnd: Handle) {
+ 	let Some(sh) = shell() else {
+ 		return;
+ 	};
++	let t_paint = ui::qpc();
+ 	let mut ps = MaybeUninit::<PaintStruct>::uninit();
+ 	let wdc = BeginPaint(hwnd, ps.as_mut_ptr());
+ 	let mut damage = ps.assume_init_ref().paint;
+@@ -1523,6 +1525,21 @@ unsafe fn paint(hwnd: Handle) {
+ 		None => paint_into(hwnd, wdc, sh, damage),
+ 	}
+ 	EndPaint(hwnd, ps.as_ptr());
++	let dp = ui::qpc() - t_paint;
++	ui::B_PAINT_N += 1;
++	ui::B_PAINT_SUM += dp;
++	ui::B_PAINT_MAX = ui::B_PAINT_MAX.max(dp);
++	if ui::B_KEY != 0 {
++		let d = ui::qpc() - ui::B_KEY;
++		ui::B_KEY = 0;
++		if ui::B_NLAT < 64 {
++			ui::B_LAT[ui::B_NLAT] = d;
++			ui::B_NLAT += 1;
++			if ui::B_NLAT % 2 == 0 {
++				ui::bench_log(sh);
++			}
++		}
++	}
+ }
+ 
+ /// Draws the window into `dc`, limited to the `damage` rectangle.
+diff --git a/win9x/quill-win9x/src/ui.rs b/win9x/quill-win9x/src/ui.rs
+index 9c69685..0fe0834 100644
+--- a/win9x/quill-win9x/src/ui.rs
++++ b/win9x/quill-win9x/src/ui.rs
+@@ -29,6 +29,106 @@ pub const ID_RECENT: usize = 600;
+ /// Timers: the pointer poll while a hint shows, and the scrolling while a selection is dragged past the edge.
+ pub const TIMER_HINT: usize = 2;
+ pub const TIMER_DRAG: usize = 3;
++
++// ---- measuring hooks (not part of the product) ----------------------------------------------------------------------------------
++#[link(name = "kernel32", kind = "raw-dylib", import_name_type = "undecorated")]
++extern "system" {
++	fn QueryPerformanceCounter(c: *mut i64) -> i32;
++	fn QueryPerformanceFrequency(f: *mut i64) -> i32;
++}
++pub static mut B_KEY: i64 = 0;
++pub static mut B_LAT: [i64; 64] = [0; 64];
++pub static mut B_NLAT: usize = 0;
++pub static mut B_T0: i64 = 0;
++pub static mut B_TICKS: u32 = 0;
++pub static mut B_CPU: i64 = 0;
++pub static mut B_MAXTICK: i64 = 0;
++pub static mut B_LOAD: i64 = 0;
++pub static mut B_WORDS: u32 = 0;
++pub static mut B_PAINT_N: u32 = 0;
++pub static mut B_PAINT_SUM: i64 = 0;
++pub static mut B_PAINT_MAX: i64 = 0;
++pub static mut B_SCANS: alloc::vec::Vec<(u32, i64, u32, i64, i64)> = alloc::vec::Vec::new();
++
++pub fn qpc() -> i64 {
++	let mut c = 0i64;
++	unsafe { QueryPerformanceCounter(&mut c) };
++	c
++}
++
++fn us(t: i64) -> i64 {
++	let mut f = 1i64;
++	unsafe { QueryPerformanceFrequency(&mut f) };
++	t * 1_000_000 / f.max(1)
++}
++
++/// The words of at least two letters in `lo..hi`.
++unsafe fn count_words(sh: &Shell, lo: u32, hi: u32) -> u32 {
++	let mut n = 0;
++	let mut inword = 0;
++	let mut p = lo;
++	while p < hi {
++		let mut buf = [0u8; 256];
++		let got = sh.app.doc().body.read(&sh.store, p, &mut buf[..((hi - p) as usize).min(256)]);
++		if got == 0 {
++			break;
++		}
++		for b in &buf[..got] {
++			if b.is_ascii_alphanumeric() || *b == b'\'' {
++				inword += 1;
++			} else {
++				if inword >= 2 {
++					n += 1;
++				}
++				inword = 0;
++			}
++		}
++		p += got as u32;
++	}
++	n
++}
++
++pub unsafe fn bench_log(sh: &mut Shell) {
++	let mut s = alloc::string::String::new();
++	s.push_str(&alloc::format!("dictionary load: {} us\r\n", us(B_LOAD)));
++	for (words, total, ticks, cpu, maxt) in B_SCANS.iter() {
++		s.push_str(&alloc::format!(
++			"scan: {} words, {} us elapsed, {} ticks, {} us cpu in spell_idle, longest tick {} us\r\n",
++			words,
++			us(*total),
++			ticks,
++			us(*cpu),
++			us(*maxt)
++		));
++	}
++	s.push_str(&alloc::format!(
++		"paint: {} paints, mean {} us, longest {} us\r\n",
++		B_PAINT_N,
++		us(B_PAINT_SUM / (B_PAINT_N.max(1) as i64)),
++		us(B_PAINT_MAX)
++	));
++	let n = B_NLAT;
++	let mut sorted: alloc::vec::Vec<i64> = B_LAT[..n].iter().map(|t| us(*t)).collect();
++	sorted.sort_unstable();
++	let sum: i64 = sorted.iter().sum();
++	s.push_str(&alloc::format!(
++		"keys: {} median {} us mean {} us max {} us\r\n",
++		n,
++		sorted.get(n / 2).copied().unwrap_or(0),
++		sum / (n.max(1) as i64),
++		sorted.last().copied().unwrap_or(0)
++	));
++	for v in &sorted {
++		s.push_str(&alloc::format!("{v} "));
++	}
++	s.push_str("\r\n");
++	use quill_app::Files as _;
++	if let Some(mut w) = sh.files.create(b"D:\\SPELL.LOG") {
++		let _ = quill_formats::io::Sink::write(&mut w, s.as_bytes());
++		sh.files.close(w);
++	}
++}
++
+ /// The idle timer of Check Spelling as You Type.
+ pub const TIMER_SPELL: usize = 4;
+ /// How long the keyboard and the mouse stay quiet before spelling is checked, and the wait between the small batches after it, in
+@@ -495,12 +595,35 @@ pub unsafe fn spell_tick(hwnd: Handle, sh: &mut Shell) {
+ 	if core::mem::take(&mut sh.spell_view) {
+ 		let (lo, hi) = visible_span(hwnd, sh);
+ 		sh.app.spell_set_view(lo, hi);
++		if B_T0 == 0 {
++			B_WORDS = count_words(sh, lo, hi);
++		}
+ 	}
++	let t_load = qpc();
+ 	if !sh.app.spell_live_ready(&mut sh.store, &mut sh.files) {
+ 		KillTimer(hwnd, TIMER_SPELL);
+ 		return;
+ 	}
++	if B_LOAD == 0 {
++		B_LOAD = qpc() - t_load;
++	}
++	if B_T0 == 0 {
++		B_T0 = qpc();
++	}
++	let t_idle = qpc();
+ 	let more = sh.app.spell_idle(&mut sh.store, SPELL_WORDS);
++	let spent = qpc() - t_idle;
++	B_CPU += spent;
++	B_MAXTICK = B_MAXTICK.max(spent);
++	B_TICKS += 1;
++	if !more {
++		B_SCANS.push((B_WORDS, qpc() - B_T0, B_TICKS, B_CPU, B_MAXTICK));
++		B_T0 = 0;
++		B_TICKS = 0;
++		B_CPU = 0;
++		B_MAXTICK = 0;
++		bench_log(sh);
++	}
+ 	// Painting costs far more than checking, so the lines whose marks changed are painted once for a few batches, and at the end.
+ 	if let Some((lo, hi)) = sh.app.spell_take_changed() {
+ 		let (a, b) = sh.spell_chg;

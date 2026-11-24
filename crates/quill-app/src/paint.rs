@@ -84,11 +84,12 @@ const ZOOM: [Item; 5] = [
 	item("75%", "", Command::Zoom(75)),
 	item("50%", "", Command::Zoom(50)),
 ];
-const FIND: [Item; 4] = [
+const FIND: [Item; 5] = [
 	item("Find...", "Ctrl+F", Command::Find),
 	item("Find Next", "F3", Command::FindNext),
 	item("Replace...", "Ctrl+H", Command::Replace),
 	rule(item("Spelling...", "F7", Command::Spelling)),
+	item("Check Spelling as You Type", "", Command::SpellAsYouType),
 ];
 const INSERT: [Item; 6] = [
 	item("Picture...", "", Command::Picture),
@@ -548,7 +549,11 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 		Mode::Menu { menu, item } => {
 			let items = menu_items(menu);
 			let col = MENU_COLS.get(usize::from(menu)).copied().unwrap_or(1) - 1;
-			let w = 26;
+			// The box is 26 columns wide, and wider for a longer label with its shortcut.
+			let w = items
+				.iter()
+				.map(|it| it.label.len() + it.accel.len() + 5)
+				.fold(26, usize::max);
 			let recents = if menu == 0 {
 				app.recent_files().count()
 			} else {
@@ -945,6 +950,7 @@ pub fn command_tip(c: Command) -> &'static str {
 		Command::Redo => "Redo",
 		Command::SelectAll => "Select All",
 		Command::Spelling => "Spelling",
+		Command::SpellAsYouType => "Check Spelling as You Type",
 		Command::Find => "Find",
 		Command::FindNext => "Find Next",
 		Command::Replace => "Replace",
@@ -999,6 +1005,7 @@ pub fn command_hint(c: Command) -> &'static str {
 		Command::Redo => "Redo the change that was undone",
 		Command::SelectAll => "Select the whole document",
 		Command::Spelling => "Check the spelling of the document",
+		Command::SpellAsYouType => "Underline misspelled words as you type",
 		Command::Find => "Find text in the document",
 		Command::FindNext => "Find the next match",
 		Command::Replace => "Find text and replace it",
