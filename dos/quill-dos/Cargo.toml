@@ -21,3 +21,8 @@ quill-grid = { path = "../../crates/quill-grid" }
 quill-app = { path = "../../crates/quill-app" }
 quill-formats = { path = "../../crates/quill-formats" }
 quill-heap = { path = "../../crates/quill-heap" }
+quill-core = { path = "../../crates/quill-core" }
+quill-strike = { path = "../../crates/quill-strike" }
+quill-paint = { path = "../../crates/quill-paint" }
+desk-hal = { path = "../hal/hal" }
+desk-vga = { path = "../hal/drivers/vga" }

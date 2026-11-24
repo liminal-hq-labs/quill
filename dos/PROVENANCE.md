@@ -35,7 +35,7 @@ Added to the copied `rt/` (the end of `rt/src/dos.rs`, and `free_memory` in `rt/
 
 ## Still to add (roadmap T4 and M1 to M2)
 
-The installer's copy dropped Desk's keyboard, timer and VGA modules; the VGA and INT 33h drivers are back as `hal/`, and `quill-dos` does not use them yet. Quill reads the keyboard through BIOS INT 16h (copied in M1 from the installer's `keys.rs`) and writes B8000h directly, which needs none of them. The mouse client is `desk-int33`, not yet wired in.
+The installer's copy dropped Desk's keyboard, timer and VGA modules; the VGA and INT 33h drivers are back as `hal/`; `quill-dos` uses `desk-hal` and `desk-vga` (mode 12h registers, the DAC, VBE) for its graphics screen, and the INT 33h client is not wired in. Quill reads the keyboard through BIOS INT 16h (copied in M1 from the installer's `keys.rs`) and writes B8000h directly, which needs none of them. The mouse client is `desk-int33`, not yet wired in.
 
 ## Refreshing
 
