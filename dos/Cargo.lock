@@ -3,6 +3,34 @@
 version = 4
 
 [[package]]
+name = "desk-hal"
+version = "0.0.0"
+
+[[package]]
+name = "desk-hal-mock"
+version = "0.0.0"
+dependencies = [
+ "desk-hal",
+]
+
+[[package]]
+name = "desk-vga"
+version = "0.0.0"
+dependencies = [
+ "desk-hal",
+ "desk-hal-mock",
+]
+
+[[package]]
+name = "hal-probe"
+version = "0.0.0"
+dependencies = [
+ "desk-hal",
+ "desk-vga",
+ "rt",
+]
+
+[[package]]
 name = "quill-app"
 version = "0.0.0"
 dependencies = [
@@ -73,6 +101,9 @@ dependencies = [
 [[package]]
 name = "rt"
 version = "0.0.0"
+dependencies = [
+ "desk-hal",
+]
 
 [[package]]
 name = "rt-test"
