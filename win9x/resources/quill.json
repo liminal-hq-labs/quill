@@ -39,58 +39,59 @@
 			{ "text": "Find Next\tF3", "id": 121 },
 			{ "text": "Replace...\tCtrl+H", "id": 122 },
 			{ "separator": true },
-			{ "text": "Spelling...\tF7", "id": 123 }
+			{ "text": "Spelling...\tF7", "id": 123 },
+			{ "text": "Check Spelling as You Type", "id": 124 }
 		] },
 		{ "title": "Character", "items": [
-			{ "text": "Regular\tF5", "id": 124 },
+			{ "text": "Regular\tF5", "id": 125 },
 			{ "separator": true },
-			{ "text": "Bold\tCtrl+B", "id": 125 },
-			{ "text": "Italic\tCtrl+I", "id": 126 },
-			{ "text": "Underline\tCtrl+U", "id": 127 },
-			{ "text": "Strikethrough", "id": 128 },
+			{ "text": "Bold\tCtrl+B", "id": 126 },
+			{ "text": "Italic\tCtrl+I", "id": 127 },
+			{ "text": "Underline\tCtrl+U", "id": 128 },
+			{ "text": "Strikethrough", "id": 129 },
 			{ "separator": true },
-			{ "text": "Superscript\tCtrl+Shift+=", "id": 129 },
-			{ "text": "Subscript\tCtrl+=", "id": 130 },
+			{ "text": "Superscript\tCtrl+Shift+=", "id": 130 },
+			{ "text": "Subscript\tCtrl+=", "id": 131 },
 			{ "separator": true },
-			{ "text": "Fonts...", "id": 131 }
+			{ "text": "Fonts...", "id": 132 }
 		] },
 		{ "title": "Paragraph", "items": [
-			{ "text": "Left\tCtrl+L", "id": 132 },
-			{ "text": "Centred\tCtrl+E", "id": 133 },
-			{ "text": "Right\tCtrl+R", "id": 134 },
-			{ "text": "Justified\tCtrl+J", "id": 135 },
+			{ "text": "Left\tCtrl+L", "id": 133 },
+			{ "text": "Centred\tCtrl+E", "id": 134 },
+			{ "text": "Right\tCtrl+R", "id": 135 },
+			{ "text": "Justified\tCtrl+J", "id": 136 },
 			{ "separator": true },
-			{ "text": "Single Space\tCtrl+1", "id": 136 },
-			{ "text": "1\u00bd Space\tCtrl+5", "id": 137 },
-			{ "text": "Double Space\tCtrl+2", "id": 138 },
+			{ "text": "Single Space\tCtrl+1", "id": 137 },
+			{ "text": "1\u00bd Space\tCtrl+5", "id": 138 },
+			{ "text": "Double Space\tCtrl+2", "id": 139 },
 			{ "separator": true },
-			{ "text": "Bullets", "id": 139 },
-			{ "text": "Numbering", "id": 140 },
-			{ "text": "Increase Level", "id": 141 },
-			{ "text": "Decrease Level", "id": 142 },
+			{ "text": "Bullets", "id": 140 },
+			{ "text": "Numbering", "id": 141 },
+			{ "text": "Increase Level", "id": 142 },
+			{ "text": "Decrease Level", "id": 143 },
 			{ "separator": true },
-			{ "text": "Tabs...", "id": 143 }
+			{ "text": "Tabs...", "id": 144 }
 		] },
 		{ "title": "Document", "items": [
-			{ "text": "Header", "id": 144 },
-			{ "text": "Footer", "id": 145 },
-			{ "text": "First Page Header", "id": 146 },
-			{ "text": "First Page Footer", "id": 147 },
-			{ "text": "Different First Page", "id": 148 },
+			{ "text": "Header", "id": 145 },
+			{ "text": "Footer", "id": 146 },
+			{ "text": "First Page Header", "id": 147 },
+			{ "text": "First Page Footer", "id": 148 },
+			{ "text": "Different First Page", "id": 149 },
 			{ "separator": true },
-			{ "text": "Return to Document", "id": 149 }
+			{ "text": "Return to Document", "id": 150 }
 		] },
 		{ "title": "View", "items": [
-			{ "text": "Toolbar", "id": 150 },
-			{ "text": "Formatting Bar", "id": 151 },
-			{ "text": "Ruler", "id": 152 },
-			{ "text": "Status Bar", "id": 153 },
+			{ "text": "Toolbar", "id": 151 },
+			{ "text": "Formatting Bar", "id": 152 },
+			{ "text": "Ruler", "id": 153 },
+			{ "text": "Status Bar", "id": 154 },
 			{ "separator": true },
-			{ "text": "Zoom", "items": [ { "text": "Page Width", "id": 154 }, { "text": "150%", "id": 155 }, { "text": "100%", "id": 156 }, { "text": "75%", "id": 157 }, { "text": "50%", "id": 158 } ] }
+			{ "text": "Zoom", "items": [ { "text": "Page Width", "id": 155 }, { "text": "150%", "id": 156 }, { "text": "100%", "id": 157 }, { "text": "75%", "id": 158 }, { "text": "50%", "id": 159 } ] }
 		] },
 		{ "title": "Help", "items": [
-			{ "text": "Contents\tF1", "id": 159 },
-			{ "text": "About Quill...", "id": 160 }
+			{ "text": "Contents\tF1", "id": 160 },
+			{ "text": "About Quill...", "id": 161 }
 		] }
 	]
 }

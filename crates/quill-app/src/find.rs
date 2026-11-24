@@ -206,6 +206,7 @@ impl<M: Measure + Clone> App<M> {
 					.insert(s, lo, with, cfmt, pfmt, label::TYPING)
 					.is_ok());
 		self.doc.body.end_group();
+		self.spell_note_edit(s, lo, hi - lo, with.len() as u32);
 		self.anchor = None;
 		self.caret = lo + with.len() as u32;
 		self.modified = true;
@@ -246,6 +247,7 @@ impl<M: Measure + Clone> App<M> {
 			n += 1;
 		}
 		self.doc.body.end_group();
+		self.spell_forget();
 		self.anchor = None;
 		if n > 0 {
 			self.modified = true;

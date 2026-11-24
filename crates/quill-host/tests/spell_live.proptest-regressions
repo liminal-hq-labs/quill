@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc f414a6e669ff5d87787c83b2409fc40fab2929508be430811742d8cfe611cf1e # shrinks to ops = [Type("quikc"), Type(", "), Left(1), Type("the"), Undo, Type("the"), View(0, 8), Home, Idle(3), Enter, Idle(1)]
+cc e8cef97caa44ece61cc5e8c380e9b648111ed8338720ab15b6c04b7aab164f71 # shrinks to ops = [Type("the"), Type("quick"), Type("quick"), End, Type(", "), Home, Type("the"), View(0, 17), Type("the"), End, End, Idle(3), Left(4), Type(" "), Idle(1)]

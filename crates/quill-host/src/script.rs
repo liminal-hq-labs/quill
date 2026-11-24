@@ -76,7 +76,7 @@ pub fn parse_token(t: &str) -> Option<Key> {
 	quill_app::script::parse_token(t)
 }
 
-/// A key script: directives (`@mono`, `@rows N`, `@open NAME`, `@copy NAME`) and key tokens, with `#` starting a comment.
+/// A key script: directives (`@mono`, `@rows N`, `@open NAME`, `@copy NAME`, `@live`) and key tokens, with `#` starting a comment.
 #[derive(Default)]
 pub struct Script {
 	/// The keys.
@@ -89,6 +89,8 @@ pub struct Script {
 	pub open: Option<String>,
 	/// Test documents to copy to the disk before the run.
 	pub copy: Vec<String>,
+	/// Check Spelling as You Type is on, and the keyboard goes quiet after each key: the marks follow each frame.
+	pub live: bool,
 }
 
 /// Reads a script: tokens separated by white space, `#` starting a comment to the end of the line.
@@ -99,6 +101,7 @@ pub fn parse_script(text: &str) -> Script {
 		while let Some(t) = it.next() {
 			match t {
 				"@mono" => sc.mono = true,
+				"@live" => sc.live = true,
 				"@rows" => {
 					sc.rows = match it.next() {
 						Some("25") => 25,
@@ -130,6 +133,7 @@ fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &
 	let mut s = HostStore::new();
 	let mut app = App::new();
 	app.reset(&mut s).unwrap();
+	app.set_spell_live_default(script.live);
 	app.load_settings(files);
 	app.set_about("Host test run");
 	app.set_rows(ROWS - 2);
@@ -148,6 +152,18 @@ fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &
 		quill_app::draw(&app, &s, &mut g);
 		n += 1;
 		g.dump(n, frames).unwrap();
+		if script.live {
+			// The keyboard goes quiet: the whole document is on the screen and the scanner runs out of work.
+			app.spell_set_view(0, app.doc().body.len());
+			if app.spell_live_ready(&mut s, files) {
+				while app.spell_idle(&mut s, 8) {}
+			}
+			let marks: Vec<String> = app
+				.spell_marks(&s, 0, u32::MAX)
+				.map(|(a, b)| format!("{a}-{b}"))
+				.collect();
+			let _ = writeln!(frames, "marks: {}", marks.join(" "));
+		}
 		if app.quit() {
 			break;
 		}

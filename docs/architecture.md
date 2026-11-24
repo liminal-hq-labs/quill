@@ -214,7 +214,7 @@ JPEG waits for a `no_std` baseline decoder that fits about 12 KB of code and wor
 
 - **Words.** The scanner takes runs of ANSI letters (including accented ones) with inner apostrophes, skips words with digits and, by setting, words in capitals, and folds case: a word is known if its exact form is in the dictionary, or its lower-case form is and the word is lower case, capitalized or all capitals.
 - **Suggestions** are a depth-first walk of the automaton that allows up to two edits (insertion, deletion, substitution, transposition), pruned when the edit count is exceeded, with a budget of nodes visited and a clock check every 1,024 nodes. Results are ranked by edit count, then by a keyboard-distance tiebreak, then alphabetically.
-- **As you type** runs in idle time over the visible paragraphs only, caches a per-paragraph "checked at edit number" mark, and paints the wavy underline after the text, so typing is never slowed by the checker.
+- **As you type** runs in idle time over the visible lines only, keeps a table of marks (position, length, hash of the word) in one `Store` chunk that the typing paths keep true, and paints the wavy underline after the text, so typing is never slowed by the checker.
 
 `quill-dict` builds the automaton on the host from SCOWL at size 50 with the `en_CA`, `en_US` or `en_GB` variant from VarCon, minimizes it, and lays it out so that the edges near the root share pages. The budget is under 300 KB per language on disk; if size 50 does not fit, size 35 does.
 
