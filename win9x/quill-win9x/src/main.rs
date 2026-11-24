@@ -14,6 +14,20 @@
 
 extern crate alloc;
 
+/// Times the rest of the block (the `bench` feature; nothing at all in the product).
+#[cfg(feature = "bench")]
+macro_rules! span {
+	($p:ident) => {
+		let _span = $crate::bench::span($crate::bench::P::$p);
+	};
+}
+#[cfg(not(feature = "bench"))]
+macro_rules! span {
+	($p:ident) => {};
+}
+
+#[cfg(feature = "bench")]
+mod bench;
 mod chrome;
 mod dialogs;
 mod gdi;
@@ -968,6 +982,8 @@ unsafe fn handle_dialogs(hwnd: Handle) {
 		let Some(d) = sh.app.take_dialog() else {
 			return;
 		};
+		#[cfg(feature = "bench")]
+		bench::dialog_taken();
 		match d {
 			quill_app::Dialog::About => dialogs::about(hwnd, sh),
 			quill_app::Dialog::Open => {
@@ -1411,6 +1427,17 @@ unsafe fn retitle(hwnd: Handle, sh: &Shell) {
 }
 
 unsafe fn press(hwnd: Handle, k: Key) {
+	#[cfg(feature = "bench")]
+	bench::key_begin();
+	{
+		span!(KTotal);
+		press_key(hwnd, k);
+	}
+	#[cfg(feature = "bench")]
+	bench::key_end();
+}
+
+unsafe fn press_key(hwnd: Handle, k: Key) {
 	let Some(sh) = shell() else {
 		return;
 	};
@@ -1455,26 +1482,55 @@ unsafe fn press(hwnd: Handle, k: Key) {
 			return;
 		}
 	}
-	let before = chrome::signature(&sh.app, &sh.store);
-	sh.app.key(&mut sh.store, &mut sh.files, k);
+	let before = {
+		span!(KSig);
+		chrome::signature(&sh.app, &sh.store)
+	};
+	{
+		span!(KApp);
+		sh.app.key(&mut sh.store, &mut sh.files, k);
+	}
 	if !sh.grid {
+		span!(KDialogs);
 		handle_dialogs(hwnd);
 	}
-	retitle(hwnd, sh);
+	{
+		span!(KTitle);
+		retitle(hwnd, sh);
+	}
 	if sh.grid {
 		InvalidateRect(hwnd, null(), 0);
 	} else {
 		// A key changes the page and the status line; the toolbars and the ruler are painted again only when they show something new.
 		let (hs, vs) = (sh.hscroll, sh.vpos);
-		story_changed(sh);
-		ui::update_scroll(hwnd, sh);
-		ui::ensure_visible(hwnd, sh);
-		if before != chrome::signature(&sh.app, &sh.store) || hs != sh.hscroll || vs != sh.vpos {
-			InvalidateRect(hwnd, null(), 0);
-		} else {
-			invalidate_page(hwnd, sh);
+		{
+			span!(KStory);
+			story_changed(sh);
 		}
-		ui::spell_arm(hwnd, sh);
+		{
+			span!(KScroll);
+			ui::update_scroll(hwnd, sh);
+		}
+		{
+			span!(KEnsure);
+			ui::ensure_visible(hwnd, sh);
+		}
+		let after = {
+			span!(KSig);
+			chrome::signature(&sh.app, &sh.store)
+		};
+		{
+			span!(KInval);
+			if before != after || hs != sh.hscroll || vs != sh.vpos {
+				InvalidateRect(hwnd, null(), 0);
+			} else {
+				invalidate_page(hwnd, sh);
+			}
+		}
+		{
+			span!(KArm);
+			ui::spell_arm(hwnd, sh);
+		}
 	}
 	if sh.app.quit() {
 		DestroyWindow(hwnd);
@@ -1487,6 +1543,8 @@ unsafe fn paint(hwnd: Handle) {
 	let Some(sh) = shell() else {
 		return;
 	};
+	#[cfg(feature = "bench")]
+	let t_paint = bench::paint_begin();
 	let mut ps = MaybeUninit::<PaintStruct>::uninit();
 	let wdc = BeginPaint(hwnd, ps.as_mut_ptr());
 	let mut damage = ps.assume_init_ref().paint;
@@ -1508,6 +1566,7 @@ unsafe fn paint(hwnd: Handle) {
 	match sh.back.as_ref().map(|b| b.dc) {
 		Some(mdc) => {
 			paint_into(hwnd, mdc, sh, damage);
+			span!(PBlit);
 			BitBlt(
 				wdc,
 				damage.left,
@@ -1523,11 +1582,14 @@ unsafe fn paint(hwnd: Handle) {
 		None => paint_into(hwnd, wdc, sh, damage),
 	}
 	EndPaint(hwnd, ps.as_ptr());
+	#[cfg(feature = "bench")]
+	bench::paint_end(sh, t_paint);
 }
 
 /// Draws the window into `dc`, limited to the `damage` rectangle.
 unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 	if !sh.grid {
+		span!(PClock);
 		ui::refresh_clock(sh);
 		ui::status_update(hwnd, sh);
 	}
@@ -1535,7 +1597,10 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 	IntersectClipRect(dc, damage.left, damage.top, damage.right, damage.bottom);
 	SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
 	let mut g = Grid::<25>::new(0);
-	quill_app::draw(&sh.app, &sh.store, &mut g);
+	{
+		span!(PGrid);
+		quill_app::draw(&sh.app, &sh.store, &mut g);
+	}
 	let (first, last) = if sh.grid {
 		(0usize, 25usize)
 	} else {
@@ -1547,7 +1612,10 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 			bottom: 0,
 		};
 		GetClientRect(hwnd, &mut r);
-		fill_rect(dc, &r, 0x00C0_C0C0);
+		{
+			span!(PGrey);
+			fill_rect(dc, &r, 0x00C0_C0C0);
+		}
 		let (h0, h1) = chrome::rows(&sh.app);
 		let tb = if sh.preview.is_none() { h0 + h1 } else { 0 };
 		let rl = if sh.app.show_ruler() && sh.preview.is_none() {
@@ -1558,6 +1626,7 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 		let area = ui::page_area(hwnd, sh);
 		let pct = ui::pct(sh, area.right - area.left);
 		if sh.preview.is_none() {
+			span!(PChrome);
 			if tb > 0 {
 				// The boxes follow the caret even when the toolbar's own pixels are not damaged.
 				if let Some(cb) = sh.combos.as_mut() {
@@ -2065,6 +2134,8 @@ pub extern "C" fn start() -> ! {
 				// Windows 95 checks spelling as you type unless QUILL.INI says otherwise.
 				sh.app.set_spell_live_default(true);
 				ui::ini_load(sh);
+				#[cfg(feature = "bench")]
+				bench::init();
 				let cb = chrome::create_combos(hwnd, instance, &sh.faces);
 				cb.show(&sh.app, false);
 				sh.combos = Some(cb);

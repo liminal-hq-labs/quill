@@ -440,6 +440,9 @@ unsafe fn draw_line(
 	tx: i32,
 	y_top: i32,
 ) {
+	span!(PLine);
+	#[cfg(feature = "bench")]
+	crate::bench::line();
 	let (doc, s, app, sel, dpi) = (cx.doc, cx.s, cx.app, cx.sel, cx.dpi);
 	let text = doc.story(cx.kind);
 	let fhandle = |fr: &FontRef, extra: u8| font_handle_at(fr, extra, dpi);
@@ -470,6 +473,7 @@ unsafe fn draw_line(
 		if *n == 0 {
 			return;
 		}
+		span!(PText);
 		let (fr, vpos, cfmt) = font_ref(doc, s, cf);
 		let extra = u8::from(cfmt.flags & cflag::UNDERLINE != 0) | (u8::from(cfmt.flags & cflag::STRIKE != 0) << 1);
 		let old = SelectObject(dc, fhandle(&fr, extra));
@@ -653,6 +657,7 @@ unsafe fn draw_line(
 	});
 	flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
 	// The wave goes in after the text, from the layout's own positions, so it is under the glyphs the caret and the clicks agree with.
+	span!(PWave);
 	for m in marks.iter().take(nmarks) {
 		if m.3 > m.2 {
 			wavy_underline(dc, tx + m.2, tx + m.3, base + 1, cx.wave, (l.descent - 1).max(1));
@@ -737,6 +742,7 @@ pub unsafe fn paint_page(
 	cache: &mut PicCache,
 ) -> (usize, u32) {
 	use crate::view::{dev, log, page_x0, paper, rel, stride};
+	span!(PPage);
 	// Nothing of the page may spill over the toolbar and ruler above it.
 	let saved = SaveDC(dc);
 	IntersectClipRect(dc, area.left, area.top, area.right, area.bottom);
@@ -747,6 +753,8 @@ pub unsafe fn paint_page(
 	let margin_t = to_units(page.margin_t, 96);
 	let client_w = area.right - area.left;
 	let x0 = area.left + page_x0(client_w, dev(page_w, pct), hscroll);
+	#[cfg(feature = "bench")]
+	let fills = crate::bench::span(crate::bench::P::PFills);
 	fill(dc, area.left, area.top, area.right, area.bottom, 0x0080_8080);
 	let pages = body_pages(app, s);
 	let view_h = log(area.bottom - area.top, pct);
@@ -761,6 +769,8 @@ pub unsafe fn paint_page(
 		let (l, t) = (x0, area.top + dev(top, pct));
 		paper_sheet(dc, l, t, dev(page_w, pct), dev(top + page_h, pct) - dev(top, pct));
 	}
+	#[cfg(feature = "bench")]
+	drop(fills);
 
 	// Text and the caret are drawn in page units, relative to the first sheet's corner, under a mapping that scales them.
 	map_pages(dc, pct, x0, area.top);
@@ -816,6 +826,7 @@ pub unsafe fn paint_page(
 	});
 
 	// The caret.
+	span!(PCaret);
 	if app.editing() {
 		if let Some((_, l, x)) = app.caret_xy(s) {
 			let y = rel(cum(&l), vpos);

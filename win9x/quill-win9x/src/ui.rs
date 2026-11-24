@@ -504,12 +504,46 @@ pub unsafe fn spell_tick(hwnd: Handle, sh: &mut Shell) {
 	if core::mem::take(&mut sh.spell_view) {
 		let (lo, hi) = visible_span(hwnd, sh);
 		sh.app.spell_set_view(lo, hi);
+		#[cfg(feature = "bench")]
+		if crate::bench::B_T0 == 0 {
+			crate::bench::B_WORDS = crate::bench::count_words(sh, lo, hi);
+		}
 	}
+	#[cfg(feature = "bench")]
+	let t_load = crate::bench::qpc();
 	if !sh.app.spell_live_ready(&mut sh.store, &mut sh.files) {
 		KillTimer(hwnd, TIMER_SPELL);
 		return;
 	}
+	#[cfg(feature = "bench")]
+	{
+		use crate::bench::*;
+		if B_LOAD == 0 {
+			B_LOAD = qpc() - t_load;
+		}
+		if B_T0 == 0 {
+			B_T0 = qpc();
+		}
+	}
+	#[cfg(feature = "bench")]
+	let t_idle = crate::bench::qpc();
 	let more = sh.app.spell_idle(&mut sh.store, SPELL_WORDS);
+	#[cfg(feature = "bench")]
+	{
+		use crate::bench::*;
+		let spent = qpc() - t_idle;
+		B_CPU += spent;
+		B_MAXTICK = B_MAXTICK.max(spent);
+		B_TICKS += 1;
+		if !more {
+			B_SCANS.push((B_WORDS, qpc() - B_T0, B_TICKS, B_CPU, B_MAXTICK));
+			B_T0 = 0;
+			B_TICKS = 0;
+			B_CPU = 0;
+			B_MAXTICK = 0;
+			write_log(sh);
+		}
+	}
 	// Painting costs far more than checking, so the lines whose marks changed are painted once for a few batches, and at the end.
 	if let Some((lo, hi)) = sh.app.spell_take_changed() {
 		let (a, b) = sh.spell_chg;

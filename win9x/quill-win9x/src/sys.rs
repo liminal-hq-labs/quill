@@ -158,6 +158,35 @@ pub struct TextMetricA {
 	pub char_set: u8,
 }
 
+/// Declares imports from one DLL. The product build re-exports them as they are; the `bench` build puts a counting function of the same
+/// name in front of each, so that every call from the paint and key paths is counted (see `bench.rs`).
+macro_rules! counted {
+	($m:ident, $dll:literal, { $( $(#[$meta:meta])* fn $name:ident($($arg:ident: $ty:ty),* $(,)?) $(-> $ret:ty)? $(=> $hook:block)?; )* }) => {
+		#[allow(unused_imports, dead_code)]
+		pub(crate) mod $m {
+			use super::*;
+			#[link(name = $dll, kind = "raw-dylib", import_name_type = "undecorated")]
+			extern "system" {
+				$( $(#[$meta])* pub fn $name($($arg: $ty),*) $(-> $ret)?; )*
+			}
+		}
+		#[cfg(not(feature = "bench"))]
+		#[allow(unused_imports)]
+		pub use $m::{$($name),*};
+		$(
+			#[cfg(feature = "bench")]
+			$(#[$meta])*
+			#[allow(non_snake_case)]
+			pub unsafe fn $name($($arg: $ty),*) $(-> $ret)? {
+				static mut ID: u16 = 0;
+				crate::bench::hit(&raw mut ID, stringify!($name));
+				$( $hook; )?
+				$m::$name($($arg),*)
+			}
+		)*
+	};
+}
+
 #[link(name = "kernel32", kind = "raw-dylib", import_name_type = "undecorated")]
 extern "system" {
 	pub fn ExitProcess(code: u32) -> !;
@@ -183,8 +212,6 @@ extern "system" {
 	pub fn WriteFile(file: Handle, buf: *const u8, len: u32, written: *mut u32, overlapped: *mut c_void) -> i32;
 	pub fn CloseHandle(h: Handle) -> i32;
 	pub fn GetTickCount() -> u32;
-	pub fn GetDateFormatA(locale: u32, flags: u32, time: *const u8, format: *const u8, out: *mut u8, size: i32) -> i32;
-	pub fn GetTimeFormatA(locale: u32, flags: u32, time: *const u8, format: *const u8, out: *mut u8, size: i32) -> i32;
 	pub fn GetPrivateProfileStringA(
 		section: *const u8,
 		key: *const u8,
@@ -213,19 +240,10 @@ extern "system" {
 	pub fn CheckDlgButton(dlg: Handle, id: i32, state: u32) -> i32;
 	pub fn IsDlgButtonChecked(dlg: Handle, id: i32) -> u32;
 	pub fn CheckRadioButton(dlg: Handle, first: i32, last: i32, check: i32) -> i32;
-	pub fn GetWindowRect(hwnd: Handle, r: *mut Rect) -> i32;
-	pub fn SetWindowPos(hwnd: Handle, after: Handle, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
 	pub fn MessageBoxA(hwnd: Handle, text: *const u8, caption: *const u8, flags: u32) -> i32;
 	pub fn WinHelpA(hwnd: Handle, file: *const u8, command: u32, data: usize) -> i32;
-	pub fn SendMessageA(hwnd: Handle, msg: u32, wparam: usize, lparam: isize) -> isize;
-	pub fn MoveWindow(hwnd: Handle, x: i32, y: i32, w: i32, h: i32, repaint: i32) -> i32;
-	pub fn ShowWindow(hwnd: Handle, cmd: i32) -> i32;
-	pub fn SetFocus(hwnd: Handle) -> Handle;
 	pub fn TrackPopupMenu(menu: Handle, flags: u32, x: i32, y: i32, reserved: i32, hwnd: Handle, rect: *const Rect) -> i32;
-	pub fn ClientToScreen(hwnd: Handle, p: *mut Point) -> i32;
 	pub fn DestroyMenu(menu: Handle) -> i32;
-	pub fn CheckMenuItem(menu: Handle, id: u32, flags: u32) -> i32;
-	pub fn GetMenu(hwnd: Handle) -> Handle;
 	pub fn SetCapture(hwnd: Handle) -> Handle;
 	pub fn ReleaseCapture() -> i32;
 	pub fn RegisterClassA(class: *const WndClassA) -> u16;
@@ -249,38 +267,61 @@ extern "system" {
 	pub fn DispatchMessageA(msg: *const Msg) -> isize;
 	pub fn PostQuitMessage(code: i32);
 	pub fn LoadCursorA(instance: Handle, name: *const u8) -> Handle;
-	pub fn BeginPaint(hwnd: Handle, ps: *mut PaintStruct) -> Handle;
-	pub fn EndPaint(hwnd: Handle, ps: *const PaintStruct) -> i32;
-	pub fn InvalidateRect(hwnd: Handle, rect: *const Rect, erase: i32) -> i32;
-	pub fn GetKeyState(vk: i32) -> i16;
 	pub fn AdjustWindowRect(rect: *mut Rect, style: u32, menu: i32) -> i32;
 	pub fn DestroyWindow(hwnd: Handle) -> i32;
-	pub fn SetTimer(hwnd: Handle, id: usize, ms: u32, proc_: *const c_void) -> usize;
-	pub fn GetDC(hwnd: Handle) -> Handle;
 	pub fn LoadMenuA(instance: Handle, name: *const u8) -> Handle;
 	pub fn LoadIconA(instance: Handle, name: *const u8) -> Handle;
-	pub fn GetClientRect(hwnd: Handle, rect: *mut Rect) -> i32;
-	pub fn FillRect(dc: Handle, rect: *const Rect, brush: Handle) -> i32;
 	pub fn CreateMenu() -> Handle;
 	pub fn CreatePopupMenu() -> Handle;
 	pub fn AppendMenuA(menu: Handle, flags: u32, id: usize, item: *const u8) -> i32;
-	pub fn SetWindowTextA(hwnd: Handle, text: *const u8) -> i32;
-	pub fn ReleaseDC(hwnd: Handle, dc: Handle) -> i32;
 	pub fn SystemParametersInfoA(action: u32, param: u32, data: *mut c_void, update: u32) -> i32;
-	pub fn GetSystemMetrics(index: i32) -> i32;
-	pub fn SetScrollInfo(hwnd: Handle, bar: i32, info: *const ScrollInfo, redraw: i32) -> i32;
-	pub fn GetCursorPos(p: *mut Point) -> i32;
-	pub fn KillTimer(hwnd: Handle, id: usize) -> i32;
 	pub fn GetParent(hwnd: Handle) -> Handle;
 	pub fn RegisterWindowMessageA(name: *const u8) -> u32;
-	pub fn GetSubMenu(menu: Handle, pos: i32) -> Handle;
-	pub fn GetMenuItemCount(menu: Handle) -> i32;
 	pub fn InsertMenuA(menu: Handle, pos: u32, flags: u32, id: usize, item: *const u8) -> i32;
 	pub fn DeleteMenu(menu: Handle, pos: u32, flags: u32) -> i32;
-	pub fn UpdateWindow(hwnd: Handle) -> i32;
-	pub fn SetCursor(cursor: Handle) -> Handle;
 	pub fn GetDoubleClickTime() -> u32;
-	pub fn EnableWindow(hwnd: Handle, enable: i32) -> i32;
+}
+
+// The clock calls of the paint path.
+counted! {
+	raw_kernel, "kernel32", {
+		fn GetDateFormatA(locale: u32, flags: u32, time: *const u8, format: *const u8, out: *mut u8, size: i32) -> i32;
+		fn GetTimeFormatA(locale: u32, flags: u32, time: *const u8, format: *const u8, out: *mut u8, size: i32) -> i32;
+	}
+}
+
+// The USER calls of the paint and key paths.
+counted! {
+	raw_user, "user32", {
+		fn GetWindowRect(hwnd: Handle, r: *mut Rect) -> i32;
+		fn SetWindowPos(hwnd: Handle, after: Handle, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
+		fn SendMessageA(hwnd: Handle, msg: u32, wparam: usize, lparam: isize) -> isize;
+		fn MoveWindow(hwnd: Handle, x: i32, y: i32, w: i32, h: i32, repaint: i32) -> i32;
+		fn ShowWindow(hwnd: Handle, cmd: i32) -> i32;
+		fn SetFocus(hwnd: Handle) -> Handle;
+		fn ClientToScreen(hwnd: Handle, p: *mut Point) -> i32;
+		fn CheckMenuItem(menu: Handle, id: u32, flags: u32) -> i32;
+		fn GetMenu(hwnd: Handle) -> Handle;
+		fn BeginPaint(hwnd: Handle, ps: *mut PaintStruct) -> Handle;
+		fn EndPaint(hwnd: Handle, ps: *const PaintStruct) -> i32;
+		fn InvalidateRect(hwnd: Handle, rect: *const Rect, erase: i32) -> i32;
+		fn GetKeyState(vk: i32) -> i16;
+		fn SetTimer(hwnd: Handle, id: usize, ms: u32, proc_: *const c_void) -> usize;
+		fn GetDC(hwnd: Handle) -> Handle;
+		fn GetClientRect(hwnd: Handle, rect: *mut Rect) -> i32;
+		fn FillRect(dc: Handle, rect: *const Rect, brush: Handle) -> i32 => { crate::bench::fill_rect(rect) };
+		fn SetWindowTextA(hwnd: Handle, text: *const u8) -> i32;
+		fn ReleaseDC(hwnd: Handle, dc: Handle) -> i32;
+		fn GetSystemMetrics(index: i32) -> i32;
+		fn SetScrollInfo(hwnd: Handle, bar: i32, info: *const ScrollInfo, redraw: i32) -> i32;
+		fn GetCursorPos(p: *mut Point) -> i32;
+		fn KillTimer(hwnd: Handle, id: usize) -> i32;
+		fn GetSubMenu(menu: Handle, pos: i32) -> Handle;
+		fn GetMenuItemCount(menu: Handle) -> i32;
+		fn UpdateWindow(hwnd: Handle) -> i32;
+		fn SetCursor(cursor: Handle) -> Handle;
+		fn EnableWindow(hwnd: Handle, enable: i32) -> i32;
+	}
 }
 
 #[link(name = "comctl32", kind = "raw-dylib", import_name_type = "undecorated")]
@@ -353,101 +394,103 @@ pub struct BitmapInfoHeader {
 	pub clr_important: u32,
 }
 
-#[link(name = "gdi32", kind = "raw-dylib", import_name_type = "undecorated")]
-extern "system" {
-	pub fn IntersectClipRect(dc: Handle, left: i32, top: i32, right: i32, bottom: i32) -> i32;
-	pub fn Polygon(dc: Handle, points: *const Point, count: i32) -> i32;
-	pub fn EnumFontFamiliesA(
-		dc: Handle,
-		face: *const u8,
-		proc_: unsafe extern "system" fn(*const u8, *const u8, u32, isize) -> i32,
-		lparam: isize,
-	) -> i32;
-	pub fn CreateCompatibleDC(dc: Handle) -> Handle;
-	pub fn CreateCompatibleBitmap(dc: Handle, w: i32, h: i32) -> Handle;
-	pub fn BitBlt(dest: Handle, x: i32, y: i32, w: i32, h: i32, src: Handle, sx: i32, sy: i32, rop: u32) -> i32;
-	pub fn SaveDC(dc: Handle) -> i32;
-	pub fn RestoreDC(dc: Handle, saved: i32) -> i32;
-	pub fn SetMapMode(dc: Handle, mode: i32) -> i32;
-	pub fn SetWindowExtEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
-	pub fn SetViewportExtEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
-	pub fn SetViewportOrgEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
-	pub fn GetDeviceCaps(dc: Handle, index: i32) -> i32;
-	pub fn DeleteDC(dc: Handle) -> i32;
-	pub fn StartDocA(dc: Handle, info: *const DocInfoA) -> i32;
-	pub fn EndDoc(dc: Handle) -> i32;
-	pub fn AbortDoc(dc: Handle) -> i32;
-	pub fn StartPage(dc: Handle) -> i32;
-	pub fn EndPage(dc: Handle) -> i32;
-	#[allow(clippy::too_many_arguments)]
-	pub fn StretchDIBits(
-		dc: Handle,
-		x: i32,
-		y: i32,
-		w: i32,
-		h: i32,
-		src_x: i32,
-		src_y: i32,
-		src_w: i32,
-		src_h: i32,
-		bits: *const u8,
-		info: *const BitmapInfoHeader,
-		usage: u32,
-		rop: u32,
-	) -> i32;
-	#[allow(clippy::too_many_arguments)]
-	pub fn SetDIBitsToDevice(
-		dc: Handle,
-		x: i32,
-		y: i32,
-		w: u32,
-		h: u32,
-		src_x: i32,
-		src_y: i32,
-		start_scan: u32,
-		lines: u32,
-		bits: *const u8,
-		info: *const BitmapInfoHeader,
-		usage: u32,
-	) -> i32;
-	pub fn CreateFontA(
-		height: i32,
-		width: i32,
-		escapement: i32,
-		orientation: i32,
-		weight: i32,
-		italic: u32,
-		underline: u32,
-		strike: u32,
-		charset: u32,
-		out_precision: u32,
-		clip_precision: u32,
-		quality: u32,
-		pitch_family: u32,
-		face: *const u8,
-	) -> Handle;
-	pub fn DeleteObject(obj: Handle) -> i32;
-	pub fn GetCharWidthA(dc: Handle, first: u32, last: u32, out: *mut i32) -> i32;
-	pub fn SetTextAlign(dc: Handle, mode: u32) -> u32;
-	pub fn SetBkMode(dc: Handle, mode: i32) -> i32;
-	pub fn CreateSolidBrush(colour: u32) -> Handle;
-	pub fn TextOutA(dc: Handle, x: i32, y: i32, text: *const u8, len: i32) -> i32;
-	pub fn MoveToEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
-	pub fn LineTo(dc: Handle, x: i32, y: i32) -> i32;
-	pub fn CreatePen(style: i32, width: i32, colour: u32) -> Handle;
-	pub fn GetStockObject(index: i32) -> Handle;
-	pub fn SelectObject(dc: Handle, obj: Handle) -> Handle;
-	pub fn SetTextColor(dc: Handle, colour: u32) -> u32;
-	pub fn SetBkColor(dc: Handle, colour: u32) -> u32;
-	pub fn ExtTextOutA(
-		dc: Handle,
-		x: i32,
-		y: i32,
-		options: u32,
-		rect: *const Rect,
-		text: *const u8,
-		len: u32,
-		dx: *const i32,
-	) -> i32;
-	pub fn GetTextMetricsA(dc: Handle, tm: *mut TextMetricA) -> i32;
+// The GDI calls.
+counted! {
+	raw_gdi, "gdi32", {
+		fn IntersectClipRect(dc: Handle, left: i32, top: i32, right: i32, bottom: i32) -> i32;
+		fn Polygon(dc: Handle, points: *const Point, count: i32) -> i32;
+		fn EnumFontFamiliesA(
+			dc: Handle,
+			face: *const u8,
+			proc_: unsafe extern "system" fn(*const u8, *const u8, u32, isize) -> i32,
+			lparam: isize,
+		) -> i32;
+		fn CreateCompatibleDC(dc: Handle) -> Handle;
+		fn CreateCompatibleBitmap(dc: Handle, w: i32, h: i32) -> Handle;
+		fn BitBlt(dest: Handle, x: i32, y: i32, w: i32, h: i32, src: Handle, sx: i32, sy: i32, rop: u32) -> i32 => { crate::bench::blit(dest, w, h) };
+		fn SaveDC(dc: Handle) -> i32;
+		fn RestoreDC(dc: Handle, saved: i32) -> i32;
+		fn SetMapMode(dc: Handle, mode: i32) -> i32;
+		fn SetWindowExtEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
+		fn SetViewportExtEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
+		fn SetViewportOrgEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
+		fn GetDeviceCaps(dc: Handle, index: i32) -> i32;
+		fn DeleteDC(dc: Handle) -> i32;
+		fn StartDocA(dc: Handle, info: *const DocInfoA) -> i32;
+		fn EndDoc(dc: Handle) -> i32;
+		fn AbortDoc(dc: Handle) -> i32;
+		fn StartPage(dc: Handle) -> i32;
+		fn EndPage(dc: Handle) -> i32;
+		#[allow(clippy::too_many_arguments)]
+		fn StretchDIBits(
+			dc: Handle,
+			x: i32,
+			y: i32,
+			w: i32,
+			h: i32,
+			src_x: i32,
+			src_y: i32,
+			src_w: i32,
+			src_h: i32,
+			bits: *const u8,
+			info: *const BitmapInfoHeader,
+			usage: u32,
+			rop: u32,
+		) -> i32 => { crate::bench::blit(dc, w, h) };
+		#[allow(clippy::too_many_arguments)]
+		fn SetDIBitsToDevice(
+			dc: Handle,
+			x: i32,
+			y: i32,
+			w: u32,
+			h: u32,
+			src_x: i32,
+			src_y: i32,
+			start_scan: u32,
+			lines: u32,
+			bits: *const u8,
+			info: *const BitmapInfoHeader,
+			usage: u32,
+		) -> i32 => { crate::bench::blit(dc, w as i32, h as i32) };
+		fn CreateFontA(
+			height: i32,
+			width: i32,
+			escapement: i32,
+			orientation: i32,
+			weight: i32,
+			italic: u32,
+			underline: u32,
+			strike: u32,
+			charset: u32,
+			out_precision: u32,
+			clip_precision: u32,
+			quality: u32,
+			pitch_family: u32,
+			face: *const u8,
+		) -> Handle;
+		fn DeleteObject(obj: Handle) -> i32;
+		fn GetCharWidthA(dc: Handle, first: u32, last: u32, out: *mut i32) -> i32;
+		fn SetTextAlign(dc: Handle, mode: u32) -> u32;
+		fn SetBkMode(dc: Handle, mode: i32) -> i32;
+		fn CreateSolidBrush(colour: u32) -> Handle;
+		fn TextOutA(dc: Handle, x: i32, y: i32, text: *const u8, len: i32) -> i32 => { crate::bench::text(len as u32) };
+		fn MoveToEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
+		fn LineTo(dc: Handle, x: i32, y: i32) -> i32;
+		fn CreatePen(style: i32, width: i32, colour: u32) -> Handle;
+		fn GetStockObject(index: i32) -> Handle;
+		fn SelectObject(dc: Handle, obj: Handle) -> Handle;
+		fn SetTextColor(dc: Handle, colour: u32) -> u32;
+		fn SetBkColor(dc: Handle, colour: u32) -> u32;
+		fn ExtTextOutA(
+			dc: Handle,
+			x: i32,
+			y: i32,
+			options: u32,
+			rect: *const Rect,
+			text: *const u8,
+			len: u32,
+			dx: *const i32,
+		) -> i32 => { crate::bench::text(len) };
+		fn GetTextMetricsA(dc: Handle, tm: *mut TextMetricA) -> i32;
+	}
 }
