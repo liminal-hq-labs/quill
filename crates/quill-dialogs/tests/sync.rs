@@ -84,9 +84,6 @@ fn the_constants_hold_what_the_json_holds() {
 	}
 }
 
-/// Mnemonics two controls of a dialog share today. A new one fails the test.
-const KNOWN_DUPLICATES: &[(&str, u8)] = &[("tabs", b's'), ("tabs", b'l')];
-
 #[test]
 fn every_dialog_has_one_default_button_a_close_and_unique_ids_and_mnemonics() {
 	for d in ALL {
@@ -116,15 +113,12 @@ fn every_dialog_has_one_default_button_a_close_and_unique_ids_and_mnemonics() {
 			.filter(|i| i.class == Class::Button || i.class == Class::Static)
 		{
 			if let Some(m) = i.mnemonic() {
-				if !seen.insert(m) {
-					// Tabs has `Tab &stops:` and `&Set`, and `&Left` and `C&lear`; Alt and the letter reaches the first.
-					assert!(
-						KNOWN_DUPLICATES.contains(&(d.name, m)),
-						"{}: mnemonic {} is used twice",
-						d.name,
-						m as char
-					);
-				}
+				assert!(
+					seen.insert(m),
+					"{}: mnemonic {} is used twice",
+					d.name,
+					m as char
+				);
 			}
 		}
 	}
