@@ -65,3 +65,24 @@ fn the_file_name_field_shows_the_name_without_its_path() {
 	let n = app.field_text(4, 1, 1, &mut out);
 	assert_eq!(&out[..n], b"LETTER.QLD");
 }
+
+#[test]
+fn the_dos_about_text_names_the_system_and_the_memory() {
+	let mut out = [0u8; 96];
+	let n = quill_app::platform::dos_about(&mut out, (6, 22), (0, 9), 65536, Some(90264));
+	assert_eq!(
+		std::str::from_utf8(&out[..n]).unwrap(),
+		"MS-DOS, DPMI 0.9 on DOS 6.22\nFree memory: 90264 KB, largest block 65536 KB"
+	);
+	let n = quill_app::platform::dos_about(&mut out, (5, 0), (1, 0), 1024, None);
+	assert_eq!(
+		std::str::from_utf8(&out[..n]).unwrap(),
+		"MS-DOS, DPMI 1.0 on DOS 5.00\nFree memory: 1024 KB free"
+	);
+	// A short buffer is cut, never overrun.
+	let mut tiny = [0u8; 8];
+	assert_eq!(
+		quill_app::platform::dos_about(&mut tiny, (6, 22), (0, 9), 1, None),
+		8
+	);
+}
