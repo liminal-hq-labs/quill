@@ -476,13 +476,15 @@ pub fn dos_mkdir(path: *const u8) -> u16 {
 }
 
 // A small text buffer for the result log. There is no `core::fmt`, which would cost tens of kilobytes of code.
+const LOG_SIZE: usize = 1024;
+
 pub struct Log {
-	buf: [u8; 3072],
+	buf: [u8; LOG_SIZE],
 	len: usize,
 }
 
 static mut LOG: Log = Log {
-	buf: [0; 3072],
+	buf: [0; LOG_SIZE],
 	len: 0,
 };
 

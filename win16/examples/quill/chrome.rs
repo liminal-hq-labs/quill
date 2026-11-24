@@ -59,13 +59,22 @@ pub fn chrome() -> &'static mut Chrome {
 
 /// The TrueType faces installed, from the `[fonts]` section of WIN.INI ("Arial (TrueType)" and the like, bold and italic files folded
 /// into their face), sorted. Windows 3.1's `EnumFontFamilies` would need a callback of a shape the runtime does not export.
-pub static mut FACES: [[u8; 32]; 24] = [[0; 32]; 24];
-pub static mut NFACES: usize = 0;
+///
+/// The list is 768 bytes, so it lives in a block of global memory (`FACES`) and is read a name at a time, which keeps it out of the
+/// data segment.
+static mut FACES: crate::far::FarBlock = crate::far::FarBlock::empty();
+static mut NFACES: usize = 0;
+const MAX_FACES: usize = 24;
 
-pub fn faces() -> &'static [[u8; 32]] {
+/// Face `i` of the list, in a zero-padded 32-byte name.
+pub fn face(i: usize) -> Option<[u8; 32]> {
 	unsafe {
-		let f = &*core::ptr::addr_of!(FACES);
-		f.get(..NFACES).unwrap_or(&[])
+		if i >= NFACES {
+			return None;
+		}
+		let mut f = [0u8; 32];
+		(*core::ptr::addr_of!(FACES)).read((i * 32) as u32, &mut f);
+		Some(f)
 	}
 }
 
@@ -74,7 +83,9 @@ fn name_of(f: &[u8; 32]) -> &[u8] {
 	f.get(..n).unwrap_or(&[])
 }
 
-/// Reads the installed TrueType faces into `FACES`.
+/// Reads the installed TrueType faces into `FACES`. Not inlined: its 2 KB buffer and the name list would otherwise sit in the frame of
+/// `w16_main`, which lives for the whole run and has the message loop in it.
+#[inline(never)]
 pub fn read_faces() {
 	let mut buf = [0u8; 2048];
 	let n = unsafe {
@@ -86,7 +97,7 @@ pub fn read_faces() {
 			buf.len() as u32 - 1,
 		)
 	} as usize;
-	let list = unsafe { &mut *core::ptr::addr_of_mut!(FACES) };
+	let mut list = [[0u8; 32]; MAX_FACES];
 	let mut count = 0usize;
 	for key in buf.get(..n).unwrap_or(&[]).split(|b| *b == 0) {
 		let Some(at) = key.windows(11).position(|w| w == b" (TrueType)") else {
@@ -116,10 +127,19 @@ pub fn read_faces() {
 			j -= 1;
 		}
 	}
-	unsafe { NFACES = count };
+	if let Some(block) = crate::far::FarBlock::alloc((MAX_FACES * 32) as u32, true) {
+		for (i, f) in list.iter().take(count).enumerate() {
+			block.write((i * 32) as u32, f);
+		}
+		unsafe {
+			*core::ptr::addr_of_mut!(FACES) = block;
+			NFACES = count;
+		}
+	}
 }
 
 /// Makes the bars' font (MS Sans Serif at 8 points, as Windows 3.1's own dialogs use) and loads the toolbar's glyphs.
+#[inline(never)]
 pub fn init(hinst: u32) {
 	let c = chrome();
 	c.ui_font = crate::gdi::make_font(-11, b"MS Sans Serif", false, false, 0, 0x20 | 2);
@@ -332,6 +352,7 @@ pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8]) {
 }
 
 /// Makes the style, face and size boxes as children of `hwnd` and fills them.
+#[inline(never)]
 pub fn create_combos(hwnd: u32, hinst: u32) {
 	let c = chrome();
 	let make = |id: u32, (x, w): (i32, i32)| unsafe {
@@ -358,8 +379,10 @@ pub fn create_combos(hwnd: u32, hinst: u32) {
 	for n in quill_app::STYLE_NAMES {
 		add(c.style, n.as_bytes(), &mut z);
 	}
-	for f in faces() {
-		add(c.face, name_of(f), &mut z);
+	let mut i = 0;
+	while let Some(f) = face(i) {
+		add(c.face, name_of(&f), &mut z);
+		i += 1;
 	}
 	for sz in view::SIZES {
 		let mut d = [0u8; 4];
