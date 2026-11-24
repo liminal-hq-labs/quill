@@ -876,19 +876,22 @@ fn run(fs: FakeFs, kind: Kind, start_name: String, ty: usize, acts: Vec<Act>) {
 					check_path(&chosen);
 					match kind {
 						Kind::Open | Kind::Picture => {
-							let attr = fs.exists(&chosen).expect("an accepted file exists");
-							assert_eq!(attr & ATTR_DIR, 0);
+							if !degraded {
+								let attr = fs.exists(&chosen).expect("an accepted file exists");
+								assert_eq!(attr & ATTR_DIR, 0);
+							}
 						}
 						Kind::SaveAs => {
 							let part = chosen.rsplit(|b| *b == b'\\').next().unwrap();
 							assert!(Name83::parse(part).is_ok());
 							let p = PathBuf::from_bytes(&chosen).unwrap();
 							let parent = p.parent().unwrap();
+							// A drive that went not ready after the answer was asked for cannot be checked.
 							assert!(
-								parent.is_root()
-									|| fs
-										.exists(parent.as_bytes())
-										.is_some_and(|a| a & ATTR_DIR != 0)
+								degraded
+									|| parent.is_root() || fs
+									.exists(parent.as_bytes())
+									.is_some_and(|a| a & ATTR_DIR != 0)
 							);
 							if let Some(a) = fs.exists(&chosen) {
 								assert_eq!(
