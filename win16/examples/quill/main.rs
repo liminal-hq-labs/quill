@@ -186,8 +186,27 @@ fn press(hwnd: u32, k: Key) {
 	after(hwnd);
 }
 
+/// Opens QUILL.HLP (beside the program) in WinHelp at its contents.
+fn open_help(hwnd: u32) {
+	const HELP_CONTENTS: u32 = 3;
+	let mut path = [0u8; 120];
+	unsafe {
+		let here = &*core::ptr::addr_of!(HERE);
+		let n = HERE_LEN.min(here.len());
+		path[..n].copy_from_slice(&here[..n]);
+		let name = b"QUILL.HLP\0";
+		if n + name.len() <= path.len() {
+			path[n..n + name.len()].copy_from_slice(name);
+			WinHelp(hwnd, path.as_ptr() as u32, HELP_CONTENTS, 0);
+		}
+	}
+}
+
 fn after(hwnd: u32) {
 	unsafe {
+		if app().take_help() {
+			open_help(hwnd);
+		}
 		InvalidateRect(hwnd, 0, 1);
 		if app().quit() {
 			DestroyWindow(hwnd);
