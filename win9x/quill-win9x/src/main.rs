@@ -214,6 +214,11 @@ struct Shell {
 	tips: Option<tips::Tips>,
 	pv_btns: [Handle; 6],
 	wheel_msg: u32,
+	/// The scroll bars, which are controls placed in the page area, and whether each shows.
+	vbar: Handle,
+	hbar: Handle,
+	vbar_on: bool,
+	hbar_on: bool,
 	/// Whether a rule closes the recent files in the File menu.
 	recent_rule: bool,
 	/// The off-screen picture every paint draws into before one copy to the window.
@@ -426,11 +431,18 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			if let Some(sh) = shell() {
 				ui::hscroll_by(hwnd, sh, wparam & 0xFFFF, ((wparam >> 16) & 0xFFFF) as u16 as i32);
 			}
+			// A scroll bar control takes the keyboard when it is clicked; typing belongs to the page.
+			if wparam & 0xFFFF == 8 {
+				SetFocus(hwnd);
+			}
 			0
 		}
 		0x0115 => {
 			if let Some(sh) = shell() {
 				ui::vscroll_by(hwnd, sh, wparam & 0xFFFF, ((wparam >> 16) & 0xFFFF) as u16 as i32);
+			}
+			if wparam & 0xFFFF == 8 {
+				SetFocus(hwnd);
 			}
 			0
 		}
@@ -1137,7 +1149,8 @@ pub(crate) unsafe fn invalidate_ruler(hwnd: Handle, sh: &Shell) {
 
 /// Where the ruler is and where the text's left edge is, for the mouse: the ruler's top, the text's left edge and its width in pixels.
 unsafe fn ruler_geometry(hwnd: Handle, sh: &Shell) -> (i32, i32, i32, i32) {
-	let (w, _) = client_size(hwnd);
+	let area = ui::page_area(hwnd, sh);
+	let w = area.right - area.left;
 	let pct = ui::pct(sh, w);
 	let (left, tw) = chrome::text_extent(&sh.app, w, sh.hscroll, pct);
 	let (h0, h1) = chrome::rows(&sh.app);
@@ -1429,13 +1442,8 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 			0
 		};
 		let status = if sh.app.show_status() { sh.ch } else { 0 };
-		let area = Rect {
-			left: 0,
-			top: chrome_height(sh),
-			right: r.right,
-			bottom: (r.bottom - status).max(chrome_height(sh)),
-		};
-		let pct = ui::pct(sh, r.right);
+		let area = ui::page_area(hwnd, sh);
+		let pct = ui::pct(sh, area.right - area.left);
 		if sh.preview.is_none() {
 			if tb > 0 {
 				// The boxes follow the caret even when the toolbar's own pixels are not damaged.
@@ -1451,7 +1459,7 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 				}
 			}
 			if rl > 0 && damage.top < tb + rl && damage.bottom > tb {
-				let (left, w) = chrome::text_extent(&sh.app, r.right, sh.hscroll, pct);
+				let (left, w) = chrome::text_extent(&sh.app, area.right - area.left, sh.hscroll, pct);
 				let st = sh
 					.drag
 					.map_or_else(|| chrome::RulerState::of(&sh.app, &sh.store), |d| d.state);
@@ -1850,6 +1858,10 @@ pub extern "C" fn start() -> ! {
 		pv_btns: [null_mut(); 6],
 		wheel_msg: 0,
 		recent_rule: false,
+		vbar: null_mut(),
+		hbar: null_mut(),
+		vbar_on: false,
+		hbar_on: false,
 		back: None,
 	});
 	// SAFETY: single-threaded start-up; the boxes live for the whole process.
@@ -1902,7 +1914,7 @@ pub extern "C" fn start() -> ! {
 		let style = if gridview {
 			WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE
 		} else {
-			WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_CLIPCHILDREN
+			WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN
 		};
 		let menu = match SHELL.as_mut() {
 			Some(s) if !gridview => build_menu(s, instance),
@@ -1963,6 +1975,7 @@ pub extern "C" fn start() -> ! {
 				cb.show(&sh.app, false);
 				sh.combos = Some(cb);
 				sh.pv_btns = ui::create_preview_buttons(hwnd, instance);
+				(sh.vbar, sh.hbar) = ui::create_bars(hwnd, instance);
 				sh.wheel_msg = RegisterWindowMessageA(b"MSWHEEL_ROLLMSG\0".as_ptr());
 				sh.tips = tips::Tips::new(hwnd, instance);
 				sync_chrome(hwnd, sh);
