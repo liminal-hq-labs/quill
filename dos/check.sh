@@ -14,3 +14,4 @@ cd "$(dirname "$0")"
 cargo fmt --all -- --check
 RUSTC_BOOTSTRAP=1 cargo clippy --release --locked -- -D warnings
 tools/e2e.sh
+tools/rt-test.sh

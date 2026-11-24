@@ -73,3 +73,10 @@ dependencies = [
 [[package]]
 name = "rt"
 version = "0.0.0"
+
+[[package]]
+name = "rt-test"
+version = "0.0.0"
+dependencies = [
+ "rt",
+]
