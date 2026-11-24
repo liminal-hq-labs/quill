@@ -1,0 +1,21 @@
+# A probe for the DOS graphics hardware layer: mode 12h and VBE pictures read back and checksummed under DOSBox.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "hal-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "A test program for the DOS HAL: mode 12h and VBE 640x480x8 pictures, read-back checksums and the string-move memcpy"
+license = "Apache-2.0 OR MIT"
+
+[[bin]]
+name = "hal-probe"
+path = "src/main.rs"
+
+[dependencies]
+rt = { path = "../rt" }
+desk-hal = { path = "../hal/hal" }
+desk-vga = { path = "../hal/drivers/vga" }

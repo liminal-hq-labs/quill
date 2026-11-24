@@ -1,0 +1,12 @@
+# Cargo settings for the HAL workspace: the host's own target, so `cargo test` runs the drivers against the mock.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+#
+# The parent folder's config builds for DOS with -Zbuild-std; cargo merges configs upward, so the target is set back to the host and build-std emptied here (the host triple is the Linux CI and development machines').
+# The programs that use these crates build them for DOS from the `dos/` workspace, not from here.
+[build]
+target = "x86_64-unknown-linux-gnu"
+
+[unstable]
+build-std = []
