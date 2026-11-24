@@ -241,7 +241,8 @@ Numbers D180 to D199 are reserved for the Linux work, so they cannot collide wit
 | D194 | Unsaved marker | **Assumed.** An asterisk before the name on Linux, and after it (with a space) on Windows and DOS | Each platform's convention |
 | D195 | Autosave intervals | **Assumed.** DOS and Win16 10 minutes, Win95 5, Linux 2; off on floppies | A stall costs more the slower the machine |
 | D196 | Test fonts | **Decided.** A renamed Windows-1252 subset of Liberation 2.1.5, with its licence, never Times New Roman | The OFL reserves the names Liberation, Arimo, Tinos and Cousine, and a subset is a Modified Version |
-| D197–D199 | Reserved | | |
+| D197 | The page is a device-size texture | **Decided by measurement.** The GTK4 client draws the page as a texture of exactly device size and shifts it onto the pixel grid; the full entry is in [decisions.md](decisions.md) | The G0 spike showed no blur at 1.5× |
+| D198–D199 | Reserved | | |
 
 ## Risks and what is not proven
 
