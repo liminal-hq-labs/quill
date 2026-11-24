@@ -1,6 +1,6 @@
 # Quill's site
 
-The product page published at <https://liminal-hq-labs.github.io/quill/>. Plain HTML, CSS and a little JavaScript, with no framework and no build step: the folder is published as it is.
+The product page published at <http://labs.liminalhq.ca/quill/>. The organization's Pages sit on a custom domain, so `https://liminal-hq-labs.github.io/quill/` redirects there. Plain HTML, CSS and a little JavaScript, with no framework and no build step: the folder is published as it is.
 
 ## Layout
 
@@ -13,11 +13,11 @@ The product page published at <https://liminal-hq-labs.github.io/quill/>. Plain 
 | `img/` | The icon (from `assets/icon/`), the link preview `social-card.png` (written by `tools/make_social_card.py`), and `shots/` |
 | `favicon.ico` | The favicon: 16, 32 and 48 px from `assets/icon/` |
 
-Every URL in `index.html` is relative, so the page works from `https://liminal-hq-labs.github.io/quill/`, from a fork's Pages address, or from a local folder. `404.html` is the exception: GitHub serves it for a missing path at any depth, so its links start with `/quill/`.
+Every URL in `index.html` is relative, so the page works from `http://labs.liminalhq.ca/quill/`, from the root of any server, from a fork's Pages address and from a local folder. `scripts/check-site.py` resolves each reference the way a browser does below `/quill/` and at the root, and fails if the two reach different files. `404.html` is the exception: GitHub serves it for a missing path at any depth, so its links start with `/quill/`. The Open Graph and canonical URLs have to be absolute, and name the published address.
 
 ## Screenshots
 
-The files in `img/shots/` are real captures of Quill and its test programs, copied from `docs/media/` (where `docs/media/README.md` says where each was taken), reduced to 256 colours and run through `optipng`. Each caption on the page says where its screenshot was taken. Add a screenshot only if it shows Quill running, and check that it shows no product key and no personal name, such as a registered owner on a Windows system screen.
+The files in `img/shots/` are real captures of Quill, copied from `docs/media/` (where `docs/media/README.md` says where each was taken), reduced to 256 colours and run through `optipng`. The Windows 3.11 captures come from the play harness (`win16/tools`, `docs/play.md`) and the Windows 95 ones from Liminal Installer's test bed (`scripts/win95`), each on a private display. Each caption on the page says where its screenshot was taken. Add a screenshot only if it shows Quill running with nothing else of anyone's in frame (no other program's icons, no product key, no personal name such as a registered owner on a Windows system screen), and retake it when the program it shows has changed.
 
 ## Checks
 
@@ -36,8 +36,4 @@ python3 -m http.server 8000 --directory /tmp/pages   # then open http://localhos
 
 ## Publishing
 
-`.github/workflows/pages.yml` checks the links (fetching the outside ones), uploads `site/` and deploys it when a change under `site/` (or the workflow itself) reaches `main`, or when it is run by hand from the **Actions** tab. Pages has to be turned on once before the first deployment:
-
-1. Open the repository's **Settings**, then **Pages**.
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-3. Merge a change under `site/` to `main`, or run the **Pages** workflow from the **Actions** tab. The `github-pages` environment the workflow uses is created on the first run.
+`.github/workflows/pages.yml` checks the links (fetching the outside ones), uploads `site/` and deploys it when a change under `site/` (or the workflow itself) reaches `main`, or when it is run by hand from the **Actions** tab. The repository's Pages setting is **Source: GitHub Actions** (build type `workflow`), and the `github-pages` environment the workflow uses is created on the first run. The address comes from the organization's custom domain; nothing in this folder names it except the canonical and Open Graph URLs in `index.html`.

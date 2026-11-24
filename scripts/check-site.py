@@ -7,7 +7,9 @@
 # usage: python3 -I scripts/check-site.py [--external]
 #
 # Local references (href, src, srcset and CSS url()) must name a file under site/, and a #fragment must name an id on the target
-# page. Paths starting with /quill/ are read as the Pages project path (only 404.html uses them). Every image needs an alt attribute,
+# page. Paths starting with /quill/ are read as the Pages project path (only 404.html uses them). Each reference is also resolved the
+# way a browser does for the three places the site is opened: under /quill/ (how Pages serves it, at http://labs.liminalhq.ca/quill/),
+# at the root of a server, and as a local file; it has to reach the same file in all three. Every image needs an alt attribute,
 # every page a lang, a title and a meta description, and headings may not skip a level. Files under site/img that nothing references
 # are reported. With --external, http(s) links are fetched too (a HEAD request, then GET if HEAD is refused); without it they are
 # listed only. Exits 1 on any problem.
@@ -23,6 +25,7 @@ import urllib.request
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "site")
 ROOT = os.path.normpath(ROOT)
 PROJECT = "/quill/"
+PUBLISHED = "http://labs.liminalhq.ca/quill/"
 
 
 class Page(html.parser.HTMLParser):
@@ -95,6 +98,24 @@ def local_path(page, url):
 	return target
 
 
+def resolves_under(page, url, mount):
+	"""Resolves a reference the way a browser does when the site's files are served below `mount`; returns the file it reaches, or None."""
+	host = "http://site.test"
+	page_path = mount + os.path.relpath(page, ROOT).replace(os.sep, "/")
+	if os.path.basename(page) == "404.html":
+		# GitHub serves 404.html for a missing path at any depth, so resolve from one that is deep.
+		page_path = mount + "no/such/page"
+	path = urllib.parse.unquote(urllib.parse.urlsplit(urllib.parse.urljoin(host + page_path, url)).path)
+	if not path.startswith(mount):
+		return None
+	target = os.path.normpath(os.path.join(ROOT, path[len(mount):]))
+	if target != ROOT and not target.startswith(ROOT + os.sep):
+		return None
+	if path.endswith("/"):
+		target = os.path.join(target, "index.html")
+	return target
+
+
 def main():
 	external = "--external" in sys.argv[1:]
 	problems = []
@@ -143,8 +164,8 @@ def main():
 				continue
 			if key.startswith("og:"):
 				# Open Graph and the canonical link need absolute URLs; check that they point into the project and at a real file.
-				if url.startswith("https://liminal-hq-labs.github.io/quill/"):
-					target = os.path.join(ROOT, url[len("https://liminal-hq-labs.github.io/quill/"):])
+				if url.startswith(PUBLISHED):
+					target = os.path.join(ROOT, url[len(PUBLISHED):])
 					if url.endswith("/"):
 						target = os.path.join(target, "index.html")
 					if not os.path.isfile(target):
@@ -166,6 +187,10 @@ def main():
 				problems.append(f"{where}:{line}: {url} names no file")
 				continue
 			used.add(target)
+			mounts = ("/quill/",) if os.path.basename(page) == "404.html" else ("/quill/", "/")
+			for mount in mounts:
+				if resolves_under(page, url, mount) != target:
+					problems.append(f"{where}:{line}: {url} does not reach the same file when the site is served below {mount}")
 			fragment = urllib.parse.urlsplit(url).fragment
 			if fragment and target.endswith(".html"):
 				ids = parsed[target].ids if target in parsed else set()
