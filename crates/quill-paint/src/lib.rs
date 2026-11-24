@@ -18,9 +18,11 @@
 	clippy::todo
 )]
 
+pub mod damage;
 pub mod page;
 pub mod palette;
 pub mod raster;
+pub mod shell;
 
 use quill_core::layout::FontRef;
 
