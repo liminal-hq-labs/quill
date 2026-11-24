@@ -126,7 +126,7 @@ if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = g6-gfx-nofont ]; then
 	mkdir -p "$disk"
 	cp "$HERE/dist/QUILLDOS.EXE" "$disk/"
 	rc=0
-	DOS_AUTOTYPE="-w 2 -p 0.3 f10 down down down down down down down enter" "$HERE/tools/dosrun.sh" "$disk" 'QUILLDOS.EXE /G' > "$WORK/nofont.out" || rc=$?
+	DOS_AUTOTYPE="-w 2 -p 0.3 f10 end enter" "$HERE/tools/dosrun.sh" "$disk" 'QUILLDOS.EXE /G' > "$WORK/nofont.out" || rc=$?
 	[ "$rc" = 0 ] || fail "g6-gfx-nofont: QUILLDOS.EXE exited with $rc"
 	grep -q 'graphics mode was not used (QUILL.FNT was not found); it ran in text mode' "$WORK/nofont.out" || { cat "$WORK/nofont.out" >&2; fail "g6-gfx-nofont: no note"; }
 	echo "e2e: g6-gfx-nofont: without QUILL.FNT it runs in text mode and says why"
