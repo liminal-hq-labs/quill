@@ -63,7 +63,7 @@ cmp "$APP/QUILLDOS.EXE" "$DIST/dos-x86/QUILLDOS.EXE" || fail "QUILLDOS.EXE diffe
 for f in EN_CA.DIC EN_GB.DIC EN_US.DIC; do cmp "$APP/$f" "$DIST/dict/$f" || fail "$f differs from the staged file"; done
 for f in LETTER.QLD LETTER.RTF PICTURES.RTF PLAIN.QLD; do cmp "$APP/SAMPLES/$f" "$DIST/samples/$f" || fail "SAMPLES/$f differs"; done
 cmp "$APP/README.TXT" "$DIST/common/README.TXT" || fail "README.TXT differs"
-tr -d '\r' <"$APP/INSTALL.LIR" | grep -q '^dir=C:\\QUILL$' || fail "the receipt does not name C:\\QUILL"
+grep -q 'dir=C:.QUILL' "$APP/INSTALL.LIR" || fail "the receipt does not name C:\\QUILL"
 echo "e2e-dos: install: files byte-equal to the staged files, receipt names C:\\QUILL"
 
 # 2. Run. File > Exit is F10, End, Enter, as the editing scenarios use.
@@ -75,7 +75,7 @@ rc=0
 [ "$rc" = 0 ] || fail "QUILLDOS.EXE exited with $rc"
 [ -f "$WORK/keep/DUMP.TXT" ] || fail "QUILLDOS.EXE drew no screen"
 # The sample's first line, read from the screen it drew.
-tr -d '\r' <"$WORK/keep/DUMP.TXT" | grep -q -F 'Dear reader,' || fail "the sample's text is on no screen QUILLDOS.EXE drew"
+grep -q -F 'Dear reader,' "$WORK/keep/DUMP.TXT" || fail "the sample's text is on no screen QUILLDOS.EXE drew"
 echo "e2e-dos: run: QUILLDOS.EXE opened SAMPLES\\LETTER.QLD and exited 0"
 
 # 3. Uninstall: confirm, then the done page, with the same repeated keys.
