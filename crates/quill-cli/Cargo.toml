@@ -1,0 +1,16 @@
+[package]
+name = "quill-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "The quill command: cat, convert and info for Quill documents"
+
+[[bin]]
+name = "quill"
+path = "src/main.rs"
+
+[dependencies]
+quill-core = { path = "../quill-core" }
+quill-formats = { path = "../quill-formats" }
+quill-host = { path = "../quill-host" }
