@@ -30,6 +30,20 @@ pub const MB_ICONSTOP: u32 = 0x10;
 pub const PM_REMOVE: u32 = 1;
 pub const SW_SHOW: u32 = 5;
 
+// The shadow stack for calls between code segments (see tools/ne_pack.py): 256 levels of a return IP and CS, and the pointer to its top.
+global_asm!(
+	".section .data.shadow,\"aw\"",
+	".balign 4",
+	".globl __w16_ssp",
+	"__w16_ssp:",
+	".long __w16_shadow",
+	".globl __w16_shadow",
+	"__w16_shadow:",
+	".space 1024",
+	".globl __w16_shadow_end",
+	"__w16_shadow_end:",
+);
+
 /// The instance handle of this task, set before `w16_main` runs.
 pub static mut HINST: u32 = 0;
 

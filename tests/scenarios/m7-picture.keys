@@ -1,0 +1,13 @@
+# M7: insert a BMP and a PNG, save as .QLD, open the saved file again and see both pictures as shaded boxes.
+@copy pic.bmp
+@copy pic.png
+f10 right right enter             # Insert > Picture...
+p i c period b m p enter
+enter
+f10 right right enter
+p i c period p n g enter
+f10 down down down enter          # File > Save As...
+o u t period q l d enter
+f10 down enter                    # File > Open...
+o u t period q l d enter
+f10 down down down down down down down enter    # File > Exit

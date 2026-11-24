@@ -182,7 +182,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
-	fn replace_here<S: Store + ?Sized>(&mut self, s: &mut S, st: &FindState) -> bool {
+	pub(crate) fn replace_here<S: Store + ?Sized>(&mut self, s: &mut S, st: &FindState) -> bool {
 		let Some((lo, hi)) = self.selection() else {
 			return false;
 		};
@@ -205,7 +205,7 @@ impl<M: Measure + Clone> App<M> {
 		ok
 	}
 
-	fn replace_all<S: Store + ?Sized>(&mut self, s: &mut S, st: &FindState) {
+	pub(crate) fn replace_all<S: Store + ?Sized>(&mut self, s: &mut S, st: &FindState) {
 		let mut n = 0u32;
 		let mut from = 0u32;
 		self.doc.body.begin_group(label::TYPING);
@@ -275,6 +275,7 @@ impl<M: Measure + Clone> App<M> {
 		self.mode = Mode::Find(st);
 	}
 
+	#[inline(never)]
 	pub(crate) fn key_find<S: Store + ?Sized>(
 		&mut self,
 		s: &mut S,

@@ -5,7 +5,8 @@
 
 use quill_core::doc::{
 	CFmt, Colour, Doc, Font, ListDef, ListLevel, PFmt, PageSetup, StoryKind, TabSet, TabStop,
-	MAX_CFMTS, MAX_COLOURS, MAX_FONTS, MAX_LISTS, MAX_PFMTS, MAX_STOPS, MAX_TABSETS,
+	MAX_CFMTS, MAX_COLOURS, MAX_FONTS, MAX_LISTS, MAX_PFMTS, MAX_PICTURES, MAX_PICTURE_BYTES,
+	MAX_STOPS, MAX_TABSETS,
 };
 use quill_core::store::Store;
 use quill_core::text::{MAX_TEXT, SRC_OBJECT};
@@ -247,6 +248,29 @@ fn body<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, e: &mut Emit<'_, K>, stori
 		}
 	}
 	e.end();
+
+	for i in 0..doc.pictures.len() {
+		let Some(p) = doc.pictures.get(s, i) else {
+			continue;
+		};
+		e.begin(b"PICT", None);
+		e.u8(p.kind);
+		e.u16(p.w);
+		e.u16(p.h);
+		e.i32(p.shown_w);
+		e.i32(p.shown_h);
+		let mut at = 0u32;
+		let mut buf = [0u8; 512];
+		while at < p.len {
+			let n = doc.picture_bytes(s, i as u16, at, &mut buf);
+			if n == 0 {
+				break;
+			}
+			e.put(buf.get(..n).unwrap_or(&[]));
+			at += n as u32;
+		}
+		e.end();
+	}
 
 	for kind in StoryKind::ALL {
 		let t = doc.story(kind);
@@ -534,6 +558,41 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 						return Err(FormatError::BadFile);
 					}
 				}
+			}
+			b"PICT" => {
+				if doc.pictures.len() >= MAX_PICTURES {
+					return Err(FormatError::BadFile);
+				}
+				let kind = c.u8()?;
+				let (w, h) = (c.u16()?, c.u16()?);
+				let (sw, sh) = (c.i32()?, c.i32()?);
+				let len = c.left;
+				if kind > 1 || len > MAX_PICTURE_BYTES || sw <= 0 || sh <= 0 {
+					return Err(FormatError::BadFile);
+				}
+				let mut buf = [0u8; 512];
+				let mut offset = None;
+				while c.left > 0 {
+					let n = (c.left as usize).min(512);
+					let part = buf.get_mut(..n).ok_or(FormatError::BadFile)?;
+					c.bytes(part)?;
+					let at = doc.pic_data.append(s, part)?;
+					offset.get_or_insert(at);
+				}
+				doc.pictures.reserve(s, 1)?;
+				let offset = offset.unwrap_or(doc.pic_data.len());
+				doc.pictures.push(
+					s,
+					quill_core::doc::Picture {
+						kind,
+						w,
+						h,
+						shown_w: sw,
+						shown_h: sh,
+						offset,
+						len,
+					},
+				)?;
 			}
 			b"PFMT" => {
 				let n = u32::from(c.u16()?);

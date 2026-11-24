@@ -17,6 +17,7 @@
 pub mod bmp;
 pub mod dither;
 pub mod png;
+pub mod scale;
 
 /// The most pixels along a side of a picture Quill reads.
 pub const MAX_SIDE: u32 = 4096;

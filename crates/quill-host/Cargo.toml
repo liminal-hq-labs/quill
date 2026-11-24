@@ -16,6 +16,7 @@ quill-grid = { path = "../quill-grid" }
 quill-app = { path = "../quill-app" }
 quill-core = { path = "../quill-core" }
 quill-formats = { path = "../quill-formats" }
+quill-dict = { path = "../quill-dict" }
 
 [dev-dependencies]
 proptest = { version = "1", default-features = false, features = ["std"] }

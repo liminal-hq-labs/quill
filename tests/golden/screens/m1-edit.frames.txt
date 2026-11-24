@@ -58,10 +58,10 @@
 │ Save            Ctrl+S │                                                      
 │ Save As...             │                                                      
 │ Print...        Ctrl+P │                                                      
+│ Print Preview          │                                                      
+│ Print Setup...         │                                                      
 │ Exit            Ctrl+Q │                                                      
 └────────────────────────┘                                                      
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -86,9 +86,9 @@
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -110,10 +110,10 @@
 │ Save            Ctrl+S │                                                      
 │ Save As...             │                                                      
 │ Print...        Ctrl+P │                                                      
+│ Print Preview          │                                                      
+│ Print Setup...         │                                                      
 │ Exit            Ctrl+Q │                                                      
 └────────────────────────┘                                                      
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -138,9 +138,9 @@
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -677,6 +677,7 @@
 === screen 14 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -693,7 +694,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -729,6 +729,7 @@
 === screen 15 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                             hQuill: a plain document                            
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -745,7 +746,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -781,6 +781,7 @@
 === screen 16 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                            heQuill: a plain document                            
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -797,7 +798,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -833,6 +833,7 @@
 === screen 17 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                            helQuill: a plain document                           
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -849,7 +850,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -885,6 +885,7 @@
 === screen 18 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                           hellQuill: a plain document                           
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -901,7 +902,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -937,6 +937,7 @@
 === screen 19 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                           helloQuill: a plain document                          
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -953,7 +954,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -989,6 +989,7 @@
 === screen 20 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                          hello Quill: a plain document                          
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1005,7 +1006,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1041,7 +1041,9 @@
 === screen 21 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1058,8 +1060,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1093,7 +1093,9 @@
 === screen 22 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1110,8 +1112,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1145,7 +1145,9 @@
 === screen 23 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1162,8 +1164,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1197,7 +1197,9 @@
 === screen 24 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, writtezn in Rust. This paragraph is long enough           
           to wrap onto several lines in a sixty column text area, and           
@@ -1214,8 +1216,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1249,7 +1249,9 @@
 === screen 25 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1266,8 +1268,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1301,11 +1301,13 @@
 === screen 26 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Print Preview          │eral lines in a sixty column text area, and           
+│ Print Setup...         │after spaces and hyphens, never in the                
 │ Exit            Ctrl+Q │ unless the word is wider than the line.              
 │ 1 PLAIN.QLD            │                                                      
 └────────────────────────┘rice                                                  
@@ -1321,8 +1323,6 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                                                                
  PLAIN.QLD   Pg 1 Ln 4 Col 19   Times New Roman 12   Mod                        
 --- attributes ---
 7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
@@ -1335,9 +1335,9 @@
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -1353,11 +1353,13 @@
 === screen 27 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Print Preview          │eral lines in a sixty column text area, and           
+│ Print Setup...         │after spaces and hyphens, never in the                
 │ Exit            Ctrl+Q │ unless the word is wider than the line.              
 │ 1 PLAIN.QLD            │                                                      
 └────────────────────────┘rice                                                  
@@ -1373,8 +1375,6 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                                                                
  PLAIN.QLD   Pg 1 Ln 4 Col 19   Times New Roman 12   Mod                        
 --- attributes ---
 7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
@@ -1387,9 +1387,9 @@
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -1405,11 +1405,13 @@
 === screen 28 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Print Preview          │eral lines in a sixty column text area, and           
+│ Print Setup...         │after spaces and hyphens, never in the                
 │ Exit            Ctrl+Q │ unless the word is wider than the line.              
 │ 1 PLAIN.QLD            │                                                      
 └────────────────────────┘rice                                                  
@@ -1425,8 +1427,6 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                                                                
  PLAIN.QLD   Pg 1 Ln 4 Col 19   Times New Roman 12   Mod                        
 --- attributes ---
 7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
@@ -1434,6 +1434,8 @@
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7007070707070707070707070707070707070707070707070770080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -1451,13 +1453,13 @@
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
 === screen 29 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1474,8 +1476,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1509,11 +1509,13 @@
 === screen 30 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Print Preview          │eral lines in a sixty column text area, and           
+│ Print Setup...         │after spaces and hyphens, never in the                
 │ Exit            Ctrl+Q │ unless the word is wider than the line.              
 │ 1 PLAIN.QLD            │                                                      
 └────────────────────────┘rice                                                  
@@ -1529,8 +1531,6 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                                                                
  PLAIN.QLD   Pg 1 Ln 4 Col 19   Times New Roman 12                              
 --- attributes ---
 7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
@@ -1543,9 +1543,9 @@
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -1561,11 +1561,13 @@
 === screen 31 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Print Preview          │eral lines in a sixty column text area, and           
+│ Print Setup...         │after spaces and hyphens, never in the                
 │ Exit            Ctrl+Q │ unless the word is wider than the line.              
 │ 1 PLAIN.QLD            │                                                      
 └────────────────────────┘rice                                                  
@@ -1581,8 +1583,6 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                                                                
  PLAIN.QLD   Pg 1 Ln 4 Col 19   Times New Roman 12                              
 --- attributes ---
 7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
@@ -1595,9 +1595,9 @@
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -1613,11 +1613,13 @@
 === screen 32 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Print Preview          │eral lines in a sixty column text area, and           
+│ Print Setup...         │after spaces and hyphens, never in the                
 │ Exit            Ctrl+Q │ unless the word is wider than the line.              
 │ 1 PLAIN.QLD            │                                                      
 └────────────────────────┘rice                                                  
@@ -1633,8 +1635,6 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                                                                
  PLAIN.QLD   Pg 1 Ln 4 Col 19   Times New Roman 12                              
 --- attributes ---
 7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
@@ -1647,9 +1647,9 @@
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -1665,11 +1665,13 @@
 === screen 33 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Print Preview          │eral lines in a sixty column text area, and           
+│ Print Setup...         │after spaces and hyphens, never in the                
 │ Exit            Ctrl+Q │ unless the word is wider than the line.              
 │ 1 PLAIN.QLD            │                                                      
 └────────────────────────┘rice                                                  
@@ -1685,8 +1687,6 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                                                                
  PLAIN.QLD   Pg 1 Ln 4 Col 19   Times New Roman 12                              
 --- attributes ---
 7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
@@ -1699,9 +1699,9 @@
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -1717,11 +1717,13 @@
 === screen 34 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Print Preview          │eral lines in a sixty column text area, and           
+│ Print Setup...         │after spaces and hyphens, never in the                
 │ Exit            Ctrl+Q │ unless the word is wider than the line.              
 │ 1 PLAIN.QLD            │                                                      
 └────────────────────────┘rice                                                  
@@ -1737,8 +1739,6 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                                                                
  PLAIN.QLD   Pg 1 Ln 4 Col 19   Times New Roman 12                              
 --- attributes ---
 7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
@@ -1751,9 +1751,9 @@
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -1769,11 +1769,13 @@
 === screen 35 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
 ┌────────────────────────┐           hello                                      
-│ New             Ctrl+N │  Quill: a plain document                             
-│ Open...         Ctrl+O │ word processor for DOS, Windows 3.1 and              
-│ Save            Ctrl+S │ten in Rust. This paragraph is long enough            
-│ Save As...             │eral lines in a sixty column text area, and           
-│ Print...        Ctrl+P │after spaces and hyphens, never in the                
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Print Preview          │eral lines in a sixty column text area, and           
+│ Print Setup...         │after spaces and hyphens, never in the                
 │ Exit            Ctrl+Q │ unless the word is wider than the line.              
 │ 1 PLAIN.QLD            │                                                      
 └────────────────────────┘rice                                                  
@@ -1789,12 +1791,116 @@
                                                                                 
                                                                                 
                                                                                 
+ PLAIN.QLD   Pg 1 Ln 4 Col 19   Times New Roman 12                              
+--- attributes ---
+7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
+7070707070707070707070707070707070707070707070707070171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7007070707070707070707070707070707070707070707070770080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
+=== screen 36 ===
+ File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
+┌────────────────────────┐           hello                                      
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Print Preview          │eral lines in a sixty column text area, and           
+│ Print Setup...         │after spaces and hyphens, never in the                
+│ Exit            Ctrl+Q │ unless the word is wider than the line.              
+│ 1 PLAIN.QLD            │                                                      
+└────────────────────────┘rice                                                  
+          Quills    12   3.50                                                   
+          Ink bottles    3    8.25                                              
+                                                                                
+          A line break                                                          
+          keeps the paragraph together, and a                                   
+          supercalifragilisticexpialidocious-looking-word-that-has-no-          
+          spaces-and-is-far-longer-than-a-line is cut where it must             
+          be.                                                                   
+          The end.                                                              
+                                                                                
                                                                                 
                                                                                 
  PLAIN.QLD   Pg 1 Ln 4 Col 19   Times New Roman 12                              
 --- attributes ---
 7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
 7070707070707070707070707070707070707070707070707070171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7007070707070707070707070707070707070707070707070770080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717080808080808080808080808080808080808080808080808080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
+=== screen 37 ===
+ File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
+┌────────────────────────┐           hello                                      
+│ New             Ctrl+N │                                                      
+│ Open...         Ctrl+O │  Quill: a plain document                             
+│ Save            Ctrl+S │                                                      
+│ Save As...             │ word processor for DOS, Windows 3.1 and              
+│ Print...        Ctrl+P │ten in Rust. This paragraph is long enough            
+│ Print Preview          │eral lines in a sixty column text area, and           
+│ Print Setup...         │after spaces and hyphens, never in the                
+│ Exit            Ctrl+Q │ unless the word is wider than the line.              
+│ 1 PLAIN.QLD            │                                                      
+└────────────────────────┘rice                                                  
+          Quills    12   3.50                                                   
+          Ink bottles    3    8.25                                              
+                                                                                
+          A line break                                                          
+          keeps the paragraph together, and a                                   
+          supercalifragilisticexpialidocious-looking-word-that-has-no-          
+          spaces-and-is-far-longer-than-a-line is cut where it must             
+          be.                                                                   
+          The end.                                                              
+                                                                                
+                                                                                
+                                                                                
+ PLAIN.QLD   Pg 1 Ln 4 Col 19   Times New Roman 12                              
+--- attributes ---
+7007070707707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
+7070707070707070707070707070707070707070707070707070171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
+7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070080817171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
@@ -1815,13 +1921,13 @@
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
-1717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717
 7070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070
-=== screen 36 ===
+=== screen 38 ===
  File  Edit  Insert  Find  Character  Paragraph  Document  Help                 
                                      hello                                      
+                                                                                
                             Quill: a plain document                             
+                                                                                
           Quill is a small word processor for DOS, Windows 3.1 and              
           Windows 95, written in Rust. This paragraph is long enough            
           to wrap onto several lines in a sixty column text area, and           
@@ -1838,8 +1944,6 @@
           spaces-and-is-far-longer-than-a-line is cut where it must             
           be.                                                                   
           The end.                                                              
-                                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 

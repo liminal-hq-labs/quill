@@ -28,6 +28,60 @@ fn skip<S: Source>(r: &mut S, mut n: u32) -> Option<()> {
 	Some(())
 }
 
+/// A running CRC-32 (the PNG chunk checksum), by nibbles so the table is 64 bytes.
+#[derive(Copy, Clone)]
+struct Crc(u32);
+
+impl Crc {
+	const TABLE: [u32; 16] = [
+		0x0000_0000,
+		0x1DB7_1064,
+		0x3B6E_20C8,
+		0x26D9_30AC,
+		0x76DC_4190,
+		0x6B6B_51F4,
+		0x4DB2_6158,
+		0x5005_713C,
+		0xEDB8_8320,
+		0xF00F_9344,
+		0xD6D6_A3E8,
+		0xCB61_B38C,
+		0x9B64_C2B0,
+		0x86D3_D2D4,
+		0xA00A_E278,
+		0xBDBD_F21C,
+	];
+
+	fn new() -> Self {
+		Crc(0xFFFF_FFFF)
+	}
+
+	fn byte(&mut self, b: u8) {
+		let mut c = self.0 ^ u32::from(b);
+		for _ in 0..2 {
+			c = (c >> 4) ^ Self::TABLE.get((c & 15) as usize).copied().unwrap_or(0);
+		}
+		self.0 = c;
+	}
+
+	fn bytes(&mut self, d: &[u8]) {
+		for &b in d {
+			self.byte(b);
+		}
+	}
+
+	fn value(self) -> u32 {
+		!self.0
+	}
+}
+
+/// Reads the four checksum bytes after a chunk's data and compares them with `crc`.
+fn check_crc<S: Source>(r: &mut S, crc: Crc) -> Result<(), ImageError> {
+	(be32(r) == Some(crc.value()))
+		.then_some(())
+		.ok_or(ImageError::BadFile)
+}
+
 struct Header {
 	width: u32,
 	height: u32,
@@ -165,29 +219,35 @@ pub fn decode_rows<S: Source>(
 				if w == 0 || h == 0 || w > MAX_SIDE || h > MAX_SIDE {
 					return Err(ImageError::TooLarge);
 				}
+				let mut crc = Crc::new();
+				crc.bytes(&kind);
+				crc.bytes(&b);
+				check_crc(r, crc)?;
 				hdr = Some(Header {
 					width: w,
 					height: h,
 					depth,
 					colour,
 				});
-				skip(r, 4).ok_or(bad)?;
 			}
 			b"PLTE" => {
 				if len % 3 != 0 || len > 768 {
 					return Err(bad);
 				}
 				pal_n = (len / 3) as usize;
+				let mut crc = Crc::new();
+				crc.bytes(&kind);
 				for i in 0..pal_n {
 					let mut e = [0u8; 3];
 					if r.read(&mut e) != 3 {
 						return Err(bad);
 					}
+					crc.bytes(&e);
 					if let Some(p) = palette.get_mut(i) {
 						*p = e;
 					}
 				}
-				skip(r, 4).ok_or(bad)?;
+				check_crc(r, crc)?;
 			}
 			b"IDAT" => {
 				let h = hdr.as_ref().ok_or(bad)?;
@@ -209,6 +269,7 @@ fn image_data<S: Source>(
 	first_len: u32,
 	f: &mut impl FnMut(u32, &[u8]),
 ) -> Result<(), ImageError> {
+	let bad = ImageError::BadFile;
 	let ch = channels(h.colour);
 	let bits = ch * usize::from(h.depth);
 	let row_bytes = (bits * h.width as usize).div_ceil(8);
@@ -221,6 +282,9 @@ fn image_data<S: Source>(
 	}
 	let mut remain = first_len;
 	let mut ended = false;
+	let mut crc = Crc::new();
+	crc.bytes(b"IDAT");
+	let mut crc_bad = false;
 	let mut next = || -> Option<u8> {
 		loop {
 			if ended {
@@ -233,22 +297,29 @@ fn image_data<S: Source>(
 					return None;
 				}
 				remain -= 1;
+				crc.bytes(&b);
 				return b.first().copied();
 			}
 			// The chunk's checksum, then the next chunk if it is more image data.
-			be32(r)?;
+			if be32(r) != Some(crc.value()) {
+				crc_bad = true;
+				ended = true;
+				return None;
+			}
 			let len = be32(r)?;
 			let mut kind = [0u8; 4];
 			if r.read(&mut kind) != 4 || &kind != b"IDAT" {
 				ended = true;
 				return None;
 			}
+			crc = Crc::new();
+			crc.bytes(&kind);
 			remain = len;
 		}
 	};
-	// The two-byte zlib header; the checksum after the stream is not checked.
-	next().ok_or(ImageError::BadFile)?;
-	next().ok_or(ImageError::BadFile)?;
+	// The two-byte zlib header; the Adler-32 after the stream and each chunk's CRC are checked.
+	next().ok_or(bad)?;
+	next().ok_or(bad)?;
 
 	let mut cur = [0u8; MAX_RAW];
 	let mut prev = [0u8; MAX_RAW];
@@ -256,9 +327,17 @@ fn image_data<S: Source>(
 	let (mut pos, mut y) = (0usize, 0u32);
 	let mut filter = 0u8;
 	let mut failure: Option<ImageError> = None;
+	let (mut ad_a, mut ad_b) = (1u32, 0u32);
 	let res = inflate(
 		&mut next,
 		|b| {
+			ad_a = (ad_a + u32::from(b)) % 65521;
+			ad_b = (ad_b + ad_a) % 65521;
+			if y >= h.height {
+				// More data than the picture holds.
+				failure = Some(ImageError::BadFile);
+				return false;
+			}
 			if pos == 0 {
 				filter = b;
 			} else if let Some(slot) = cur.get_mut(pos - 1) {
@@ -319,15 +398,44 @@ fn image_data<S: Source>(
 			f(y, rgb.get(..w * 3).unwrap_or(&[]));
 			y += 1;
 			core::mem::swap(&mut cur, &mut prev);
-			y < h.height
+			true
 		},
 		window,
 	);
 	if let Some(e) = failure {
 		return Err(e);
 	}
-	match res {
-		Ok(_) | Err(quill_inflate::InflateError::Stopped) if y == h.height => Ok(()),
-		_ => Err(ImageError::BadFile),
+	if res.is_err() || y != h.height {
+		return Err(bad);
 	}
+	// The zlib checksum; then nothing more in the data, which makes the closure check the last chunk's CRC.
+	let mut ad = [0u8; 4];
+	for v in ad.iter_mut() {
+		*v = next().ok_or(bad)?;
+	}
+	if u32::from_be_bytes(ad) != (ad_b << 16) | ad_a || next().is_some() {
+		return Err(bad);
+	}
+	if crc_bad {
+		return Err(bad);
+	}
+	Ok(())
+}
+
+/// Reads just the size of a PNG: its width and height in pixels.
+pub fn read_size<S: Source>(r: &mut S) -> Result<(u32, u32), ImageError> {
+	let bad = ImageError::BadFile;
+	let mut head = [0u8; 24];
+	if r.read(&mut head) != 24
+		|| head.get(..8) != Some(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A][..])
+		|| head.get(12..16) != Some(b"IHDR")
+	{
+		return Err(bad);
+	}
+	let w = u32::from_be_bytes([head[16], head[17], head[18], head[19]]);
+	let h = u32::from_be_bytes([head[20], head[21], head[22], head[23]]);
+	if w == 0 || h == 0 || w > MAX_SIDE || h > MAX_SIDE {
+		return Err(ImageError::TooLarge);
+	}
+	Ok((w, h))
 }

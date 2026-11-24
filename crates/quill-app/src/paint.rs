@@ -14,7 +14,7 @@ use crate::{App, Command, Mode, Prompt, Scheme};
 /// Rows of text between the menu bar and the status line on an 80 by 25 screen.
 pub const TEXT_ROWS: usize = 23;
 /// Menus on the bar.
-pub const MENU_COUNT: u8 = 8;
+pub const MENU_COUNT: u8 = 9;
 
 const MENU_BAR: &[u8] = b" File  Edit  Insert  Find  Character  Paragraph  Document  Help";
 const MENU_COLS: [usize; 8] = [1, 7, 13, 21, 27, 38, 49, 59];
@@ -23,7 +23,7 @@ pub fn menu_title(menu: u8) -> &'static [u8] {
 	MENU_TITLES.get(usize::from(menu)).copied().unwrap_or(b"")
 }
 
-const MENU_TITLES: [&[u8]; 8] = [
+const MENU_TITLES: [&[u8]; 9] = [
 	b"File",
 	b"Edit",
 	b"Insert",
@@ -31,6 +31,7 @@ const MENU_TITLES: [&[u8]; 8] = [
 	b"Character",
 	b"Paragraph",
 	b"Document",
+	b"View",
 	b"Help",
 ];
 const SELECTED: u8 = 0x07;
@@ -53,12 +54,14 @@ const fn item(label: &'static str, accel: &'static str, command: Command) -> Ite
 	}
 }
 
-const FIND: [Item; 3] = [
+const FIND: [Item; 4] = [
 	item("Find...", "Ctrl+F", Command::Find),
 	item("Find Next", "F3", Command::FindNext),
 	item("Replace...", "Ctrl+H", Command::Replace),
+	item("Spelling...", "F7", Command::Spelling),
 ];
-const INSERT: [Item; 4] = [
+const INSERT: [Item; 5] = [
+	item("Picture...", "", Command::Picture),
 	item("Page Number", "", Command::Field(1)),
 	item("Page Count", "", Command::Field(2)),
 	item("Date", "", Command::Field(3)),
@@ -72,13 +75,21 @@ const DOCUMENT: [Item; 6] = [
 	item("Different First Page", "", Command::FirstPage),
 	item("Return to Document", "", Command::View(0)),
 ];
+const VIEW: [Item; 4] = [
+	item("Toolbar", "", Command::Chrome(1)),
+	item("Formatting Bar", "", Command::Chrome(8)),
+	item("Ruler", "", Command::Chrome(2)),
+	item("Status Bar", "", Command::Chrome(4)),
+];
 const HELP: [Item; 1] = [item("About Quill...", "", Command::About)];
-const FILE: [Item; 6] = [
+const FILE: [Item; 8] = [
 	item("New", "Ctrl+N", Command::New),
 	item("Open...", "Ctrl+O", Command::Open),
 	item("Save", "Ctrl+S", Command::Save),
 	item("Save As...", "", Command::SaveAs),
 	item("Print...", "Ctrl+P", Command::Print),
+	item("Print Preview", "", Command::Preview),
+	item("Print Setup...", "", Command::PrintSetup),
 	item("Exit", "Ctrl+Q", Command::Exit),
 ];
 const EDIT: [Item; 2] = [
@@ -120,7 +131,8 @@ pub fn menu_items(menu: u8) -> &'static [Item] {
 		4 => &CHARACTER,
 		5 => &PARAGRAPH,
 		6 => &DOCUMENT,
-		7 => &HELP,
+		7 => &VIEW,
+		8 => &HELP,
 		_ => &[],
 	}
 }
@@ -258,25 +270,40 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 	let mut ln_in_page = 0u32;
 	let mut counters: ListCounters = [[0u32; 9]; 4];
 	let mut cursor = None;
+	// Rows are the layout's own: a line sits where its page and y put it, so spacing and tall lines show.
+	let page_rows = quill_core::layout::to_units(
+		app.doc.page.paper_h - app.doc.page.margin_t - app.doc.page.margin_b,
+		6,
+	);
+	let cum = |l: &quill_core::layout::Line| (l.page as i32 - 1) * page_rows + l.y;
+	let mut top_cum = 0;
+	app.lines(s, |i, l| {
+		if i == app.top {
+			top_cum = cum(l);
+		}
+	});
 	app.lines(s, |i, l| {
 		if let Some((ci, _)) = caret {
 			if l.page == caret_page && i <= ci {
 				ln_in_page += 1;
 			}
 		}
+		let rel = cum(l) - top_cum;
+		let height = (l.ascent + l.descent).max(1);
+		let first_row = 1 + rel;
+		let row_i = first_row + height - 1;
 		if let Some((label, n, first)) = line_label(app, s, l, &mut counters, 10) {
-			if l_visible(i, app.top, text_rows) {
-				let row = 1 + (i - app.top) as usize;
+			if i >= app.top && rel < text_rows as i32 && row_i >= 1 {
+				let row = row_i as usize;
 				for (k, b) in label.iter().take(n).enumerate() {
 					g.put(margin + first + k, row, *b, attr::TEXT);
 				}
 			}
 		}
-		let top = app.top;
-		if i < top || (i - top) as usize >= text_rows {
+		if i < app.top || rel >= text_rows as i32 || row_i < 1 {
 			return;
 		}
-		let row = 1 + (i - top) as usize;
+		let row = row_i as usize;
 		app.walk(s, l, |p, c, x, w, leader| {
 			let col = margin + x as usize;
 			let cf = app
@@ -298,6 +325,29 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 					g.put(col + k, row, fill, a);
 				}
 			} else if c == 0x01 {
+				if let Some((pw, ph)) =
+					quill_core::layout::picture_size(&app.doc, s, &app.doc.body, p, 10, 6)
+				{
+					// A picture is a box of shading the height it would print, labelled with its size in pixels.
+					let top_row = first_row.max(1) as usize;
+					for yy in 0..ph as usize {
+						for xx in 0..pw as usize {
+							g.put(col + xx, top_row + yy, 0xB0, a);
+						}
+					}
+					let idx = app.doc.body.object_at(s, p).map_or(0, |v| v & 0xFFFF);
+					if let Some(pic) = app.doc.pictures.get(s, idx) {
+						let mut r = Row::new();
+						r.s("[Picture ")
+							.dec(u32::from(pic.w))
+							.s(" x ")
+							.dec(u32::from(pic.h))
+							.s("]");
+						let label = r.buf.get(..r.n.min(pw as usize)).unwrap_or(&[]);
+						g.text(col, top_row + (ph as usize) / 2, label, a);
+					}
+					return;
+				}
 				let letter = match app.doc.body.object_at(s, p).map(|v| v >> 16) {
 					Some(1) => b'P',
 					Some(2) => b'N',
@@ -449,6 +499,7 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 				Prompt::Open => b" Open ",
 				Prompt::SaveAs => b" Save As ",
 				Prompt::Print => b" Print to file or device ",
+				Prompt::Picture => b" Insert Picture ",
 			};
 			dialog(g, 8, 62, 7, title);
 			g.text(10, 10, b"File name:", attr::CHROME);
@@ -555,11 +606,57 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 		Mode::About => {
 			dialog(g, 8, 62, 10, b" About Quill ");
 			g.text(10, 10, b"Quill", attr::CHROME);
-			g.text(10, 11, b"Version 0.0.0, experimental", attr::CHROME);
+			let mut v = Row::new();
+			v.s("Version ").s(crate::VERSION);
+			g.text(10, 11, v.buf.get(..v.n).unwrap_or(&[]), attr::CHROME);
 			g.text(10, 12, b"A Liminal HQ Labs experiment", attr::CHROME);
 			g.text(10, 13, b"Apache-2.0 OR MIT", attr::CHROME);
 			g.text(10, 14, app.about.bytes(), attr::CHROME);
 			g.text(34, 16, b"< OK >", SELECTED);
+			cursor = None;
+		}
+		Mode::Spell(d) => {
+			dialog(g, 2, 76, 13, b" Spelling ");
+			let mut r = Row::new();
+			r.s("Not in dictionary: ").bytes(app.spell_word());
+			g.text(5, 10, r.buf.get(..r.n).unwrap_or(&[]), attr::CHROME);
+			let mut ctx = [0u8; 72];
+			let n = app.spell_context(s, &mut ctx);
+			let mut c = Row::new();
+			c.bytes(ctx.get(..n).unwrap_or(&[]));
+			g.text(5, 11, c.buf.get(..c.n.min(62)).unwrap_or(&[]), attr::CHROME);
+			g.text(5, 13, b"Change to:", attr::CHROME);
+			for i in 0..usize::from(d.n) {
+				let l = usize::from(d.lens.get(i).copied().unwrap_or(0));
+				let mut w = Row::new();
+				w.bytes(d.words.get(i).and_then(|w| w.get(..l)).unwrap_or(&[]));
+				let at = if usize::from(d.sel) == i {
+					SELECTED
+				} else {
+					attr::CHROME
+				};
+				g.text(
+					17 + (i / 4) * 20,
+					13 + i % 4,
+					w.buf.get(..l).unwrap_or(&[]),
+					at,
+				);
+			}
+			if d.n == 0 {
+				g.text(17, 13, b"(no suggestions)", attr::CHROME);
+			}
+			let mut x = 4;
+			for (i, b) in crate::spelling::BUTTONS.iter().enumerate() {
+				let mut t = Row::new();
+				t.s("< ").s(b).s(" >");
+				let at = if usize::from(d.focus) == i {
+					SELECTED
+				} else {
+					attr::CHROME
+				};
+				g.text(x, 18, t.buf.get(..t.n).unwrap_or(&[]), at);
+				x += t.n + 1;
+			}
 			cursor = None;
 		}
 		Mode::Confirm(_) => {
@@ -605,10 +702,6 @@ fn shadow<const ROWS: usize>(g: &mut Grid<ROWS>, x: usize, y: usize, w: usize, h
 			g.put(xx, y + h, c.ch, 0x08);
 		}
 	}
-}
-
-fn l_visible(i: u32, top: u32, rows: usize) -> bool {
-	i >= top && ((i - top) as usize) < rows
 }
 
 /// Writes the label of number `n` in `style` (0 `1.`, 1 `1)`, 2 `a.`, 3 `a)`, 4 `i.`, 5 `A.`, 6 `I.`, 7 `1.`) and returns its length.

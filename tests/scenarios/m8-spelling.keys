@@ -1,0 +1,11 @@
+@copy en_ca.dic
+# M8: type a paragraph with planted errors, check it with F7 and deal with each word: change to the first suggestion, ignore, add.
+T e h space q u i c k space b r o w n space f o x space j u m p d space o v e r space t h e space l a z y space d o g period space T h i s space s e n t e n s e space h a s space a space s p e l i n g space e r r o r period space Z o r b space i s space c o l o u r period
+f7                          # Teh: Enter changes it to the first suggestion
+enter                       # jumpd
+enter
+left left enter             # sentense: Ignore
+enter                       # speling
+tab tab enter               # Zorb: Add to the user dictionary
+f10 down down down down down down down enter    # File > Exit
+n

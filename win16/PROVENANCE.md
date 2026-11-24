@@ -12,7 +12,7 @@ The Win16 runtime in this folder is copied from the `rust-win16` template reposi
 | `.cargo/config.toml` | `rust-win16` | Adds `-C llvm-args=-min-jump-table-entries=1000`: a four-way `match` in the T1 probe compiled to a jump table whose entry sent the program into the middle of an instruction. Cause not found yet; see `docs/progress.md` |
 | `src/lib.rs` | `rust-win16` | The wizard module is dropped; the result log grows from 3 KB to 8 KB |
 | `src/imports.rs`, `tools/gen_imports.py`, `tools/imports.tbl` | `rust-win16` | Rows added for `WinExec`, `ExitWindows`, `SetTimer`, `KillTimer`, `GetTickCount` and `FindWindow` |
-| `tools/ne_pack.py`, `tools/ne_dump.py` | `rust-win16` | None |
+| `tools/ne_pack.py`, `tools/ne_dump.py` | `rust-win16` | `ne_pack.py` gained several code segments, veneers, slots, a map and budgets (T2, D83); `ne_dump.py` is unchanged |
 | `src/probe.rs` | `rust-win16` | Rewritten for T1: probes for calls that yield, FS and GS, a busy loop, calls through the import stubs, and a second task with other patterns |
 
 ## What is Quill's own

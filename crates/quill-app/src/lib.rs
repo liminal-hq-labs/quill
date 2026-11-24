@@ -14,11 +14,15 @@
 	clippy::indexing_slicing
 )]
 
+mod chrome;
 mod find;
 mod form;
+mod native;
 mod paint;
+pub mod picture;
 mod print;
 pub mod script;
+mod spelling;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
 use quill_core::layout::{layout_story, Line, Measure};
@@ -28,6 +32,10 @@ use quill_formats::io::{Sink, Source};
 use quill_formats::{qld, rtf, text, FormatError};
 use quill_grid::GridMeasure;
 
+pub use chrome::{
+	tab_stop, CharState, CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR, STYLE_NAMES,
+};
+pub use native::{Dialog, FindAction, VERSION};
 pub use paint::{draw, line_label, menu_items, menu_title, Cursor, Item, ListCounters, MENU_COUNT};
 
 /// A key, as the platform decodes it.
@@ -164,8 +172,18 @@ pub enum Command {
 	Tabs,
 	/// Help > About Quill.
 	About,
+	/// Insert > Picture.
+	Picture,
 	/// File > Print.
 	Print,
+	/// View > Toolbar (1), Ruler (2), Status Bar (4) or Formatting Bar (8).
+	Chrome(u8),
+	/// Find > Spelling (F7).
+	Spelling,
+	/// File > Print Preview (Windows builds only).
+	Preview,
+	/// File > Print Setup (Windows builds only).
+	PrintSetup,
 	/// File > one of the recent files (0 to 3).
 	Recent(u8),
 	/// Find > Find.
@@ -259,6 +277,7 @@ pub(crate) enum Prompt {
 	Open,
 	SaveAs,
 	Print,
+	Picture,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -278,6 +297,7 @@ pub(crate) enum Mode {
 	About,
 	Find(find::FindState),
 	Form(form::Form),
+	Spell(spelling::SpellDlg),
 }
 
 /// The editor.
@@ -305,6 +325,16 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) scheme: Scheme,
 	/// The format the next typed character takes, chosen with no selection.
 	typing_fmt: Option<u16>,
+	/// Which parts of the window chrome show (`CHROME_*`).
+	pub(crate) chrome: u8,
+	/// True when dialogs belong to the shell (D86).
+	pub(crate) native: bool,
+	pub(crate) spell: spelling::SpellData,
+	/// The dialog the last command asked the shell for.
+	pub(crate) dialog: Option<native::Dialog>,
+	/// The folder of the last file dialog.
+	pub(crate) folder: [u8; NAME_MAX],
+	pub(crate) folder_len: usize,
 	/// The story being edited: 0 body, 1 header, 2 footer, 3 first header, 4 first footer. The active story lives in `doc.body`.
 	pub(crate) view: u8,
 	saved_view: (u32, u32),
@@ -360,6 +390,12 @@ impl<M: Measure + Clone> App<M> {
 			overtype: false,
 			scheme: Scheme::Colour,
 			typing_fmt: None,
+			chrome: 15,
+			native: false,
+			spell: spelling::SpellData::new(),
+			dialog: None,
+			folder: [0; NAME_MAX],
+			folder_len: 0,
 			fmt: 0,
 			last_find: None,
 			about: Msg::new(),
@@ -421,6 +457,11 @@ impl<M: Measure + Clone> App<M> {
 	) -> bool {
 		self.set_name(name);
 		self.do_save(s, f)
+	}
+
+	/// Puts a message on the status line.
+	pub fn set_message(&mut self, text: &str) {
+		self.msg.set(text);
 	}
 
 	/// The message the last command left for the status line.
@@ -493,6 +534,50 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	/// Inserts the BMP or PNG file `name` at the caret as one inline picture.
+	pub fn insert_picture<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		name: &[u8],
+	) -> Result<(), quill_core::Error> {
+		let bad = Error::Range;
+		let mut head = [0u8; 8];
+		f.open(name).ok_or(bad)?.read(&mut head);
+		let (kind, w, h) = if head.starts_with(b"BM") {
+			let info =
+				quill_image::bmp::read_info(&mut f.open(name).ok_or(bad)?).map_err(|_| bad)?;
+			(0u8, info.width, info.height)
+		} else {
+			let (w, h) =
+				quill_image::png::read_size(&mut f.open(name).ok_or(bad)?).map_err(|_| bad)?;
+			(1u8, w, h)
+		};
+		let text_w = self.doc.page.paper_w - self.doc.page.margin_l - self.doc.page.margin_r;
+		let mut src = f.open(name).ok_or(bad)?;
+		let idx = self
+			.doc
+			.add_picture(s, kind, w as u16, h as u16, text_w, |b| src.read(b))?;
+		let t = &self.doc.body;
+		let cf = if self.caret > 0 {
+			t.cfmt_at(s, self.caret - 1)
+		} else {
+			t.cfmt_at(s, 0)
+		}
+		.unwrap_or(0);
+		let pfi = self
+			.para_mark(s, self.caret)
+			.and_then(|m| self.doc.body.pfmt_at(s, m))
+			.unwrap_or(0);
+		self.end_typing();
+		self.doc
+			.body
+			.insert_object(s, self.caret, u32::from(idx), cf, pfi, label::TYPING)?;
+		self.caret += 1;
+		self.modified = true;
+		Ok(())
+	}
+
 	/// Puts the current file at the front of the recent list.
 	fn push_recent(&mut self) {
 		let name = self.name;
@@ -536,6 +621,30 @@ impl<M: Measure + Clone> App<M> {
 			let line = line.strip_suffix(b"\r").unwrap_or(line);
 			for i in 0..4usize {
 				let key = [b'F', b'i', b'l', b'e', b'1' + i as u8, b'='];
+				if let Some(v) = line.strip_prefix(&b"Language="[..]) {
+					self.spell.lang = v.first().map_or(0, |b| b.saturating_sub(b'0').min(2));
+				}
+				if let Some(v) = line.strip_prefix(&b"Folder="[..]) {
+					let n = v.len().min(NAME_MAX);
+					if let (Some(d), Some(sv)) = (self.folder.get_mut(..n), v.get(..n)) {
+						d.copy_from_slice(sv);
+					}
+					self.folder_len = n;
+				}
+				for (name, bit) in [
+					(&b"Toolbar="[..], 1u8),
+					(b"Ruler=", 2),
+					(b"StatusBar=", 4),
+					(b"FormattingBar=", 8),
+				] {
+					if let Some(v) = line.strip_prefix(name) {
+						if v.first() == Some(&b'0') {
+							self.chrome &= !bit;
+						} else {
+							self.chrome |= bit;
+						}
+					}
+				}
 				if let Some(v) = line.strip_prefix(&key[..]) {
 					let len = v.len().min(NAME_MAX);
 					if let (Some(d), Some(dl)) =
@@ -566,12 +675,52 @@ impl<M: Measure + Clone> App<M> {
 			let _ = w.write(self.recent.get(i).and_then(|r| r.get(..len)).unwrap_or(&[]));
 			let _ = w.write(b"\r\n");
 		}
+		let _ = w.write(b"[Quill]\r\n");
+		if self.spell.lang != 0 {
+			let _ = w.write(&[
+				b'L',
+				b'a',
+				b'n',
+				b'g',
+				b'u',
+				b'a',
+				b'g',
+				b'e',
+				b'=',
+				b'0' + self.spell.lang,
+				b'\r',
+				b'\n',
+			]);
+		}
+		if self.folder_len > 0 {
+			let _ = w.write(b"Folder=");
+			let _ = w.write(self.folder.get(..self.folder_len).unwrap_or(&[]));
+			let _ = w.write(b"\r\n");
+		}
+		for (name, bit) in [
+			(&b"Toolbar="[..], 1u8),
+			(b"Ruler=", 2),
+			(b"StatusBar=", 4),
+			(b"FormattingBar=", 8),
+		] {
+			let _ = w.write(name);
+			let _ = w.write(if self.chrome & bit != 0 {
+				b"1\r\n"
+			} else {
+				b"0\r\n"
+			});
+		}
 		f.close(w);
 	}
 
 	/// Sets the platform's line of the About box (the mode and the free memory).
 	pub fn set_about(&mut self, text: &str) {
 		self.about.set(text);
+	}
+
+	/// The platform line set by the shell, as shown in About.
+	pub fn about_platform(&self) -> &str {
+		core::str::from_utf8(self.about.bytes()).unwrap_or("")
 	}
 
 	/// The recent files, for a native menu.
@@ -943,6 +1092,10 @@ impl<M: Measure + Clone> App<M> {
 
 	fn run<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, c: Command) {
 		self.end_typing();
+		if let Some(d) = self.native_request(c) {
+			self.dialog = Some(d);
+			return;
+		}
 		if self.view != 0
 			&& matches!(
 				c,
@@ -1138,9 +1291,25 @@ impl<M: Measure + Clone> App<M> {
 			Command::Cut | Command::Copy | Command::Paste | Command::SelectAll => {
 				self.clip_command(s, c)
 			}
+			Command::Spelling => {
+				if self.spell_begin(s, f) {
+					self.open_spell_dialog(s);
+				}
+			}
 			Command::Fonts => self.open_fonts(s),
 			Command::Tabs => self.open_tabs(),
 			Command::About => self.mode = Mode::About,
+			Command::Picture => {
+				self.mode = Mode::Prompt {
+					kind: Prompt::Picture,
+					buf: [0; NAME_MAX],
+					len: 0,
+				}
+			}
+			Command::Chrome(bit) => self.chrome ^= bit,
+			Command::Preview | Command::PrintSetup => {
+				self.msg.set("That is not available in this version.")
+			}
 			Command::Print => {
 				self.mode = Mode::Prompt {
 					kind: Prompt::Print,
@@ -1291,7 +1460,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The position where the paragraph holding `pos` starts.
-	fn para_start<S: Store + ?Sized>(&self, s: &S, pos: u32) -> u32 {
+	pub(crate) fn para_start<S: Store + ?Sized>(&self, s: &S, pos: u32) -> u32 {
 		let t = &self.doc.body;
 		let mut end = pos;
 		let mut buf = [0u8; 64];
@@ -1342,6 +1511,7 @@ impl<M: Measure + Clone> App<M> {
 			}
 			Mode::Find(st) => self.key_find(s, k, st),
 			Mode::Form(fm) => self.key_form(s, k, fm),
+			Mode::Spell(d) => self.key_spell(s, f, k, d),
 			Mode::Confirm(c) => match k {
 				Key::Char(b'y' | b'Y') => {
 					self.mode = Mode::Edit;
@@ -1403,6 +1573,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	#[inline(never)] // keeps each mode's locals out of `key`'s frame (Win16 stacks are small)
 	fn key_edit<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, k: Key) {
 		let len = self.doc.body.len();
 		let dir = match k {
@@ -1482,9 +1653,10 @@ impl<M: Measure + Clone> App<M> {
 			Key::Insert => self.overtype = !self.overtype,
 			Key::F(5) => self.run(s, f, Command::Regular),
 			Key::F(3) => self.run(s, f, Command::FindNext),
+			Key::F(7) => self.run(s, f, Command::Spelling),
 			Key::Ctrl(b'f') => self.run(s, f, Command::Find),
 			Key::Ctrl(b'h') => self.run(s, f, Command::Replace),
-			Key::F(10) => {
+			Key::F(10) if !self.native => {
 				self.end_typing();
 				self.mode = Mode::Menu { menu: 0, item: 0 };
 			}
@@ -1510,6 +1682,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	#[inline(never)] // keeps each mode's locals out of `key`'s frame (Win16 stacks are small)
 	fn key_menu<S: Store + ?Sized, F: Files>(
 		&mut self,
 		s: &mut S,
@@ -1579,6 +1752,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	#[inline(never)] // keeps each mode's locals out of `key`'s frame (Win16 stacks are small)
 	fn key_prompt<S: Store + ?Sized, F: Files>(
 		&mut self,
 		s: &mut S,
@@ -1616,6 +1790,11 @@ impl<M: Measure + Clone> App<M> {
 						self.set_name(name);
 						self.do_save(s, f);
 					}
+					Prompt::Picture => {
+						if self.insert_picture(s, f, name).is_err() {
+							self.msg.set("Quill cannot use that picture.");
+						}
+					}
 					Prompt::Print => {
 						if !self.print_text(s, f, name) {
 							self.msg.set("Quill cannot print to that file.");
@@ -1637,6 +1816,30 @@ impl<M: Measure + Clone> App<M> {
 		let rows = self.rows as u32;
 		if idx < self.top {
 			self.top = idx;
+		} else if self.measure.resolution().1 <= 6 {
+			// On the text screen a row is a unit of layout, so spacing and tall lines count: move down until the caret's line fits.
+			let page_rows = quill_core::layout::to_units(
+				self.doc.page.paper_h - self.doc.page.margin_t - self.doc.page.margin_b,
+				6,
+			);
+			let cum = |l: &Line| (l.page as i32 - 1) * page_rows + l.y;
+			let mut top = self.top;
+			loop {
+				let (mut top_cum, mut caret_end) = (0, 0);
+				self.lines(s, |i, l| {
+					if i == top {
+						top_cum = cum(l);
+					}
+					if i == idx {
+						caret_end = cum(l) + (l.ascent + l.descent).max(1);
+					}
+				});
+				if caret_end - top_cum <= rows as i32 || top >= idx {
+					break;
+				}
+				top += 1;
+			}
+			self.top = top;
 		} else if idx >= self.top + rows {
 			self.top = idx + 1 - rows;
 		}

@@ -34,8 +34,41 @@ impl<M: Measure + Clone> App<M> {
 		self.date.set(text);
 	}
 
+	/// The text a field object shows when printed: 1 the page number, 2 the number of pages, 3 the date, 4 the file name. Returns how
+	/// many bytes of `out` it filled.
+	pub fn field_text(&self, kind: u32, page: u32, pages: u32, out: &mut [u8; 32]) -> usize {
+		let mut digits = [0u8; 10];
+		let src: &[u8] = match kind {
+			1 | 2 => {
+				let mut v = if kind == 1 { page } else { pages };
+				let mut i = digits.len();
+				loop {
+					i -= 1;
+					if let Some(d) = digits.get_mut(i) {
+						*d = b'0' + (v % 10) as u8;
+					}
+					v /= 10;
+					if v == 0 {
+						break;
+					}
+				}
+				digits.get(i..).unwrap_or(&[])
+			}
+			3 => self.date.bytes(),
+			4 if self.name_len == 0 => b"(Untitled)",
+			4 => self.name(),
+			_ => &[],
+		};
+		let n = src.len().min(out.len());
+		if let (Some(d), Some(sv)) = (out.get_mut(..n), src.get(..n)) {
+			d.copy_from_slice(sv);
+		}
+		n
+	}
+
 	/// Prints the body as text to `name` (a file, or `PRN` for the printer on DOS): each page is its lines at the SPEC's 10 pitch
 	/// and 6 lines to the inch, with the header and footer in the margins, and a form feed after every page.
+	#[inline(never)]
 	pub fn print_text<S: Store + ?Sized, F: Files>(
 		&mut self,
 		s: &mut S,
@@ -52,6 +85,7 @@ impl<M: Measure + Clone> App<M> {
 		f.close(k) && ok
 	}
 
+	#[inline(never)]
 	fn print_pages<S: Store + ?Sized, K: Sink>(&self, s: &S, k: &mut K) -> bool {
 		let page = self.doc.page;
 		let top = to_units(page.margin_t, 6) as usize;
@@ -144,6 +178,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// One header or footer row: its first paragraph, fields filled in, aligned inside the text width.
+	#[inline(never)]
 	fn margin_row<S: Store + ?Sized>(
 		&self,
 		s: &S,

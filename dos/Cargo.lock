@@ -9,6 +9,9 @@ dependencies = [
  "quill-core",
  "quill-formats",
  "quill-grid",
+ "quill-image",
+ "quill-inflate",
+ "quill-spell",
 ]
 
 [[package]]
@@ -45,6 +48,26 @@ name = "quill-heap"
 version = "0.0.0"
 dependencies = [
  "quill-core",
+]
+
+[[package]]
+name = "quill-image"
+version = "0.0.0"
+dependencies = [
+ "quill-formats",
+ "quill-inflate",
+]
+
+[[package]]
+name = "quill-inflate"
+version = "0.0.0"
+
+[[package]]
+name = "quill-spell"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+ "quill-formats",
 ]
 
 [[package]]

@@ -25,8 +25,23 @@ name = "probe"
 path = "examples/probe/main.rs"
 
 [[bin]]
+name = "segtest"
+path = "examples/segtest/main.rs"
+
+[[bin]]
+name = "sizeprobe"
+path = "examples/sizeprobe/main.rs"
+
+[[bin]]
 name = "icontest"
 path = "examples/icontest/main.rs"
+
+[dependencies]
+quill-core = { path = "../crates/quill-core" }
+quill-formats = { path = "../crates/quill-formats" }
+quill-grid = { path = "../crates/quill-grid" }
+quill-image = { path = "../crates/quill-image" }
+quill-app = { path = "../crates/quill-app" }
 
 [profile.release]
 opt-level = "z"

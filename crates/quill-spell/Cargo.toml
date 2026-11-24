@@ -1,0 +1,15 @@
+[package]
+name = "quill-spell"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "Quill's spelling checker: word lookup, case rules and suggestions over a .DIC automaton held in Store chunks"
+
+[dependencies]
+quill-core = { path = "../quill-core" }
+quill-formats = { path = "../quill-formats" }
+
+[dev-dependencies]
+quill-dict = { path = "../quill-dict" }
+quill-heap = { path = "../quill-heap" }

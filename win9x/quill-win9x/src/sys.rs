@@ -117,8 +117,11 @@ pub struct TextMetricA {
 extern "system" {
 	pub fn ExitProcess(code: u32) -> !;
 	pub fn GetModuleHandleA(name: *const u8) -> Handle;
+	pub fn GetModuleFileNameA(module: Handle, name: *mut u8, size: u32) -> u32;
 	pub fn GetCommandLineA() -> *const u8;
 	pub fn GetProcessHeap() -> Handle;
+	pub fn GlobalMemoryStatus(status: *mut MemoryStatus);
+	pub fn GetVersion() -> u32;
 	pub fn HeapAlloc(heap: Handle, flags: u32, bytes: usize) -> *mut u8;
 	pub fn HeapFree(heap: Handle, flags: u32, p: *mut u8) -> i32;
 	pub fn CreateFileA(
@@ -137,6 +140,35 @@ extern "system" {
 
 #[link(name = "user32", kind = "raw-dylib", import_name_type = "undecorated")]
 extern "system" {
+	pub fn DialogBoxParamA(
+		instance: Handle,
+		template: *const u8,
+		owner: Handle,
+		proc_: unsafe extern "system" fn(Handle, u32, usize, isize) -> isize,
+		lparam: isize,
+	) -> isize;
+	pub fn EndDialog(dlg: Handle, result: isize) -> i32;
+	pub fn GetDlgItem(dlg: Handle, id: i32) -> Handle;
+	pub fn SetDlgItemTextA(dlg: Handle, id: i32, text: *const u8) -> i32;
+	pub fn GetDlgItemTextA(dlg: Handle, id: i32, text: *mut u8, max: i32) -> u32;
+	pub fn SendDlgItemMessageA(dlg: Handle, id: i32, msg: u32, wparam: usize, lparam: isize) -> isize;
+	pub fn CheckDlgButton(dlg: Handle, id: i32, state: u32) -> i32;
+	pub fn IsDlgButtonChecked(dlg: Handle, id: i32) -> u32;
+	pub fn CheckRadioButton(dlg: Handle, first: i32, last: i32, check: i32) -> i32;
+	pub fn GetWindowRect(hwnd: Handle, r: *mut Rect) -> i32;
+	pub fn SetWindowPos(hwnd: Handle, after: Handle, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
+	pub fn MessageBoxA(hwnd: Handle, text: *const u8, caption: *const u8, flags: u32) -> i32;
+	pub fn SendMessageA(hwnd: Handle, msg: u32, wparam: usize, lparam: isize) -> isize;
+	pub fn MoveWindow(hwnd: Handle, x: i32, y: i32, w: i32, h: i32, repaint: i32) -> i32;
+	pub fn ShowWindow(hwnd: Handle, cmd: i32) -> i32;
+	pub fn SetFocus(hwnd: Handle) -> Handle;
+	pub fn TrackPopupMenu(menu: Handle, flags: u32, x: i32, y: i32, reserved: i32, hwnd: Handle, rect: *const Rect) -> i32;
+	pub fn ClientToScreen(hwnd: Handle, p: *mut Point) -> i32;
+	pub fn DestroyMenu(menu: Handle) -> i32;
+	pub fn CheckMenuItem(menu: Handle, id: u32, flags: u32) -> i32;
+	pub fn GetMenu(hwnd: Handle) -> Handle;
+	pub fn SetCapture(hwnd: Handle) -> Handle;
+	pub fn ReleaseCapture() -> i32;
 	pub fn RegisterClassA(class: *const WndClassA) -> u16;
 	pub fn CreateWindowExA(
 		ex_style: u32,
@@ -177,8 +209,98 @@ extern "system" {
 	pub fn ReleaseDC(hwnd: Handle, dc: Handle) -> i32;
 }
 
+/// What `GlobalMemoryStatus` fills in.
+#[repr(C)]
+pub struct MemoryStatus {
+	pub length: u32,
+	pub load: u32,
+	pub total_phys: u32,
+	pub avail_phys: u32,
+	pub total_page: u32,
+	pub avail_page: u32,
+	pub total_virtual: u32,
+	pub avail_virtual: u32,
+}
+
+/// What `StartDoc` is told about a print job.
+#[repr(C)]
+pub struct DocInfoA {
+	pub size: i32,
+	pub doc_name: *const u8,
+	pub output: *const u8,
+	pub datatype: *const u8,
+	pub kind: u32,
+}
+
+/// The header of a device-independent bitmap.
+#[repr(C)]
+pub struct BitmapInfoHeader {
+	pub size: u32,
+	pub width: i32,
+	pub height: i32,
+	pub planes: u16,
+	pub bit_count: u16,
+	pub compression: u32,
+	pub size_image: u32,
+	pub x_pels: i32,
+	pub y_pels: i32,
+	pub clr_used: u32,
+	pub clr_important: u32,
+}
+
 #[link(name = "gdi32", kind = "raw-dylib", import_name_type = "undecorated")]
 extern "system" {
+	pub fn IntersectClipRect(dc: Handle, left: i32, top: i32, right: i32, bottom: i32) -> i32;
+	pub fn Polygon(dc: Handle, points: *const Point, count: i32) -> i32;
+	pub fn EnumFontFamiliesA(
+		dc: Handle,
+		face: *const u8,
+		proc_: unsafe extern "system" fn(*const u8, *const u8, u32, isize) -> i32,
+		lparam: isize,
+	) -> i32;
+	pub fn SaveDC(dc: Handle) -> i32;
+	pub fn RestoreDC(dc: Handle, saved: i32) -> i32;
+	pub fn SetMapMode(dc: Handle, mode: i32) -> i32;
+	pub fn SetWindowExtEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
+	pub fn SetViewportExtEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
+	pub fn GetDeviceCaps(dc: Handle, index: i32) -> i32;
+	pub fn DeleteDC(dc: Handle) -> i32;
+	pub fn StartDocA(dc: Handle, info: *const DocInfoA) -> i32;
+	pub fn EndDoc(dc: Handle) -> i32;
+	pub fn AbortDoc(dc: Handle) -> i32;
+	pub fn StartPage(dc: Handle) -> i32;
+	pub fn EndPage(dc: Handle) -> i32;
+	#[allow(clippy::too_many_arguments)]
+	pub fn StretchDIBits(
+		dc: Handle,
+		x: i32,
+		y: i32,
+		w: i32,
+		h: i32,
+		src_x: i32,
+		src_y: i32,
+		src_w: i32,
+		src_h: i32,
+		bits: *const u8,
+		info: *const BitmapInfoHeader,
+		usage: u32,
+		rop: u32,
+	) -> i32;
+	#[allow(clippy::too_many_arguments)]
+	pub fn SetDIBitsToDevice(
+		dc: Handle,
+		x: i32,
+		y: i32,
+		w: u32,
+		h: u32,
+		src_x: i32,
+		src_y: i32,
+		start_scan: u32,
+		lines: u32,
+		bits: *const u8,
+		info: *const BitmapInfoHeader,
+		usage: u32,
+	) -> i32;
 	pub fn CreateFontA(
 		height: i32,
 		width: i32,

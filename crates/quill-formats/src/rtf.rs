@@ -204,7 +204,10 @@ fn write_story<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S,
 				}
 				0x09 => o.s("\\tab "),
 				0x0B => o.s("\\line "),
-				0x01 => field(o, t.object_at(s, pos)),
+				0x01 => match t.object_at(s, pos) {
+					Some(v) if v >> 16 == 0 => picture(o, doc, s, v & 0xFFFF),
+					v => field(o, v),
+				},
 				0x20..=0x7E => o.put(&[b]),
 				_ => {
 					o.s("\\'");
@@ -217,6 +220,47 @@ fn write_story<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S,
 		}
 		at += n as u32;
 	}
+}
+
+/// Writes picture `idx` as a `\pict` group: PNG as `\pngblip`, a BMP as a `\dibitmap0` without its file header.
+fn picture<S: Store + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, idx: u32) {
+	let Some(p) = doc.pictures.get(s, idx) else {
+		return;
+	};
+	let mut skip = 0u32;
+	o.s("{\\pict");
+	if p.kind == 1 {
+		o.s("\\pngblip");
+	} else {
+		let mut h = [0u8; 30];
+		doc.pic_data.read(s, p.offset, &mut h);
+		let bpp = i64::from(h.get(28).copied().unwrap_or(24))
+			| (i64::from(h.get(29).copied().unwrap_or(0)) << 8);
+		o.s("\\dibitmap0");
+		o.word("wbmbitspixel", bpp);
+		o.word("wbmplanes", 1);
+		o.word("wbmwidthbytes", (i64::from(p.w) * bpp + 31) / 32 * 4);
+		skip = 14;
+	}
+	o.word("picw", i64::from(p.w));
+	o.word("pich", i64::from(p.h));
+	o.word("picwgoal", i64::from(p.shown_w));
+	o.word("pichgoal", i64::from(p.shown_h));
+	o.nl();
+	let mut at = skip;
+	let mut buf = [0u8; 48];
+	while at < p.len {
+		let n = doc.picture_bytes(s, idx as u16, at, &mut buf);
+		if n == 0 {
+			break;
+		}
+		for &b in buf.iter().take(n) {
+			o.put(&[hex(b >> 4), hex(b & 15)]);
+		}
+		o.nl();
+		at += n as u32;
+	}
+	o.s("}");
 }
 
 fn field<K: Sink>(o: &mut Out<'_, K>, start: Option<u32>) {
@@ -450,6 +494,7 @@ enum Dest {
 	Pn,
 	Field,
 	FldInst,
+	Pict,
 }
 
 #[derive(Copy, Clone)]
@@ -512,9 +557,144 @@ struct State<'a, S: Store + ?Sized> {
 	pending_story: u8,
 	fld: [u8; 12],
 	fld_len: usize,
+	pic: PictState,
+	shp_ok: bool,
+}
+
+/// A `\pict` group being read.
+#[derive(Copy, Clone, Default)]
+struct PictState {
+	/// 0 none yet, 1 PNG, 2 DIB, 3 a kind Quill cannot show.
+	kind: u8,
+	picw: i32,
+	pich: i32,
+	goalw: i32,
+	goalh: i32,
+	hi: Option<u8>,
+	start: u32,
+	len: u32,
+	failed: bool,
 }
 
 impl<S: Store + ?Sized> State<'_, S> {
+	/// One hexadecimal digit of picture data.
+	fn pict_hex(&mut self, b: u8) {
+		let v = match b {
+			b'0'..=b'9' => b - b'0',
+			b'a'..=b'f' => b - b'a' + 10,
+			b'A'..=b'F' => b - b'A' + 10,
+			_ => return,
+		};
+		let Some(hi) = self.pic.hi.take() else {
+			self.pic.hi = Some(v);
+			return;
+		};
+		if self.pic.kind == 0 || self.pic.kind == 3 || self.pic.failed {
+			return;
+		}
+		if self.pic.len >= quill_core::doc::MAX_PICTURE_BYTES
+			|| self.doc.pic_data.append(self.s, &[(hi << 4) | v]).is_err()
+		{
+			self.pic.failed = true;
+			return;
+		}
+		self.pic.len += 1;
+	}
+
+	/// The end of a `\pict` group: checks the bytes and records the picture, or drops them.
+	fn finish_pict(&mut self, story: u8) -> Result<()> {
+		let p = self.pic;
+		self.pic = PictState::default();
+		let ok = p.len > 0 && !p.failed && (p.kind == 1 || p.kind == 2);
+		let mut dims = None;
+		if ok {
+			let mut h = [0u8; 54];
+			self.doc.pic_data.read(self.s, p.start, &mut h);
+			let at = |i: usize| -> [u8; 4] {
+				let mut x = [0u8; 4];
+				if let Some(src) = h.get(i..i + 4) {
+					x.copy_from_slice(src);
+				}
+				x
+			};
+			let be = |i: usize| u32::from_be_bytes(at(i));
+			let le = |i: usize| u32::from_le_bytes(at(i));
+			if p.kind == 1 {
+				if h.get(..8) == Some(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A][..])
+					&& p.len >= 24
+				{
+					dims = Some((be(16), be(20)));
+				}
+			} else if p.len >= 54 && le(14) >= 40 {
+				// The DIB's header, then its palette, then the pixels: fill in the file header.
+				let bpp = le(26) >> 16;
+				let used = le(46);
+				let colours = if bpp <= 8 && used == 0 {
+					1u32 << bpp
+				} else {
+					used
+				};
+				let data_at = 14 + le(14) + colours.min(256) * 4;
+				let mut fh = [0u8; 14];
+				let (len_b, at_b) = (p.len.to_le_bytes(), data_at.to_le_bytes());
+				for (i, v) in [
+					b'B', b'M', len_b[0], len_b[1], len_b[2], len_b[3], 0, 0, 0, 0, at_b[0],
+					at_b[1], at_b[2], at_b[3],
+				]
+				.into_iter()
+				.enumerate()
+				{
+					if let Some(d) = fh.get_mut(i) {
+						*d = v;
+					}
+				}
+				self.doc.pic_data.patch(self.s, p.start, &fh);
+				dims = Some((le(18), (le(22) as i32).unsigned_abs()));
+			}
+		}
+		let valid = dims.filter(|&(w, h)| w > 0 && h > 0 && w <= 8192 && h <= 8192);
+		let (Some((w, h)), true) = (
+			valid,
+			self.doc.pictures.len() < quill_core::doc::MAX_PICTURES,
+		) else {
+			self.doc.pic_data.truncate(self.s, p.start);
+			return Ok(());
+		};
+		let text_w =
+			(self.doc.page.paper_w - self.doc.page.margin_l - self.doc.page.margin_r).max(1440);
+		let (mut sw, mut sh) = if p.goalw > 0 && p.goalh > 0 {
+			(p.goalw, p.goalh)
+		} else {
+			(w as i32 * 15, h as i32 * 15)
+		};
+		if sw > text_w {
+			sh = (i64::from(sh) * i64::from(text_w) / i64::from(sw)) as i32;
+			sw = text_w;
+		}
+		self.doc.pictures.reserve(self.s, 1)?;
+		let idx = self.doc.pictures.len();
+		self.doc.pictures.push(
+			self.s,
+			quill_core::doc::Picture {
+				kind: if p.kind == 1 { 1 } else { 0 },
+				w: w as u16,
+				h: h as u16,
+				shown_w: sw.max(144),
+				shown_h: sh.max(144),
+				offset: p.start,
+				len: p.len,
+			},
+		)?;
+		self.shp_ok = true;
+		self.target = story;
+		self.flush()?;
+		let cf = self.cfmt()?;
+		let k = StoryKind::from_u8(story).unwrap_or(StoryKind::Body);
+		self.doc
+			.story_mut(k)
+			.append_object(self.s, idx & 0xFFFF, cf, 0)?;
+		Ok(())
+	}
 	fn cfmt(&mut self) -> Result<u16> {
 		let f = *self
 			.font_map
@@ -695,6 +875,8 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 		pending_story: 0,
 		fld: [0; 12],
 		fld_len: 0,
+		pic: PictState::default(),
+		shp_ok: false,
 	};
 	let mut rd = Reader {
 		r,
@@ -745,6 +927,9 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 				}
 				depth -= 1;
 				let saved = stack.get(depth).copied().unwrap_or(cur);
+				if cur.dest == Dest::Pict && saved.dest != Dest::Pict {
+					st.finish_pict(cur.story)?;
+				}
 				if cur.dest == Dest::Field && st.fld_len > 0 {
 					let name = st.fld.get(..st.fld_len).unwrap_or(&[]);
 					let kind: u32 = if name.starts_with(b"PAGE") {
@@ -925,6 +1110,7 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 							}
 						}
 					}
+					Dest::Pict => st.pict_hex(b),
 					Dest::Skip | Dest::Pn | Dest::Field => {}
 				}
 			}
@@ -1056,6 +1242,57 @@ fn control<S: Store + ?Sized>(
 			};
 			return Ok(());
 		}
+		_ if cur.dest == Dest::Pict => {
+			match w {
+				"picw" => st.pic.picw = v,
+				"pich" => st.pic.pich = v,
+				"picwgoal" => st.pic.goalw = v,
+				"pichgoal" => st.pic.goalh = v,
+				"pngblip" => st.pic.kind = 1,
+				"dibitmap" => {
+					st.pic.kind = 2;
+					// A DIB has no file header; leave room for one and fill it in at the end.
+					st.pic.start = st.doc.pic_data.len();
+					if st.doc.pic_data.append(st.s, &[0u8; 14]).is_err() {
+						st.pic.failed = true;
+					}
+					st.pic.len = 14;
+				}
+				"jpegblip" | "emfblip" | "wmetafile" | "macpict" | "pmmetafile" | "wbitmap" => {
+					st.pic.kind = 3
+				}
+				_ => {}
+			}
+			return Ok(());
+		}
+		"pict" => {
+			if cur.dest == Dest::Body {
+				cur.dest = Dest::Pict;
+				st.pic = PictState {
+					start: st.doc.pic_data.len(),
+					..PictState::default()
+				};
+			} else if cur.dest != Dest::FontTable && cur.dest != Dest::ColourTable {
+				cur.dest = Dest::Skip;
+			}
+			return Ok(());
+		}
+		"shppict" => {
+			st.shp_ok = false;
+			if cur.dest == Dest::Skip {
+				cur.dest = Dest::Body;
+			}
+			return Ok(());
+		}
+		"nonshppict" => {
+			// The copy after a picture that was read is not needed.
+			if st.shp_ok {
+				cur.dest = Dest::Skip;
+			} else if cur.dest == Dest::Skip {
+				cur.dest = Dest::Body;
+			}
+			return Ok(());
+		}
 		"field" => {
 			cur.dest = Dest::Field;
 			st.fld_len = 0;
@@ -1065,10 +1302,10 @@ fn control<S: Store + ?Sized>(
 			cur.dest = Dest::FldInst;
 			return Ok(());
 		}
-		"stylesheet" | "info" | "headerl" | "footerl" | "pict" | "object" | "footnote"
-		| "annotation" | "listtable" | "listoverridetable" | "pntext" | "listtext" | "revtbl"
-		| "rsidtbl" | "generator" | "xmlnstbl" | "themedata" | "colorschememapping"
-		| "latentstyles" | "datastore" | "fldinst" | "fldrslt" => {
+		"stylesheet" | "info" | "headerl" | "footerl" | "object" | "footnote" | "annotation"
+		| "listtable" | "listoverridetable" | "pntext" | "listtext" | "revtbl" | "rsidtbl"
+		| "generator" | "xmlnstbl" | "themedata" | "colorschememapping" | "latentstyles"
+		| "datastore" | "fldinst" | "fldrslt" => {
 			if cur.dest != Dest::FontTable && cur.dest != Dest::ColourTable {
 				cur.dest = Dest::Skip;
 			}
@@ -1124,7 +1361,7 @@ fn control<S: Store + ?Sized>(
 			}
 			return Ok(());
 		}
-		Dest::Skip | Dest::Field | Dest::FldInst => return Ok(()),
+		Dest::Skip | Dest::Pict | Dest::Field | Dest::FldInst => return Ok(()),
 		Dest::Body => {}
 	}
 	if depth == 0 {

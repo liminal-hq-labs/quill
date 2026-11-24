@@ -6,7 +6,7 @@
 use crate::bytes::{Pod, Reader, Writer};
 use crate::farvec::FarVec;
 use crate::store::Store;
-use crate::text::Text;
+use crate::text::{ByteBuf, Text};
 use crate::{Error, Result};
 
 /// Fonts in one document.
@@ -470,8 +470,66 @@ impl StoryKind {
 /// the two buffers, and a history of about 32,000 records.
 pub type StoryText = Text<64, 32, 16>;
 
+/// Pictures in one document.
+pub const MAX_PICTURES: u32 = 256;
+/// The most file bytes one picture may hold.
+pub const MAX_PICTURE_BYTES: u32 = 4 * 1024 * 1024;
+
+/// A picture: its original file bytes live in the document's picture pool; this is the record of them.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Picture {
+	/// 0 BMP, 1 PNG.
+	pub kind: u8,
+	/// Width in pixels.
+	pub w: u16,
+	/// Height in pixels.
+	pub h: u16,
+	/// Shown width in twips.
+	pub shown_w: i32,
+	/// Shown height in twips.
+	pub shown_h: i32,
+	/// Where the file bytes start in the pool.
+	pub offset: u32,
+	/// How many file bytes.
+	pub len: u32,
+}
+
+impl Pod for Picture {
+	const SIZE: usize = 24;
+	fn write(&self, w: &mut Writer<'_>) {
+		w.u8(self.kind);
+		w.u8(0);
+		w.u16(self.w);
+		w.u16(self.h);
+		w.u16(0);
+		w.i32(self.shown_w);
+		w.i32(self.shown_h);
+		w.u32(self.offset);
+		w.u32(self.len);
+	}
+	fn read(r: &mut Reader<'_>) -> Self {
+		let kind = r.u8();
+		r.u8();
+		let (w, h) = (r.u16(), r.u16());
+		r.u16();
+		Picture {
+			kind,
+			w,
+			h,
+			shown_w: r.i32(),
+			shown_h: r.i32(),
+			offset: r.u32(),
+			len: r.u32(),
+		}
+	}
+}
+
 /// A document.
 pub struct Doc {
+	/// The pictures' records, in the order the \`PICT\` chunks hold them.
+	pub pictures: FarVec<Picture, 1>,
+	/// The pictures' file bytes, one after another.
+	pub pic_data: ByteBuf<128>,
 	/// Paper and margins.
 	pub page: PageSetup,
 	/// Fonts.
@@ -508,6 +566,8 @@ impl Doc {
 	/// A document with no tables yet. Use [`Doc::init`] for the defaults.
 	pub const fn new() -> Self {
 		Doc {
+			pictures: FarVec::new(),
+			pic_data: ByteBuf::new(crate::store::MAX_CHUNK),
 			page: PageSetup::LETTER,
 			fonts: Intern::new(MAX_FONTS),
 			colours: Intern::new(MAX_COLOURS),
@@ -542,6 +602,82 @@ impl Doc {
 		self.body.load(s, b"\r", 0, 0)
 	}
 
+	/// Adds a picture whose file bytes `read` supplies (kind 0 BMP, 1 PNG; `w` by `h` pixels), shown at 96 dots per inch or scaled
+	/// down to `max_w` twips wide. `read` fills a buffer and returns how many bytes it put there, zero at the end. Returns the index.
+	pub fn add_picture<S: Store + ?Sized>(
+		&mut self,
+		s: &mut S,
+		kind: u8,
+		w: u16,
+		h: u16,
+		max_w: i32,
+		mut read: impl FnMut(&mut [u8]) -> usize,
+	) -> Result<u16> {
+		if self.pictures.len() >= MAX_PICTURES {
+			return Err(Error::TooLarge);
+		}
+		self.pictures.reserve(s, 1)?;
+		let offset = self.pic_data.len();
+		let mut buf = [0u8; 512];
+		let mut len = 0u32;
+		loop {
+			let n = read(&mut buf);
+			if n == 0 {
+				break;
+			}
+			len += n as u32;
+			let r = if len > MAX_PICTURE_BYTES {
+				Err(Error::TooLarge)
+			} else {
+				self.pic_data
+					.append(s, buf.get(..n).unwrap_or(&[]))
+					.map(|_| ())
+			};
+			if let Err(e) = r {
+				// The bytes taken so far go back, so a refused picture leaves the document as it was.
+				self.pic_data.truncate(s, offset);
+				return Err(e);
+			}
+		}
+		let (mut sw, mut sh) = (i32::from(w) * 15, i32::from(h) * 15);
+		if sw > max_w && sw > 0 {
+			sh = (i64::from(sh) * i64::from(max_w) / i64::from(sw)) as i32;
+			sw = max_w;
+		}
+		let idx = self.pictures.len();
+		self.pictures.push(
+			s,
+			Picture {
+				kind,
+				w,
+				h,
+				shown_w: sw.max(144),
+				shown_h: sh.max(144),
+				offset,
+				len,
+			},
+		)?;
+		Ok(idx as u16)
+	}
+
+	/// Copies picture `idx`'s file bytes from `pos` into `out`.
+	pub fn picture_bytes<S: Store + ?Sized>(
+		&self,
+		s: &S,
+		idx: u16,
+		pos: u32,
+		out: &mut [u8],
+	) -> usize {
+		let Some(p) = self.pictures.get(s, u32::from(idx)) else {
+			return 0;
+		};
+		let n = (p.len.saturating_sub(pos) as usize).min(out.len());
+		if let Some(o) = out.get_mut(..n) {
+			self.pic_data.read(s, p.offset + pos, o);
+		}
+		n
+	}
+
 	/// Frees everything.
 	pub fn reset<S: Store + ?Sized>(&mut self, s: &mut S) {
 		self.page = PageSetup::LETTER;
@@ -551,6 +687,8 @@ impl Doc {
 		self.pfmts.clear(s);
 		self.tabsets.clear(s);
 		self.lists.clear(s);
+		self.pictures.clear(s);
+		self.pic_data.clear(s);
 		self.body.clear(s);
 		self.header.clear(s);
 		self.footer.clear(s);
