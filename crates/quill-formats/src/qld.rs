@@ -460,8 +460,8 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 				p.lang = c.u8()?;
 				if p.paper_w <= 0
 					|| p.paper_h <= 0
-					|| p.margin_l + p.margin_r >= p.paper_w
-					|| p.margin_t + p.margin_b >= p.paper_h
+					|| p.margin_l.saturating_add(p.margin_r) >= p.paper_w
+					|| p.margin_t.saturating_add(p.margin_b) >= p.paper_h
 				{
 					return Err(FormatError::BadFile);
 				}
