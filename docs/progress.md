@@ -187,6 +187,14 @@ Steps 1 to 5 of the plan are done; each was checked by hand on Windows for Workg
 
 Not proven or not done: printing (Print shows the dialog and then says printing is not in this build); pictures are grey boxes on the Win16 page; Windows 3.1 without the Workgroups update, the 386SX profile, Standard mode, and real hardware; the S3 800 by 600 display was only started, not exercised; the context-sensitive `HELP_CONTEXT` call is still unverified (see M9); the face list comes from WIN.INI's `[fonts]` and not `EnumFontFamilies`; the Win32 build has not yet moved onto `quill_app::view` (D95). The first suggestion in Spelling for "smal" is "Sal" before "Small", which is the spelling core's ranking, not the Win16 shell.
 
+### The Win16 polish: menus, keys, tooltips, fields and scroll bars
+
+Mnemonics in the menu tree (D125), the DOS keyboard decoded from scan codes with Alt and F10 (D126), tooltips, status hints, field values, the date and the key table on Windows 3.x (D127), and scroll bars in the page area (D128). Each was reproduced first and then checked on the real emulators on a private Xvfb display: DOSBox Staging for DOS and DOSBox-X for Windows 3.11, driven with `xdotool` (`docs/media/dos-ctrl-i-before-after.png`, `dos-menu-mnemonics.png`, `win16-menus-mnemonics-w311.png`, `win16-fields-w311.png`, `win16-ctrl-i-w311.png`, `win16-scrollbars-vga-w311.png`).
+
+- **Alt on the emulators.** A tap of Alt, F10 and Alt+letter reach Windows 3.11 under DOSBox-X 2025.02.01 unchanged (its own menu bar does not take them); what was missing was mnemonics, so Alt+F was ambiguous between File and Find, and the DOS build had no Alt at all. A host window manager that keeps Alt for itself can still take it; F10 is the same menu and no window manager binds it.
+- **The data segment.** The Win16 data segment is full: the stack is 28,672 bytes and the runtime log 1,024, so data 32,448 + stack 28,672 + heap 4,096 is 65,216 of 65,536 bytes.
+- **Not proven.** The tooltips and the status hints were not seen working: DOSBox-X under Xvfb did not move the guest pointer for `xdotool` (the timer, the hit test and the build are in place, and the polled pointer position always read the screen centre). The Windows 3.11 golden play-back, the Windows 95 build and the pointer-driven scroll bar checks were not run.
+
 ### How the branches stack
 
 `feat/m9-help` (the help compiler, `hlpc`, `hlpdump`, `QUILL.HLP`, and the Help > Contents command with its Win32 shell) is based on `origin/main`. `feat/m5-win16` (Win16 bring-up, the shared packer, F1 on Win16) is based on `feat/m9-help`, so the shared Help-menu change lives in one place and the Win16 branch only adds its own shell. Merge `feat/m9-help` first.
