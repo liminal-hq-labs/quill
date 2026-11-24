@@ -43,7 +43,7 @@ quit: false
 text: "!plain words"
 caret: 1  selection: none
 name: "C:\\DOCS\\NOTES.TXT"
-modified: false
+modified: true
 status: ""
 recent: ["C:\\DOCS\\NOTES.TXT"]
 folder: "C:\\DOCS\\"

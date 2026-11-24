@@ -1,0 +1,37 @@
+> cmd Open
+< file Open folder="" name="" type="0"
+> choose "ONE.TXT"
+> cmd Open
+< file Open folder="" name="" type="0"
+> choose "TWO.TXT"
+> rm ONE.TXT
+> type "!"
+> cmd Recent 1
+< ask "Save the changes to TWO.TXT before another document opens?" buttons="YesNoCancel" default="Yes"
+> answer No
+> dump
+= state
+text: "!two"
+caret: 1  selection: none
+name: "TWO.TXT"
+modified: true
+status: "Quill cannot find ONE.TXT."
+recent: ["TWO.TXT"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Exit
+< ask "Save the changes to TWO.TXT before Quill closes?" buttons="YesNoCancel" default="Yes"
+> cancel
+= state
+text: "!two"
+caret: 1  selection: none
+name: "TWO.TXT"
+modified: true
+status: ""
+recent: ["TWO.TXT"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false

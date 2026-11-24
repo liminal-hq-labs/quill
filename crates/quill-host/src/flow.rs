@@ -179,6 +179,8 @@ pub trait Driver {
 	fn command(&mut self, c: Command) -> Vec<Event>;
 	/// The person's reply to `shown`.
 	fn reply(&mut self, shown: &Shown, r: Reply) -> Outcome;
+	/// Removes a file from the disk, as another program might.
+	fn remove(&mut self, name: &str);
 	/// The state to compare.
 	fn state(&mut self) -> State;
 }
@@ -406,6 +408,10 @@ impl Driver for NativeStub {
 			events: out,
 			closed,
 		}
+	}
+
+	fn remove(&mut self, name: &str) {
+		self.files.inner.files.remove(&name.to_ascii_uppercase());
 	}
 
 	fn state(&mut self) -> State {
@@ -898,6 +904,10 @@ impl<D: Driver> Run<'_, D> {
 					.ok_or(format!("unknown command {}", arg(1).unwrap_or("")))?;
 				let evs = self.d.command(c);
 				self.raised(evs);
+			}
+			"rm" => {
+				self.idle()?;
+				self.d.remove(need(1, "a file name")?);
 			}
 			"dump" => {
 				self.events_done()?;

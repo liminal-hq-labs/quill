@@ -1,0 +1,18 @@
+# A recent file that has gone, after No: nothing opened, so the changes are still unsaved and Exit asks.
+@file "ONE.TXT" "one"
+@file "TWO.TXT" "two"
+cmd Open
+expect file Open
+choose "ONE.TXT"
+cmd Open
+expect file Open
+choose "TWO.TXT"
+rm ONE.TXT
+type "!"
+cmd Recent 1
+expect ask "Save the changes to TWO.TXT before another document opens?" default Yes
+answer No
+dump
+cmd Exit
+expect ask default Yes
+cancel

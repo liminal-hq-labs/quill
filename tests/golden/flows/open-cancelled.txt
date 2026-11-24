@@ -1,0 +1,56 @@
+> type "precious"
+> cmd Open
+< ask "Save the changes to (Untitled) before another document opens?" buttons="YesNoCancel" default="Yes"
+> answer No
+< file Open folder="" name="" type="0"
+> cancel
+> dump
+= state
+text: "precious"
+caret: 8  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Exit
+< ask "Save the changes to (Untitled) before Quill closes?" buttons="YesNoCancel" default="Yes"
+> cancel
+> cmd Open
+< ask "Save the changes to (Untitled) before another document opens?" buttons="YesNoCancel" default="Yes"
+> answer No
+< file Open folder="" name="" type="0"
+> choose "GONE.QLD"
+< notice Status "Quill cannot open that file."
+> dump
+= state
+text: "precious"
+caret: 8  selection: none
+name: ""
+modified: true
+status: "Quill cannot open that file."
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Open
+< ask "Save the changes to (Untitled) before another document opens?" buttons="YesNoCancel" default="Yes"
+> answer No
+< file Open folder="" name="" type="0"
+> choose "PLAIN.QLD"
+> dump
+= state
+text: "Quill: a plain document\nQuill is a small word processor for DOS, Windows 3.1 and Windows 95, written in Rust. This paragraph is long enough to wrap onto several lines in a sixty column text area, and its lines break after spaces and hyphens, never in the middle of a word unless the word is wider than the line.\n\nName\tQuantity\tPrice\nQuills\t12\t3.50\nInk bottles\t3\t8.25\n\nA line breakkeeps the paragraph together, and a supercalifragilisticexpialidocious-looking-word-that-has-no-spaces-and-is-far-longer-than-a-line is cut where it must be.\nThe end."
+caret: 0  selection: none
+name: "PLAIN.QLD"
+modified: false
+status: ""
+recent: ["PLAIN.QLD"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false

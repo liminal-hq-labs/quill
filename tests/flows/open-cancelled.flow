@@ -1,0 +1,27 @@
+# No, then the Open dialog is cancelled: the text is still unsaved and the next Exit still asks.
+@copy plain.qld
+type "precious"
+cmd Open
+expect ask "Save the changes to (Untitled) before another document opens?" default Yes
+answer No
+expect file Open
+cancel
+dump
+cmd Exit
+expect ask default Yes
+cancel
+# No, then a file that cannot be read: nothing completed, still unsaved.
+cmd Open
+expect ask default Yes
+answer No
+expect file Open
+choose "GONE.QLD"
+expect notice "Quill cannot open that file." Status
+dump
+# No, then a file that opens: the changes are gone.
+cmd Open
+expect ask default Yes
+answer No
+expect file Open
+choose "PLAIN.QLD"
+dump

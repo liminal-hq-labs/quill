@@ -1,0 +1,11 @@
+# Exit with Yes and a cancelled Save As keeps the document unsaved, so Exit asks again.
+type "precious"
+cmd Exit
+expect ask default Yes
+answer Yes
+expect file SaveAs
+cancel
+cmd Exit
+expect ask "Save the changes to (Untitled) before Quill closes?" default Yes
+cancel
+dump
