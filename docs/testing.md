@@ -71,7 +71,7 @@ Both Windows builds run under Wine with Xvfb in CI: `QUILL32.EXE` in a prefix se
 
 ## Windows 3.11 in DOSBox-X (local)
 
-The real check for the Win16 build, using the pre-installed Windows for Workgroups 3.11 tree in `~/Downloads/win31.zip`. It is not redistributable, so this runs on the developer's machine and its screenshots and logs are committed as evidence, never the tree (D21).
+The real check for the Win16 build, using the pre-installed Windows for Workgroups 3.11 tree in `~/Downloads/win31.zip`. It is not redistributable, so this runs on the developer's machine and its screenshots and logs are committed as evidence, never the tree (D21). To run it by hand in a real window, see [play.md](play.md).
 
 - The harness unzips the tree into a scratch directory, copies `QUILL.EXE`, the test documents and the script into `C:\QUILL`, sets `WIN.INI` `[windows] run=` to the test command, and boots `WIN` from the DOSBox-X `[autoexec]`.
 - **Machine profiles:** `cputype = 386`, `cycles = fixed 3000` and `memsize = 4` (a 386SX-class 4 MB machine) for timing and memory; `memsize = 2` for the minimum; a fast profile for everyday runs. The tree's display driver is the S3 Trio at 800 × 600 with 64K colours; a second profile switches `SYSTEM.INI` to `VGA.DRV` for 640 × 480 × 16 so dithering and the 16-colour paths are tested.
