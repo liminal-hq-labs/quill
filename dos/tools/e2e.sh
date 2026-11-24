@@ -77,4 +77,6 @@ run_scenario m7-picture OUT.QLD m7-picture.qld
 run_scenario m8-spelling QUILL.UDC m8-quill.udc
 run_scenario m2-headers - -
 run_scenario m2-lists - -
+run_scenario m10-menus - -
+run_scenario m11-recent - -
 echo "e2e: ok"

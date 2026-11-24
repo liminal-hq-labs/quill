@@ -8,5 +8,5 @@ f10 right right right right right right down enter   # Document > Footer
 end space
 f10 right right down down down down enter           # Insert > File Name
 f10 right right right right right right down down down down down enter   # Document > Return to Document
-f10 down down down down down enter
+f10 end enter
 n

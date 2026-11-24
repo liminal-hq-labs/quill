@@ -1,0 +1,5 @@
+# M10: the drop-down menus stay inside the screen: the last menus on the bar, then Help, with its frame and shadow.
+f10 right right right right right right right    # View
+right                                            # Help
+esc
+f10 end enter                                    # File > Exit

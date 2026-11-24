@@ -16,4 +16,4 @@ f10 right down enter                # Edit > Redo (nothing to redo)
 f10 right enter                     # Edit > Undo (the alignment)
 f10 down down down enter            # File > Save As...
 o u t period r t f enter
-f10 down down down down down enter       # File > Exit
+f10 end enter       # File > Exit

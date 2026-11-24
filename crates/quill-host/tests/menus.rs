@@ -230,3 +230,71 @@ fn the_text_menu_leaves_out_print_preview_and_setup_but_windows_keeps_them() {
 		assert!(quill_app::mnemonic(it.label).is_some());
 	}
 }
+
+#[test]
+fn every_drop_down_and_its_shadow_lie_inside_the_screen() {
+	for text in [true, false] {
+		for m in 0..quill_app::MENU_COUNT {
+			for recents in 0..=4 {
+				if m != 0 && recents > 0 {
+					continue;
+				}
+				let (col, w, rows) = quill_app::menu_box(m, text, recents);
+				// The shadow is two columns to the right and one row below.
+				assert!(col + w + 2 <= 80, "menu {m} reaches column {}", col + w + 2);
+				assert!(1 + rows < 24, "menu {m} reaches row {}", 1 + rows + 1);
+				// And it still starts under its title, or as near as the edge allows.
+				assert!(col >= 1 || m == 0);
+			}
+		}
+	}
+	// Help, the last title, is the one that moved.
+	let (col, w, _) = quill_app::menu_box(8, true, 0);
+	assert_eq!(col + w + 2, 80);
+}
+
+fn screen(app: &App, s: &HostStore) -> Vec<String> {
+	let mut g = quill_grid::Grid::<25>::new(0);
+	quill_app::draw(app, s, &mut g);
+	(0..25)
+		.map(|y| {
+			(0..80)
+				.map(|x| char::from(g.get(x, y).unwrap().ch))
+				.collect()
+		})
+		.collect()
+}
+
+#[test]
+fn recent_files_are_listed_in_file_before_exit_and_in_no_other_menu() {
+	let (mut app, mut s, mut f) = setup();
+	let _ = app.save_as(&mut s, &mut f, b"LETTER.QLD");
+	for m in 0..quill_app::MENU_COUNT {
+		app.key(&mut s, &mut f, Key::Esc);
+		app.key(&mut s, &mut f, Key::F(10));
+		for _ in 0..m {
+			app.key(&mut s, &mut f, Key::Right);
+		}
+		assert_eq!(app.menu_open().map(|x| x.0), Some(m));
+		let rows = screen(&app, &s);
+		let listed = rows.iter().position(|r| r.contains("1 LETTER.QLD"));
+		if m == 0 {
+			let at = listed.expect("File lists the recent file");
+			let exit = rows.iter().position(|r| r.contains("Exit")).unwrap();
+			let print = rows.iter().position(|r| r.contains("Print...")).unwrap();
+			assert!(print < at && at < exit, "between the Print group and Exit");
+			assert!(rows[at - 1].contains('\u{c3}') && rows[exit - 1].contains('\u{c3}'));
+		} else {
+			assert!(listed.is_none(), "menu {m} lists a recent file");
+		}
+		// The items of every menu are the tree's, recent files or not.
+		let n = quill_app::menu_items_for(m, true).len();
+		assert!(n > 0);
+	}
+	// Enter on the recent file's row opens it; the digit does too.
+	assert_eq!(quill_app::Slot::Recent(0), quill_app::slot(6, 1, 5));
+	assert_eq!(quill_app::Slot::Item(5), quill_app::slot(6, 1, 6));
+	assert_eq!(quill_app::Slot::Item(4), quill_app::slot(6, 1, 4));
+	assert_eq!(quill_app::item_for_mnemonic(0, b'1', 1, true), Some(5));
+	assert_eq!(quill_app::item_for_mnemonic(1, b'1', 0, true), None);
+}
