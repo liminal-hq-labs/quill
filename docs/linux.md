@@ -1,6 +1,6 @@
 # Quill on Linux
 
-What exists for Linux, what is planned, and why. The behaviour of each client is in [SPEC.md](../SPEC.md); the decisions made here are numbered D100 to D119 below and move into [decisions.md](decisions.md) when the open branches that also append to it have merged.
+What exists for Linux, what is planned, and why. The behaviour of each client is in [SPEC.md](../SPEC.md); the decisions made here are numbered D180 to D199 below and move into [decisions.md](decisions.md) when the open branches that also append to it have merged.
 
 ## Table of contents
 
@@ -24,7 +24,7 @@ What exists for Linux, what is planned, and why. The behaviour of each client is
 | Command line (`quill cat`, `convert`, `info`) | `crates/quill-cli` | Built |
 | Outline-font measure and test fonts | `crates/quill-fonts` | Built. Nothing draws with it yet |
 | Page renderer, thumbnailer, PDF | `crates/quill-raster`, `quill-thumbnailer` | Planned |
-| GTK4 client | `linux/quill-gtk` | Planned; the toolkit is chosen (D101) |
+| GTK4 client | `linux/quill-gtk` | Planned; the toolkit is chosen (D181) |
 
 The editor core needs nothing Linux-specific. Every client links the same `quill-core`, `quill-formats` and `quill-app`, so a `.QLD` or RTF file written on Linux is byte for byte what the other builds write.
 
@@ -36,7 +36,7 @@ What the open branches change, and what that means here:
 
 ## The terminal client
 
-`quill-tty [--mono] [--no-kitty] [FILE]` draws the DOS text screen in a terminal. The screen is `quill-grid`'s `Grid`: 80 columns by 25 rows, or 50 on a terminal 50 rows or more tall, centred across a wider window. Each CP437 cell is sent as its Unicode character with the VGA attribute as colours, so a screen here equals the DOS and host screens cell for cell (D102).
+`quill-tty [--mono] [--no-kitty] [FILE]` draws the DOS text screen in a terminal. The screen is `quill-grid`'s `Grid`: 80 columns by 25 rows, or 50 on a terminal 50 rows or more tall, centred across a wider window. Each CP437 cell is sent as its Unicode character with the VGA attribute as colours, so a screen here equals the DOS and host screens cell for cell (D182).
 
 - **Colour.** The sixteen terminal colours by default, so the terminal's theme shows through. When `COLORTERM` is `truecolor` or `24bit` the VGA palette is sent as 24-bit colour. The monochrome scheme (`--mono`) draws the MDA underline attribute as an underline.
 - **Redraw.** Only the cells that changed since the last frame are sent. A resize redraws everything. A terminal smaller than 80 by 25 shows a message instead.
@@ -59,7 +59,7 @@ The mapper turns a terminal key event into a `Key`. Printable characters are con
 
 ### Files
 
-The editor names files by Windows-1252 bytes. `LinuxFiles` turns a name into UTF-8 and resolves it (D103):
+The editor names files by Windows-1252 bytes. `LinuxFiles` turns a name into UTF-8 and resolves it (D183):
 
 - `QUILL.INI` and `QUILL.UDC` live in `$XDG_CONFIG_HOME/quill` (`~/.config/quill`), in the same formats as on Windows.
 - A bare dictionary name (`EN_CA.DIC`) is searched for in the current folder, beside the program, in `$XDG_DATA_HOME/quill` and in `quill` under each folder of `$XDG_DATA_DIRS`.
@@ -82,21 +82,21 @@ The editor names files by Windows-1252 bytes. `LinuxFiles` turns a name into UTF
 - `quill convert [--to qld|rtf|txt] IN OUT` reads by content and writes by the extension of OUT (`.rtf`, `.txt`, otherwise `.qld`). It writes the same bytes as `quill-convert`, which stays in `quill-host` for the LibreOffice check script.
 - `quill info FILE...` prints the format, size, character, word and paragraph counts, pictures, fonts, paper, margins, headers and the pages of the DOS text layout.
 
-A file of `-` is standard input and an OUT of `-` is standard output. Failures use the editor's words (`... is not a document Quill can read`) and exit 1; a usage error exits 2 (D104).
+A file of `-` is standard input and an OUT of `-` is standard output. Failures use the editor's words (`... is not a document Quill can read`) and exit 1; a usage error exits 2 (D184).
 
-The name `quill` is the command-line tool for now. The GTK client wants the same name (D105).
+The name `quill` is the command-line tool for now. The GTK client wants the same name (D185).
 
 ## Fonts and measuring
 
 The Windows 95 failure was widths measured through a scaled mapping mode that no longer agreed with the glyphs drawn. The Linux answer is one engine for both: the widths and the outlines come from the same font file, with no hinting, and the same mapping places the glyphs, the caret and the hit tests.
 
-`quill-fonts` provides `OutlineMeasure`, a `quill_core::layout::Measure` over font files read with `skrifa` (D106):
+`quill-fonts` provides `OutlineMeasure`, a `quill_core::layout::Measure` over font files read with `skrifa` (D186):
 
 - **Resolution.** 1440 units to the inch, so a layout unit is a twip. Screen, PDF and print then break lines in the same places. Another resolution can be asked for; 96 is used for the Windows comparison.
 - **Advances.** The `hmtx` advance in font units, times the size in half points and the resolution, divided by 144 times the units per em, rounded once. A 144-point glyph still fits in `u16`.
 - **Vertical metrics.** Ascent and descent are `usWinAscent` and `usWinDescent`, which GDI takes for `tmAscent` and `tmDescent`. External leading is the `hhea` line (ascender, descender and gap) beyond that extent.
 - **Never hinted.** An advance depends on the font and the size in points, never on a pixel size, a zoom or a screen's scale. The tests check that skrifa's unhinted metrics are the `hmtx` advances scaled, at eleven pixel sizes.
-- **Missing styles.** A face without a bold of its own is widened by 1/64 em in the advance, and the drawn outline gets the same emboldening; a missing italic keeps its advances and is slanted when drawn (D107).
+- **Missing styles.** A face without a bold of its own is widened by 1/64 em in the advance, and the drawn outline gets the same emboldening; a missing italic keeps its advances and is slanted when drawn (D187).
 - **Fallback.** The face asked for; then Times New Roman, Liberation Serif and the Quill test serif for a serif face (Arial, Liberation Sans and the test sans for a sans face; Courier New, Liberation Mono and the test mono for a monospaced one). A name the tables do not know uses the font table's family code. Faces are found by reading the usual font folders directly (`/usr/share/fonts`, `~/.fonts`, the XDG data folders); fontconfig is not needed, which keeps layout the same on every machine.
 
 ### The test fonts and their licence
@@ -113,7 +113,7 @@ Times New Roman, Arial and Courier New are never committed. They are used when i
 
 ## The GTK4 client
 
-The client is GTK4 with libadwaita, in its own workspace under `linux/quill-gtk` so root CI never needs GTK headers (D101). The reasons, from what was checked on an Arch machine with GNOME on Wayland at a scale of 1.5:
+The client is GTK4 with libadwaita, in its own workspace under `linux/quill-gtk` so root CI never needs GTK headers (D181). The reasons, from what was checked on an Arch machine with GNOME on Wayland at a scale of 1.5:
 
 - **GTK3's Rust bindings are unmaintained**, and GTK3 draws at the next whole scale and lets the compositor shrink it. GTK4's bindings (`gtk4` 0.11, `v4_24` feature) are current, and `libgtk-4.so` carries `wp_fractional_scale_v1`.
 - **Qt via `cxx-qt`** has the best fractional scaling and accessibility, but needs a C++ build, is foreign on GNOME, and `QPainter`'s shaping would be bypassed anyway. **iced and egui** are pure Rust but lack native menus and portal dialogs, and egui has a weaker IME; egui is the fallback if GTK4 fails its first spike. **Tauri with a canvas** pushes pixels or text through WebKitGTK every frame.
@@ -139,13 +139,13 @@ The client is GTK4 with libadwaita, in its own workspace under `linux/quill-gtk`
 `QuillShell` is the GTK equivalent of the Win32 `Shell`:
 
 - **Files** over `std::fs` with the same safe save as the terminal client. The app sees the base name in Windows-1252; the shell keeps the real `PathBuf`. Recent files go in `[RecentLinux]` of `$XDG_CONFIG_HOME/quill/QUILL.INI` and in GTK's recent-files list.
-- **Keys** go through the IME filter first, then `quill_app::accel`. An IME commit is UTF-8 converted to Windows-1252, and a character with no such form is refused with a status message (D108). The candidate window is placed from the caret rectangle given by `Mapping`.
+- **Keys** go through the IME filter first, then `quill_app::accel`. An IME commit is UTF-8 converted to Windows-1252, and a character with no such form is refused with a status message (D188). The candidate window is placed from the caret rectangle given by `Mapping`.
 - **Mouse** uses `pointer.rs`.
 - **Menus** are a `GMenuModel` from `menu_items` and `menu_title`, one action per `Command`, refreshed after each command. They are popovers, not a classic menu bar.
 - **Dialogs:** `set_native_dialogs(true)` then `take_dialog()`. Open and Save As use `GtkFileDialog`, the save prompt `AdwAlertDialog`, About `AdwAboutDialog`, and Find, Replace, Fonts, Tabs and Spelling a generic builder from `assets/dialogs/dialogs.json` (D86).
 - **Clipboard:** `GdkClipboard` offering `text/rtf`, `application/rtf`, `text/plain;charset=utf-8` and `image/png` for a lone picture.
-- **Printing** writes a PDF from `quill-raster`'s page and hands it to the print portal (D109).
-- **Text files** on Linux are usually UTF-8, so `quill-formats` gains a UTF-8 option: read UTF-8 when valid, and offer "Text Files (UTF-8)" on Save As, as DOS does with CP437 (D110).
+- **Printing** writes a PDF from `quill-raster`'s page and hands it to the print portal (D189).
+- **Text files** on Linux are usually UTF-8, so `quill-formats` gains a UTF-8 option: read UTF-8 when valid, and offer "Text Files (UTF-8)" on Save As, as DOS does with CP437 (D190).
 
 ### Spike G0
 
@@ -154,10 +154,10 @@ The first GTK work is a spike that answers what is not known: whether GTK4 shows
 ## Desktop integration and packaging
 
 - **Desktop entry:** `Type=Application`, `Name=Quill`, `GenericName=Word Processor`, `Exec=quill %F`, `MimeType=application/x-quill-document;application/rtf;text/rtf;text/plain;`, `Categories=Office;WordProcessor;`.
-- **Thumbnailer:** `/usr/share/thumbnailers/quill.thumbnailer` with `Exec=quill-thumbnailer -s %s %i %o` and `MimeType=application/x-quill-document;` only, so LibreOffice keeps RTF thumbnails (D111).
+- **Thumbnailer:** `/usr/share/thumbnailers/quill.thumbnailer` with `Exec=quill-thumbnailer -s %s %i %o` and `MimeType=application/x-quill-document;` only, so LibreOffice keeps RTF thumbnails (D191).
 - **MIME:** install `assets/mime/quill.xml` from the magic branch as is, plus `<generic-icon name="x-office-document"/>`. `quill.magic` stays a documented per-user `~/.magic`, since a package should not edit `/etc/magic`.
-- **App id:** `io.github.liminal_hq_labs.Quill` unless Liminal HQ owns a domain for it (D112).
-- **Packaging:** the AUR package `quill-git` (depends on `gtk4` and `libadwaita`, optionally `ttf-liberation`) and a Flatpak on `org.gnome.Platform//51` with `--socket=wayland --socket=fallback-x11 --share=ipc --device=dri` and no network or filesystem access, so files come through the portals, which matches the SPEC's never-opens-a-socket rule. No AppImage: bundling GTK4 is fragile (D113).
+- **App id:** `io.github.liminal_hq_labs.Quill` unless Liminal HQ owns a domain for it (D192).
+- **Packaging:** the AUR package `quill-git` (depends on `gtk4` and `libadwaita`, optionally `ttf-liberation`) and a Flatpak on `org.gnome.Platform//51` with `--socket=wayland --socket=fallback-x11 --share=ipc --device=dri` and no network or filesystem access, so files come through the portals, which matches the SPEC's never-opens-a-socket rule. No AppImage: bundling GTK4 is fragile (D193).
 - **Releases.** There is no release workflow yet; one that builds a tarball and a Flatpak bundle on a tag needs a CI image with GTK4 development files.
 
 ## Wine as a stopgap
@@ -206,10 +206,10 @@ Items marked *new files* touch only new files and one line of the root `Cargo.to
 Ideas that apply to every build, with what each costs on old hardware, in priority order. Each needs a SPEC change before it is built. Safe save is already specified (D66) and the terminal client has it.
 
 1. **Safe save**: a temporary file, then replace. A prerequisite for autosave. One extra directory write; on a full floppy it needs room for two copies and fails with the existing "disk is full" message.
-2. **Unsaved marker**, from Q1a's clean mark: an asterisk after the name on the DOS status line, an asterisk after the name (and a space) on the Windows title, and an asterisk before the name on Linux (D114).
+2. **Unsaved marker**, from Q1a's clean mark: an asterisk after the name on the DOS status line, an asterisk after the name (and a space) on the Windows title, and an asterisk before the name on Linux (D194).
 3. **A "Saved" flash**: `Saved LETTER.QLD.` until the next key, and `Saving LETTER.QLD...` before a slow write. A toast on Linux.
 4. **Word count** (Document > Word Count...: words, characters, paragraphs and pages, for the selection or the whole document, with the same word rules as the spelling scanner). A whole-document pass is about 1 to 2 seconds on a 386 for 1 MB, so it runs on demand only on DOS and Win16.
-5. **Autosave and recovery** to a recovery folder, as a `.QLD` with an optional `RCOV` chunk naming the original path, offered at the next start and deleted on a clean save or exit. DOS and Win16 every 10 minutes when idle for 2 seconds, Win95 every 5, Linux every 2 and when the window loses focus; off on floppies (D115). A 50 KB file to a 386's hard disk takes 0.2 to 0.5 seconds and stalls, since there are no threads.
+5. **Autosave and recovery** to a recovery folder, as a `.QLD` with an optional `RCOV` chunk naming the original path, offered at the next start and deleted on a clean save or exit. DOS and Win16 every 10 minutes when idle for 2 seconds, Win95 every 5, Linux every 2 and when the window loses focus; off on floppies (D195). A 50 KB file to a 386's hard disk takes 0.2 to 0.5 seconds and stalls, since there are no threads.
 6. **Emergency save on panic** to the same slot, with the same prompt. Fixed buffer; may fail if the heap is damaged.
 7. **Spelling as you type** (queued): on with a wavy line and a context menu on Win95 and Linux, off by default on Win16 (a 300 KB dictionary on a 4 MB machine).
 8. **Dropping a file onto the window** opens it, with `DragAcceptFiles` on Windows and a drop target on GTK.
@@ -220,28 +220,28 @@ Ideas that apply to every build, with what each costs on old hardware, in priori
 
 ## Decisions
 
-Numbers D100 to D119 are reserved for the Linux work, so they cannot collide with the other open branches. **Assumed** means chosen without the owner's confirmation and standing until confirmed.
+Numbers D180 to D199 are reserved for the Linux work, so they cannot collide with the other numbering blocks (D100 to D105 are the Windows 9x decisions). **Assumed** means chosen without the owner's confirmation and standing until confirmed.
 
 | # | Decision | Choice | Why |
 |---|---|---|---|
-| D100 | A terminal client | **Decided.** `linux/quill-tty` draws `quill-grid`'s `Grid` with crossterm, the same screen as DOS text mode | Proves `App` and `Grid` on a third host; exact comparison with the goldens |
-| D101 | Toolkit | **Decided by the owner.** GTK4 with libadwaita for the GUI, in its own workspace. egui is the fallback if the first spike fails | Maintained bindings, fractional scaling, portal dialogs, IME |
-| D102 | Terminal screen | **Assumed.** 80 × 25, or 80 × 50 when the terminal is 50 rows tall; 16 ANSI colours, 24-bit when `COLORTERM` says so | Keeps the theme by default and the VGA palette on request |
-| D103 | Linux file names and places | **Assumed.** Names are Windows-1252 in the editor and UTF-8 on disk; settings in `$XDG_CONFIG_HOME/quill`; dictionaries searched in the XDG data folders; case-insensitive retry; save through a temporary file | One rule for every Linux client, and DOS-style names keep working |
-| D104 | The `quill` command | **Assumed.** `cat`, `convert` and `info` over the core; `convert` equals `quill-convert`; exit 1 for a failure and 2 for usage | Documents are readable without a screen |
-| D105 | The name `quill` | **To decide.** The command-line tool takes it now; the plan was for the GTK client to be `quill` too, with the tool as its subcommands | One name for the user, but two binaries cannot share it |
-| D106 | Measuring with outline fonts | **Assumed.** `OutlineMeasure` at 1440 units to the inch from `hmtx`, `usWinAscent`, `usWinDescent` and `hhea`, never hinted | Screen, PDF and print agree, and the Windows 95 mismatch cannot happen |
-| D107 | Missing bold and italic | **Assumed.** A missing bold widens the advance by 1/64 em; a missing italic keeps its advances | The measured width matches the emboldened glyph |
-| D108 | Characters with no Windows-1252 form | **Assumed.** Refused with a status message when typed or composed; `?` with a count when read from a file | The document stays ANSI (D11) |
-| D109 | Printing | **Assumed.** A PDF handed to the print portal | No printer driver code in Quill |
-| D110 | Plain text on Linux | **Assumed.** Read UTF-8 when valid; Save As offers UTF-8 as well as ANSI | Linux text files are UTF-8 |
-| D111 | Thumbnails | **Assumed.** `.QLD` only, so LibreOffice keeps RTF thumbnails | Not displacing the user's other tools |
-| D112 | App id | **Assumed.** `io.github.liminal_hq_labs.Quill` | Needed by Flatpak and AppStream; change it if a domain exists |
-| D113 | Packaging | **Assumed.** AUR and Flatpak; no AppImage | Bundling GTK4 is fragile |
-| D114 | Unsaved marker | **Assumed.** An asterisk before the name on Linux, and after it (with a space) on Windows and DOS | Each platform's convention |
-| D115 | Autosave intervals | **Assumed.** DOS and Win16 10 minutes, Win95 5, Linux 2; off on floppies | A stall costs more the slower the machine |
-| D116 | Test fonts | **Decided.** A renamed Windows-1252 subset of Liberation 2.1.5, with its licence, never Times New Roman | The OFL reserves the names Liberation, Arimo, Tinos and Cousine, and a subset is a Modified Version |
-| D117–D119 | Reserved | | |
+| D180 | A terminal client | **Decided.** `linux/quill-tty` draws `quill-grid`'s `Grid` with crossterm, the same screen as DOS text mode | Proves `App` and `Grid` on a third host; exact comparison with the goldens |
+| D181 | Toolkit | **Decided by the owner.** GTK4 with libadwaita for the GUI, in its own workspace. egui is the fallback if the first spike fails | Maintained bindings, fractional scaling, portal dialogs, IME |
+| D182 | Terminal screen | **Assumed.** 80 × 25, or 80 × 50 when the terminal is 50 rows tall; 16 ANSI colours, 24-bit when `COLORTERM` says so | Keeps the theme by default and the VGA palette on request |
+| D183 | Linux file names and places | **Assumed.** Names are Windows-1252 in the editor and UTF-8 on disk; settings in `$XDG_CONFIG_HOME/quill`; dictionaries searched in the XDG data folders; case-insensitive retry; save through a temporary file | One rule for every Linux client, and DOS-style names keep working |
+| D184 | The `quill` command | **Assumed.** `cat`, `convert` and `info` over the core; `convert` equals `quill-convert`; exit 1 for a failure and 2 for usage | Documents are readable without a screen |
+| D185 | The name `quill` | **To decide.** The command-line tool takes it now; the plan was for the GTK client to be `quill` too, with the tool as its subcommands | One name for the user, but two binaries cannot share it |
+| D186 | Measuring with outline fonts | **Assumed.** `OutlineMeasure` at 1440 units to the inch from `hmtx`, `usWinAscent`, `usWinDescent` and `hhea`, never hinted | Screen, PDF and print agree, and the Windows 95 mismatch cannot happen |
+| D187 | Missing bold and italic | **Assumed.** A missing bold widens the advance by 1/64 em; a missing italic keeps its advances | The measured width matches the emboldened glyph |
+| D188 | Characters with no Windows-1252 form | **Assumed.** Refused with a status message when typed or composed; `?` with a count when read from a file | The document stays ANSI (D11) |
+| D189 | Printing | **Assumed.** A PDF handed to the print portal | No printer driver code in Quill |
+| D190 | Plain text on Linux | **Assumed.** Read UTF-8 when valid; Save As offers UTF-8 as well as ANSI | Linux text files are UTF-8 |
+| D191 | Thumbnails | **Assumed.** `.QLD` only, so LibreOffice keeps RTF thumbnails | Not displacing the user's other tools |
+| D192 | App id | **Assumed.** `io.github.liminal_hq_labs.Quill` | Needed by Flatpak and AppStream; change it if a domain exists |
+| D193 | Packaging | **Assumed.** AUR and Flatpak; no AppImage | Bundling GTK4 is fragile |
+| D194 | Unsaved marker | **Assumed.** An asterisk before the name on Linux, and after it (with a space) on Windows and DOS | Each platform's convention |
+| D195 | Autosave intervals | **Assumed.** DOS and Win16 10 minutes, Win95 5, Linux 2; off on floppies | A stall costs more the slower the machine |
+| D196 | Test fonts | **Decided.** A renamed Windows-1252 subset of Liberation 2.1.5, with its licence, never Times New Roman | The OFL reserves the names Liberation, Arimo, Tinos and Cousine, and a subset is a Modified Version |
+| D197–D199 | Reserved | | |
 
 ## Risks and what is not proven
 
