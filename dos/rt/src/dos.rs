@@ -350,3 +350,340 @@ pub fn free_space(drive: u8) -> Result<u64, DosError> {
 	}
 	Ok(u64::from(r.eax as u16) * u64::from(r.ebx as u16) * u64::from(r.ecx as u16))
 }
+
+// What Quill added to the copy (see PROVENANCE.md): searching a directory, drives, rename, version, and the critical-error stub.
+
+/// Longest path the calls below take (DOS paths are at most 80 bytes; the transfer buffer holds a second path at offset 256).
+const PATH_MAX: usize = 255;
+/// Where the second path of a two-path call (rename) sits in the transfer buffer.
+const SECOND_PATH: usize = 256;
+
+/// AX=4301h: sets the attributes of a file or directory (the test program hides a file with it).
+pub fn set_attributes(path: &str, attr: u16) -> Result<(), DosError> {
+	put_path(path)?;
+	let mut r = RealRegs {
+		eax: 0x4301,
+		ecx: u32::from(attr),
+		ds: tb_segment(),
+		..RealRegs::default()
+	};
+	rm21(&mut r)
+}
+
+/// AH=56h: renames or moves a file (both paths on the same drive). An existing target is an error (5), as DOS reports it.
+pub fn rename(from: &str, to: &str) -> Result<(), DosError> {
+	if from.len() > PATH_MAX || to.len() > PATH_MAX {
+		return Err(DosError(3));
+	}
+	put_path(from)?;
+	// SAFETY: SECOND_PATH + PATH_MAX + 1 is well inside the buffer.
+	unsafe {
+		core::ptr::copy_nonoverlapping(to.as_ptr(), tb_ptr().add(SECOND_PATH), to.len());
+		tb_ptr().add(SECOND_PATH + to.len()).write(0);
+	}
+	let mut r = RealRegs {
+		eax: 0x5600,
+		ds: tb_segment(),
+		es: tb_segment(),
+		edx: 0,
+		edi: SECOND_PATH as u32,
+		..RealRegs::default()
+	};
+	rm21(&mut r)
+}
+
+/// AH=30h: the DOS version as (major, minor).
+pub fn dos_version() -> (u8, u8) {
+	let mut r = RealRegs {
+		eax: 0x3000,
+		ebx: 0,
+		..RealRegs::default()
+	};
+	let _ = rm21(&mut r);
+	(r.eax as u8, (r.eax >> 8) as u8)
+}
+
+/// A directory entry from a search, read from the DTA.
+#[derive(Clone, Copy, Debug)]
+pub struct DirEntry {
+	/// Attribute byte: 01 read-only, 02 hidden, 04 system, 08 volume label, 10 directory, 20 archive
+	pub attr: u8,
+	pub time: u16,
+	pub date: u16,
+	pub size: u32,
+	name: [u8; 13],
+}
+
+pub const ATTR_READ_ONLY: u8 = 0x01;
+pub const ATTR_HIDDEN: u8 = 0x02;
+pub const ATTR_SYSTEM: u8 = 0x04;
+pub const ATTR_VOLUME: u8 = 0x08;
+pub const ATTR_DIRECTORY: u8 = 0x10;
+
+impl DirEntry {
+	/// The 8.3 name as DOS returns it (no path, no trailing NUL).
+	pub fn name_bytes(&self) -> &[u8] {
+		let n = self.name.iter().position(|&b| b == 0).unwrap_or(self.name.len());
+		&self.name[..n]
+	}
+
+	pub fn is_dir(&self) -> bool {
+		self.attr & ATTR_DIRECTORY != 0
+	}
+}
+
+/// The error find-next returns when the list is used up.
+pub const NO_MORE_FILES: u16 = 0x12;
+
+/// Real-mode segment of the 128-byte DTA, 0 until first use. One block of conventional memory for the life of the program.
+static DTA_SEGMENT: AtomicU32 = AtomicU32::new(0);
+
+fn dta_segment() -> u16 {
+	let seg = DTA_SEGMENT.load(Ordering::Relaxed);
+	if seg != 0 {
+		return seg as u16;
+	}
+	match dpmi::alloc_dos_memory(8) {
+		Ok((segment, _)) => {
+			let mut r = RealRegs {
+				eax: 0x1A00,
+				ds: segment,
+				edx: 0,
+				..RealRegs::default()
+			};
+			let _ = rm21(&mut r);
+			DTA_SEGMENT.store(u32::from(segment), Ordering::Relaxed);
+			segment
+		}
+		Err(_) => die(b"dos: no conventional memory for the DTA\r\n"),
+	}
+}
+
+fn read_dta() -> DirEntry {
+	let base = dpmi::linear_to_ptr::<u8>(u32::from(dta_segment()) << 4);
+	let mut e = DirEntry {
+		attr: 0,
+		time: 0,
+		date: 0,
+		size: 0,
+		name: [0; 13],
+	};
+	// SAFETY: the DTA block is 128 bytes and the fields read lie in its first 43.
+	unsafe {
+		e.attr = base.add(0x15).read();
+		e.time = u16::from_le_bytes([base.add(0x16).read(), base.add(0x17).read()]);
+		e.date = u16::from_le_bytes([base.add(0x18).read(), base.add(0x19).read()]);
+		e.size = u32::from_le_bytes([
+			base.add(0x1A).read(),
+			base.add(0x1B).read(),
+			base.add(0x1C).read(),
+			base.add(0x1D).read(),
+		]);
+		for (i, b) in e.name.iter_mut().enumerate() {
+			*b = base.add(0x1E + i).read();
+		}
+	}
+	e.name[12] = 0;
+	e
+}
+
+/// AH=4Eh: starts a search. `attr` is the mask of attributes to include besides normal files (10h adds directories; hidden,
+/// system and volume entries come only when their bits are set). The search state lives in the DTA, so only one search runs at a
+/// time: copy what you need before starting another. Errors: 2 or 3 for no such path, 12h for no match.
+pub fn find_first(pattern: &str, attr: u8) -> Result<DirEntry, DosError> {
+	if pattern.len() > PATH_MAX {
+		return Err(DosError(3));
+	}
+	let _ = dta_segment();
+	put_path(pattern)?;
+	let mut r = RealRegs {
+		eax: 0x4E00,
+		ecx: u32::from(attr),
+		ds: tb_segment(),
+		..RealRegs::default()
+	};
+	rm21(&mut r)?;
+	Ok(read_dta())
+}
+
+/// AH=4Fh: the next entry of the search `find_first` started. `Err(DosError(NO_MORE_FILES))` at the end.
+pub fn find_next() -> Result<DirEntry, DosError> {
+	let _ = dta_segment();
+	let mut r = RealRegs {
+		eax: 0x4F00,
+		..RealRegs::default()
+	};
+	rm21(&mut r)?;
+	Ok(read_dta())
+}
+
+/// Calls `each` for every entry a search returns, in the order DOS gives them, and returns how many. A search that finds nothing
+/// is `Ok(0)` (DOS says 2 or 12h for it, depending on the version); a missing folder (3) is an error.
+pub fn find_each(pattern: &str, attr: u8, mut each: impl FnMut(&DirEntry)) -> Result<usize, DosError> {
+	let mut n = 0;
+	let mut next = match find_first(pattern, attr) {
+		Ok(e) => Some(e),
+		Err(DosError(NO_MORE_FILES)) => None,
+		Err(DosError(2)) if pattern.contains('*') || pattern.contains('?') => None,
+		Err(e) => return Err(e),
+	};
+	while let Some(e) = next {
+		each(&e);
+		n += 1;
+		next = match find_next() {
+			Ok(e) => Some(e),
+			Err(DosError(NO_MORE_FILES)) => None,
+			Err(e) => return Err(e),
+		};
+	}
+	Ok(n)
+}
+
+/// AH=19h: the current drive, 0 for A:.
+pub fn current_drive() -> u8 {
+	let mut r = RealRegs {
+		eax: 0x1900,
+		..RealRegs::default()
+	};
+	let _ = rm21(&mut r);
+	r.eax as u8
+}
+
+/// AH=0Eh: makes `drive` (0 for A:) current and returns how many logical drives DOS has (the highest letter in use, which can
+/// count a drive that is not valid).
+pub fn set_current_drive(drive: u8) -> u8 {
+	let mut r = RealRegs {
+		eax: 0x0E00,
+		edx: u32::from(drive),
+		..RealRegs::default()
+	};
+	let _ = rm21(&mut r);
+	r.eax as u8
+}
+
+/// AH=47h: the current directory of `drive` (0 for A:), without the drive letter or the leading backslash (empty at the root).
+pub fn current_dir(drive: u8) -> Result<alloc::string::String, DosError> {
+	let mut r = RealRegs {
+		eax: 0x4700,
+		edx: u32::from(drive) + 1,
+		ds: tb_segment(),
+		esi: 0,
+		..RealRegs::default()
+	};
+	rm21(&mut r)?;
+	let mut out = alloc::string::String::new();
+	for i in 0..64 {
+		// SAFETY: DOS wrote at most 64 bytes at the start of the buffer.
+		let b = unsafe { tb_ptr().add(i).read() };
+		if b == 0 {
+			break;
+		}
+		out.push(b as char);
+	}
+	Ok(out)
+}
+
+/// AX=4409h: whether `drive` (0 for A:) exists, without touching its media. Returns the device attribute word; error 0Fh means no
+/// such drive.
+pub fn drive_attributes(drive: u8) -> Result<u16, DosError> {
+	let mut r = RealRegs {
+		eax: 0x4409,
+		ebx: u32::from(drive) + 1,
+		..RealRegs::default()
+	};
+	rm21(&mut r)?;
+	Ok(r.edx as u16)
+}
+
+/// Whether `drive` (0 for A:) is a valid drive according to IOCTL 4409h.
+pub fn drive_valid(drive: u8) -> bool {
+	drive_attributes(drive).is_ok()
+}
+
+/// AX=440Eh: the logical drive that shares `drive`'s device (0 for A:): `Ok(0)` when the device has one letter, otherwise the
+/// letter number in 1-based form (1 is A:) that the device is currently known as. A single floppy answers for both A: and B:.
+pub fn logical_drive_map(drive: u8) -> Result<u8, DosError> {
+	let mut r = RealRegs {
+		eax: 0x440E,
+		ebx: u32::from(drive) + 1,
+		..RealRegs::default()
+	};
+	rm21(&mut r)?;
+	Ok(r.eax as u8)
+}
+
+/// INT 11h: how many floppy drives the equipment word reports (0 to 4).
+pub fn floppy_count() -> u8 {
+	let mut r = RealRegs::default();
+	if dpmi::simulate_int(0x11, &mut r).is_err() {
+		return 0;
+	}
+	if r.eax & 1 == 0 {
+		0
+	} else {
+		(((r.eax >> 6) & 3) + 1) as u8
+	}
+}
+
+/// The valid drives as a bit mask (bit 0 is A:). Each letter is asked with IOCTL 4409h, which does not read the disk, and A: and B:
+/// are left out beyond the floppy count so a single drive's phantom B: does not appear.
+pub fn drive_mask() -> u32 {
+	let floppies = floppy_count();
+	let mut mask = 0;
+	for d in 0..26u8 {
+		if d < 2 && d >= floppies {
+			continue;
+		}
+		if drive_valid(d) {
+			mask |= 1 << d;
+		}
+	}
+	mask
+}
+
+// INT 24h, the critical-error handler. Without one, a drive that is not ready makes DOS print "Abort, Retry, Fail?" over the
+// text screen and wait for a key. The stub is `mov al, 3` (fail the call) and `iret`, in a block of conventional memory.
+
+static CRIT_SEGMENT: AtomicU32 = AtomicU32::new(0);
+static CRIT_SELECTOR: AtomicU32 = AtomicU32::new(0);
+static CRIT_OLD: AtomicU32 = AtomicU32::new(0);
+
+/// The 3-byte handler.
+pub const CRITICAL_STUB: [u8; 3] = [0xB0, 0x03, 0xCF];
+
+/// Installs the stub as the real-mode INT 24h handler and puts the old one back at exit. Safe to call twice.
+pub fn install_critical_handler() -> Result<(), DosError> {
+	if CRIT_SEGMENT.load(Ordering::Relaxed) != 0 {
+		return Ok(());
+	}
+	let (segment, selector) = dpmi::alloc_dos_memory(1).map_err(|e| DosError(e.0))?;
+	let (old_seg, old_off) = dpmi::get_rm_vector(0x24).map_err(|e| DosError(e.0))?;
+	// SAFETY: the block is one paragraph (16 bytes) of conventional memory, mapped at its linear address.
+	unsafe { core::ptr::copy_nonoverlapping(CRITICAL_STUB.as_ptr(), dpmi::linear_to_ptr::<u8>(u32::from(segment) << 4), 3) };
+	dpmi::set_rm_vector(0x24, segment, 0).map_err(|e| DosError(e.0))?;
+	CRIT_OLD.store((u32::from(old_seg) << 16) | u32::from(old_off), Ordering::Relaxed);
+	CRIT_SELECTOR.store(u32::from(selector), Ordering::Relaxed);
+	CRIT_SEGMENT.store(u32::from(segment), Ordering::Relaxed);
+	crate::cleanup::register(remove_critical_handler);
+	Ok(())
+}
+
+/// Puts the previous INT 24h handler back and frees the stub. Safe to call twice; the exit list calls it.
+pub fn remove_critical_handler() {
+	let segment = CRIT_SEGMENT.swap(0, Ordering::Relaxed);
+	if segment == 0 {
+		return;
+	}
+	let old = CRIT_OLD.load(Ordering::Relaxed);
+	let _ = dpmi::set_rm_vector(0x24, (old >> 16) as u16, old as u16);
+	let _ = dpmi::free_dos_memory(CRIT_SELECTOR.load(Ordering::Relaxed) as u16);
+	crate::cleanup::forget(remove_critical_handler);
+}
+
+/// The real-mode segment of the installed stub, if there is one (for a test that reads the vector back).
+pub fn critical_handler_segment() -> Option<u16> {
+	match CRIT_SEGMENT.load(Ordering::Relaxed) {
+		0 => None,
+		s => Some(s as u16),
+	}
+}
