@@ -96,8 +96,9 @@ run_gfx_scenario() { # <label> <machine> <arguments> <16|256>
 	keys="$(grep -v '^@' "$file" | sed 's/#.*//' | tr -s ' \n\t' ' ' | sed 's/^ //; s/ $//')"
 	export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT\nQUILL_TIMES=D:\\TIMES.TXT'
 	export DOS_KEEP="$WORK/keep"
-	export DOS_AUTOTYPE="-w 2 -p 0.3 $keys"
-	export DOS_TIMEOUT=240
+	# A frame takes longer to draw than a text screen, and a busy host stretches it: the keys go in slowly enough that the BIOS buffer never fills.
+	export DOS_AUTOTYPE="-w 2 -p 0.6 $keys"
+	export DOS_TIMEOUT=400
 	local rc=0
 	DOS_MACHINE="$machine" "$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE $args LETTER.RTF" > "$WORK/$label.out" || rc=$?
 	[ "$rc" = 0 ] || fail "$label: QUILLDOS.EXE exited with $rc"
