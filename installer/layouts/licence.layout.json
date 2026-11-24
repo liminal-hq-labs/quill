@@ -1,0 +1,130 @@
+{
+	"$schema": "https://liminal-hq.github.io/installer/schema/layout.json",
+	"version": 1,
+	"id": "licence",
+	"root": {
+		"kind": "window",
+		"props": {
+			"title": "{product.name} Setup",
+			"label": "Licence",
+			"style": "neutral"
+		},
+		"children": [
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "column",
+					"gap": 1
+				},
+				"children": [
+					{
+						"kind": "stack",
+						"props": {
+							"direction": "column",
+							"gap": 0,
+							"group": "lead"
+						},
+						"children": [
+							{
+								"kind": "text",
+								"props": {
+									"text": "Licence agreement",
+									"role": "heading",
+									"icon": {
+										"viewBox": [
+											24,
+											24
+										],
+										"shapes": [
+											{
+												"path": "M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10",
+												"stroke": "#1d4ed8",
+												"width": 1.6,
+												"join": "round"
+											}
+										]
+									}
+								}
+							},
+							{
+								"kind": "text",
+								"props": {
+									"text": "Please read and accept the licence to continue.",
+									"role": "body"
+								}
+							}
+						]
+					},
+					{
+						"kind": "text",
+						"props": {
+							"text": "",
+							"role": "document",
+							"source": "LICENCE.TXT",
+							"scroll": true,
+							"label": "Licence text"
+						}
+					},
+					{
+						"kind": "radio",
+						"bind": "licence.accepted",
+						"props": {
+							"label": "Licence acceptance",
+							"options": [
+								{
+									"id": "yes",
+									"label": "I accept the agreement"
+								},
+								{
+									"id": "no",
+									"label": "I do not accept the agreement"
+								}
+							]
+						}
+					}
+				]
+			},
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "row",
+					"gap": 2,
+					"align": "end",
+					"region": "footer"
+				},
+				"children": [
+					{
+						"kind": "text",
+						"props": {
+							"text": "You can read this again from the installed app",
+							"role": "note"
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Back",
+							"action": "back"
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Next",
+							"action": "next",
+							"default": true,
+							"enabled_when": "state.licence.accepted == 'yes'"
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Cancel",
+							"action": "cancel"
+						}
+					}
+				]
+			}
+		]
+	}
+}

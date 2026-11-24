@@ -1,0 +1,10 @@
+# The Quill DOS theme: CP437 text mode on a shaded backdrop.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[theme]
+id        = "quill-dos"
+name      = "Quill DOS"
+renderers = ["tui-retro"]
+fallback  = "plain"

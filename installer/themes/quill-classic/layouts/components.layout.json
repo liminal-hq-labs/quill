@@ -1,0 +1,165 @@
+{
+	"$schema": "https://liminal-hq.github.io/installer/schema/layout.json",
+	"version": 1,
+	"id": "components",
+	"root": {
+		"kind": "dialog",
+		"props": {
+			"title": "Select Components",
+			"label": "Select Components",
+			"style": "win32-classic",
+			"width": 64
+		},
+		"children": [
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "column",
+					"gap": 0,
+					"region": "side"
+				},
+				"children": [
+					{
+						"kind": "image",
+						"props": {
+							"label": "Product",
+							"alt": "Product",
+							"art": {
+								"width": 14,
+								"height": 14,
+								"scale": 8,
+								"rects": [
+									[
+										1,
+										4,
+										12,
+										9,
+										"#c0c0c0"
+									],
+									[
+										1,
+										4,
+										12,
+										1,
+										"#ffffff"
+									],
+									[
+										1,
+										12,
+										12,
+										1,
+										"#404040"
+									],
+									[
+										1,
+										8,
+										12,
+										1,
+										"#808080"
+									],
+									[
+										5,
+										1,
+										4,
+										3,
+										"#ffff55"
+									],
+									[
+										4,
+										4,
+										6,
+										1,
+										"#dfdfdf"
+									],
+									[
+										11,
+										5,
+										2,
+										2,
+										"#00aaaa"
+									]
+								]
+							},
+							"panel": "#008080",
+							"ground": "#004040"
+						}
+					}
+				]
+			},
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "column",
+					"gap": 1
+				},
+				"children": [
+					{
+						"kind": "text",
+						"props": {
+							"text": "Select the components you want to install, and clear the components you do not want to install.",
+							"role": "body"
+						}
+					},
+					{
+						"kind": "checklist",
+						"bind": "components.selected",
+						"props": {
+							"label": "Components",
+							"items": "components",
+							"sunken": true
+						}
+					},
+					{
+						"kind": "text",
+						"props": {
+							"text": "Space required: {install.size}",
+							"role": "caption"
+						}
+					},
+					{
+						"kind": "text",
+						"props": {
+							"text": "Space available: {system.free_space}",
+							"role": "caption"
+						}
+					}
+				]
+			},
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "row",
+					"gap": 1,
+					"align": "end",
+					"region": "footer"
+				},
+				"children": [
+					{
+						"kind": "button",
+						"props": {
+							"label": "Back",
+							"action": "back",
+							"hotkey": "B"
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Next",
+							"action": "next",
+							"default": true,
+							"hotkey": "N"
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Cancel",
+							"action": "cancel"
+						}
+					}
+				]
+			}
+		]
+	}
+}

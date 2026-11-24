@@ -1,0 +1,24 @@
+{
+	"$schema": "https://liminal-hq.github.io/installer/schema/flow.json",
+	"version": 1,
+	"id": "uninstall",
+	"steps": [
+		{
+			"id": "confirm",
+			"type": "page",
+			"layout": "confirm-uninstall",
+			"next": "copying"
+		},
+		{
+			"id": "copying",
+			"type": "commit",
+			"layout": "copying",
+			"next": "done"
+		},
+		{
+			"id": "done",
+			"type": "finish",
+			"layout": "done"
+		}
+	]
+}

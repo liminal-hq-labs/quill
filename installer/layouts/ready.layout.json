@@ -1,0 +1,110 @@
+{
+	"$schema": "https://liminal-hq.github.io/installer/schema/layout.json",
+	"version": 1,
+	"id": "ready",
+	"root": {
+		"kind": "window",
+		"props": {
+			"title": "{product.name} Setup",
+			"label": "Ready to install",
+			"style": "neutral"
+		},
+		"children": [
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "column",
+					"gap": 1
+				},
+				"children": [
+					{
+						"kind": "stack",
+						"props": {
+							"direction": "column",
+							"gap": 0,
+							"group": "lead"
+						},
+						"children": [
+							{
+								"kind": "text",
+								"props": {
+									"text": "Ready to install",
+									"role": "heading",
+									"icon": {
+										"viewBox": [
+											24,
+											24
+										],
+										"shapes": [
+											{
+												"path": "M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10",
+												"stroke": "#1d4ed8",
+												"width": 1.6,
+												"join": "round"
+											}
+										]
+									}
+								}
+							},
+							{
+								"kind": "text",
+								"props": {
+									"text": "Setup will copy the files below to {install.path}.",
+									"role": "body"
+								}
+							}
+						]
+					},
+					{
+						"kind": "text",
+						"props": {
+							"text": "{plan.summary}",
+							"role": "summary",
+							"label": "Installation summary"
+						}
+					}
+				]
+			},
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "row",
+					"gap": 2,
+					"align": "end",
+					"region": "footer"
+				},
+				"children": [
+					{
+						"kind": "text",
+						"props": {
+							"text": "Cancel puts everything back as it was.",
+							"role": "note"
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Back",
+							"action": "back"
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Install",
+							"action": "commit",
+							"default": true
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Cancel",
+							"action": "cancel"
+						}
+					}
+				]
+			}
+		]
+	}
+}

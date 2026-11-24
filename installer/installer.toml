@@ -1,0 +1,35 @@
+# Quill's installer: one project, three builds (DOS, Windows 3.x, Windows 95 and later).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# The version comes from the latest git tag. `tools/build-disks.sh` passes `--version` from `[workspace.package]` in the root
+# `Cargo.toml` instead, so a disk is stamped with the version the programs were built as.
+[product]
+id        = "hq.liminal.quill"
+name      = "Quill"
+publisher = "Liminal HQ"
+version   = { from = "git-tag" }
+licence   = "LICENCE.TXT"
+
+[defaults]
+scope = "user"
+theme = "quill-classic"
+
+[[target]]
+id       = "dos-x86"
+renderer = "tui-retro"
+theme    = "quill-dos"
+outputs  = ["floppy-1440", "zip"]
+
+[[target]]
+id       = "win16-x86"
+renderer = "win16"
+theme    = "quill-classic"
+outputs  = ["floppy-1440", "zip"]
+
+[[target]]
+id       = "windows-x86"
+renderer = "win32-classic"
+theme    = "quill-classic"
+outputs  = ["floppy-1440", "zip"]

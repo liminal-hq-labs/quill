@@ -1,0 +1,10 @@
+# The Quill classic theme: a Windows 95 setup look for the Windows 3.x and Windows 95 installers.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[theme]
+id        = "quill-classic"
+name      = "Quill classic"
+renderers = ["win16", "win32-classic"]
+fallback  = "plain"
