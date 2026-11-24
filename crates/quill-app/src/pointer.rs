@@ -214,12 +214,7 @@ impl<M: Measure + Clone> App<M> {
 		let Some((index, line)) = self.caret_line(s) else {
 			return (1, 1, 1);
 		};
-		let mut ln = 0;
-		self.lines(s, |i, l| {
-			if l.page == line.page && i <= index {
-				ln += 1;
-			}
-		});
+		let ln = self.line_in_page(s, index, line.page);
 		let col = if self.measure.resolution().0 > 10 {
 			self.caret - line.start + 1
 		} else {

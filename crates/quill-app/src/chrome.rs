@@ -197,12 +197,14 @@ impl<M: Measure + Clone> App<M> {
 		if let Ok(fi) = self.doc.fonts.intern(s, Font::new(name, family)) {
 			self.char_command(s, move |c| CFmt { font: fi, ..c }, None);
 		}
+		self.sync_layout(s);
 	}
 
 	/// Sets the size, in half points.
 	pub fn set_size<S: Store + ?Sized>(&mut self, s: &mut S, half_points: u16) {
 		let size = half_points.clamp(8, 288);
 		self.char_command(s, move |c| CFmt { size, ..c }, None);
+		self.sync_layout(s);
 	}
 
 	/// Sets the text colour, or Automatic for `None`.
@@ -215,6 +217,7 @@ impl<M: Measure + Clone> App<M> {
 			},
 		};
 		self.char_command(s, move |c| CFmt { colour: idx, ..c }, None);
+		self.sync_layout(s);
 	}
 
 	/// Sets the left, first-line and right indents of the paragraphs in the selection, in twips.
@@ -225,16 +228,19 @@ impl<M: Measure + Clone> App<M> {
 			right: right.max(0),
 			..p
 		});
+		self.sync_layout(s);
 	}
 
 	/// Adds (or changes) a tab stop at `pos` twips of the given kind (0 left, 1 centre, 2 right, 3 decimal).
 	pub fn add_tab<S: Store + ?Sized>(&mut self, s: &mut S, pos: i32, kind: u8) {
 		self.tab_edit(s, "< Set >", Some(pos), kind, 0);
+		self.sync_layout(s);
 	}
 
 	/// Removes the tab stop at `pos` twips.
 	pub fn remove_tab<S: Store + ?Sized>(&mut self, s: &mut S, pos: i32) {
 		self.tab_edit(s, "< Clear >", Some(pos), 0, 0);
+		self.sync_layout(s);
 	}
 
 	/// The empty tab set, for callers that build one.
@@ -341,6 +347,7 @@ impl<M: Measure + Clone> App<M> {
 		self.doc.body.end_group();
 		self.typing_fmt = None;
 		self.modified = true;
+		self.sync_layout(s);
 	}
 
 	/// Shows or hides a part of the chrome (`CHROME_*`).

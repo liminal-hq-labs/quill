@@ -253,6 +253,7 @@ impl<M: Measure + Clone> App<M> {
 				self.spell.wlen = n;
 				self.anchor = Some(st);
 				self.caret = st + len;
+				self.sync_layout(s);
 				self.scroll(s);
 				return true;
 			}

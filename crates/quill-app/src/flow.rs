@@ -294,6 +294,7 @@ impl<M: quill_core::layout::Measure + Clone> App<M> {
 			}
 			Answer::Cancel => self.pending = None,
 		}
+		self.sync_layout(s);
 		self.scroll(s);
 	}
 
@@ -354,6 +355,7 @@ impl<M: quill_core::layout::Measure + Clone> App<M> {
 		self.remember_folder(path);
 		self.pending = None;
 		if self.open(s, f, path).is_ok() {
+			self.sync_layout(s);
 			self.scroll(s);
 			Ok(())
 		} else {
@@ -372,6 +374,7 @@ impl<M: quill_core::layout::Measure + Clone> App<M> {
 		self.msg.clear();
 		self.remember_folder(path);
 		if self.insert_picture(s, f, path).is_ok() {
+			self.sync_layout(s);
 			self.scroll(s);
 			Ok(())
 		} else {

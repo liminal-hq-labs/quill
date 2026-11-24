@@ -388,8 +388,7 @@ pub fn paint_page<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	let margin_l = to_units(page.margin_l, 96);
 	let x0 = area.left + page_x0(area.width(), page_w, view.hscroll);
 	let g = PageGeom::of(app, s);
-	let mut pages = 1u32;
-	app.for_each_line(s, |_, l| pages = pages.max(l.page));
+	let pages = app.page_total(s).max(1);
 	for p in 0..pages as i32 {
 		let top = g.page_y(p, area.top);
 		if top > area.bottom + 4 {
@@ -413,12 +412,16 @@ pub fn paint_page<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	let tx = x0 + margin_l;
 	let mut counters: ListCounters = [[0; 9]; 4];
 	let mut line_h = 16;
-	app.for_each_line(s, |_, l| {
+	app.for_each_line_from(s, app.top_line(), |_, l| {
 		let label = line_label(app, s, l, &mut counters, 96);
 		let y_top = g.line_y(l, area.top);
 		let h = (l.ascent + l.descent).max(1);
-		if y_top + h < area.top - 4 || y_top > area.bottom + 4 {
-			return;
+		if y_top > area.bottom + 4 {
+			// Below the window: nothing later is shown either.
+			return false;
+		}
+		if y_top + h < area.top - 4 {
+			return true;
 		}
 		line_h = h.max(8);
 		let cx = LineCtx { page: l.page, ..cx };
@@ -428,6 +431,7 @@ pub fn paint_page<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 			lp.char(sf, p, c, x, w, leader, cf)
 		});
 		lp.finish(sf);
+		true
 	});
 	if app.editing() {
 		if let Some((_, l, x)) = app.caret_xy(s) {
@@ -544,10 +548,13 @@ pub fn paint_sheet<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 		area,
 	};
 	let mut counters: ListCounters = [[0; 9]; 4];
-	app.for_each_line(s, |_, l| {
+	app.for_each_line_from_page(s, page, |_, l| {
 		let label = line_label(app, s, l, &mut counters, 96);
+		if l.page > page {
+			return false;
+		}
 		if l.page != page {
-			return;
+			return true;
 		}
 		let mut lp = LinePainter::new(&cx, l, tx, top + u(setup.margin_t) + l.y, window);
 		lp.begin(sf, l, label);
@@ -555,6 +562,7 @@ pub fn paint_sheet<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 			lp.char(sf, p, c, x, w, leader, cf)
 		});
 		lp.finish(sf);
+		true
 	});
 	sf.clip(None);
 }

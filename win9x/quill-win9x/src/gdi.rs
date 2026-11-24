@@ -28,6 +28,38 @@ pub struct GdiMeasure {
 static mut FONTS: [(Option<(FontRef, u8, u16)>, Handle); 12] = [(None, null_mut()); 12];
 static mut NEXT_FONT: usize = 0;
 
+/// What the screen's device context said about a font, so that asking is once per font and not once per layout: the widths of
+/// characters 32 to 255 and the metrics. Layout builds its own font cache for every query, and each of its misses is two calls into GDI
+/// (`GetCharWidthA` of 224 characters and `GetTextMetricsA`), which on a 486 is most of what a key costs. The screen's fonts do not
+/// change while Quill runs, so the screen's measure (96 dots per inch, never the printer's) keeps them.
+#[derive(Copy, Clone)]
+struct Measured {
+	font: FontRef,
+	widths: [u16; GLYPHS],
+	metrics: FontMetrics,
+}
+
+static mut MEASURED: [Option<Measured>; 16] = [None; 16];
+static mut NEXT_MEASURED: usize = 0;
+
+/// The cached entry for `font` on the screen, made by `ask` when there is none.
+fn screen_font(font: &FontRef, ask: impl FnOnce() -> Measured) -> Measured {
+	// SAFETY: single-threaded; the cache is only touched here, and an entry is replaced only when the ring comes round to it.
+	unsafe {
+		let cache = &mut *core::ptr::addr_of_mut!(MEASURED);
+		if let Some(m) = cache.iter().flatten().find(|m| m.font == *font) {
+			return *m;
+		}
+		let made = ask();
+		let at = NEXT_MEASURED % cache.len();
+		NEXT_MEASURED += 1;
+		if let Some(slot) = cache.get_mut(at) {
+			*slot = Some(made);
+		}
+		made
+	}
+}
+
 /// The GDI font for `fr` with the extra `cflag` bits for underline and strikeout, cached in a small ring.
 pub fn font_handle(fr: &FontRef, extra: u8) -> Handle {
 	font_handle_at(fr, extra, 96)
@@ -104,6 +136,37 @@ impl Measure for GdiMeasure {
 				leading: 0,
 			};
 		}
+		if self.dpi == 96 {
+			return screen_font(font, || self.measure_font(font)).metrics;
+		}
+		self.ask_metrics(font)
+	}
+
+	fn widths(&mut self, font: &FontRef, out: &mut [u16; GLYPHS]) {
+		if self.grid {
+			out.fill(1);
+			return;
+		}
+		if self.dpi == 96 {
+			*out = screen_font(font, || self.measure_font(font)).widths;
+			return;
+		}
+		self.ask_widths(font, out);
+	}
+}
+
+impl GdiMeasure {
+	fn measure_font(&self, font: &FontRef) -> Measured {
+		let mut widths = [0u16; GLYPHS];
+		self.ask_widths(font, &mut widths);
+		Measured {
+			font: *font,
+			widths,
+			metrics: self.ask_metrics(font),
+		}
+	}
+
+	fn ask_metrics(&self, font: &FontRef) -> FontMetrics {
 		let mut tm = MaybeUninit::<TextMetricA>::zeroed();
 		// SAFETY: the DC is the screen's; the font handle is ours; the structure is the size GDI expects.
 		unsafe {
@@ -119,11 +182,7 @@ impl Measure for GdiMeasure {
 		}
 	}
 
-	fn widths(&mut self, font: &FontRef, out: &mut [u16; GLYPHS]) {
-		if self.grid {
-			out.fill(1);
-			return;
-		}
+	fn ask_widths(&self, font: &FontRef, out: &mut [u16; GLYPHS]) {
 		let mut w = [0i32; GLYPHS];
 		// SAFETY: `w` holds the 224 widths for characters 32 to 255.
 		unsafe {
@@ -624,9 +683,7 @@ unsafe fn wavy_underline(dc: Handle, x0: i32, x1: i32, y: i32, unit: i32, room: 
 
 /// The number of sheets of paper the body takes on the screen.
 pub fn body_pages(app: &App<GdiMeasure>, s: &HeapStore) -> u32 {
-	let mut pages = 1;
-	app.for_each_line(s, |_, l| pages = pages.max(l.page));
-	pages
+	app.page_total(s).max(1)
 }
 
 /// Fills a device rectangle with a colour.
@@ -715,19 +772,24 @@ pub unsafe fn paint_page(
 	let fields = (app.story_view() == 0).then_some(pages);
 	let mut line_h = 16;
 	let cum = |l: &quill_core::layout::Line| (l.page as i32 - 1) * stride + margin_t + l.y;
-	app.for_each_line(s, |_, l| {
+	// Only the lines from the first page on the screen to the bottom of the window are laid out.
+	let first_page = (vpos.max(0) / stride.max(1)) as u32 + 1;
+	app.for_each_line_from_page(s, first_page, |_, l| {
 		let label = line_label(app, s, l, &mut counters, 96);
 		let y_top = rel(cum(l), vpos);
 		let h = (l.ascent + l.descent).max(1);
-		if y_top + h < -4 || y_top > view_h + 4 {
-			return;
+		if y_top > view_h + 4 {
+			return false;
+		}
+		if y_top + h < -4 {
+			return true;
 		}
 		line_h = h.max(8);
 		// A line wholly outside the damaged rectangle is left as it is: its text, with its wave, is already in the picture, and drawing
 		// it again would cost a character at a time for nothing.
 		let (top_px, bottom_px) = (area.top + dev(y_top, pct), area.top + dev(y_top + h, pct));
 		if bottom_px + 4 < damage.top || top_px - 4 > damage.bottom {
-			return;
+			return true;
 		}
 		draw_line(
 			dc,
@@ -750,6 +812,7 @@ pub unsafe fn paint_page(
 			tx,
 			y_top,
 		);
+		true
 	});
 
 	// The caret.
