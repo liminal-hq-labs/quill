@@ -13,3 +13,7 @@ quill-grid = { path = "../quill-grid" }
 quill-image = { path = "../quill-image" }
 quill-inflate = { path = "../quill-inflate" }
 quill-spell = { path = "../quill-spell" }
+
+[features]
+# File names up to a Windows path (260 bytes) instead of a DOS one (64); the Win32 build turns it on.
+long-names = []

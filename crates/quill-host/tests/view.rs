@@ -175,7 +175,7 @@ fn a_click_places_the_caret_and_a_drag_or_a_shift_click_selects() {
 	let (mut app, s, _f) = app_with("hello world\nsecond line\nthird");
 	app.click(&s, 0, 6 * 8, false);
 	assert_eq!((app.caret(), app.selection()), (6, None));
-	app.drag_select(&s, 0, 11 * 8);
+	app.drag_to(&s, 0, 11 * 8);
 	assert_eq!(app.selection(), Some((6, 11)));
 	app.click(&s, 1, 3 * 8 + 3, false);
 	assert_eq!(

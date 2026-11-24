@@ -479,7 +479,12 @@ unsafe extern "system" fn spelling_proc(dlg: Handle, msg: u32, wparam: usize, _l
 				spelling_fill(dlg);
 			} else {
 				EndDialog(dlg, 1);
-				MessageBoxA(OWNER, c("The spelling check is complete.").as_ptr(), c("Quill").as_ptr(), 0x40);
+				MessageBoxA(
+					OWNER,
+					c("The spelling check is complete.").as_ptr(),
+					c("Quill").as_ptr(),
+					0x40,
+				);
 			}
 			1
 		}
@@ -495,7 +500,12 @@ pub unsafe fn spelling(owner: Handle, sh: &mut Shell) {
 	if sh.app.spell_begin(&mut sh.store, &mut sh.files) {
 		run(owner, sh, DLG_SPELLING, spelling_proc);
 	} else if sh.app.message().is_empty() {
-		MessageBoxA(owner, c("The spelling check is complete.").as_ptr(), c("Quill").as_ptr(), 0x40);
+		MessageBoxA(
+			owner,
+			c("The spelling check is complete.").as_ptr(),
+			c("Quill").as_ptr(),
+			0x40,
+		);
 	} else {
 		let text = String::from_utf8_lossy(sh.app.message()).into_owned();
 		MessageBoxA(owner, c(&text).as_ptr(), c("Quill").as_ptr(), 0x40);

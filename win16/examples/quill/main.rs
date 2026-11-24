@@ -679,7 +679,7 @@ fn mouse_move(hwnd: u32, x: i32, y: i32) {
 	}
 	let y = y.clamp(top, bottom - 1);
 	if let Some((line, tx)) = gdi::hit(app, s, area, sh().hscroll, x, y) {
-		app.drag_select(s, line, tx);
+		app.drag_to(s, line, tx);
 		update_scroll(hwnd);
 		invalidate_page(hwnd);
 	}

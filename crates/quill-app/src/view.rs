@@ -565,7 +565,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The pointer moved to `x` on line `line` with the button down: the selection runs from the click to here.
-	pub fn drag_select<S: Store + ?Sized>(&mut self, s: &S, line: u32, x: i32) {
+	pub fn drag_to<S: Store + ?Sized>(&mut self, s: &S, line: u32, x: i32) {
 		let Some(l) = self.line_at(s, line) else {
 			return;
 		};
