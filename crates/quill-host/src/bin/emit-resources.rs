@@ -1,4 +1,5 @@
-// emit-resources: writes win9x/resources/quill.json, the one description the Win32 .res writer reads, from the app's own menu tree.
+// emit-resources: writes win9x/resources/quill.json, the one description the Win32 .res writer reads, from the app's own menu tree; with
+// `--dialogs` it writes quill-dialogs' generated.rs from assets/dialogs/dialogs.json instead.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -22,7 +23,35 @@ fn json_str(s: &str) -> String {
 	o
 }
 
+/// `--dialogs [--check]`: writes `crates/quill-dialogs/src/generated.rs`, or with `--check` only compares it and fails when it differs.
+fn dialogs(check: bool) {
+	let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+	let json = std::fs::read_to_string(root.join("assets/dialogs/dialogs.json"))
+		.expect("read assets/dialogs/dialogs.json");
+	let src = match quill_host::dialoggen::generate(&json) {
+		Ok(s) => s,
+		Err(e) => {
+			eprintln!("emit-resources: {e}");
+			std::process::exit(1);
+		}
+	};
+	let file = root.join("crates/quill-dialogs/src/generated.rs");
+	if check {
+		if std::fs::read_to_string(&file).ok().as_deref() != Some(src.as_str()) {
+			eprintln!("emit-resources: {} is out of date; run `cargo run -p quill-host --bin emit-resources -- --dialogs`", file.display());
+			std::process::exit(1);
+		}
+		return;
+	}
+	std::fs::write(&file, src).expect("write generated.rs");
+}
+
 fn main() {
+	let args: Vec<String> = std::env::args().skip(1).collect();
+	if args.iter().any(|a| a == "--dialogs") {
+		dialogs(args.iter().any(|a| a == "--check"));
+		return;
+	}
 	let mut out = String::from("{\n\t\"version\": { \"file\": [0, 0, 0, 1], \"company\": \"Liminal HQ\", \"description\": \"Quill for Windows 95\", \"copyright\": \"(c) Copyright 2026 Liminal HQ, Scott Morris\", \"original\": \"QUILL32.EXE\", \"product\": \"Quill\" },\n\t\"icon\": \"quill\",\n\t\"menus\": [\n");
 	let mut id = 100;
 	let mut first_menu = true;

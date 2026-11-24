@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 pub mod captured;
+pub mod dialoggen;
 pub mod docs;
 pub mod flow;
 pub mod png;

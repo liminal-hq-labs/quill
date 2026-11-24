@@ -2,6 +2,7 @@
 	"dialogs": [
 		{
 			"id": 1001,
+			"name": "about",
 			"caption": "About Quill",
 			"x": 0,
 			"y": 0,
@@ -11,6 +12,7 @@
 				{
 					"class": "static",
 					"id": 20,
+					"name": "icon",
 					"icon": 1,
 					"x": 12,
 					"y": 12,
@@ -23,6 +25,7 @@
 				{
 					"class": "static",
 					"id": 21,
+					"name": "title",
 					"text": "Quill",
 					"x": 44,
 					"y": 12,
@@ -32,6 +35,7 @@
 				{
 					"class": "static",
 					"id": 22,
+					"name": "version",
 					"text": "",
 					"x": 44,
 					"y": 24,
@@ -41,6 +45,7 @@
 				{
 					"class": "static",
 					"id": 23,
+					"name": "copyright",
 					"text": "(c) Copyright 2026 Liminal HQ, Scott Morris",
 					"x": 44,
 					"y": 38,
@@ -50,6 +55,7 @@
 				{
 					"class": "static",
 					"id": 24,
+					"name": "licence",
 					"text": "Licensed under Apache-2.0 or MIT.",
 					"x": 44,
 					"y": 50,
@@ -59,6 +65,7 @@
 				{
 					"class": "static",
 					"id": 25,
+					"name": "platform",
 					"text": "",
 					"x": 44,
 					"y": 66,
@@ -68,6 +75,7 @@
 				{
 					"class": "static",
 					"id": 26,
+					"name": "memory",
 					"text": "",
 					"x": 44,
 					"y": 78,
@@ -77,6 +85,7 @@
 				{
 					"class": "button",
 					"id": 1,
+					"name": "ok",
 					"text": "OK",
 					"x": 76,
 					"y": 88,
@@ -92,6 +101,7 @@
 		},
 		{
 			"id": 1002,
+			"name": "find",
 			"caption": "Find and Replace",
 			"x": 0,
 			"y": 0,
@@ -101,6 +111,7 @@
 				{
 					"class": "static",
 					"id": 30,
+					"name": "what_label",
 					"text": "Fi&nd what:",
 					"x": 8,
 					"y": 10,
@@ -110,6 +121,7 @@
 				{
 					"class": "edit",
 					"id": 10,
+					"name": "what",
 					"x": 62,
 					"y": 8,
 					"cx": 108,
@@ -123,6 +135,7 @@
 				{
 					"class": "static",
 					"id": 31,
+					"name": "with_label",
 					"text": "Re&place with:",
 					"x": 8,
 					"y": 26,
@@ -132,6 +145,7 @@
 				{
 					"class": "edit",
 					"id": 11,
+					"name": "with",
 					"x": 62,
 					"y": 24,
 					"cx": 108,
@@ -145,6 +159,7 @@
 				{
 					"class": "button",
 					"id": 12,
+					"name": "match_case",
 					"text": "Match &case",
 					"x": 8,
 					"y": 46,
@@ -158,6 +173,7 @@
 				{
 					"class": "button",
 					"id": 13,
+					"name": "whole_word",
 					"text": "&Whole word",
 					"x": 8,
 					"y": 60,
@@ -171,6 +187,7 @@
 				{
 					"class": "button",
 					"id": 100,
+					"name": "find_next",
 					"text": "&Find Next",
 					"x": 180,
 					"y": 6,
@@ -185,6 +202,7 @@
 				{
 					"class": "button",
 					"id": 101,
+					"name": "replace",
 					"text": "&Replace",
 					"x": 180,
 					"y": 24,
@@ -198,6 +216,7 @@
 				{
 					"class": "button",
 					"id": 102,
+					"name": "replace_all",
 					"text": "Replace &All",
 					"x": 180,
 					"y": 42,
@@ -211,6 +230,7 @@
 				{
 					"class": "button",
 					"id": 2,
+					"name": "close",
 					"text": "Close",
 					"x": 180,
 					"y": 62,
@@ -225,6 +245,7 @@
 		},
 		{
 			"id": 1003,
+			"name": "fonts",
 			"caption": "Fonts",
 			"x": 0,
 			"y": 0,
@@ -234,6 +255,7 @@
 				{
 					"class": "static",
 					"id": 30,
+					"name": "font_label",
 					"text": "&Font:",
 					"x": 8,
 					"y": 10,
@@ -243,6 +265,7 @@
 				{
 					"class": "combobox",
 					"id": 10,
+					"name": "font",
 					"x": 40,
 					"y": 8,
 					"cx": 110,
@@ -256,6 +279,7 @@
 				{
 					"class": "static",
 					"id": 31,
+					"name": "size_label",
 					"text": "&Size:",
 					"x": 8,
 					"y": 30,
@@ -265,6 +289,7 @@
 				{
 					"class": "combobox",
 					"id": 11,
+					"name": "size",
 					"x": 40,
 					"y": 28,
 					"cx": 50,
@@ -278,6 +303,7 @@
 				{
 					"class": "button",
 					"id": 14,
+					"name": "style_group",
 					"text": "Style",
 					"x": 8,
 					"y": 46,
@@ -290,6 +316,7 @@
 				{
 					"class": "button",
 					"id": 15,
+					"name": "bold",
 					"text": "&Bold",
 					"x": 16,
 					"y": 58,
@@ -304,6 +331,7 @@
 				{
 					"class": "button",
 					"id": 16,
+					"name": "italic",
 					"text": "&Italic",
 					"x": 16,
 					"y": 72,
@@ -317,6 +345,7 @@
 				{
 					"class": "button",
 					"id": 17,
+					"name": "underline",
 					"text": "&Underline",
 					"x": 82,
 					"y": 58,
@@ -330,6 +359,7 @@
 				{
 					"class": "button",
 					"id": 18,
+					"name": "strikeout",
 					"text": "Stri&keout",
 					"x": 82,
 					"y": 72,
@@ -343,6 +373,7 @@
 				{
 					"class": "button",
 					"id": 1,
+					"name": "ok",
 					"text": "OK",
 					"x": 158,
 					"y": 8,
@@ -357,6 +388,7 @@
 				{
 					"class": "button",
 					"id": 2,
+					"name": "cancel",
 					"text": "Cancel",
 					"x": 158,
 					"y": 26,
@@ -371,6 +403,7 @@
 		},
 		{
 			"id": 1004,
+			"name": "tabs",
 			"caption": "Tabs",
 			"x": 0,
 			"y": 0,
@@ -380,6 +413,7 @@
 				{
 					"class": "static",
 					"id": 30,
+					"name": "position_label",
 					"text": "&Position (inches):",
 					"x": 8,
 					"y": 10,
@@ -389,6 +423,7 @@
 				{
 					"class": "edit",
 					"id": 10,
+					"name": "position",
 					"x": 80,
 					"y": 8,
 					"cx": 40,
@@ -402,6 +437,7 @@
 				{
 					"class": "button",
 					"id": 31,
+					"name": "kind_group",
 					"text": "Kind",
 					"x": 8,
 					"y": 26,
@@ -414,6 +450,7 @@
 				{
 					"class": "button",
 					"id": 11,
+					"name": "left",
 					"text": "&Left",
 					"x": 16,
 					"y": 38,
@@ -428,6 +465,7 @@
 				{
 					"class": "button",
 					"id": 12,
+					"name": "centre",
 					"text": "&Centre",
 					"x": 16,
 					"y": 50,
@@ -440,6 +478,7 @@
 				{
 					"class": "button",
 					"id": 13,
+					"name": "right",
 					"text": "&Right",
 					"x": 68,
 					"y": 38,
@@ -452,7 +491,8 @@
 				{
 					"class": "button",
 					"id": 14,
-					"text": "&Decimal",
+					"name": "decimal",
+					"text": "Dec&imal",
 					"x": 68,
 					"y": 50,
 					"cx": 48,
@@ -464,6 +504,7 @@
 				{
 					"class": "button",
 					"id": 32,
+					"name": "leader_group",
 					"text": "Leader",
 					"x": 8,
 					"y": 76,
@@ -476,6 +517,7 @@
 				{
 					"class": "button",
 					"id": 15,
+					"name": "leader_none",
 					"text": "&None",
 					"x": 16,
 					"y": 88,
@@ -490,7 +532,8 @@
 				{
 					"class": "button",
 					"id": 16,
-					"text": "Do&ts",
+					"name": "dots",
+					"text": "&Dots",
 					"x": 16,
 					"y": 100,
 					"cx": 48,
@@ -502,6 +545,7 @@
 				{
 					"class": "button",
 					"id": 17,
+					"name": "hyphens",
 					"text": "&Hyphens",
 					"x": 68,
 					"y": 88,
@@ -514,6 +558,7 @@
 				{
 					"class": "button",
 					"id": 18,
+					"name": "leader_underline",
 					"text": "&Underline",
 					"x": 68,
 					"y": 100,
@@ -526,7 +571,8 @@
 				{
 					"class": "static",
 					"id": 33,
-					"text": "Tab &stops:",
+					"name": "stops_label",
+					"text": "&Tab stops:",
 					"x": 130,
 					"y": 10,
 					"cx": 60,
@@ -535,6 +581,7 @@
 				{
 					"class": "listbox",
 					"id": 19,
+					"name": "stops",
 					"x": 130,
 					"y": 20,
 					"cx": 114,
@@ -549,6 +596,7 @@
 				{
 					"class": "button",
 					"id": 20,
+					"name": "set",
 					"text": "&Set",
 					"x": 130,
 					"y": 80,
@@ -563,7 +611,8 @@
 				{
 					"class": "button",
 					"id": 21,
-					"text": "C&lear",
+					"name": "clear",
+					"text": "Cl&ear",
 					"x": 192,
 					"y": 80,
 					"cx": 52,
@@ -576,6 +625,7 @@
 				{
 					"class": "button",
 					"id": 22,
+					"name": "clear_all",
 					"text": "Clear &All",
 					"x": 130,
 					"y": 98,
@@ -589,6 +639,7 @@
 				{
 					"class": "button",
 					"id": 2,
+					"name": "close",
 					"text": "Close",
 					"x": 192,
 					"y": 98,
@@ -603,6 +654,7 @@
 		},
 		{
 			"id": 1005,
+			"name": "spelling",
 			"caption": "Spelling",
 			"x": 0,
 			"y": 0,
@@ -612,6 +664,7 @@
 				{
 					"class": "static",
 					"id": 30,
+					"name": "word_label",
 					"text": "Not in dictionary:",
 					"x": 8,
 					"y": 8,
@@ -621,6 +674,7 @@
 				{
 					"class": "static",
 					"id": 20,
+					"name": "word",
 					"text": "",
 					"x": 8,
 					"y": 18,
@@ -630,6 +684,7 @@
 				{
 					"class": "static",
 					"id": 21,
+					"name": "context",
 					"text": "",
 					"x": 8,
 					"y": 30,
@@ -642,6 +697,7 @@
 				{
 					"class": "static",
 					"id": 31,
+					"name": "change_label",
 					"text": "Change &to:",
 					"x": 8,
 					"y": 58,
@@ -651,6 +707,7 @@
 				{
 					"class": "edit",
 					"id": 10,
+					"name": "change_to",
 					"x": 8,
 					"y": 68,
 					"cx": 100,
@@ -664,6 +721,7 @@
 				{
 					"class": "static",
 					"id": 32,
+					"name": "suggestions_label",
 					"text": "Su&ggestions:",
 					"x": 8,
 					"y": 84,
@@ -673,6 +731,7 @@
 				{
 					"class": "listbox",
 					"id": 11,
+					"name": "suggestions",
 					"x": 8,
 					"y": 93,
 					"cx": 100,
@@ -687,6 +746,7 @@
 				{
 					"class": "button",
 					"id": 100,
+					"name": "ignore",
 					"text": "&Ignore",
 					"x": 196,
 					"y": 8,
@@ -701,6 +761,7 @@
 				{
 					"class": "button",
 					"id": 101,
+					"name": "ignore_all",
 					"text": "Ignore &All",
 					"x": 196,
 					"y": 26,
@@ -714,6 +775,7 @@
 				{
 					"class": "button",
 					"id": 102,
+					"name": "change",
 					"text": "&Change",
 					"x": 196,
 					"y": 48,
@@ -727,6 +789,7 @@
 				{
 					"class": "button",
 					"id": 103,
+					"name": "change_all",
 					"text": "Change A&ll",
 					"x": 196,
 					"y": 66,
@@ -740,6 +803,7 @@
 				{
 					"class": "button",
 					"id": 104,
+					"name": "add",
 					"text": "A&dd",
 					"x": 196,
 					"y": 88,
@@ -753,6 +817,7 @@
 				{
 					"class": "button",
 					"id": 2,
+					"name": "cancel",
 					"text": "Cancel",
 					"x": 196,
 					"y": 106,

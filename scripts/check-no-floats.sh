@@ -29,4 +29,10 @@ if [ -n "$hits" ]; then
 	echo "$hits" >&2
 	exit 1
 fi
+dialogs=$(grep -rnE '\b(f32|f64)\b' crates/quill-dialogs/src || true)
+if [ -n "$dialogs" ]; then
+	echo "check-no-floats: floating point in quill-dialogs:" >&2
+	echo "$dialogs" >&2
+	exit 1
+fi
 echo "check-no-floats: ok"
