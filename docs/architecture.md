@@ -32,6 +32,7 @@ flowchart TB
 		inflate["quill-inflate<br/>streaming deflate"]
 		app["quill-app<br/>commands, menus, painter"]
 		grid["quill-grid<br/>text-mode screens"]
+		dlg["quill-dlg<br/>dialog logic"]
 	end
 	subgraph tools["Host tools"]
 		help["quill-help (hlpc)<br/>WinHelp compiler"]
@@ -69,6 +70,7 @@ The rule that keeps it honest: **the core never names a platform.** Anything tha
 | `quill-formats` | `no_std`, no `alloc` | The `.QLD` RIFF reader and writer, the RTF subset reader and writer, plain text with ANSI and CP437 tables, all over `Source` and `Sink` byte-stream traits |
 | `quill-app` | `no_std`, no `alloc` | The `Command` enum, the menu tree and accelerator table (one definition for every build), enabled and checked state, status-line text, the `Surface` drawing trait and the painter for the page, ruler, toolbar and status bar |
 | `quill-grid` | `no_std`, no `alloc` | The text-mode renderer: document, menu bar, pull-downs, dialogs, help viewer and status line into a `Grid` of 80 × 25 or 80 × 50 cells (CP437 byte plus attribute) |
+| `quill-dlg` | `no_std`, no `alloc`, no floats, no panics | The logic of the file dialogs with no drawing: DOS 8.3 names, paths and wildcards (`name83`), the one table of file types and the Windows filter strings built from it (`types`), and the name and type Save As starts with and how the extension follows the type (`savename`); the key enum, the widgets' state (field, list, drop-down, check box, radio group) and the focus ring with mnemonics (`key`, `widgets`, `focus`). the `FileSystem` trait the shells implement and the file dialog's state machine over it (`fs`, `filedlg`), with an in-memory `FakeFs` behind the `fake` feature for host tests |
 | `quill-image` | `no_std`, no `alloc` | BMP and PNG decoding by rows into a caller's sink, scaling (box filter while decoding), dithering to 16 colours (ordered and error diffusion), the halftone palette, DIB building |
 | `quill-inflate` | `no_std`, no `alloc`, no `unsafe` | A streaming raw-deflate decoder with a 32 KB ring window and resumable state, grown from Lt. Fizz 2's `fizz-pack` decoder; used by PNG and by `.QPK` packs |
 | `quill-spell` | `no_std`, no `alloc` | `.DIC` page reader over a `PageSource`, word lookup, case rules, the bounded suggestion search, the user dictionary, the word scanner |
@@ -83,7 +85,7 @@ The rule that keeps it honest: **the core never names a platform.** Anything tha
 The portable crates and `quill-host` form the root Cargo workspace, built and tested with stable Rust. Each platform crate lives in its own workspace with its own target, toolchain file and lockfile, as Desk's `dos/` and the Liminal Installer's `retro/win16/` do, and reaches the portable crates by path:
 
 ```text
-crates/     quill-core quill-formats quill-image quill-inflate quill-spell quill-app quill-grid
+crates/     quill-core quill-formats quill-image quill-inflate quill-spell quill-app quill-grid quill-dlg
             quill-pack quill-help quill-dict quill-host
 win16/      quill-win16, the Win16 runtime (rt), tools, resources, segments.toml
 win9x/      quill-win9x, the Win32 runtime (rt), tools, resources
