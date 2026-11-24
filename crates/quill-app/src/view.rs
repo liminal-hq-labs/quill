@@ -501,14 +501,7 @@ impl PageGeom {
 			margin_t: to_units(page.margin_t, DPI),
 			top: 0,
 		};
-		let first = app.top_line();
-		let mut top = 0;
-		app.for_each_line(s, |i, l| {
-			if i == first {
-				top = g.cum(l);
-			}
-		});
-		g.top = top;
+		g.top = app.line_at(s, app.top_line()).map_or(0, |l| g.cum(&l));
 		g
 	}
 
@@ -545,10 +538,18 @@ impl<M: Measure + Clone> App<M> {
 		}
 		let mut top = idx;
 		let from = self.top;
-		self.lines(s, |i, line| {
-			if i >= from && i < top && g.cum(line) >= need {
-				top = i;
+		self.lines_from(s, from, |i, line| {
+			if i < from {
+				return true;
 			}
+			if i >= idx {
+				return false;
+			}
+			if g.cum(line) >= need {
+				top = i;
+				return false;
+			}
+			true
 		});
 		top
 	}
@@ -570,9 +571,9 @@ impl<M: Measure + Clone> App<M> {
 		let mut above: Option<(u32, i32)> = None;
 		let mut below: Option<(u32, i32)> = None;
 		let first = self.top;
-		self.lines(s, |i, l| {
+		self.lines_from(s, first, |i, l| {
 			if i < first {
-				return;
+				return true;
 			}
 			let top = g.line_y(l, area_top);
 			if above.is_none() || top <= y {
@@ -580,6 +581,8 @@ impl<M: Measure + Clone> App<M> {
 			} else if below.is_none() {
 				below = Some((i, top));
 			}
+			// Lines only go down from here: once one is below `y` nothing later can change the answer.
+			below.is_none()
 		});
 		match (above, below) {
 			(Some((_, bottom)), Some((b, top))) if y >= bottom && top - y < y - bottom => Some(b),

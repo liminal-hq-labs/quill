@@ -430,12 +430,17 @@ pub unsafe fn visible_span(hwnd: Handle, sh: &Shell) -> (u32, u32) {
 	let view_h = log(area.bottom - area.top, p);
 	let stride = view::stride(&sh.app);
 	let (margin_t, mut lo, mut hi) = (quill_core::layout::to_units(sh.app.doc().page.margin_t, 96), u32::MAX, 0);
-	sh.app.for_each_line(&sh.store, |_, l| {
+	let first_page = (sh.vpos.max(0) / stride.max(1)) as u32 + 1;
+	sh.app.for_each_line_from_page(&sh.store, first_page, |_, l| {
 		let y_top = view::rel((l.page as i32 - 1) * stride + margin_t + l.y, sh.vpos);
-		if y_top + l.ascent + l.descent >= 0 && y_top <= view_h {
+		if y_top > view_h {
+			return false;
+		}
+		if y_top + l.ascent + l.descent >= 0 {
 			lo = lo.min(l.start);
 			hi = hi.max(l.start + l.len + 1);
 		}
+		true
 	});
 	if lo > hi {
 		(0, 0)
@@ -463,12 +468,16 @@ pub unsafe fn invalidate_range(hwnd: Handle, sh: &Shell, lo: u32, hi: u32) {
 	let stride = view::stride(&sh.app);
 	let margin_t = quill_core::layout::to_units(sh.app.doc().page.margin_t, 96);
 	let (mut top, mut bottom) = (i32::MAX, i32::MIN);
-	sh.app.for_each_line(&sh.store, |_, l| {
-		if l.start <= hi && l.start + l.len + 1 > lo {
+	sh.app.for_each_line_from_pos(&sh.store, lo, |_, l| {
+		if l.start > hi {
+			return false;
+		}
+		if l.start + l.len + 1 > lo {
 			let y = view::rel((l.page as i32 - 1) * stride + margin_t + l.y, sh.vpos);
 			top = top.min(y);
 			bottom = bottom.max(y + l.ascent + l.descent);
 		}
+		true
 	});
 	if top > bottom {
 		return;

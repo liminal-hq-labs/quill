@@ -139,16 +139,19 @@ impl<M: Measure + Clone> App<M> {
 				None,
 			);
 		}
+		self.sync_layout(s);
 	}
 
 	/// Adds or changes a tab stop with a leader (0 none, 1 dots, 2 hyphens, 3 underline).
 	pub fn set_tab<S: Store + ?Sized>(&mut self, s: &mut S, pos: i32, kind: u8, leader: u8) {
 		self.tab_edit(s, "< Set >", Some(pos), kind, leader);
+		self.sync_layout(s);
 	}
 
 	/// Removes every tab stop of the selected paragraphs.
 	pub fn clear_tabs<S: Store + ?Sized>(&mut self, s: &mut S) {
 		self.tab_edit(s, "< Clear All >", None, 0, 0);
+		self.sync_layout(s);
 	}
 
 	/// The text, replacement and options the Find dialog last used.
@@ -200,6 +203,7 @@ impl<M: Measure + Clone> App<M> {
 			}
 		};
 		self.last_find = Some(st);
+		self.sync_layout(s);
 		self.scroll(s);
 		found
 	}

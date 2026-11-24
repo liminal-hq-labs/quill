@@ -494,14 +494,7 @@ pub fn status_text<M: Measure + Clone, S: ReadStore + ?Sized>(
 ) -> usize {
 	let caret = app.caret_line(s);
 	let caret_page = caret.map_or(1, |(_, l)| l.page);
-	let mut ln_in_page = 0u32;
-	if let Some((ci, _)) = caret {
-		app.lines(s, |i, l| {
-			if l.page == caret_page && i <= ci {
-				ln_in_page += 1;
-			}
-		});
-	}
+	let ln_in_page = caret.map_or(0, |(ci, _)| app.line_in_page(s, ci, caret_page));
 	let mut st = Row::new();
 	st.ansi = true;
 	status_into(app, s, caret, caret_page, ln_in_page, &mut st);
@@ -532,24 +525,14 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 	// The page.
 	let caret = app.caret_line(s);
 	let caret_page = caret.map_or(1, |(_, l)| l.page);
-	let mut ln_in_page = 0u32;
 	let mut counters: ListCounters = [[0u32; 9]; 4];
 	let mut cursor = None;
+	let mut caret_row = None;
 	// Rows are the layout's own: a line sits where its page and y put it, so spacing and tall lines show.
 	let page_rows = quill_core::layout::to_units(app.doc.page.text_h(), 6);
 	let cum = |l: &quill_core::layout::Line| (l.page as i32 - 1) * page_rows + l.y;
-	let mut top_cum = 0;
-	app.lines(s, |i, l| {
-		if i == app.top {
-			top_cum = cum(l);
-		}
-	});
-	app.lines(s, |i, l| {
-		if let Some((ci, _)) = caret {
-			if l.page == caret_page && i <= ci {
-				ln_in_page += 1;
-			}
-		}
+	let top_cum = app.line_at(s, app.top).map_or(0, |l| cum(&l));
+	app.lines_from(s, app.top, |i, l| {
 		let rel = cum(l) - top_cum;
 		let height = (l.ascent + l.descent).max(1);
 		let first_row = 1 + rel;
@@ -562,8 +545,12 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 				}
 			}
 		}
-		if i < app.top || rel >= text_rows as i32 || row_i < 1 {
-			return;
+		if i >= app.top && rel >= text_rows as i32 {
+			// Below the screen: nothing later is shown either.
+			return false;
+		}
+		if i < app.top || row_i < 1 {
+			return true;
 		}
 		let row = row_i as usize;
 		app.walk(s, l, |p, c, x, w, leader| {
@@ -629,12 +616,17 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 				g.put(col, row, ansi_to_cp437(c), a);
 			}
 		});
-		if let Some((ci, _)) = caret {
-			if ci == i {
-				cursor = Some((margin + app.x_of(s, l, app.caret) as usize, row));
-			}
+		if caret.is_some_and(|(ci, _)| ci == i) {
+			caret_row = Some((*l, row));
 		}
+		true
 	});
+	// The caret's x is worked out after the pass, not inside it: the pass and the walk of a line each hold a font cache on the stack,
+	// and a third one under them is more than a Windows 3.x stack has to spare.
+	if let Some((l, row)) = caret_row {
+		cursor = Some((margin + app.x_of(s, &l, app.caret) as usize, row));
+	}
+	let ln_in_page = caret.map_or(0, |(ci, _)| app.line_in_page(s, ci, caret_page));
 
 	// The menu bar.
 	g.fill(0, 0, COLS, 1, b' ', attr::CHROME);

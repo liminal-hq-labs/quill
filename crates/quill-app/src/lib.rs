@@ -28,13 +28,14 @@ pub mod platform;
 mod pointer;
 mod print;
 pub mod recent;
+mod reflow;
 pub mod script;
 mod spell_live;
 mod spelling;
 pub mod view;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
-use quill_core::layout::{layout_story, Line, Measure};
+use quill_core::layout::{Line, Measure};
 use quill_core::store::{ReadStore, Store};
 use quill_core::Error;
 use quill_formats::io::{Sink, Source};
@@ -403,6 +404,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) recent: recent::RecentList,
 	/// The settings section the recent files live in: `Recent` (DOS, Win16) or `Recent32`.
 	pub(crate) recent_section: &'static str,
+	/// The layout checkpoints of the body (see `reflow`).
+	pub(crate) reflow: reflow::Reflow,
 	/// The format the document was opened in: 0 native, 1 RTF, 2 text.
 	fmt: u8,
 	/// The view's zoom: a percentage, or 0 for the page's width.
@@ -454,6 +457,7 @@ impl<M: Measure + Clone> App<M> {
 			dialog: None,
 			folder: [0; NAME_MAX],
 			folder_len: 0,
+			reflow: reflow::Reflow::new(),
 			fmt: 0,
 			last_find: None,
 			about: Msg::new(),
@@ -472,6 +476,7 @@ impl<M: Measure + Clone> App<M> {
 	/// Starts an empty, untitled document.
 	pub fn reset<S: Store + ?Sized>(&mut self, s: &mut S) -> Result<(), Error> {
 		self.doc.init(s)?;
+		self.reflow.invalidate();
 		self.spell_forget();
 		self.caret = 0;
 		self.top = 0;
@@ -479,6 +484,7 @@ impl<M: Measure + Clone> App<M> {
 		self.modified = false;
 		self.mode = Mode::Edit;
 		self.typing = false;
+		self.sync_layout(s);
 		Ok(())
 	}
 
@@ -526,6 +532,7 @@ impl<M: Measure + Clone> App<M> {
 		self.discarded = false;
 		self.msg.clear();
 		self.run(s, f, c);
+		self.sync_layout(s);
 		self.scroll(s);
 	}
 
@@ -864,6 +871,20 @@ impl<M: Measure + Clone> App<M> {
 		f: &mut F,
 		name: &[u8],
 	) -> Result<(), FormatError> {
+		let r = self.open_file(s, f, name);
+		self.sync_layout(s);
+		r
+	}
+
+	/// Reads the file into a new document and swaps it in. A separate function, so the new document's 5 KB is off the stack when the
+	/// layout cache is made.
+	#[inline(never)]
+	fn open_file<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		name: &[u8],
+	) -> Result<(), FormatError> {
 		let mut head = [0u8; 12];
 		let n = f.open(name).ok_or(FormatError::BadFile)?.read(&mut head);
 		let native = n == 12 && head.starts_with(b"RIFF") && head.get(8..12) == Some(b"QLD1");
@@ -883,6 +904,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 		self.doc.reset(s);
 		core::mem::swap(&mut self.doc, &mut fresh);
+		self.reflow.invalidate();
 		self.spell_forget();
 		self.caret = 0;
 		self.top = 0;
@@ -934,52 +956,17 @@ impl<M: Measure + Clone> App<M> {
 		Ok(())
 	}
 
+	/// Every line of the body, from the first, with its index.
 	pub(crate) fn lines<S: ReadStore + ?Sized>(&self, s: &S, mut f: impl FnMut(u32, &Line)) {
-		let mut i = 0;
-		layout_story(
-			&self.doc,
-			s,
-			&mut self.measure.clone(),
-			quill_core::doc::StoryKind::Body,
-			|l| {
-				f(i, l);
-				i += 1;
-			},
-		);
+		self.lines_from(s, 0, |i, l| {
+			f(i, l);
+			true
+		});
 	}
 
 	/// The index and line holding the caret.
 	pub(crate) fn caret_line<S: ReadStore + ?Sized>(&self, s: &S) -> Option<(u32, Line)> {
 		self.line_for(s, self.caret)
-	}
-
-	/// The index and line holding position `pos`: the line it is on, except that the end of a line that wraps belongs to the next one.
-	pub(crate) fn line_for<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<(u32, Line)> {
-		let caret = pos;
-		let mut found: Option<(u32, Line)> = None;
-		let mut prev: Option<(u32, Line)> = None;
-		self.lines(s, |i, l| {
-			if found.is_none() {
-				if let Some((pi, p)) = prev {
-					let soft = l.start == p.start + p.len;
-					if caret >= p.start
-						&& caret <= p.start + p.len
-						&& !(soft && caret == p.start + p.len)
-					{
-						found = Some((pi, p));
-					}
-				}
-			}
-			prev = Some((i, *l));
-		});
-		if found.is_none() {
-			if let Some((pi, p)) = prev {
-				if caret >= p.start {
-					found = Some((pi, p));
-				}
-			}
-		}
-		found
 	}
 
 	/// The x of each character of a line, calling `f(position, character, x, width, leader)`. The leader is 0 except for a tab
@@ -1032,20 +1019,8 @@ impl<M: Measure + Clone> App<M> {
 		best.0
 	}
 
-	fn line_at<S: ReadStore + ?Sized>(&self, s: &S, idx: u32) -> Option<Line> {
-		let mut out = None;
-		self.lines(s, |i, l| {
-			if i == idx {
-				out = Some(*l);
-			}
-		});
-		out
-	}
-
 	fn line_count<S: ReadStore + ?Sized>(&self, s: &S) -> u32 {
-		let mut n = 0;
-		self.lines(s, |_, _| n += 1);
-		n
+		self.lines_total(s)
 	}
 
 	fn end_typing(&mut self) {
@@ -1264,6 +1239,7 @@ impl<M: Measure + Clone> App<M> {
 				core::mem::swap(&mut self.doc.body, &mut self.doc.first_footer)
 			}
 		}
+		self.reflow.invalidate();
 		let _ = s;
 	}
 
@@ -1778,6 +1754,7 @@ impl<M: Measure + Clone> App<M> {
 				_ => {}
 			},
 		}
+		self.sync_layout(s);
 		self.scroll(s);
 	}
 
@@ -2096,22 +2073,19 @@ impl<M: Measure + Clone> App<M> {
 			// On the text screen a row is a unit of layout, so spacing and tall lines count: move down until the caret's line fits.
 			let page_rows = quill_core::layout::to_units(self.doc.page.text_h(), 6);
 			let cum = |l: &Line| (l.page as i32 - 1) * page_rows + l.y;
-			let mut top = self.top;
-			loop {
-				let (mut top_cum, mut caret_end) = (0, 0);
-				self.lines(s, |i, l| {
-					if i == top {
-						top_cum = cum(l);
-					}
-					if i == idx {
-						caret_end = cum(l) + (l.ascent + l.descent).max(1);
-					}
-				});
-				if caret_end - top_cum <= rows as i32 || top >= idx {
-					break;
+			let caret_end = cum(&caret_line) + (caret_line.ascent + caret_line.descent).max(1);
+			let from = self.top;
+			let mut top = idx;
+			self.lines_from(s, from, |i, l| {
+				if i < from {
+					return true;
 				}
-				top += 1;
-			}
+				if i >= idx || caret_end - cum(l) <= rows as i32 {
+					top = i.min(idx);
+					return false;
+				}
+				true
+			});
 			self.top = top;
 		} else if idx >= self.top + rows {
 			self.top = idx + 1 - rows;
