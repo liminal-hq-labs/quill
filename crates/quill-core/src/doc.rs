@@ -388,6 +388,9 @@ impl<T: Pod + PartialEq, const CH: usize> Intern<T, CH> {
 	}
 }
 
+/// The largest paper size or margin a reader accepts, in twips (about 11,650 inches): three of them still add up in an `i32`.
+pub const PAGE_LIMIT: i32 = 1 << 24;
+
 /// Paper and margins, in twips.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct PageSetup {

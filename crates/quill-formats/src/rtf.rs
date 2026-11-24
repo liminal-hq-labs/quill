@@ -8,7 +8,7 @@
 
 use quill_core::doc::{
 	cflag, CFmt, Colour, Doc, Font, PFmt, StoryKind, TabSet, TabStop, MAX_COLOURS, MAX_FONTS,
-	MAX_STOPS, NO_TABS,
+	MAX_STOPS, NO_TABS, PAGE_LIMIT,
 };
 use quill_core::store::{ReadStore, Store};
 use quill_core::text::MAX_TEXT;
@@ -1378,14 +1378,14 @@ fn control<S: Store + ?Sized>(
 		// Document-level properties before the first text.
 		match w {
 			"deff" => st.deff = v.max(0) as u16,
-			"paperw" => st.doc.page.paper_w = v.max(1),
-			"paperh" => st.doc.page.paper_h = v.max(1),
-			"margl" => st.doc.page.margin_l = v.max(0),
-			"margr" => st.doc.page.margin_r = v.max(0),
-			"margt" => st.doc.page.margin_t = v.max(0),
-			"margb" => st.doc.page.margin_b = v.max(0),
-			"headery" => st.doc.page.header_dist = v.max(0),
-			"footery" => st.doc.page.footer_dist = v.max(0),
+			"paperw" => st.doc.page.paper_w = v.clamp(1, PAGE_LIMIT),
+			"paperh" => st.doc.page.paper_h = v.clamp(1, PAGE_LIMIT),
+			"margl" => st.doc.page.margin_l = v.clamp(0, PAGE_LIMIT),
+			"margr" => st.doc.page.margin_r = v.clamp(0, PAGE_LIMIT),
+			"margt" => st.doc.page.margin_t = v.clamp(0, PAGE_LIMIT),
+			"margb" => st.doc.page.margin_b = v.clamp(0, PAGE_LIMIT),
+			"headery" => st.doc.page.header_dist = v.clamp(0, PAGE_LIMIT),
+			"footery" => st.doc.page.footer_dist = v.clamp(0, PAGE_LIMIT),
 			"titlepg" => st.doc.page.flags |= 1,
 			"pgnstart" => st.doc.page.first_page = v.clamp(1, 65535) as u16,
 			_ => {}
@@ -1393,14 +1393,14 @@ fn control<S: Store + ?Sized>(
 	}
 	match w {
 		"deff" => st.deff = v.max(0) as u16,
-		"paperw" => st.doc.page.paper_w = v.max(1),
-		"paperh" => st.doc.page.paper_h = v.max(1),
-		"margl" => st.doc.page.margin_l = v.max(0),
-		"margr" => st.doc.page.margin_r = v.max(0),
-		"margt" => st.doc.page.margin_t = v.max(0),
-		"margb" => st.doc.page.margin_b = v.max(0),
-		"headery" => st.doc.page.header_dist = v.max(0),
-		"footery" => st.doc.page.footer_dist = v.max(0),
+		"paperw" => st.doc.page.paper_w = v.clamp(1, PAGE_LIMIT),
+		"paperh" => st.doc.page.paper_h = v.clamp(1, PAGE_LIMIT),
+		"margl" => st.doc.page.margin_l = v.clamp(0, PAGE_LIMIT),
+		"margr" => st.doc.page.margin_r = v.clamp(0, PAGE_LIMIT),
+		"margt" => st.doc.page.margin_t = v.clamp(0, PAGE_LIMIT),
+		"margb" => st.doc.page.margin_b = v.clamp(0, PAGE_LIMIT),
+		"headery" => st.doc.page.header_dist = v.clamp(0, PAGE_LIMIT),
+		"footery" => st.doc.page.footer_dist = v.clamp(0, PAGE_LIMIT),
 		"titlepg" => st.doc.page.flags |= 1,
 		"pgnstart" => st.doc.page.first_page = v.clamp(1, 65535) as u16,
 		"plain" => {
