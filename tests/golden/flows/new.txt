@@ -1,0 +1,63 @@
+> cmd New
+> dump
+= state
+text: ""
+caret: 0  selection: none
+name: ""
+modified: false
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> type "hello"
+> cmd New
+< ask "Save the changes to (Untitled) before a new document starts?" buttons="YesNoCancel" default="Yes"
+> cancel
+> dump
+= state
+text: "hello"
+caret: 5  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd New
+< ask "Save the changes to (Untitled) before a new document starts?" buttons="YesNoCancel" default="Yes"
+> answer No
+> dump
+= state
+text: ""
+caret: 0  selection: none
+name: ""
+modified: false
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> type "again"
+> cmd New
+< ask "Save the changes to (Untitled) before a new document starts?" buttons="YesNoCancel" default="Yes"
+> answer Yes
+< file SaveAs folder="" name="" type="0"
+> choose "AGAIN.QLD"
+> dump
+= state
+text: ""
+caret: 0  selection: none
+name: ""
+modified: false
+status: ""
+recent: ["AGAIN.QLD"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file AGAIN.QLD: 272 bytes fnv1a=b1916beb57035f47

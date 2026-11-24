@@ -1,0 +1,70 @@
+> type "words"
+> cmd SaveAs
+< file SaveAs folder="" name="" type="0"
+> choose "C:\\A\\ONE.TXT"
+> dump
+= state
+text: "words"
+caret: 5  selection: none
+name: "C:\\A\\ONE.TXT"
+modified: false
+status: ""
+recent: ["C:\\A\\ONE.TXT"]
+folder: "C:\\A\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file C:\A\ONE.TXT: 7 bytes "words\n"
+> cmd SaveAs
+< file SaveAs folder="C:\\A\\" name="ONE.TXT" type="2"
+> choose "C:\\B\\TWO.QLD"
+> dump
+= state
+text: "words"
+caret: 5  selection: none
+name: "C:\\B\\TWO.QLD"
+modified: false
+status: ""
+recent: ["C:\\B\\TWO.QLD", "C:\\A\\ONE.TXT"]
+folder: "C:\\B\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file C:\A\ONE.TXT: 7 bytes "words\n"
+file C:\B\TWO.QLD: 272 bytes fnv1a=29257409bd3df190
+> cmd SaveAs
+< file SaveAs folder="C:\\B\\" name="TWO.QLD" type="0"
+> choose "C:\\B\\THREE.RTF"
+> dump
+= state
+text: "words"
+caret: 5  selection: none
+name: "C:\\B\\THREE.RTF"
+modified: false
+status: ""
+recent: ["C:\\B\\THREE.RTF", "C:\\B\\TWO.QLD", "C:\\A\\ONE.TXT"]
+folder: "C:\\B\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file C:\A\ONE.TXT: 7 bytes "words\n"
+file C:\B\THREE.RTF: 212 bytes "{\\rtf1\\ansi\\ansicpg1252\\deff0\n{\\fonttbl{\\f0\\froman Times New Roman;}}\n{\\colortbl;}\n\\paperw12240\\paperh15840\\margl1800\\margr1800\\margt1440\\margb1440\\headery720\\footery720\n\\pard\\ql \\plain\\f0\\fs24 words\\par\n}\n"
+file C:\B\TWO.QLD: 272 bytes fnv1a=29257409bd3df190
+> cmd SaveAs
+< file SaveAs folder="C:\\B\\" name="THREE.RTF" type="1"
+> cancel
+> dump
+= state
+text: "words"
+caret: 5  selection: none
+name: "C:\\B\\THREE.RTF"
+modified: false
+status: ""
+recent: ["C:\\B\\THREE.RTF", "C:\\B\\TWO.QLD", "C:\\A\\ONE.TXT"]
+folder: "C:\\B\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file C:\A\ONE.TXT: 7 bytes "words\n"
+file C:\B\THREE.RTF: 212 bytes "{\\rtf1\\ansi\\ansicpg1252\\deff0\n{\\fonttbl{\\f0\\froman Times New Roman;}}\n{\\colortbl;}\n\\paperw12240\\paperh15840\\margl1800\\margr1800\\margt1440\\margb1440\\headery720\\footery720\n\\pard\\ql \\plain\\f0\\fs24 words\\par\n}\n"
+file C:\B\TWO.QLD: 272 bytes fnv1a=29257409bd3df190

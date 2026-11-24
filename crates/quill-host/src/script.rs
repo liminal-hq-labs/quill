@@ -33,6 +33,13 @@ impl quill_formats::io::Source for MemSource {
 /// A file being written.
 pub struct NamedSink(String, Vec<u8>);
 
+impl NamedSink {
+	/// The (upper-case) name being written.
+	pub fn name(&self) -> &str {
+		&self.0
+	}
+}
+
 impl quill_formats::io::Sink for NamedSink {
 	fn write(&mut self, data: &[u8]) -> bool {
 		self.1.extend_from_slice(data);

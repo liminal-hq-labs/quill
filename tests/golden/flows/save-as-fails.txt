@@ -1,0 +1,70 @@
+> type "words"
+> cmd SaveAs
+< file SaveAs folder="" name="" type="0"
+> choose "OLD.QLD"
+> type "!"
+> cmd SaveAs
+< file SaveAs folder="" name="OLD.QLD" type="0"
+> choose "LOCKED.RTF"
+< notice Status "Quill cannot save the file."
+> dump
+= state
+text: "words!"
+caret: 6  selection: none
+name: "OLD.QLD"
+modified: true
+status: "Quill cannot save the file."
+recent: ["OLD.QLD"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file OLD.QLD: 272 bytes fnv1a=29257409bd3df190
+> cmd SaveAs
+< file SaveAs folder="" name="OLD.QLD" type="0"
+> choose "FULL.TXT"
+< notice Status "Quill cannot save the file."
+> dump
+= state
+text: "words!"
+caret: 6  selection: none
+name: "OLD.QLD"
+modified: true
+status: "Quill cannot save the file."
+recent: ["OLD.QLD"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file OLD.QLD: 272 bytes fnv1a=29257409bd3df190
+> cmd Save
+> dump
+= state
+text: "words!"
+caret: 6  selection: none
+name: "OLD.QLD"
+modified: false
+status: ""
+recent: ["OLD.QLD"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file OLD.QLD: 274 bytes fnv1a=7251fc39b59cb53e
+> cmd SaveAs
+< file SaveAs folder="" name="OLD.QLD" type="0"
+> choose "NEW.RTF"
+> dump
+= state
+text: "words!"
+caret: 6  selection: none
+name: "NEW.RTF"
+modified: false
+status: ""
+recent: ["NEW.RTF", "OLD.QLD"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file NEW.RTF: 213 bytes "{\\rtf1\\ansi\\ansicpg1252\\deff0\n{\\fonttbl{\\f0\\froman Times New Roman;}}\n{\\colortbl;}\n\\paperw12240\\paperh15840\\margl1800\\margr1800\\margt1440\\margb1440\\headery720\\footery720\n\\pard\\ql \\plain\\f0\\fs24 words!\\par\n}\n"
+file OLD.QLD: 274 bytes fnv1a=7251fc39b59cb53e

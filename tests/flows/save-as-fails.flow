@@ -1,0 +1,24 @@
+# A Save As that fails keeps the document's old name, format and recent files; the one that follows works.
+@locked LOCKED.RTF
+@full FULL.TXT
+type "words"
+cmd SaveAs
+expect file SaveAs
+choose "OLD.QLD"
+type "!"
+cmd SaveAs
+expect file SaveAs name="OLD.QLD" type=0
+choose "LOCKED.RTF"
+expect notice "Quill cannot save the file." Status
+dump
+cmd SaveAs
+expect file SaveAs name="OLD.QLD"
+choose "FULL.TXT"
+expect notice "Quill cannot save the file." Status
+dump
+cmd Save
+dump
+cmd SaveAs
+expect file SaveAs name="OLD.QLD"
+choose "NEW.RTF"
+dump
