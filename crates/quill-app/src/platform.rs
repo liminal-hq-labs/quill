@@ -352,13 +352,13 @@ mod tests {
 		let mut buf = [0u8; 120];
 		let n = dos_about(&mut buf, (6, 22), (0, 9), 65536, Some(90266));
 		assert_eq!(
-			core::str::from_utf8(&buf[..n]).unwrap(),
-			"MS-DOS, DPMI 0.9 on DOS 6.22\nFree memory: 90266 KB, largest block 65536 KB"
+			core::str::from_utf8(buf.get(..n).unwrap_or(&[])),
+			Ok("MS-DOS, DPMI 0.9 on DOS 6.22\nFree memory: 90266 KB, largest block 65536 KB")
 		);
 		let n = dos_about(&mut buf, (7, 1), (1, 0), 4096, None);
 		assert_eq!(
-			core::str::from_utf8(&buf[..n]).unwrap(),
-			"MS-DOS, DPMI 1.0 on DOS 7.01\nFree memory: 4096 KB free"
+			core::str::from_utf8(buf.get(..n).unwrap_or(&[])),
+			Ok("MS-DOS, DPMI 1.0 on DOS 7.01\nFree memory: 4096 KB free")
 		);
 	}
 }
