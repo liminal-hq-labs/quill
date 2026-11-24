@@ -102,29 +102,7 @@ fn parse(r: &Row) -> Option<u32> {
 
 /// Parses a position in inches with up to two decimals ("1", "1.5", "0.25") into twips.
 fn parse_inches(r: &Row) -> Option<i32> {
-	let t = r.text.get(..r.len)?;
-	let (mut whole, mut frac, mut digits, mut dot) = (0i32, 0i32, 0, false);
-	for &c in t {
-		match c {
-			b'0'..=b'9' if !dot => {
-				whole = whole.checked_mul(10)?.checked_add(i32::from(c - b'0'))?
-			}
-			b'0'..=b'9' if digits < 2 => {
-				frac = frac * 10 + i32::from(c - b'0');
-				digits += 1;
-			}
-			b'.' if !dot => dot = true,
-			_ => return None,
-		}
-	}
-	if t.is_empty() {
-		return None;
-	}
-	while digits < 2 {
-		frac *= 10;
-		digits += 1;
-	}
-	whole.checked_mul(1440)?.checked_add(frac * 1440 / 100)
+	crate::flow::parse_inches(r.text.get(..r.len)?)
 }
 
 impl<M: Measure + Clone> App<M> {
