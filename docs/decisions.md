@@ -2,6 +2,26 @@
 
 Each decision is numbered and stays here even when superseded, with a note on what replaced it. Open questions move here once they are answered. Rows marked **Assumed** were made while the owner was away, from a brief that asked for reasonable assumptions; each stands until the owner confirms or changes it.
 
+## Numbering
+
+New decisions use an area prefix, not a global number, so parallel work does not clash. An ID is the prefix and a number (`LNX-1`), and a sub-decision adds a dot (`LNX-1.1`, `LNX-1.2`) under the decision it refines. Each area counts from 1 in its own rows.
+
+| Prefix | Area |
+|---|---|
+| CORE | Shared core crates |
+| ARCH | Layering and crate splits |
+| DOS | DOS, text and graphics |
+| W16 | Windows 3.x |
+| W9X | Windows 95, 98 and Me |
+| LNX | Linux |
+| WUI | WinUI 3 and Windows 11 |
+| WEB | Web |
+| DSK | Desk OS |
+| INS | Installer and release media |
+| SITE | Site and docs |
+
+The numbers `D1` to `D2xx` below are legacy and frozen: they keep their rows and stay valid as references, and in-flight work that already uses `D200` to `D214` and `D250` to `D259` keeps those numbers. Nothing new takes a `D` number.
+
 | # | Decision | Choice | Alternatives considered | Why |
 |---|---|---|---|---|
 | D1 | Home | A Liminal HQ Labs experiment in `liminal-hq-labs/quill`, public from the first commit | — | Try the idea in the open before it earns a place in Liminal HQ |

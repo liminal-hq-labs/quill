@@ -96,6 +96,7 @@ Use `#` comments for shell, YAML, TOML and Dockerfiles, and an XML comment for S
 - **One file format.** Only `quill-formats` reads or writes documents, and every build saves the same bytes for the same document.
 - **Win32 and DOS lead, Win16 follows.** Windows UI lands on Win32 first and editing behaviour on DOS text mode first; Win16 ports a working design (D34, D37).
 - **SPEC first.** A change to behaviour, interfaces, settings or defaults updates `SPEC.md` in the same change.
+- **Decision IDs.** New decisions in `docs/decisions.md` take an area prefix (`CORE`, `ARCH`, `DOS`, `W16`, `W9X`, `LNX`, `WUI`, `WEB`, `DSK`, `INS`, `SITE`) and a number, such as `LNX-1`, with sub-decisions as `LNX-1.1`. Legacy `D1` to `D2xx` numbers are frozen and stay valid as references; nothing new takes one.
 
 ## Testing
 
