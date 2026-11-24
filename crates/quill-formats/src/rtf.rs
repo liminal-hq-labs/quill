@@ -617,7 +617,12 @@ impl<S: Store + ?Sized> State<'_, S> {
 				}
 				x
 			};
-			let be = |i: usize| u32::from_be_bytes(at(i));
+			// Not `u32::from_be_bytes`: it becomes `bswap`, which a 386 does not have.
+			let be = |i: usize| {
+				at(i)
+					.iter()
+					.fold(0u32, |a, &x| (a << 8) | u32::from(core::hint::black_box(x)))
+			};
 			let le = |i: usize| u32::from_le_bytes(at(i));
 			if p.kind == 1 {
 				if h.get(..8) == Some(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A][..])

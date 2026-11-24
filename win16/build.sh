@@ -44,6 +44,7 @@ for prog in probe icontest segtest quill stackprobe helptest; do
 	python3 tools/ne_pack.py --module "$upper" --description "Quill Win16 $prog" --map "$out/$upper.MAP" \
 		${PACK_ARGS[@]+"${PACK_ARGS[@]}"} ${RES_ARGS[@]+"${RES_ARGS[@]}"} "$elf_dir/$prog" "$out/$upper.EXE"
 	python3 tools/check_segments.py "$out/$upper.EXE"
+	python3 tools/check_cpu.py "$out/$upper.EXE"
 	# The icon, the toolbar bitmap and the five dialogs.
 	[ "$prog" != quill ] || python3 tools/check_resources.py "$out/$upper.EXE" 14:1 2:2 5:1001 5:1002 5:1003 5:1004 5:1005
 	echo "built: $out/$upper.EXE ($(wc -c <"$out/$upper.EXE") bytes)"

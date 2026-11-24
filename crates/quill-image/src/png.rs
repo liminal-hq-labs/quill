@@ -13,7 +13,7 @@ const MAX_RAW: usize = MAX_SIDE as usize * 8 + 1;
 
 fn be32<S: Source>(r: &mut S) -> Option<u32> {
 	let mut b = [0u8; 4];
-	(r.read(&mut b) == 4).then(|| u32::from_be_bytes(b))
+	(r.read(&mut b) == 4).then(|| crate::be32_bytes(b))
 }
 
 fn skip<S: Source>(r: &mut S, mut n: u32) -> Option<()> {
@@ -200,8 +200,8 @@ pub fn decode_rows<S: Source>(
 					return Err(bad);
 				}
 				let (w, h) = (
-					u32::from_be_bytes([b[0], b[1], b[2], b[3]]),
-					u32::from_be_bytes([b[4], b[5], b[6], b[7]]),
+					crate::be32_bytes([b[0], b[1], b[2], b[3]]),
+					crate::be32_bytes([b[4], b[5], b[6], b[7]]),
 				);
 				let (depth, colour, interlace) = (b[8], b[9], b[12]);
 				let ok = match colour {
@@ -413,7 +413,7 @@ fn image_data<S: Source>(
 	for v in ad.iter_mut() {
 		*v = next().ok_or(bad)?;
 	}
-	if u32::from_be_bytes(ad) != (ad_b << 16) | ad_a || next().is_some() {
+	if crate::be32_bytes(ad) != (ad_b << 16) | ad_a || next().is_some() {
 		return Err(bad);
 	}
 	if crc_bad {
@@ -432,8 +432,8 @@ pub fn read_size<S: Source>(r: &mut S) -> Result<(u32, u32), ImageError> {
 	{
 		return Err(bad);
 	}
-	let w = u32::from_be_bytes([head[16], head[17], head[18], head[19]]);
-	let h = u32::from_be_bytes([head[20], head[21], head[22], head[23]]);
+	let w = crate::be32_bytes([head[16], head[17], head[18], head[19]]);
+	let h = crate::be32_bytes([head[20], head[21], head[22], head[23]]);
 	if w == 0 || h == 0 || w > MAX_SIDE || h > MAX_SIDE {
 		return Err(ImageError::TooLarge);
 	}

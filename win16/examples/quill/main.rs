@@ -13,7 +13,9 @@
 
 mod chrome;
 mod dialogs;
+mod far;
 mod gdi;
+mod picture;
 mod store;
 
 use core::mem::MaybeUninit;
@@ -33,6 +35,8 @@ const WM_ERASEBKGND: u32 = 0x0014;
 const WM_KEYDOWN: u32 = 0x0100;
 const WM_CHAR: u32 = 0x0102;
 const WM_TIMER: u32 = 0x0113;
+/// The timer that `/EXIT` sets; timer 1 steps a `/PLAY` script.
+const EXIT_TIMER: u32 = 2;
 const WM_HSCROLL: u32 = 0x0114;
 const WM_VSCROLL: u32 = 0x0115;
 const WM_MOUSEMOVE: u32 = 0x0200;
@@ -783,26 +787,35 @@ struct Play {
 	at: usize,
 	frames: u32,
 	out: u32,
-	stage: [u8; 512],
+	/// The far address of the 512-byte staging buffer for the screen dump (after the script, in the same block of global memory).
+	stage: u32,
 	staged: usize,
 }
+
+/// The staging buffer's size, and where it starts in the script's block.
+const STAGE: usize = 512;
+const SCRIPT_MAX: usize = 16384;
 
 static mut PLAY: Option<Play> = None;
 
 impl Play {
 	fn put(&mut self, data: &[u8]) {
-		for &b in data {
-			if self.staged == self.stage.len() {
+		let mut rest = data;
+		while !rest.is_empty() {
+			if self.staged == STAGE {
 				self.flush();
 			}
-			self.stage[self.staged] = b;
-			self.staged += 1;
+			let n = rest.len().min(STAGE - self.staged);
+			let (now, later) = rest.split_at(n);
+			unsafe { far_write(self.stage + self.staged as u32, now.as_ptr(), n) };
+			self.staged += n;
+			rest = later;
 		}
 	}
 
 	fn flush(&mut self) {
 		if self.staged > 0 {
-			unsafe { _lwrite(self.out, self.stage.as_ptr() as u32, self.staged as u32) };
+			unsafe { _lwrite_far(self.out, self.stage, self.staged as u32) };
 			self.staged = 0;
 		}
 	}
@@ -961,7 +974,7 @@ fn play(hwnd: u32) {
 			break;
 		}
 	}
-	app().save_settings(&mut Win16Files);
+	save_settings();
 	write_stack_log();
 	pl.put(b"=== end ===\n");
 	pl.flush();
@@ -994,9 +1007,10 @@ fn write_stack_log() {
 }
 
 /// Reads the script `name` into a block of global memory. Applies `@mono`, and returns the block, its length and the file `@open` names.
+#[inline(never)]
 fn load_script(name: &[u8]) -> Option<(u32, usize, [u8; 32], usize)> {
 	let mut src = Win16Files.open(name)?;
-	let h = unsafe { GlobalAlloc(0x0042, 16384) } as u16;
+	let h = unsafe { GlobalAlloc(0x0042, (SCRIPT_MAX + STAGE) as u32) } as u16;
 	if h == 0 {
 		return None;
 	}
@@ -1005,7 +1019,7 @@ fn load_script(name: &[u8]) -> Option<(u32, usize, [u8; 32], usize)> {
 	let mut buf = [0u8; 256];
 	loop {
 		let got = src.read(&mut buf);
-		if got == 0 || len + got > 16384 {
+		if got == 0 || len + got > SCRIPT_MAX {
 			break;
 		}
 		unsafe { far_write(far_ptr + len as u32, buf.as_ptr(), got) };
@@ -1018,7 +1032,7 @@ fn load_script(name: &[u8]) -> Option<(u32, usize, [u8; 32], usize)> {
 		at: 0,
 		frames: 0,
 		out: 0,
-		stage: [0; 512],
+		stage: far_ptr + SCRIPT_MAX as u32,
 		staged: 0,
 	};
 	let mut opened = ([0u8; 32], 0usize);
@@ -1086,7 +1100,12 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				0
 			}
 			WM_TIMER => {
-				play(hwnd);
+				if wparam == EXIT_TIMER {
+					KillTimer(hwnd, EXIT_TIMER);
+					DestroyWindow(hwnd);
+				} else {
+					play(hwnd);
+				}
 				0
 			}
 			WM_SIZE => {
@@ -1160,6 +1179,7 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 	}
 }
 
+#[inline(never)]
 fn build_menu() -> u32 {
 	unsafe {
 		let bar = CreateMenu();
@@ -1209,6 +1229,28 @@ fn init_app(measure: Gdi16) {
 		let a = &mut *core::ptr::addr_of_mut!(APP);
 		a.write(QApp::with_measure(measure));
 		let _ = app().reset(store());
+	}
+}
+
+/// Settings and the file named on the command line, each in a function of its own: the editor's `open` and the settings code keep
+/// buffers in their frames, and inlined into `w16_main` (whose frame lasts for the whole run) they would take that much stack.
+#[inline(never)]
+fn load_settings() {
+	app().load_settings(&mut Win16Files);
+}
+
+#[inline(never)]
+fn save_settings() {
+	app().save_settings(&mut Win16Files);
+}
+
+#[inline(never)]
+fn open_file(name: &[u8]) {
+	if let Err(e) = app().open(store(), &mut Win16Files, name) {
+		unsafe { picture::OPEN_FAILED = Some(e) };
+	} else if unsafe { store::REFUSALS } > 0 {
+		// The reader drops a picture it cannot hold and goes on; say so.
+		app().set_message("Picture too large for the memory available");
 	}
 }
 
@@ -1277,6 +1319,8 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 	let mut dump_file: Option<([u8; 32], usize)> = None;
 	let mut open: Option<([u8; 32], usize)> = None;
 	let mut mono = false;
+	// `/EXIT [SECONDS]` closes the window, and ends Windows, after a while (for a test harness that reads the logs).
+	let mut exit_after: Option<u32> = None;
 	let mut words = cmd[..n].split(|b| *b == b' ').filter(|w| !w.is_empty());
 	let take = |w: Option<&[u8]>| {
 		let w = w?;
@@ -1295,6 +1339,8 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 			w16::fault::install();
 		} else if w.eq_ignore_ascii_case(b"/MONO") {
 			mono = true;
+		} else if w.eq_ignore_ascii_case(b"/EXIT") {
+			exit_after = Some(20);
 		} else if w[0] != b'/' {
 			open = take(Some(w));
 		}
@@ -1316,7 +1362,7 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 	app().set_native_dialogs(!gridview);
 	// With a script, files are found beside the program.
 	unsafe { USE_HERE = gridview };
-	app().load_settings(&mut Win16Files);
+	load_settings();
 	app().set_about(if gridview {
 		"Host test run"
 	} else {
@@ -1332,7 +1378,7 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		}
 	}
 	if let Some((name, len)) = &open {
-		let _ = app().open(store(), &mut Win16Files, &name[..*len]);
+		open_file(&name[..*len]);
 	}
 	unsafe {
 		if let (Some((name, len)), true) = (&dump_file, gridview) {
@@ -1346,7 +1392,7 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 					at: 0,
 					frames: 0,
 					out,
-					stage: [0; 512],
+					stage: text + SCRIPT_MAX as u32,
 					staged: 0,
 				});
 			}
@@ -1419,6 +1465,9 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		if (*core::ptr::addr_of!(PLAY)).is_some() {
 			SetTimer(hwnd, 1, 300, 0);
 		}
+		if let Some(secs) = exit_after {
+			SetTimer(hwnd, EXIT_TIMER, secs * 1000, 0);
+		}
 		let mut msg = core::mem::zeroed::<Msg>();
 		while GetMessage(&mut msg as *mut Msg as u32, 0, 0, 0) != 0 {
 			TranslateMessage(&mut msg as *mut Msg as u32);
@@ -1427,10 +1476,14 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		if gridview {
 			ExitWindows(0, 0);
 		} else {
-			app().save_settings(&mut Win16Files);
+			save_settings();
 			// How deep the stack went in this session, beside the program, for `tools/check_stack_log.py`.
 			USE_HERE = true;
 			write_stack_log();
+			picture::write_log();
+			if exit_after.is_some() {
+				ExitWindows(0, 0);
+			}
 		}
 	}
 	0
