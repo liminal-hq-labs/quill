@@ -93,8 +93,9 @@ pub(crate) struct Live {
 	failed: bool,
 	chunk: Option<ChunkId>,
 	n: u8,
-	/// The story and the length the marks were made for.
+	/// The story and the length the marks were made for, and the mark whose word is read again next.
 	view: u8,
+	verify: u8,
 	synced: u32,
 	/// The positions on the screen, and the part of them that is checked.
 	vis: Range,
@@ -120,6 +121,7 @@ impl Live {
 			chunk: None,
 			n: 0,
 			view: 0,
+			verify: 0,
 			synced: 0,
 			vis: NONE,
 			done: NONE,
@@ -396,22 +398,26 @@ impl<M: Measure + Clone> App<M> {
 		true
 	}
 
-	/// Makes the marks agree with the text: another length or story, or a mark whose word has changed, drops what cannot be trusted.
+	/// Makes the marks agree with the text: another length or story drops every mark, and one mark a call (in turn) has its word read
+	/// again and checked against its hash, so a mark the typing paths did not follow is found within a few calls.
 	fn live_sync<S: Store + ?Sized>(&mut self, s: &mut S) {
 		if self.spell.live.synced != self.doc.body.len() || self.spell.live.view != self.view {
 			self.live_forget();
 			return;
 		}
 		let n = usize::from(self.spell.live.n);
-		let mut w = 0;
-		let mut gone = NONE;
-		for i in 0..n {
-			let Some(m) = self.mark_get(s, i) else {
-				continue;
-			};
-			let mut buf = [0u8; MAX_WORD];
-			let len = usize::from(m.len).min(MAX_WORD);
-			let ok = (0..len).all(|k| match self.doc.body.read_byte(s, m.start + k as u32) {
+		if n == 0 {
+			return;
+		}
+		let i = usize::from(self.spell.live.verify) % n;
+		self.spell.live.verify = self.spell.live.verify.wrapping_add(1);
+		let Some(m) = self.mark_get(s, i) else {
+			return;
+		};
+		let mut buf = [0u8; MAX_WORD];
+		let len = usize::from(m.len);
+		let ok = len <= MAX_WORD
+			&& (0..len).all(|k| match self.doc.body.read_byte(s, m.start + k as u32) {
 				Some(b) => {
 					if let Some(d) = buf.get_mut(k) {
 						*d = if b == 0x92 { b'\'' } else { b };
@@ -420,19 +426,9 @@ impl<M: Measure + Clone> App<M> {
 				}
 				None => false,
 			});
-			if ok && usize::from(m.len) <= MAX_WORD && hash(buf.get(..len).unwrap_or(&[])) == m.hash
-			{
-				if w != i {
-					self.mark_put(s, w, m);
-				}
-				w += 1;
-			} else {
-				gone = union(gone, (m.start, m.end()));
-			}
+		if !(ok && hash(buf.get(..len).unwrap_or(&[])) == m.hash) {
+			self.mark_clear_range(s, (m.start, m.end()));
 		}
-		let l = &mut self.spell.live;
-		l.n = w as u8;
-		l.changed = union(l.changed, gone);
 	}
 
 	/// True when the caret is in or against the word `r`.
