@@ -1,0 +1,78 @@
+File        letter.rtf
+Format      Rich Text Format (RTF)
+Size        1260 bytes
+Characters  492
+Words       91
+Paragraphs  9
+Pictures    0
+Fonts       Times New Roman, Arial, Courier New
+Paper       8.50 x 11.00 in
+Margins     left 1.25, right 1.25, top 1.00, bottom 1.00 in
+Headers     none
+Text pages  1
+
+File        lists.rtf
+Format      Rich Text Format (RTF)
+Size        627 bytes
+Characters  63
+Words       11
+Paragraphs  7
+Pictures    0
+Fonts       Times New Roman
+Paper       8.50 x 11.00 in
+Margins     left 1.25, right 1.25, top 1.00, bottom 1.00 in
+Headers     none
+Text pages  1
+
+File        headers.rtf
+Format      Rich Text Format (RTF)
+Size        338 bytes
+Characters  50
+Words       11
+Paragraphs  1
+Pictures    0
+Fonts       Times New Roman
+Paper       8.50 x 11.00 in
+Margins     left 1.25, right 1.25, top 1.00, bottom 1.00 in
+Headers     header, footer
+Text pages  1
+
+File        pictures.rtf
+Format      Rich Text Format (RTF)
+Size        36492 bytes
+Characters  41
+Words       10
+Paragraphs  5
+Pictures    2
+Fonts       Times New Roman
+Paper       8.50 x 11.00 in
+Margins     left 1.25, right 1.25, top 1.00, bottom 1.00 in
+Headers     none
+Text pages  1
+
+File        plain.qld
+Format      Quill document (QLD)
+Size        858 bytes
+Characters  539
+Words       87
+Paragraphs  9
+Pictures    0
+Fonts       Times New Roman
+Paper       8.50 x 11.00 in
+Margins     left 1.25, right 1.25, top 1.00, bottom 1.00 in
+Headers     none
+Text pages  1
+
+File        letter.qld
+Format      Quill document (QLD)
+Size        1202 bytes
+Characters  492
+Words       91
+Paragraphs  9
+Pictures    0
+Fonts       Times New Roman, Arial, Courier New
+Paper       8.50 x 11.00 in
+Margins     left 1.25, right 1.25, top 1.00, bottom 1.00 in
+Headers     none
+Text pages  1
+

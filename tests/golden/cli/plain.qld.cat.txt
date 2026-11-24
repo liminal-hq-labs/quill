@@ -1,0 +1,10 @@
+Quill: a plain document
+Quill is a small word processor for DOS, Windows 3.1 and Windows 95, written in Rust. This paragraph is long enough to wrap onto several lines in a sixty column text area, and its lines break after spaces and hyphens, never in the middle of a word unless the word is wider than the line.
+
+Name	Quantity	Price
+Quills	12	3.50
+Ink bottles	3	8.25
+
+A line break
+keeps the paragraph together, and a supercalifragilisticexpialidocious-looking-word-that-has-no-spaces-and-is-far-longer-than-a-line is cut where it must be.
+The end.

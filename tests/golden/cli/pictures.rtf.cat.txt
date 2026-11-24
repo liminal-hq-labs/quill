@@ -1,0 +1,5 @@
+A PNG picture:
+[Picture 64 x 48]
+A bitmap picture:
+[Picture 64 x 48]
+The end.
