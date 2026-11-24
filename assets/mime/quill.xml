@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Quill document (.QLD) for shared-mime-info, so file managers name and open it.
+
+  (c) Copyright 2026 Liminal HQ, Scott Morris
+  SPDX-License-Identifier: Apache-2.0 OR MIT
+
+  Install: copy to ~/.local/share/mime/packages/ and run `update-mime-database ~/.local/share/mime`.
+-->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+	<mime-type type="application/x-quill-document">
+		<comment>Quill document</comment>
+		<sub-class-of type="application/x-riff"/>
+		<magic priority="60">
+			<match type="string" value="RIFF" offset="0">
+				<match type="string" value="QLD1" offset="8"/>
+			</match>
+		</magic>
+		<glob pattern="*.qld" weight="60"/>
+		<glob pattern="*.QLD" weight="60"/>
+	</mime-type>
+</mime-info>

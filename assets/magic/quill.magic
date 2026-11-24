@@ -1,0 +1,15 @@
+# Quill document (.QLD) for file(1) and libmagic.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+#
+# A .QLD file is a RIFF file with form type QLD1 whose first chunk is HEAD, holding the format version as two little-endian 16-bit numbers (see docs/decisions.md D12 and crates/quill-formats/src/qld.rs).
+# Install: copy to /etc/magic or ~/.magic, or run `file -m assets/magic/quill.magic FILE`. `file -C -m assets/magic/quill.magic` compiles it to quill.magic.mgc.
+
+0	string	RIFF
+>8	string	QLD1	Quill document
+!:mime	application/x-quill-document
+!:ext	qld
+>>12	string	HEAD
+>>>20	leshort	x	\b, version %d
+>>>22	leshort	x	\b.%d

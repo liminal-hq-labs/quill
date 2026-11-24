@@ -5,7 +5,7 @@
 
 .PHONY: dos validate fmt clippy test headers floats goldens
 
-validate: fmt clippy test headers floats
+validate: fmt clippy test headers floats magic
 	@echo "validate: ok"
 
 fmt:
@@ -22,6 +22,9 @@ headers:
 
 floats:
 	bash scripts/check-no-floats.sh
+
+magic:
+	bash scripts/check-magic.sh
 
 # Rewrites the goldens from the current code. Review the diff like code.
 goldens:
