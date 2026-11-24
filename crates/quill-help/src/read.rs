@@ -123,9 +123,8 @@ impl<'a> Hlp<'a> {
 	pub fn topics(&self) -> Result<Vec<Topic>, HelpError> {
 		let sys = self.system()?;
 		let raw = self.file("|TOPIC").ok_or(HelpError::Bad("no |TOPIC"))?;
-		let compressed = sys.minor > 16 && sys.flags != 0 && sys.flags != 0 && (sys.flags == 4 || sys.flags & 4 != 0 || sys.flags != 0);
-		let tb = if sys.minor <= 16 { 0x800 } else if sys.flags == 0 || sys.flags == 4 { 0x1000 } else { 0x800 };
-		let dsize = if compressed { 0x4000 } else { tb - 0x0C };
+		let compressed = sys.minor > 16 && sys.flags != 0 && sys.flags != 2;
+		let tb = if sys.minor <= 16 || sys.flags == 2 || sys.flags == 8 { 0x800 } else { 0x1000 };
 		let mut blocks: Vec<Vec<u8>> = Vec::new();
 		for chunk in raw.chunks(tb) {
 			if chunk.len() < 0x0C {
@@ -299,15 +298,11 @@ fn paragraph(rec: &[u8]) -> String {
 	let size = u32at(rec, 4) as usize;
 	let text = rec.get(datalen..).unwrap_or(&[]);
 	let text = &text[..text.len().min(size.max(text.len().min(size)))];
-	let mut f = 0x15;
-	fetch_long(rec, &mut f);
-	let _len = fetch_ushort(rec, &mut f);
-	let _ = _len;
-	// The paragraph's format: after the record header, `fetch_long`, then the two-byte start of the text format.
+	// The paragraph information: a long and a ushort, four bytes of flags, then the bit field.
 	let mut p = 0x15;
 	fetch_long(rec, &mut p);
 	fetch_ushort(rec, &mut p);
-	// A display paragraph then has: the size of the topic part (a long), the bit field and the optional values.
+	p += 4;
 	let bits = u16at(rec, p);
 	p += 2;
 	if bits & 0x0001 != 0 {
@@ -321,6 +316,7 @@ fn paragraph(rec: &[u8]) -> String {
 	if bits & 0x0100 != 0 {
 		p += 3;
 	}
+	let _ = fetch_ushort;
 	if bits & 0x0200 != 0 {
 		let n = fetch_short(rec, &mut p);
 		for _ in 0..n {
@@ -405,11 +401,11 @@ impl Hlp<'_> {
 	pub fn topic_blocks(&self) -> Result<Vec<Vec<u8>>, HelpError> {
 		let sys = self.system()?;
 		let raw = self.file("|TOPIC").ok_or(HelpError::Bad("no |TOPIC"))?;
-		let tb = if sys.minor <= 16 { 0x800 } else { 0x1000 };
+		let tb = if sys.minor <= 16 || sys.flags == 2 || sys.flags == 8 { 0x800 } else { 0x1000 };
 		let mut out = Vec::new();
 		for chunk in raw.chunks(tb) {
 			if chunk.len() >= 0x0C {
-				out.push(if sys.minor > 16 && sys.flags & 4 != 0 { lz77(&chunk[0x0C..]) } else { chunk[0x0C..].to_vec() });
+				out.push(if sys.minor > 16 && sys.flags != 0 && sys.flags != 2 { lz77(&chunk[0x0C..]) } else { chunk[0x0C..].to_vec() });
 			}
 		}
 		Ok(out)

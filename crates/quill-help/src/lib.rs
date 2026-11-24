@@ -6,6 +6,7 @@
 // The format is implemented from published descriptions of it (Manfred Winterhoff's helpfile.txt, and the way the free `winhlp32` reads
 // a file, which explains behaviour without any of its code being used here) and checked against the real WINHELP.EXE of Windows 3.11
 // and against the .HLP files that shipped with it. Nothing here depends on the rest of Quill.
+pub mod qhm;
 pub mod read;
 pub mod write;
 

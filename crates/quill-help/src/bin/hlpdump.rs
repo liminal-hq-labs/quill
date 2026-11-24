@@ -33,7 +33,12 @@ fn main() {
 		Err(e) => println!("system: {e}"),
 	}
 	match h.contexts() {
-		Ok(c) => println!("contexts: {}", c.len()),
+		Ok(c) => {
+			println!("contexts: {}", c.len());
+			for (h, o) in c {
+				println!("  hash {:08X} topic {o:#x}", h as u32);
+			}
+		}
 		Err(e) => println!("contexts: {e}"),
 	}
 	if std::env::args().nth(2).as_deref() == Some("--raw") {
