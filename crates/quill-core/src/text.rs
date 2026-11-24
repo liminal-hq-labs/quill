@@ -239,6 +239,19 @@ enum Log {
 	Redo,
 }
 
+/// What has changed in a story since the last [`Text::take_damage`]: the text before `lo` is as it was, and the text from `hi` on is
+/// what was at `hi - delta` before, where `delta` is the new length less the length then. Between them anything may have changed
+/// (a deletion leaves `lo == hi`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Damage {
+	/// The first position that may have changed.
+	pub lo: u32,
+	/// The position the changed part ends at, in the text as it is now.
+	pub hi: u32,
+}
+
+const CLEAN: (u32, u32) = (u32::MAX, 0);
+
 /// A story's text: the piece table, its buffers and its history.
 pub struct Text<const PC: usize, const BC: usize, const UC: usize> {
 	orig: ByteBuf<BC>,
@@ -251,6 +264,7 @@ pub struct Text<const PC: usize, const BC: usize, const UC: usize> {
 	group_begun: bool,
 	cursor: Cell<(u32, u32)>,
 	rev: u32,
+	changed: (u32, u32),
 }
 
 impl<const PC: usize, const BC: usize, const UC: usize> Default for Text<PC, BC, UC> {
@@ -278,6 +292,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			group_begun: false,
 			cursor: Cell::new((0, 0)),
 			rev: 0,
+			changed: CLEAN,
 		}
 	}
 
@@ -289,6 +304,42 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 
 	const fn touch(&mut self) {
 		self.rev = self.rev.wrapping_add(1);
+	}
+
+	/// Says that `removed` characters at `at` were replaced by `inserted` (a format change replaces a range by itself). Changes made
+	/// one after another merge into one range that covers them all.
+	fn note(&mut self, at: u32, removed: u32, inserted: u32) {
+		let new_hi = at.saturating_add(inserted);
+		let (lo, hi) = self.changed;
+		if lo == u32::MAX {
+			self.changed = (at, new_hi);
+			return;
+		}
+		let shifted = if hi <= at {
+			hi
+		} else if hi >= at.saturating_add(removed) {
+			hi - removed + inserted
+		} else {
+			new_hi
+		};
+		self.changed = (lo.min(at), shifted.max(new_hi));
+	}
+
+	/// What has changed since the last [`Text::take_damage`], or `None` when nothing has.
+	pub const fn damage(&self) -> Option<Damage> {
+		let (lo, hi) = self.changed;
+		if lo == u32::MAX {
+			None
+		} else {
+			Some(Damage { lo, hi })
+		}
+	}
+
+	/// Returns what has changed since the last call and starts again from nothing.
+	pub const fn take_damage(&mut self) -> Option<Damage> {
+		let c = self.damage();
+		self.changed = CLEAN;
+		c
 	}
 
 	/// Characters in the story.
@@ -322,6 +373,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			return Ok(());
 		}
 		self.pieces.reserve(s, 1)?;
+		self.note(0, 0, bytes.len() as u32);
 		let start = self.orig.append(s, bytes)?;
 		self.pieces.push(
 			s,
@@ -353,6 +405,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		}
 		self.pieces.reserve(s, 1)?;
 		self.touch();
+		self.note(self.len, 0, bytes.len() as u32);
 		let start = self.orig.append(s, bytes)?;
 		let at = self.pieces.len();
 		self.pieces.push(
@@ -386,6 +439,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		}
 		self.pieces.reserve(s, 1)?;
 		self.touch();
+		self.note(self.len, 0, 1);
 		self.pieces.push(
 			s,
 			Piece {
@@ -410,6 +464,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	) -> Result<()> {
 		self.pieces.reserve(s, 3)?;
 		self.touch();
+		self.note(pos, 1, 1);
 		let ia = self.split_at(s, pos)?;
 		self.split_at(s, pos + 1)?;
 		let p = self.piece(s, ia).ok_or(Error::Range)?;
@@ -438,6 +493,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	/// Frees everything, including the history.
 	pub fn clear<S: Store + ?Sized>(&mut self, s: &mut S) {
 		self.touch();
+		self.note(0, self.len, 0);
 		self.pieces.clear(s);
 		self.orig.clear(s);
 		self.add.clear(s);
@@ -737,6 +793,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		self.reserve_log(s, Log::Undo, 3)?;
 		let start = self.add.append(s, bytes)?;
 		self.touch();
+		self.note(pos, 0, bytes.len() as u32);
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		let (ia, _) = self.remove_range(s, pos, 0, Log::Undo)?;
@@ -790,6 +847,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		self.pieces.reserve(s, 3)?;
 		self.reserve_log(s, Log::Undo, 3)?;
 		self.touch();
+		self.note(pos, 0, 1);
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		let (ia, _) = self.remove_range(s, pos, 0, Log::Undo)?;
@@ -836,6 +894,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		self.pieces.reserve(s, 3)?;
 		self.reserve_log(s, Log::Undo, k + 3)?;
 		self.touch();
+		self.note(pos, len, 0);
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		let (ia, n) = self.remove_range(s, pos, len, Log::Undo)?;
@@ -910,6 +969,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		self.pieces.reserve(s, 3)?;
 		self.reserve_log(s, Log::Undo, k + 3)?;
 		self.touch();
+		self.note(pos, len, len);
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		self.fmt_range(s, pos, len, Log::Undo, change)
@@ -1108,6 +1168,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			)?;
 			tally += p.b;
 		}
+		self.note(r.a, r.b, tally);
 		self.push_log(
 			s,
 			to,
@@ -1143,6 +1204,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 				.ok_or(Error::Range)?;
 			total += rec.a;
 		}
+		self.note(r.a, total, total);
 		let ia = self.split_at(s, r.a)?;
 		let ib = self.split_at(s, r.a + total)?;
 		for i in (ia..ib).rev() {

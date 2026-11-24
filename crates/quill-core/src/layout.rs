@@ -283,12 +283,63 @@ enum End {
 	Text,
 }
 
+/// Where a layout stands between two paragraphs: everything the rest of the story's layout depends on.
+///
+/// Layout reads neither the page number, the paragraph number nor the line number (only `y` and the text), so two layouts whose
+/// cursors differ in those three alone lay out the rest of the story the same, with those three apart by a constant.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct LayoutCursor {
+	/// The position of the next paragraph's first character; the length of the text when there is none.
+	pub pos: u32,
+	/// How many paragraphs came before.
+	pub para: u32,
+	/// The page the last line was on (1 before the first line).
+	pub page: u32,
+	/// The y after the last line, from the top of the text area of `page`.
+	pub y: i32,
+	/// How many lines came before.
+	pub line: u32,
+}
+
+impl LayoutCursor {
+	/// The state at the start of a story.
+	pub const START: LayoutCursor = LayoutCursor {
+		pos: 0,
+		para: 0,
+		page: 1,
+		y: 0,
+		line: 0,
+	};
+}
+
 /// Lays out one story with `m`, calling `f` for each line, and returns the number of pages.
-pub fn layout_story<S, M, F>(doc: &Doc, s: &S, m: &mut M, kind: StoryKind, mut f: F) -> u32
+pub fn layout_story<S, M, F>(doc: &Doc, s: &S, m: &mut M, kind: StoryKind, f: F) -> u32
 where
 	S: ReadStore + ?Sized,
 	M: Measure + ?Sized,
 	F: FnMut(&Line),
+{
+	layout_from(doc, s, m, kind, LayoutCursor::START, f, |_| true).page
+}
+
+/// Lays out one story from the paragraph boundary `start`, calling `f` for each line and `after_para` with the cursor after each
+/// paragraph; `after_para` returns false to stop. Returns the cursor where it stopped, which is the cursor to start the next call from:
+/// the lines of a story laid out in several calls are the lines `layout_story` gives. From [`LayoutCursor::START`] with an
+/// `after_para` that always says true it is `layout_story`.
+pub fn layout_from<S, M, F, G>(
+	doc: &Doc,
+	s: &S,
+	m: &mut M,
+	kind: StoryKind,
+	start: LayoutCursor,
+	mut f: F,
+	mut after_para: G,
+) -> LayoutCursor
+where
+	S: ReadStore + ?Sized,
+	M: Measure + ?Sized,
+	F: FnMut(&Line),
+	G: FnMut(&LayoutCursor) -> bool,
 {
 	let (rx, ry) = m.resolution();
 	let text = doc.story(kind);
@@ -296,10 +347,11 @@ where
 	let text_w = to_units(doc.page.paper_w - doc.page.margin_l - doc.page.margin_r, rx);
 	let text_h = to_units(doc.page.paper_h - doc.page.margin_t - doc.page.margin_b, ry);
 	let mut cache = FontCache::new();
-	let mut page = 1u32;
-	let mut y = 0i32;
-	let mut pos = 0u32;
-	let mut para = 0u32;
+	let mut page = start.page;
+	let mut y = start.y;
+	let mut pos = start.pos;
+	let mut para = start.para;
+	let mut lines = start.line;
 	while pos < total {
 		let end = para_end(text, s, pos, total);
 		let mark = end
@@ -454,6 +506,7 @@ where
 				y = 0;
 			}
 			let top = y + if y == 0 { 0 } else { extra_before };
+			lines += 1;
 			f(&Line {
 				para,
 				line: line_no,
@@ -478,8 +531,24 @@ where
 		}
 		pos = end;
 		para += 1;
+		let here = LayoutCursor {
+			pos,
+			para,
+			page,
+			y,
+			line: lines,
+		};
+		if !after_para(&here) {
+			return here;
+		}
 	}
-	page
+	LayoutCursor {
+		pos,
+		para,
+		page,
+		y,
+		line: lines,
+	}
 }
 
 /// The position after the paragraph mark that ends the paragraph starting at `pos` (or the end of the text).
