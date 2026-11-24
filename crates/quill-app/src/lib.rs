@@ -20,7 +20,9 @@ mod form;
 mod native;
 mod paint;
 pub mod picture;
+mod pointer;
 mod print;
+pub mod recent;
 pub mod script;
 mod spelling;
 
@@ -36,7 +38,11 @@ pub use chrome::{
 	tab_stop, CharState, CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR, STYLE_NAMES,
 };
 pub use native::{Dialog, FindAction, VERSION};
-pub use paint::{draw, line_label, menu_items, menu_title, Cursor, Item, ListCounters, MENU_COUNT};
+pub use paint::{
+	command_hint, command_tip, draw, line_label, menu_items, menu_title, Cursor, Item,
+	ListCounters, MENU_COUNT,
+};
+pub use pointer::Grain;
 
 /// A key, as the platform decodes it.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -210,9 +216,31 @@ pub enum Command {
 	Align(u8),
 	/// Paragraph > Single, 1½ or Double Space (0 to 2).
 	Spacing(u8),
+	/// View > Zoom: a percentage from 25 to 200, or 0 for the page's width. It changes only the view, so a build with no zoom ignores it.
+	Zoom(u16),
 }
 
-const NAME_MAX: usize = 64;
+/// The longest file name the editor keeps: a DOS path, or a Windows path on the build that asks for long names.
+pub(crate) const NAME_MAX: usize = if cfg!(feature = "long-names") {
+	260
+} else {
+	64
+};
+
+/// The zoom a `QUILL.INI` value names: a percentage, or `Width` (anything that is not a number) for the page's width.
+fn parse_zoom(v: &[u8]) -> u16 {
+	let mut n = 0u16;
+	let mut any = false;
+	for b in v.iter().take_while(|b| b.is_ascii_digit()) {
+		n = n.saturating_mul(10).saturating_add(u16::from(b - b'0'));
+		any = true;
+	}
+	if any {
+		n.clamp(25, 200)
+	} else {
+		0
+	}
+}
 
 /// The one-line message shown in the status line until the next key.
 #[derive(Copy, Clone)]
@@ -348,10 +376,13 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	/// The date the Date field prints as (the platform fills it in).
 	pub(crate) date: Msg,
 	/// The four most recent files, most recent first.
-	pub(crate) recent: [[u8; NAME_MAX]; 4],
-	pub(crate) recent_len: [usize; 4],
+	pub(crate) recent: recent::RecentList,
+	/// The settings section the recent files live in: `Recent` (DOS, Win16) or `Recent32`.
+	pub(crate) recent_section: &'static str,
 	/// The format the document was opened in: 0 native, 1 RTF, 2 text.
 	fmt: u8,
+	/// The view's zoom: a percentage, or 0 for the page's width.
+	pub(crate) zoom: u16,
 }
 
 impl Default for App {
@@ -400,12 +431,13 @@ impl<M: Measure + Clone> App<M> {
 			last_find: None,
 			about: Msg::new(),
 			date: Msg::new(),
-			recent: [[0; NAME_MAX]; 4],
-			recent_len: [0; 4],
+			recent: recent::RecentList::new(),
+			recent_section: "Recent",
 			clip: [0; 2048],
 			clip_len: 0,
 			view: 0,
 			saved_view: (0, 0),
+			zoom: 0,
 		}
 	}
 
@@ -424,6 +456,20 @@ impl<M: Measure + Clone> App<M> {
 	/// Sets how many lines the view shows at once, for paging and scrolling.
 	pub fn set_rows(&mut self, rows: usize) {
 		self.rows = rows.max(1);
+	}
+
+	/// The view's zoom: a percentage from 25 to 200, or 0 for the page's width.
+	pub fn zoom(&self) -> u16 {
+		self.zoom
+	}
+
+	/// Sets the view's zoom (0 for the page's width); other values are held between 25 and 200 percent.
+	pub fn set_zoom(&mut self, percent: u16) {
+		self.zoom = if percent == 0 {
+			0
+		} else {
+			percent.clamp(25, 200)
+		};
 	}
 
 	/// The caret position in the active story.
@@ -581,135 +627,144 @@ impl<M: Measure + Clone> App<M> {
 	/// Puts the current file at the front of the recent list.
 	fn push_recent(&mut self) {
 		let name = self.name;
-		let len = self.name_len;
-		if len == 0 {
-			return;
+		self.recent.push(name.get(..self.name_len).unwrap_or(&[]));
+	}
+
+	/// Names the settings section that holds the recent files: `Recent` for DOS and Win16, `Recent32` for the Win32 build, whose
+	/// names may be long ones the Win16 build cannot open.
+	pub fn set_recent_section(&mut self, section: &'static str) {
+		self.recent_section = section;
+	}
+
+	/// Calls `f(section, key, value)` for each setting the editor keeps, in the order they are written.
+	pub fn each_setting(&self, mut f: impl FnMut(&[u8], &[u8], &[u8])) {
+		let sec = self.recent_section.as_bytes();
+		for (i, name) in self.recent.iter().enumerate() {
+			f(sec, &[b'F', b'i', b'l', b'e', b'1' + i as u8], name);
 		}
-		let cur = name.get(..len).unwrap_or(&[]);
-		// Drop an earlier entry for the same file, then shift the rest down.
-		let mut last = 3;
-		for i in 0..4 {
-			if self.recent_len.get(i).copied() == Some(len)
-				&& self.recent.get(i).and_then(|r| r.get(..len)) == Some(cur)
-			{
-				last = i;
+		if self.spell.lang != 0 {
+			f(b"Quill", b"Language", &[b'0' + self.spell.lang]);
+		}
+		if self.folder_len > 0 {
+			f(
+				b"Quill",
+				b"Folder",
+				self.folder.get(..self.folder_len).unwrap_or(&[]),
+			);
+		}
+		let mut digits = [0u8; 4];
+		let mut v = self.zoom;
+		let mut i = digits.len();
+		while v > 0 && i > 0 {
+			i -= 1;
+			if let Some(x) = digits.get_mut(i) {
+				*x = b'0' + (v % 10) as u8;
 			}
+			v /= 10;
 		}
-		for i in (1..=last).rev() {
-			let prev = self.recent.get(i - 1).copied().unwrap_or([0; NAME_MAX]);
-			let pl = self.recent_len.get(i - 1).copied().unwrap_or(0);
-			if let (Some(d), Some(dl)) = (self.recent.get_mut(i), self.recent_len.get_mut(i)) {
-				*d = prev;
-				*dl = pl;
-			}
-		}
-		if let (Some(d), Some(dl)) = (self.recent.first_mut(), self.recent_len.first_mut()) {
-			*d = name;
-			*dl = len;
+		f(
+			b"Quill",
+			b"Zoom",
+			if self.zoom == 0 {
+				b"Width"
+			} else {
+				digits.get(i..).unwrap_or(&[])
+			},
+		);
+		for (name, bit) in [
+			(&b"Toolbar"[..], 1u8),
+			(b"Ruler", 2),
+			(b"StatusBar", 4),
+			(b"FormattingBar", 8),
+		] {
+			f(
+				b"Quill",
+				name,
+				if self.chrome & bit != 0 { b"1" } else { b"0" },
+			);
 		}
 	}
 
-	/// Reads `QUILL.INI` (the [Recent] section) through `f`; a missing file is fine.
+	/// Takes in one setting read from a settings file; keys it does not know are ignored.
+	pub fn apply_setting(&mut self, section: &[u8], key: &[u8], value: &[u8]) {
+		if section.eq_ignore_ascii_case(self.recent_section.as_bytes()) {
+			if let [b'F' | b'f', b'i' | b'I', b'l' | b'L', b'e' | b'E', b'1'..=b'4'] = key {
+				self.recent.append(value);
+			}
+			return;
+		}
+		let is = |k: &[u8]| key.eq_ignore_ascii_case(k);
+		if is(b"Language") {
+			self.spell.lang = value.first().map_or(0, |b| b.saturating_sub(b'0').min(2));
+		} else if is(b"Zoom") {
+			self.zoom = parse_zoom(value);
+		} else if is(b"Folder") {
+			let n = value.len().min(NAME_MAX);
+			if let (Some(d), Some(sv)) = (self.folder.get_mut(..n), value.get(..n)) {
+				d.copy_from_slice(sv);
+			}
+			self.folder_len = n;
+		} else {
+			for (name, bit) in [
+				(&b"Toolbar"[..], 1u8),
+				(b"Ruler", 2),
+				(b"StatusBar", 4),
+				(b"FormattingBar", 8),
+			] {
+				if is(name) {
+					if value.first() == Some(&b'0') {
+						self.chrome &= !bit;
+					} else {
+						self.chrome |= bit;
+					}
+				}
+			}
+		}
+	}
+
+	/// Reads `QUILL.INI` through `f`; a missing file is fine.
 	pub fn load_settings<F: Files>(&mut self, f: &mut F) {
 		let Some(mut r) = f.open(b"QUILL.INI") else {
 			return;
 		};
-		let mut buf = [0u8; 512];
+		let mut buf = [0u8; 1536];
 		let n = r.read(&mut buf);
 		let text = buf.get(..n).unwrap_or(&[]);
+		let mut section: &[u8] = b"";
 		for line in text.split(|b| *b == b'\n') {
 			let line = line.strip_suffix(b"\r").unwrap_or(line);
-			for i in 0..4usize {
-				let key = [b'F', b'i', b'l', b'e', b'1' + i as u8, b'='];
-				if let Some(v) = line.strip_prefix(&b"Language="[..]) {
-					self.spell.lang = v.first().map_or(0, |b| b.saturating_sub(b'0').min(2));
-				}
-				if let Some(v) = line.strip_prefix(&b"Folder="[..]) {
-					let n = v.len().min(NAME_MAX);
-					if let (Some(d), Some(sv)) = (self.folder.get_mut(..n), v.get(..n)) {
-						d.copy_from_slice(sv);
-					}
-					self.folder_len = n;
-				}
-				for (name, bit) in [
-					(&b"Toolbar="[..], 1u8),
-					(b"Ruler=", 2),
-					(b"StatusBar=", 4),
-					(b"FormattingBar=", 8),
-				] {
-					if let Some(v) = line.strip_prefix(name) {
-						if v.first() == Some(&b'0') {
-							self.chrome &= !bit;
-						} else {
-							self.chrome |= bit;
-						}
-					}
-				}
-				if let Some(v) = line.strip_prefix(&key[..]) {
-					let len = v.len().min(NAME_MAX);
-					if let (Some(d), Some(dl)) =
-						(self.recent.get_mut(i), self.recent_len.get_mut(i))
-					{
-						for (x, y) in d.iter_mut().zip(v.iter().take(len)) {
-							*x = *y;
-						}
-						*dl = len;
-					}
+			if let Some(name) = line.strip_prefix(b"[").and_then(|l| l.strip_suffix(b"]")) {
+				section = name;
+			} else if let Some(eq) = line.iter().position(|b| *b == b'=') {
+				if let (Some(k), Some(v)) = (line.get(..eq), line.get(eq + 1..)) {
+					self.apply_setting(section, k, v);
 				}
 			}
 		}
 	}
 
-	/// Writes `QUILL.INI`: the recent files, as the SPEC's `[Recent] File1` to `File4`.
+	/// Writes `QUILL.INI` whole: the recent files, then the other settings, as the SPEC's settings file lists them.
 	pub fn save_settings<F: Files>(&self, f: &mut F) {
 		let Some(mut w) = f.create(b"QUILL.INI") else {
 			return;
 		};
-		let _ = w.write(b"[Recent]\r\n");
-		for i in 0..4usize {
-			let len = self.recent_len.get(i).copied().unwrap_or(0);
-			if len == 0 {
-				continue;
+		let mut section: [u8; 16] = [0; 16];
+		let mut slen = usize::MAX;
+		self.each_setting(|sec, key, value| {
+			if section.get(..slen) != Some(sec) {
+				let _ = w.write(b"[");
+				let _ = w.write(sec);
+				let _ = w.write(b"]\r\n");
+				slen = sec.len().min(section.len());
+				if let Some(d) = section.get_mut(..slen) {
+					d.copy_from_slice(sec.get(..slen).unwrap_or(&[]));
+				}
 			}
-			let _ = w.write(&[b'F', b'i', b'l', b'e', b'1' + i as u8, b'=']);
-			let _ = w.write(self.recent.get(i).and_then(|r| r.get(..len)).unwrap_or(&[]));
+			let _ = w.write(key);
+			let _ = w.write(b"=");
+			let _ = w.write(value);
 			let _ = w.write(b"\r\n");
-		}
-		let _ = w.write(b"[Quill]\r\n");
-		if self.spell.lang != 0 {
-			let _ = w.write(&[
-				b'L',
-				b'a',
-				b'n',
-				b'g',
-				b'u',
-				b'a',
-				b'g',
-				b'e',
-				b'=',
-				b'0' + self.spell.lang,
-				b'\r',
-				b'\n',
-			]);
-		}
-		if self.folder_len > 0 {
-			let _ = w.write(b"Folder=");
-			let _ = w.write(self.folder.get(..self.folder_len).unwrap_or(&[]));
-			let _ = w.write(b"\r\n");
-		}
-		for (name, bit) in [
-			(&b"Toolbar="[..], 1u8),
-			(b"Ruler=", 2),
-			(b"StatusBar=", 4),
-			(b"FormattingBar=", 8),
-		] {
-			let _ = w.write(name);
-			let _ = w.write(if self.chrome & bit != 0 {
-				b"1\r\n"
-			} else {
-				b"0\r\n"
-			});
-		}
+		});
 		f.close(w);
 	}
 
@@ -725,10 +780,7 @@ impl<M: Measure + Clone> App<M> {
 
 	/// The recent files, for a native menu.
 	pub fn recent_files(&self) -> impl Iterator<Item = &[u8]> {
-		(0..4).filter_map(|i| {
-			let len = self.recent_len.get(i).copied().filter(|l| *l > 0)?;
-			self.recent.get(i)?.get(..len)
-		})
+		self.recent.iter()
 	}
 
 	/// Opens a file by content (a RIFF `QLD1` header is native, anything else is plain text) into a fresh document, and
@@ -820,7 +872,12 @@ impl<M: Measure + Clone> App<M> {
 
 	/// The index and line holding the caret.
 	pub(crate) fn caret_line<S: Store + ?Sized>(&self, s: &S) -> Option<(u32, Line)> {
-		let caret = self.caret;
+		self.line_for(s, self.caret)
+	}
+
+	/// The index and line holding position `pos`: the line it is on, except that the end of a line that wraps belongs to the next one.
+	pub(crate) fn line_for<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<(u32, Line)> {
+		let caret = pos;
 		let mut found: Option<(u32, Line)> = None;
 		let mut prev: Option<(u32, Line)> = None;
 		self.lines(s, |i, l| {
@@ -1033,6 +1090,66 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	/// Takes the paragraph out of its list: no bullet or number, no hanging indent.
+	fn end_list<S: Store + ?Sized>(&mut self, s: &mut S) {
+		self.para_command(s, |p| PFmt {
+			flags: p.flags & !5,
+			left: 0,
+			first: 0,
+			level: 0,
+			..p
+		});
+	}
+
+	/// Backspace. At the start of a bullet or numbered paragraph it takes the paragraph out of the list and nothing more, as in Word
+	/// and Write; at the start of any other paragraph it joins it to the one before; elsewhere it removes the character before the caret.
+	fn backspace<S: Store + ?Sized>(&mut self, s: &mut S) {
+		if self.caret != self.para_start(s, self.caret) {
+			self.delete(s, self.caret - 1);
+			return;
+		}
+		self.end_typing();
+		self.want_x = -1;
+		if self.para_pfmt(s, self.caret).flags & 5 != 0 {
+			self.end_list(s);
+		} else if self.caret > 0 {
+			self.join_paragraphs(s, self.caret - 1);
+		}
+	}
+
+	/// Delete: at the end of a paragraph it joins the next one to it; elsewhere it removes the character after the caret.
+	fn delete_forward<S: Store + ?Sized>(&mut self, s: &mut S) {
+		if self.doc.body.read_byte(s, self.caret) == Some(0x0D) {
+			self.join_paragraphs(s, self.caret);
+		} else {
+			self.delete(s, self.caret);
+		}
+	}
+
+	/// Removes the paragraph mark at `mark`, joining the paragraph that ends there to the next one. The joined paragraph keeps the
+	/// first one's format (so a bullet's text is never swallowed by the paragraph below it, and a paragraph never takes a bullet from
+	/// the one it is joined to); when the first is empty the joined paragraph is the second, unchanged. One undo step.
+	fn join_paragraphs<S: Store + ?Sized>(&mut self, s: &mut S, mark: u32) {
+		self.end_typing();
+		self.want_x = -1;
+		let first = self.para_start(s, mark);
+		let keep = (first < mark)
+			.then(|| self.doc.body.pfmt_at(s, mark))
+			.flatten();
+		self.doc.body.begin_group(label::DELETE);
+		if self.doc.body.delete(s, mark, 1, label::DELETE).is_ok() {
+			self.caret = mark;
+			self.modified = true;
+			if let (Some(pf), Some(end)) = (keep, self.para_mark(s, first)) {
+				let _ = self
+					.doc
+					.body
+					.set_pfmt(s, first, end + 1 - first, pf, label::PARA_FORMAT);
+			}
+		}
+		self.doc.body.end_group();
+	}
+
 	fn move_vertical<S: Store + ?Sized>(&mut self, s: &S, delta: i32, keep_x: bool) {
 		let Some((idx, line)) = self.caret_line(s) else {
 			return;
@@ -1104,7 +1221,7 @@ impl<M: Measure + Clone> App<M> {
 			self.set_view(s, 0);
 		}
 		match c {
-			Command::New | Command::Open | Command::Exit
+			Command::New | Command::Open | Command::Exit | Command::Recent(_)
 				if self.modified && self.pending != Some(c) =>
 			{
 				self.mode = Mode::Confirm(c);
@@ -1263,7 +1380,14 @@ impl<M: Measure + Clone> App<M> {
 				self.doc.page.flags ^= 1;
 				self.modified = true;
 			}
-			Command::Field(k) if self.view != 0 => {
+			Command::Field(k) => {
+				// A field goes in at the caret, in the body or in a header or footer, replacing a selection.
+				if self.selection().is_some() {
+					self.doc.body.begin_group(label::TYPING);
+					self.delete_selection(s);
+					self.doc.body.end_group();
+				}
+				self.anchor = None;
 				let t = &self.doc.body;
 				let cf = if self.caret > 0 {
 					t.cfmt_at(s, self.caret - 1)
@@ -1271,8 +1395,6 @@ impl<M: Measure + Clone> App<M> {
 					t.cfmt_at(s, 0)
 				}
 				.unwrap_or(0);
-				let pf = self.para_pfmt(s, self.caret);
-				let _ = pf;
 				let pfi = self
 					.para_mark(s, self.caret)
 					.and_then(|m| self.doc.body.pfmt_at(s, m))
@@ -1287,7 +1409,6 @@ impl<M: Measure + Clone> App<M> {
 					self.modified = true;
 				}
 			}
-			Command::Field(_) => {}
 			Command::Cut | Command::Copy | Command::Paste | Command::SelectAll => {
 				self.clip_command(s, c)
 			}
@@ -1307,6 +1428,7 @@ impl<M: Measure + Clone> App<M> {
 				}
 			}
 			Command::Chrome(bit) => self.chrome ^= bit,
+			Command::Zoom(z) => self.set_zoom(z),
 			Command::Preview | Command::PrintSetup => {
 				self.msg.set("That is not available in this version.")
 			}
@@ -1318,12 +1440,24 @@ impl<M: Measure + Clone> App<M> {
 				}
 			}
 			Command::Recent(n) => {
+				self.pending = None;
 				let mut name = [0u8; NAME_MAX];
-				let len = self.recent_len.get(usize::from(n)).copied().unwrap_or(0);
+				let len = self.recent.get(usize::from(n)).map_or(0, <[u8]>::len);
 				if let Some(src) = self.recent.get(usize::from(n)) {
-					name = *src;
+					name.get_mut(..len).unwrap_or(&mut []).copy_from_slice(src);
 				}
-				if len > 0 && self.open(s, f, name.get(..len).unwrap_or(&[])).is_err() {
+				let name = name.get(..len).unwrap_or(&[]);
+				if len == 0 {
+				} else if f.open(name).is_none() {
+					// A file that is gone leaves the list, and says so.
+					self.recent.remove(name);
+					let mut short = [0u8; 56];
+					let n = recent::shorten_path(name, short.len(), &mut short);
+					self.msg.clear();
+					self.msg.push(b"Quill cannot find ");
+					self.msg.push(short.get(..n).unwrap_or(&[]));
+					self.msg.push(b".");
+				} else if self.open(s, f, name).is_err() {
 					self.msg.set("Quill cannot open that file.");
 				}
 			}
@@ -1610,21 +1744,15 @@ impl<M: Measure + Clone> App<M> {
 					&& (self.caret == 0
 						|| self.doc.body.read_byte(s, self.caret - 1) == Some(0x0D));
 				if pf.flags & 5 != 0 && empty && self.selection().is_none() {
-					self.para_command(s, |p| PFmt {
-						flags: p.flags & !5,
-						left: 0,
-						first: 0,
-						level: 0,
-						..p
-					});
+					self.end_list(s);
 				} else {
 					self.insert(s, 0x0D);
 				}
 			}
 			Key::Backspace if self.selection().is_some() => self.delete(s, self.caret),
-			Key::Backspace if self.caret > 0 => self.delete(s, self.caret - 1),
+			Key::Backspace => self.backspace(s),
 			Key::Delete if self.selection().is_some() => self.delete(s, self.caret),
-			Key::Delete if self.caret + 1 < len => self.delete(s, self.caret),
+			Key::Delete if self.caret + 1 < len => self.delete_forward(s),
 			Key::CtrlHome | Key::CtrlEnd => {
 				self.end_typing();
 				self.typing_fmt = None;

@@ -44,7 +44,14 @@ for want in [(4, 1), (14, 1), (3, 1), (16, 1)]:
     assert want in kinds, (want, kinds)
 menu = dict(((t, n), d) for t, n, d in res)[(4, 1)]
 names = read_menu(menu)
-expect = [m["title"] for m in spec["menus"]] + [i["text"] for m in spec["menus"] for i in m["items"]]
+def texts(items):
+    for i in items:
+        yield "" if i.get("separator") else i["text"]
+        if "items" in i:
+            yield from texts(i["items"])
+
+
+expect = [m["title"] for m in spec["menus"]] + [t for m in spec["menus"] for t in texts(m["items"])]
 assert sorted(names) == sorted(expect), (names, expect)
 icons = [d for t, n, d in res if t == 3]
 group = dict(((t, n), d) for t, n, d in res)[(14, 1)]

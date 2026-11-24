@@ -69,14 +69,26 @@ def dialog(d):
     return out
 
 
+def menu_items(items, last_level):
+    """The entries of one pop-up: a separator is an item with no id and no text, a submenu a pop-up that holds its own entries."""
+    out = b""
+    for ii, it in enumerate(items):
+        last = 0x80 if ii == len(items) - 1 else 0
+        if it.get("separator"):
+            out += u16(0x800 | last, 0) + wstr("")
+        elif "items" in it:
+            out += u16(0x10 | last) + wstr(it["text"]) + menu_items(it["items"], True)
+        else:
+            out += u16(last, it["id"]) + wstr(it["text"])
+    return out
+
+
 def menu(menus):
     out = u16(0, 0)
     for mi, m in enumerate(menus):
         last_menu = mi == len(menus) - 1
         out += u16(0x10 | (0x80 if last_menu else 0)) + wstr(m["title"])
-        for ii, it in enumerate(m["items"]):
-            last = ii == len(m["items"]) - 1
-            out += u16(0x80 if last else 0, it["id"]) + wstr(it["text"])
+        out += menu_items(m["items"], True)
     return out
 
 

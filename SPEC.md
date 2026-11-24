@@ -122,7 +122,7 @@ Everything below describes the Windows builds; the DOS build follows it with the
 
 ### Menus and accelerators
 
-Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis on items that open a dialog, check marks on toggles, unavailable items greyed out (Cut and Copy with no selection, Paste with nothing on the clipboard, Redo with nothing to redo).
+Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis on items that open a dialog, check marks on toggles, unavailable items greyed out (Cut and Copy with no selection, Paste with nothing on the clipboard, Redo with nothing to redo). A rule separates the groups of a menu, as in Windows 95 and Word 97: File holds New and Open, then Save and Save As, then Print, Print Preview and Print Setup, then the recent files, then Exit; Edit holds Undo and Redo, then Cut, Copy and Paste, then Select All; Character and Paragraph group their alignments, spacings and lists the same way. The DOS text menu draws the same rules (D91).
 
 | Menu | Item | Accelerator |
 |---|---|---|
@@ -176,7 +176,7 @@ Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis 
 | | How to Use Help | |
 | | About Quill... | |
 
-The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Redo Paste`. Character and Paragraph items show a check mark when the whole selection has that property. Reduce Font and Enlarge Font step through 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48 and 72 points. The Insert field items are available only in the header and footer views. F1 in a dialog opens that dialog's help topic; F1 with a menu item highlighted opens that command's topic.
+The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Redo Paste`. Character and Paragraph items show a check mark when the whole selection has that property. Reduce Font and Enlarge Font step through 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48 and 72 points. The Insert field items put a field at the caret in the body, a header or a footer: the page number and the page count show their value on the page, in print preview and in print, and `[Page]` and `[Pages]` in the header and footer views (D91). F1 in a dialog opens that dialog's help topic; F1 with a menu item highlighted opens that command's topic.
 
 ### Toolbar and ruler
 
@@ -188,10 +188,10 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 ### Caret and selection
 
 - The caret sits between characters. A selection is a range of characters shown in the system highlight colours, kept unhighlighted while focus is elsewhere. A picture counts as one character.
-- **Mouse.** Click places the caret. Drag selects; dragging past the view's edge scrolls. Shift+click extends the selection. Double-click selects a word and its trailing spaces; double-click and drag extends by words. Clicking a picture selects it and shows its frame.
+- **Mouse.** Click places the caret. Drag selects; dragging past the view's edge scrolls. Shift+click extends the selection. Double-click selects a word and its trailing spaces; double-click and drag extends by words. Triple-click selects the paragraph. A click in the white space left of the text selects the line, and a double-click there the paragraph (D92). Clicking a picture selects it and shows its frame.
 - **Drag and drop.** Pressing on a selection and dragging shows a dotted insertion caret; releasing moves the selection there, or copies it with Ctrl held. Escape during the drag cancels. Dropping inside the selection does nothing. A move is one undo step.
 - **Keyboard.** Arrows move by character and line; Ctrl+Left and Ctrl+Right by word; Home and End to the line's ends; Ctrl+Up and Ctrl+Down by paragraph; Page Up and Page Down by a window; Ctrl+Home and Ctrl+End to the document's ends. Shift with any movement extends the selection. Up and Down keep the caret's horizontal position across short lines.
-- **Typing** replaces the selection. Enter ends a paragraph (and continues a list), Enter on an empty list paragraph ends the list, Shift+Enter breaks the line inside the paragraph, Tab inserts a tab (in an empty list paragraph, it increases the level), Backspace and Delete remove a character or the selection, Ctrl+Backspace and Ctrl+Delete remove a word. New text takes the format of the character before the caret, unless a format was chosen since the caret last moved.
+- **Typing** replaces the selection. Enter ends a paragraph (and continues a list), Enter on an empty list paragraph ends the list, Shift+Enter breaks the line inside the paragraph, Tab inserts a tab (in an empty list paragraph, it increases the level), Backspace and Delete remove a character or the selection; Backspace at the start of a bullet or numbered paragraph takes it out of the list (no bullet, no hanging indent) and does nothing else, and Backspace at the start of any other paragraph, or Delete at the end of one, joins it to its neighbour, which keeps the format of the paragraph that comes first unless that one is empty (D91), Ctrl+Backspace and Ctrl+Delete remove a word. New text takes the format of the character before the caret, unless a format was chosen since the caret last moved.
 - **Overtype.** The Insert key toggles overtype, shown as `OVR`. In overtype, a typed character replaces the one after the caret, except a paragraph mark, which it never replaces. Undo restores the replaced characters.
 
 ### Character formatting
@@ -488,7 +488,7 @@ Settings live in `QUILL.INI` in the Windows directory (both Windows builds share
 | `[Quill] Margins` | `1800 1800 1440 1440` | Left, right, top, bottom margins for new documents, in twips (0–14400 each, leaving at least one inch of text width) |
 | `[Quill] Backup` | `0` | When `1`, Save keeps the previous file as `<name>.BAK` |
 | `[Quill] PictureMemory` | `1024` (Win16), `16384` (Win32), `4096` (DOS) | Most memory, in KB, decoded pictures may hold at once (256–65536) |
-| `[Quill] Zoom` | `100` | Zoom percentage (stretch) |
+| `[Quill] Zoom` | `Width` | Zoom: `Width` (the page fits the window, never larger than 100 percent) or a percentage from 25 to 200 |
 | `[Spelling] Language` | `en-CA` | `en-CA`, `en-US` or `en-GB` |
 | `[Spelling] AsYouType` | `0` (Win16), `1` (others) | Check spelling as you type |
 | `[Spelling] IgnoreCaps` | `1` | Skip words in all capitals |

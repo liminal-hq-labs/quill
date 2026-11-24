@@ -51,6 +51,7 @@ pub const SM_CYSCREEN: i32 = 1;
 pub const SRCCOPY: u32 = 0x00CC_0020;
 pub const MF_STRING: u32 = 0;
 pub const MF_POPUP: u32 = 0x10;
+pub const MF_SEPARATOR: u32 = 0x800;
 pub const VK_SHIFT: i32 = 0x10;
 pub const VK_CONTROL: i32 = 0x11;
 pub const GENERIC_READ: u32 = 0x8000_0000;
