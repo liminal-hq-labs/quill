@@ -1,0 +1,134 @@
+Desk Serif, Sans and Mono / 1-bit unhinted
+  strikes 72, raw 475198 bytes (464.1 KB), deflated 219811 bytes (214.7 KB), sha-256 5e58c6b88ad6631fa21708b768bf8a6dc873e4e9023b580108cd5f0574541708
+  budget 450 KB raw: OVER (14.1 KB over), 200 KB deflated: OVER (14.7 KB over)
+  resident at start (header, directory, advances): 17888 bytes; largest strike chunk 14416 bytes of 32768; boxes 1344 bytes per strike
+  bytes by face and style (strike data, all six sizes):
+    Serif     Regular   39961        Bold   42653      Italic   40125 Bold Italic   42512  = 165251
+    Sans      Regular   38638        Bold   41610      Italic   39897 Bold Italic   42974  = 163119
+    Mono      Regular   34561        Bold   35354      Italic   36896 Bold Italic   38257  = 145068
+  bytes by size (all faces and styles):
+     8 pt (11 px)    39287
+    10 pt (13 px)    44813
+    12 pt (16 px)    57200
+    14 pt (19 px)    74267
+    18 pt (24 px)   103003
+    24 pt (32 px)   154868
+
+Desk Serif, Sans and Mono / 1-bit hinted
+  strikes 72, raw 476811 bytes (465.6 KB), deflated 220330 bytes (215.2 KB), sha-256 f7d5ea9924910142a0d77f8b07ddda2e07a63c566b650996e979de5cbb7df531
+  budget 450 KB raw: OVER (15.6 KB over), 200 KB deflated: OVER (15.2 KB over)
+  resident at start (header, directory, advances): 17888 bytes; largest strike chunk 14239 bytes of 32768; boxes 1344 bytes per strike
+  bytes by face and style (strike data, all six sizes):
+    Serif     Regular   39715        Bold   41965      Italic   40420 Bold Italic   42519  = 164619
+    Sans      Regular   38130        Bold   41675      Italic   39862 Bold Italic   42804  = 162471
+    Mono      Regular   35480        Bold   36176      Italic   37420 Bold Italic   38885  = 147961
+  bytes by size (all faces and styles):
+     8 pt (11 px)    39619
+    10 pt (13 px)    45262
+    12 pt (16 px)    57730
+    14 pt (19 px)    76538
+    18 pt (24 px)   101384
+    24 pt (32 px)   154518
+
+Desk Serif, Sans and Mono / 2-bit unhinted
+  strikes 72, raw 814034 bytes (795.0 KB), deflated 363136 bytes (354.6 KB), sha-256 ce9e2613e61c1994feabae49b683b81694627ab448b1ce51e89563f70a18a405
+  budget 450 KB raw: OVER (345.0 KB over), 200 KB deflated: OVER (154.6 KB over)
+  resident at start (header, directory, advances): 17888 bytes; largest strike chunk 26817 bytes of 32768; boxes 1344 bytes per strike
+  bytes by face and style (strike data, all six sizes):
+    Serif     Regular   68429        Bold   72291      Italic   69229 Bold Italic   73860  = 283809
+    Sans      Regular   65253        Bold   72025      Italic   68990 Bold Italic   74981  = 281249
+    Mono      Regular   58524        Bold   60377      Italic   62979 Bold Italic   65336  = 247216
+  bytes by size (all faces and styles):
+     8 pt (11 px)    58925
+    10 pt (13 px)    70490
+    12 pt (16 px)    95693
+    14 pt (19 px)   124303
+    18 pt (24 px)   176540
+    24 pt (32 px)   286323
+
+Desk Serif, Sans and Mono / 2-bit hinted
+  strikes 72, raw 786341 bytes (767.9 KB), deflated 352461 bytes (344.2 KB), sha-256 f870a75e9ce58a4da23631bd7e9bc7b6c4027462f16a2ad023b6303d018fd147
+  budget 450 KB raw: OVER (317.9 KB over), 200 KB deflated: OVER (144.2 KB over)
+  resident at start (header, directory, advances): 17888 bytes; largest strike chunk 25693 bytes of 32768; boxes 1344 bytes per strike
+  bytes by face and style (strike data, all six sizes):
+    Serif     Regular   65570        Bold   68640      Italic   67503 Bold Italic   71825  = 273538
+    Sans      Regular   61457        Bold   68619      Italic   66778 Bold Italic   72580  = 269434
+    Mono      Regular   56661        Bold   58363      Italic   62088 Bold Italic   64497  = 241609
+  bytes by size (all faces and styles):
+     8 pt (11 px)    58370
+    10 pt (13 px)    69308
+    12 pt (16 px)    92244
+    14 pt (19 px)   119738
+    18 pt (24 px)   169246
+    24 pt (32 px)   275675
+
+Quill Test Serif, Sans and Mono (Liberation-derived) / 1-bit unhinted
+  strikes 72, raw 447227 bytes (436.7 KB), deflated 212439 bytes (207.5 KB), sha-256 b86536dbcf1ca8a0adb22f4efabba1fb84e903da7c775986e5626051d2437a7c
+  budget 450 KB raw: within (13.3 KB to spare), 200 KB deflated: OVER (7.5 KB over)
+  resident at start (header, directory, advances): 17888 bytes; largest strike chunk 13322 bytes of 32768; boxes 1344 bytes per strike
+  bytes by face and style (strike data, all six sizes):
+    Serif     Regular   34199        Bold   35733      Italic   35087 Bold Italic   36250  = 141269
+    Sans      Regular   37612        Bold   39174      Italic   38179 Bold Italic   40112  = 155077
+    Mono      Regular   35164        Bold   36521      Italic   37793 Bold Italic   39643  = 149121
+  bytes by size (all faces and styles):
+     8 pt (11 px)    37058
+    10 pt (13 px)    42608
+    12 pt (16 px)    54225
+    14 pt (19 px)    72094
+    18 pt (24 px)    95029
+    24 pt (32 px)   144453
+
+Quill Test Serif, Sans and Mono (Liberation-derived) / 1-bit hinted
+  strikes 72, raw 445499 bytes (435.1 KB), deflated 214813 bytes (209.8 KB), sha-256 178956b143fc293e51e493ed397427c54916e08ebc90fc24d0b53d9b4ea9aaad
+  budget 450 KB raw: within (14.9 KB to spare), 200 KB deflated: OVER (9.8 KB over)
+  resident at start (header, directory, advances): 17888 bytes; largest strike chunk 13198 bytes of 32768; boxes 1344 bytes per strike
+  bytes by face and style (strike data, all six sizes):
+    Serif     Regular   33955        Bold   35602      Italic   35068 Bold Italic   36002  = 140627
+    Sans      Regular   37589        Bold   39092      Italic   38186 Bold Italic   40015  = 154882
+    Mono      Regular   34980        Bold   36447      Italic   37476 Bold Italic   39327  = 148230
+  bytes by size (all faces and styles):
+     8 pt (11 px)    37003
+    10 pt (13 px)    41925
+    12 pt (16 px)    55871
+    14 pt (19 px)    71513
+    18 pt (24 px)    94163
+    24 pt (32 px)   143264
+
+Quill Test Serif, Sans and Mono (Liberation-derived) / 2-bit unhinted
+  strikes 72, raw 762830 bytes (745.0 KB), deflated 358199 bytes (349.8 KB), sha-256 6507f46b68dce66716de3b9397e68c85fd49f13f91fc5889aba027e0c3c4d9b0
+  budget 450 KB raw: OVER (295.0 KB over), 200 KB deflated: OVER (149.8 KB over)
+  resident at start (header, directory, advances): 17888 bytes; largest strike chunk 24530 bytes of 32768; boxes 1344 bytes per strike
+  bytes by face and style (strike data, all six sizes):
+    Serif     Regular   58691        Bold   61396      Italic   60547 Bold Italic   62584  = 243218
+    Sans      Regular   63057        Bold   66904      Italic   66031 Bold Italic   69698  = 265690
+    Mono      Regular   59020        Bold   61744      Italic   64407 Bold Italic   66991  = 252162
+  bytes by size (all faces and styles):
+     8 pt (11 px)    55708
+    10 pt (13 px)    66176
+    12 pt (16 px)    89877
+    14 pt (19 px)   116516
+    18 pt (24 px)   165454
+    24 pt (32 px)   267339
+
+Quill Test Serif, Sans and Mono (Liberation-derived) / 2-bit hinted
+  strikes 72, raw 730135 bytes (713.0 KB), deflated 348710 bytes (340.5 KB), sha-256 e981783e8da9930768e13edcff761a32a929732d9e316a11214871cefc483a00
+  budget 450 KB raw: OVER (263.0 KB over), 200 KB deflated: OVER (140.5 KB over)
+  resident at start (header, directory, advances): 17888 bytes; largest strike chunk 23572 bytes of 32768; boxes 1344 bytes per strike
+  bytes by face and style (strike data, all six sizes):
+    Serif     Regular   55139        Bold   57451      Italic   58203 Bold Italic   60248  = 231041
+    Sans      Regular   60647        Bold   63441      Italic   64274 Bold Italic   67604  = 255966
+    Mono      Regular   56063        Bold   58255      Italic   62334 Bold Italic   64716  = 241368
+  bytes by size (all faces and styles):
+     8 pt (11 px)    52974
+    10 pt (13 px)    63622
+    12 pt (16 px)    89147
+    14 pt (19 px)   109308
+    18 pt (24 px)   157834
+    24 pt (32 px)   255490
+
+Mixed files (Desk set; hinted; bits per pixel by size and style)
+  2-bit up to 14 pt, 1-bit at 18 and 24 pt: raw 597322 bytes (583.3 KB), deflated 285291 bytes (278.6 KB)
+  2-bit up to 12 pt, 1-bit above: raw 554122 bytes (541.1 KB), deflated 263983 bytes (257.8 KB)
+  2-bit up to 14 pt only (no 18 or 24 pt strikes): raw 340844 bytes (332.9 KB), deflated 175788 bytes (171.7 KB)
+  2-bit all sizes, Mono without italic and bold italic: raw 659468 bytes (644.0 KB), deflated 295477 bytes (288.6 KB)
+  2-bit up to 14 pt, 1-bit above, Mono without italic and bold italic: raw 500882 bytes (489.1 KB), deflated 239768 bytes (234.1 KB)
