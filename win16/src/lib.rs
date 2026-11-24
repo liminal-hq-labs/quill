@@ -475,6 +475,38 @@ pub fn dos_mkdir(path: *const u8) -> u16 {
 	if cf == 0 { 0 } else { ax }
 }
 
+/// Today's date from DOS (function 2Ah): year, month and day.
+pub fn dos_date() -> (u16, u8, u8) {
+	let mut out = [0u16; 2];
+	unsafe {
+		asm!(
+			"push ebx",
+			"push esi",
+			"push edi",
+			"mov ss, word ptr [__w16_ss16]",
+			"movzx esp, sp",
+			"int 0x21",
+			"mov word ptr [{p}], cx",
+			"mov word ptr [{p} + 2], dx",
+			".byte 0x66, 0xe8",
+			".long w16_sync_alias - . - 4",
+			"mov ss, word ptr [__w16_ss32]",
+			"movzx esp, sp",
+			"pop edi",
+			"pop esi",
+			"pop ebx",
+			"push ds",
+			"pop es",
+			p = in(reg) out.as_mut_ptr() as u16,
+			inout("ax") 0x2A00u16 => _,
+			out("cx") _,
+			out("dx") _,
+			options(nostack),
+		);
+	}
+	(out[0], (out[1] >> 8) as u8, out[1] as u8)
+}
+
 // A small text buffer for the result log. There is no `core::fmt`, which would cost tens of kilobytes of code.
 const LOG_SIZE: usize = 1024;
 

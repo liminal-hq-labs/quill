@@ -125,7 +125,10 @@ TOOLHELP 76 InterruptUnRegister w w
 USER 171 WinHelp wpwl w
 # Added for Quill's native interface: the off-screen page, scrolling, the toolbar bitmap, dialogs and the common dialogs.
 # InvalidateRect takes its rectangle as a far pointer (`l`), so 0 is a null pointer and not DS:0.
+USER 17 GetCursorPos p v
 USER 23 GetFocus - w
+USER 29 ScreenToClient wp v
+USER 30 WindowFromPoint l w
 USER 31 IsIconic w w
 USER 32 GetWindowRect wp v
 USER 62 SetScrollPos wwww w

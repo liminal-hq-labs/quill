@@ -3875,6 +3875,38 @@ global_asm!(
 	".byte 0x66, 0xc3",
 );
 
+// USER.17 GetCursorPos
+global_asm!(
+	".code16",
+	".section .text.imp_GetCursorPos,\"ax\"",
+	".globl GetCursorPos",
+	"GetCursorPos:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push ds",
+	"push word ptr [bp+8]",
+	"mov ss, word ptr [__w16_ss16]",
+	"movzx esp, sp",
+	".byte 0x9a",
+	".globl __w16imp_USER_17_GetCursorPos",
+	"__w16imp_USER_17_GetCursorPos:",
+	".word 0, 0",
+	".byte 0x66, 0xe8",
+	".long w16_sync_alias - . - 4",
+	"mov ss, word ptr [__w16_ss32]",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
 // USER.23 GetFocus
 global_asm!(
 	".code16",
@@ -3891,6 +3923,72 @@ global_asm!(
 	".byte 0x9a",
 	".globl __w16imp_USER_23_GetFocus",
 	"__w16imp_USER_23_GetFocus:",
+	".word 0, 0",
+	".byte 0x66, 0xe8",
+	".long w16_sync_alias - . - 4",
+	"mov ss, word ptr [__w16_ss32]",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
+// USER.29 ScreenToClient
+global_asm!(
+	".code16",
+	".section .text.imp_ScreenToClient,\"ax\"",
+	".globl ScreenToClient",
+	"ScreenToClient:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push word ptr [bp+8]",
+	"push ds",
+	"push word ptr [bp+12]",
+	"mov ss, word ptr [__w16_ss16]",
+	"movzx esp, sp",
+	".byte 0x9a",
+	".globl __w16imp_USER_29_ScreenToClient",
+	"__w16imp_USER_29_ScreenToClient:",
+	".word 0, 0",
+	".byte 0x66, 0xe8",
+	".long w16_sync_alias - . - 4",
+	"mov ss, word ptr [__w16_ss32]",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
+// USER.30 WindowFromPoint
+global_asm!(
+	".code16",
+	".section .text.imp_WindowFromPoint,\"ax\"",
+	".globl WindowFromPoint",
+	"WindowFromPoint:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push word ptr [bp+10]",
+	"push word ptr [bp+8]",
+	"mov ss, word ptr [__w16_ss16]",
+	"movzx esp, sp",
+	".byte 0x9a",
+	".globl __w16imp_USER_30_WindowFromPoint",
+	"__w16imp_USER_30_WindowFromPoint:",
 	".word 0, 0",
 	".byte 0x66, 0xe8",
 	".long w16_sync_alias - . - 4",
@@ -5113,7 +5211,10 @@ unsafe extern "C" {
 	pub fn InterruptRegister(a0: u32, a1: u32) -> u32;
 	pub fn InterruptUnRegister(a0: u32) -> u32;
 	pub fn WinHelp(a0: u32, a1: u32, a2: u32, a3: u32) -> u32;
+	pub fn GetCursorPos(a0: u32) -> u32;
 	pub fn GetFocus() -> u32;
+	pub fn ScreenToClient(a0: u32, a1: u32) -> u32;
+	pub fn WindowFromPoint(a0: u32) -> u32;
 	pub fn IsIconic(a0: u32) -> u32;
 	pub fn GetWindowRect(a0: u32, a1: u32) -> u32;
 	pub fn SetScrollPos(a0: u32, a1: u32, a2: u32, a3: u32) -> u32;
