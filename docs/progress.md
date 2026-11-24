@@ -152,6 +152,40 @@ Built on the Windows 95 build (D201, D202): the scanner is in `quill-app` (`spel
 
 **Windows 3.x, to do.** The Win16 build compiles the scanner (`win16/build.sh` builds `QUILL.EXE`, code 276,134 bytes against 273,503, every segment inside its budget) but nothing calls it. The data segment is the limit to watch: with the scanner it holds 29,300 bytes of data against 29,080 without it, so 2,444 of the 2,664 bytes that were free are left (D200 moved the bulk data to far memory). 76 of the 220 are the scanner's state; the rest are the strings of the menu item, its hint and its two messages. The marks are in far memory (`Store`), so the table costs nothing there. `SpellData::user` (2,048 bytes) and the ignore table (768 bytes) could go to a `Store` chunk too if the room is wanted. The shell side is Windows 95's with these differences: `SetTimer`, `KillTimer`, `LineTo` and `MoveTo` (the 16-bit `MoveTo`, no `MoveToEx`) exist in 3.1; `TrackPopupMenu` has no `TPM_RETURNCMD`, so the menu's items post `WM_COMMAND` and the word to change is kept in the shell; there is no `WM_CONTEXTMENU`, so the right button's `WM_RBUTTONUP` and Shift+F10 in `WM_KEYDOWN` open it; and the 300 KB dictionary stays resident, which on a 4 MB machine is the reason the SPEC leaves it off by default.
 
+### Windows 95 paint and key cost (W9X-2)
+
+Measured with `win9x/build.sh --bench` (the `bench` feature, decision W9X-2) and `win9x/tools/w95-spell-bench.sh --off --zoom Width|100`, in DOSBox-X at `cycles=fixed N` on Windows 95 OSR2.5 at 640 by 480 and 8 bits a pixel (the base image's own depth), Times New Roman 12 point, the bench document of 1,344 visible characters, 14 keys typed 2 s apart (6 s at 3,000), Check Spelling as You Type off. `QUILL32-BENCH.EXE` adds only `QueryPerformanceCounter` and `QueryPerformanceFrequency` to the imports; the product's import table is byte for byte what it was. The calls are counted at Quill's own call sites, so the call rows are the same on any machine; the time rows are DOSBox-X's. Two runs at 12,000 cycles and Page Width agreed to 0.04 percent (key to paint median 968.7 and 969.0 ms, paint mean 781.1 and 781.5 ms). "Paint" is the paint a key causes, the mean of 14; one paint is `BeginPaint` to `EndPaint`.
+
+| | 12,000 cycles, Width | 12,000, 100 % | 3,000, Width | 3,000, 100 % |
+|---|---|---|---|---|
+| Key to the end of its repaint, median | 969 ms | 523 ms | 4,016 ms | 2,163 ms |
+| Paint, mean | 781 ms | 337 ms | 3,233 ms | 1,392 ms |
+| Characters and lines drawn in a paint | 1,338 and 15 | 992 and 11 | 1,338 and 15 | 992 and 11 |
+| **Calls in a paint** | **1,445** | **100** | **1,445** | **100** |
+| `TextOutA` (one character each) | 1,337.5 (92.6 %) | 0 | 1,337.5 (92.6 %) | 0 |
+| `ExtTextOutA` (one run each) | 0 | 11 | 0 | 11 |
+| `SelectObject` | 34 | 26 | 34 | 26 |
+| `SetTextColor` and `SetBkMode` | 15 and 15 | 11 and 11 | 15 and 15 | 11 and 11 |
+| `CreateSolidBrush`, `FillRect`, `DeleteObject` | 5, 5, 6 | 5, 5, 6 | 5, 5, 6 | 5, 5, 6 |
+| `BitBlt` and `LineTo` (the caret) | 1 and 1 | 1 and 1 | 1 and 1 | 1 and 1 |
+| Pixels filled and bytes blitted | 1.83 M and 190 KB | 3.03 M and 195 KB | 1.83 M and 190 KB | 3.03 M and 195 KB |
+| Phase: `quill_app::draw` (the DOS text grid) | 115 ms (14.7 %) | 115 ms (34.1 %) | 474 ms (14.6 %) | 474 ms (34.0 %) |
+| Phase: clock and status line | 25 ms (3.2 %) | 25 ms (7.3 %) | 103 ms (3.2 %) | 103 ms (7.4 %) |
+| Phase: grey fill, toolbars and ruler, `BitBlt` | 5 + 6.5 + 5 ms | 5 + 6.5 + 5 ms | 22 + 27 + 22 ms | 23 + 27 + 21 ms |
+| Phase: `paint_page` | 622 ms (79.7 %) | 179 ms (53.0 %) | 2,576 ms (79.7 %) | 738 ms (53.0 %) |
+| of which: desk and paper fills | 32 ms | 31 ms | 133 ms | 127 ms |
+| of which: lines (`draw_line`) | 544 ms | 104 ms | 2,254 ms | 427 ms |
+| of which: text runs, from the first font to the last call | 450 ms (57.6 %) | 26 ms (7.8 %) | 1,861 ms (57.6 %) | 106 ms (7.6 %) |
+| of which: layout's walk along the lines, selection and wave | 95 ms | 78 ms | 392 ms | 320 ms |
+| of which: layout's iteration between lines | 38 ms | 36 ms | 158 ms | 150 ms |
+| of which: wave and caret | 8 ms | 9 ms | 33 ms | 36 ms |
+| **Microseconds per character drawn, text runs** | **336** | **26** | **1,392** | **107** |
+
+- **Calls: the plan's estimate holds.** About 1,450 calls and 92 % `TextOutA` for a full paint at Page Width (1,451 for the last one, 1,343 of them `TextOutA`: 92.6 %). The lines on the screen are 15, not the plan's 16. At 100 % the same paint is 100 calls, 11 of them `ExtTextOutA`. The estimate for the other rows (40 `SelectObject`, 32 colour and mode calls, 5 brushes) is within a few of the counts.
+- **Where the paint goes.** At Page Width 80 % of it is `paint_page` and 58 % the text runs: 336 µs a character at 12,000 cycles, about 4,000 emulated instructions (the plan guessed 0.45 ms and 5,500), against 26 µs a character for the same text drawn a run at a time. So per-character drawing costs 13 times a run, and one `ExtTextOutA` per run would take the Width paint from 781 ms to about 370 ms before any other change. Not in the plan: **`quill_app::draw` takes 115 ms, 15 % of a Width paint and a third of a 100 % paint**, for a text grid the page view throws away while editing; and the clock and status line another 25 ms. The layout's own walk (the 95 ms inside `draw_line` plus 38 ms between lines) is two to three times the 40 to 60 ms the plan guessed.
+- **The 0.17 s before the paint, at 12,000 cycles Width: 187 ms.** Not mostly `app.key`: `chrome::signature`, which `press` calls twice, is 98.6 ms (53 %, about 49 ms a call); `app.key` 60 ms (32 %); `ensure_visible` 19.5 ms (10 %); `update_scroll` 6.5 ms (3 %); `retitle` 1.8 ms; the invalidation and `spell_arm` under 0.3 ms; the message loop between the key and the paint under 1 ms. Per key, 47 calls: 22 `GetSystemMetrics`, 10 `GetClientRect`, and 4 each of `MoveWindow`, `SetScrollInfo` and `ShowWindow`, 1 `SetWindowTextA`, 1 `KillTimer`, 1 `InvalidateRect`. At 3,000 cycles every figure is 4.1 times as large (the whole key is 782 ms), so the cost is instructions the guest executes.
+- **Not run.** 16 bits a pixel (`--depth` is in the script, but the test bed has only the 8 bit base image; `win95-base-16bpp.img` has to be made by setting the display in a copy of it), real hardware and Windows 98 or Me. Under DOSBox-X's S3 emulation the fills and the 190 KB blit cost 5 to 32 ms; the plan's guess that an ISA bus makes them dearer is still a guess.
+
 ## Blocked
 
 - **Pending: the Windows ME VM.** The owner is using it interactively, so no further VM run was started. Waiting on it: the GDI print and preview checks (PostScript to a file, rendered by Ghostscript), the About box and print scenarios on ME, and the justification screenshot. The VM was last left powered off, restored to the snapshot "before quill gdi" (taken before the GDI tests), audio driver back at its original value (default).
