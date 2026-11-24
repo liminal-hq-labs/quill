@@ -6,7 +6,8 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
 # usage: win9x/tools/w95-spell-live.sh [--shots DIR] [--cycles max|N] [--zoom Width|100] [--off]     (build first with win9x/build.sh)
-#   --cycles  the DOSBox-X CPU: `max` (default) or a fixed number of cycles a millisecond (3000 is about a 386, 12000 a 486DX2-66)
+#   --cycles  the DOSBox-X CPU: `max` (default) or a fixed number of cycles a millisecond (by DOSBox's rule of thumb 3000 is a 386SX and
+#             12000 a 486DX-33)
 #   --zoom    the zoom QUILL.INI starts with (default Width)
 #   --off     starts with `[Quill] AsYouType=0`, for comparing with the feature on
 # Environment: LIMINAL_INSTALLER (a checkout with scripts/win95; default ~/source/liminal-hq-labs/liminal-installer), W95_BASE (the folder
@@ -66,9 +67,9 @@ pointer_at() {
 # goto X Y: walks the pointer to X Y over white paper and corrects from where it is seen, up to eight times: the guest pointer is not
 # always where the walk's arithmetic puts it.
 goto() {
-	local tx="$1" ty="$2" i seen sx sy
+	local tx="$1" ty="$2" seen sx sy
 	w95_mouse_move "$tx" "$ty"
-	for i in 1 2 3 4 5 6 7 8; do
+	for _ in 1 2 3 4 5 6 7 8; do
 		sleep 0.6
 		w95_shot "$RUN/ptr.png"
 		seen="$(pointer_at ptr)"

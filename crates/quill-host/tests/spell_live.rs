@@ -332,6 +332,28 @@ proptest! {
 fn idle_cost() {
 	use std::time::Instant;
 	let (mut app, mut s, mut f) = setup(true);
+	// The real Canadian dictionary, built from the SCOWL lists as `quill-dict` does.
+	let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../dict/scowl");
+	let mut words = Vec::new();
+	for set in ["english", "canadian", "american"] {
+		for kind in [
+			"words",
+			"upper",
+			"proper-names",
+			"contractions",
+			"abbreviations",
+		] {
+			for size in [10, 20, 35, 40, 50] {
+				if let Ok(t) = std::fs::read(dir.join(format!("{set}-{kind}.{size}"))) {
+					words.extend(quill_dict::read_list(&t));
+				}
+			}
+		}
+	}
+	f.files.insert(
+		"EN_CA.DIC".to_string(),
+		quill_dict::build(&words, 1, "SCOWL"),
+	);
 	let line = "the quick brown fox jumped over the lazy dog with some fine words, and a sentense is teh error. ";
 	for _ in 0..20 {
 		type_text(&mut app, &mut s, &mut f, line);
