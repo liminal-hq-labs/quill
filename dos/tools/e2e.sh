@@ -28,7 +28,7 @@ export DOS_ENV='QUILL_DUMP=D:\DUMP.TXT'
 export DOS_KEEP="$WORK/keep"
 # Each scenario (tests/scenarios/NAME.keys) is played into QUILLDOS.EXE through AUTOTYPE; the same file is played on the host through the
 # same quill-app code. Lines starting with @ are directives: @copy FILE (a test document put on the disk), @open FILE (a command-line
-# argument) and @mono (/MONO). Everything else is key tokens; # starts a comment.
+# argument), @mono (/MONO) and @rows 50 (/50). Everything else is key tokens; # starts a comment.
 run_scenario() { # <name> <saved file on the disk or -> <golden saved file or ->
 	local name="$1" saved="$2" golden="$3"
 	[ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = "$name" ] || return 0
@@ -43,6 +43,7 @@ run_scenario() { # <name> <saved file on the disk or -> <golden saved file or ->
 		@copy) cp "$ROOT/tests/docs/$a" "$disk/$(echo "$a" | tr '[:lower:]' '[:upper:]')" ;;
 		@open) args="$args $a" ;;
 		@mono) args="$args /MONO" ;;
+		@rows) [ "$a" != 50 ] || args="$args /50" ;;
 		esac
 	done < <(grep '^@' "$file" | sed 's/#.*//')
 	local keys
@@ -64,6 +65,7 @@ run_scenario() { # <name> <saved file on the disk or -> <golden saved file or ->
 }
 
 run_scenario m1-edit PLAIN.QLD m1-edit.qld
+run_scenario m1-edit-50 PLAIN.QLD m1-edit.qld
 run_scenario m2-letter OUT.RTF m2-letter.rtf
 run_scenario m2-mono - -
 run_scenario m2-find - -

@@ -69,13 +69,15 @@ pub fn parse_token(t: &str) -> Option<Key> {
 	quill_app::script::parse_token(t)
 }
 
-/// A key script: directives (`@mono`, `@open NAME`, `@copy NAME`) and key tokens, with `#` starting a comment.
+/// A key script: directives (`@mono`, `@rows N`, `@open NAME`, `@copy NAME`) and key tokens, with `#` starting a comment.
 #[derive(Default)]
 pub struct Script {
 	/// The keys.
 	pub keys: Vec<Key>,
 	/// Start in the mono attribute scheme.
 	pub mono: bool,
+	/// The screen's rows: 25 (the default, 0 here) or 50.
+	pub rows: usize,
 	/// A file named on the command line.
 	pub open: Option<String>,
 	/// Test documents to copy to the disk before the run.
@@ -90,6 +92,13 @@ pub fn parse_script(text: &str) -> Script {
 		while let Some(t) = it.next() {
 			match t {
 				"@mono" => sc.mono = true,
+				"@rows" => {
+					sc.rows = match it.next() {
+						Some("25") => 25,
+						Some("50") => 50,
+						other => panic!("@rows takes 25 or 50, not {other:?}"),
+					}
+				}
 				"@open" => sc.open = it.next().map(str::to_string),
 				"@copy" => sc.copy.extend(it.next().map(str::to_string)),
 				_ => sc
@@ -103,18 +112,27 @@ pub fn parse_script(text: &str) -> Script {
 
 /// Plays `keys` through a new app, writing a frame (`=== screen N ===`) for the start and after each key, and returns the files.
 pub fn play(files: &mut MemFiles, script: &Script, frames: &mut String) {
+	if script.rows == 50 {
+		play_rows::<50>(files, script, frames);
+	} else {
+		play_rows::<25>(files, script, frames);
+	}
+}
+
+fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &mut String) {
 	let mut s = HostStore::new();
 	let mut app = App::new();
 	app.reset(&mut s).unwrap();
 	app.load_settings(files);
 	app.set_about("Host test run");
+	app.set_rows(ROWS - 2);
 	if script.mono {
 		app.set_scheme(quill_app::Scheme::Mono);
 	}
 	if let Some(name) = &script.open {
 		app.open(&mut s, files, name.as_bytes()).unwrap();
 	}
-	let mut g = Grid::<25>::new(0);
+	let mut g = Grid::<ROWS>::new(0);
 	let mut n = 1;
 	quill_app::draw(&app, &s, &mut g);
 	g.dump(n, frames).unwrap();

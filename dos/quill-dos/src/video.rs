@@ -30,6 +30,8 @@ fn int10(ax: u32, bx: u32, cx: u32, dx: u32) -> (u32, u32, u32) {
 }
 
 static mut SAVED_MODE: u8 = 3;
+static mut SAVED_ROWS: u8 = 25;
+static mut BLOCK_CURSOR: u16 = 0x000F;
 static mut SAVED_CURSOR: u16 = 0x0607;
 static mut ACTIVE: bool = false;
 
@@ -37,25 +39,49 @@ fn screen() -> *mut u16 {
 	dpmi::linear_to_ptr::<u16>(0xB8000)
 }
 
-/// Takes over the screen: remembers the mode and the cursor, sets 80 by 25 colour text with bright backgrounds instead of
-/// blinking, hides the cursor and registers the way back with the clean-up list.
-pub fn enter() {
+/// The number of text rows the BIOS reports (the byte at 0040:0084 holds the last row).
+fn bios_rows() -> u8 {
+	// SAFETY: the BIOS data area is in the first megabyte, which the host maps at linear 0.
+	unsafe { dpmi::linear_to_ptr::<u8>(0x484).read_volatile().saturating_add(1) }
+}
+
+/// Takes over the screen: remembers the mode and the cursor, sets 80 by 25 colour text (or 80 by 50 when `rows` is 50 and the
+/// adapter's 8 by 8 font gives it) with bright backgrounds instead of blinking, hides the cursor and registers the way back with
+/// the clean-up list. Returns the rows the screen has, 25 or 50, so a card with no 50-row text mode leaves the caller at 25.
+pub fn enter(rows: usize) -> usize {
 	// SAFETY: single-threaded; the statics are touched only here and in `leave`, which `cleanup` may run from the panic path.
 	unsafe {
 		if ACTIVE {
-			return;
+			return usize::from(bios_rows());
 		}
 		let (mode, _, _) = int10(0x0F00, 0, 0, 0);
 		SAVED_MODE = (mode as u8) & 0x7F;
+		SAVED_ROWS = bios_rows();
 		let (_, cursor, _) = int10(0x0300, 0, 0, 0);
 		SAVED_CURSOR = cursor as u16;
 		ACTIVE = true;
 	}
 	int10(0x0003, 0, 0, 0);
+	let mut got = 25;
+	if rows == 50 {
+		// AX=1112h: load the 8 by 8 ROM font and reprogram the controller for it, which gives 50 rows on a VGA.
+		int10(0x1112, 0, 0, 0);
+		if bios_rows() == 50 {
+			got = 50;
+		} else {
+			int10(0x0003, 0, 0, 0);
+		}
+	}
+	// SAFETY: as above.
+	unsafe {
+		// An 8-line cell: the underline (lines 6 and 7) still fits, and the block stops at line 7.
+		BLOCK_CURSOR = if got == 50 { 0x0007 } else { 0x000F };
+	}
 	// Background intensity instead of blink, so attributes 80h to FFh are bright backgrounds.
 	int10(0x1003, 0, 0, 0);
 	hide_cursor();
 	cleanup::register(leave);
+	got
 }
 
 fn hide_cursor() {
@@ -71,6 +97,9 @@ pub fn leave() {
 		}
 		ACTIVE = false;
 		int10(u32::from(SAVED_MODE), 0, 0, 0);
+		if SAVED_ROWS == 50 {
+			int10(0x1112, 0, 0, 0);
+		}
 		int10(0x0100, 0, u32::from(SAVED_CURSOR), 0);
 	}
 	cleanup::forget(leave);
@@ -78,7 +107,7 @@ pub fn leave() {
 
 /// Shows the grid.
 pub fn present<const ROWS: usize>(grid: &Grid<ROWS>) {
-	enter();
+	enter(ROWS);
 	let vram = screen();
 	for (i, word) in grid.words().enumerate() {
 		// SAFETY: B8000h onward is the text page: 4000 bytes at 80 by 25 and 8000 at 80 by 50.
@@ -108,5 +137,7 @@ pub fn read_back<const ROWS: usize>() -> Grid<ROWS> {
 
 /// Shapes the hardware cursor: a line under the character for insert, a block for overtype.
 pub fn cursor_shape(overtype: bool) {
-	int10(0x0100, 0, if overtype { 0x000F } else { 0x0607 }, 0);
+	// SAFETY: written only by `enter`, on this thread.
+	let block = unsafe { BLOCK_CURSOR };
+	int10(0x0100, 0, u32::from(if overtype { block } else { 0x0607 }), 0);
 }
