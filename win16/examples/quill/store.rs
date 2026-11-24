@@ -38,6 +38,17 @@ pub fn note_top() {
 	}
 }
 
+/// Notes the stack pointer, where the drawing code calls into GDI (the deepest frames that are not store calls).
+pub fn sample() {
+	let sp: u16;
+	unsafe {
+		core::arch::asm!("mov {0:x}, sp", out(reg) sp, options(nomem, nostack));
+		if sp < MIN_SP {
+			MIN_SP = sp;
+		}
+	}
+}
+
 fn check(tag: u16) {
 	let sp: u16;
 	unsafe { core::arch::asm!("mov {0:x}, sp", out(reg) sp, options(nomem, nostack)) };

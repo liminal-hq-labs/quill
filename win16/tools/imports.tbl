@@ -94,7 +94,7 @@ USER 157 GetMenu w w
 USER 56 MoveWindow wwwwww w
 USER 18 SetCapture w w
 USER 19 ReleaseCapture - v
-USER 416 TrackPopupMenu wwwwwwp w
+USER 416 TrackPopupMenu wwwwwwl w
 USER 28 ClientToScreen wp v
 USER 152 DestroyMenu w w
 USER 81 FillRect wpw w
@@ -154,3 +154,5 @@ COMMDLG 2 GetSaveFileName p w
 COMMDLG 15 ChooseFont p w
 COMMDLG 20 PrintDlg p w
 COMMDLG 26 CommDlgExtendedError - l
+USER 415 CreatePopupMenu - w
+KERNEL 58 GetProfileString plppw w

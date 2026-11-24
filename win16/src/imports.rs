@@ -2853,7 +2853,7 @@ global_asm!(
 	"push word ptr [bp+20]",
 	"push word ptr [bp+24]",
 	"push word ptr [bp+28]",
-	"push ds",
+	"push word ptr [bp+34]",
 	"push word ptr [bp+32]",
 	"mov ss, word ptr [__w16_ss16]",
 	"movzx esp, sp",
@@ -4849,6 +4849,77 @@ global_asm!(
 	".byte 0x66, 0xc3",
 );
 
+// USER.415 CreatePopupMenu
+global_asm!(
+	".code16",
+	".section .text.imp_CreatePopupMenu,\"ax\"",
+	".globl CreatePopupMenu",
+	"CreatePopupMenu:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"mov ss, word ptr [__w16_ss16]",
+	"movzx esp, sp",
+	".byte 0x9a",
+	".globl __w16imp_USER_415_CreatePopupMenu",
+	"__w16imp_USER_415_CreatePopupMenu:",
+	".word 0, 0",
+	".byte 0x66, 0xe8",
+	".long w16_sync_alias - . - 4",
+	"mov ss, word ptr [__w16_ss32]",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
+// KERNEL.58 GetProfileString
+global_asm!(
+	".code16",
+	".section .text.imp_GetProfileString,\"ax\"",
+	".globl GetProfileString",
+	"GetProfileString:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push ds",
+	"push word ptr [bp+8]",
+	"push word ptr [bp+14]",
+	"push word ptr [bp+12]",
+	"push ds",
+	"push word ptr [bp+16]",
+	"push ds",
+	"push word ptr [bp+20]",
+	"push word ptr [bp+24]",
+	"mov ss, word ptr [__w16_ss16]",
+	"movzx esp, sp",
+	".byte 0x9a",
+	".globl __w16imp_KERNEL_58_GetProfileString",
+	"__w16imp_KERNEL_58_GetProfileString:",
+	".word 0, 0",
+	".byte 0x66, 0xe8",
+	".long w16_sync_alias - . - 4",
+	"mov ss, word ptr [__w16_ss32]",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
 unsafe extern "C" {
 	pub fn GetVersion() -> u32;
 	pub fn GlobalAlloc(a0: u32, a1: u32) -> u32;
@@ -4991,4 +5062,6 @@ unsafe extern "C" {
 	pub fn ChooseFont(a0: u32) -> u32;
 	pub fn PrintDlg(a0: u32) -> u32;
 	pub fn CommDlgExtendedError() -> u32;
+	pub fn CreatePopupMenu() -> u32;
+	pub fn GetProfileString(a0: u32, a1: u32, a2: u32, a3: u32, a4: u32) -> u32;
 }
