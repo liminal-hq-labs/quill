@@ -10,7 +10,8 @@
 # Reads installer/out/QUILL-DOS.IMG, QUILL-W31.IMG and QUILL-W95.IMG, and installer/dist/. Each disk's SETUP.LPK is taken off the
 # image with mtools, checked with `liminst lpk verify` and unpacked with `liminst lpk unpack`. The unpacked names are compared
 # with `dist/`: the program, the help, the dictionaries and the samples must match the files that were staged, and the staged
-# programs must match the build scripts' own output. The disk's README.TXT must be Quill's, and SETUP.EXE the runtime's.
+# programs must match the build scripts' own output. The Windows projects must register `.QLD` (the Windows 3.x one in `WIN.INI`, the
+# Windows 95 one in the registry, both at run time); reading those back from a guest is for the emulator tests. The disk's README.TXT must be Quill's, and SETUP.EXE the runtime's.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -58,6 +59,16 @@ for d in "${disks[@]}"; do
 	same "$dir/README.TXT" "$DIST/common/README.TXT" "$name README.TXT"
 	bash "$LIMINST" lpk verify "$dir/SETUP.LPK" >/dev/null || fail "$name: SETUP.LPK does not verify"
 	bash "$LIMINST" lpk unpack "$dir/SETUP.LPK" -o "$dir/pack" >/dev/null
+
+	# The compiled project (SETUP.PRJ) registers the .QLD file type on the Windows builds, with the program as its opener, and on
+	# DOS, which has no file types, does not.
+	prj="$dir/pack/SETUP.PRJ"
+	if [ "$stagedir" = dos-x86 ]; then
+		! grep -a -q 'Quill document' "$prj" || fail "$name: the DOS project registers a file type"
+	else
+		grep -a -q 'Quill document' "$prj" && grep -a -q 'hq.liminal.quill.qld' "$prj" && grep -a -q "$prog" "$prj" ||
+			fail "$name: the project does not register .QLD for $prog"
+	fi
 
 	count=0
 	while IFS= read -r f; do
