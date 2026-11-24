@@ -1,0 +1,28 @@
+[package]
+name = "quill-clip"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Quill's clipboard: a selection to and from RTF, text and a picture, over a transport trait each shell implements"
+
+[package.metadata.quill]
+layer = "editor"
+no_std = true
+alloc = false
+float = false
+
+[features]
+# The DIB flavour: a lone BMP picture to and from CF_DIB. Pulls in `quill-image` to check the bitmap. On by default so the workspace
+# tests cover it; a shell without pictures builds with `default-features = false`.
+dib = ["dep:quill-image"]
+default = ["dib"]
+
+[dependencies]
+quill-core = { path = "../quill-core" }
+quill-formats = { path = "../quill-formats" }
+quill-image = { path = "../quill-image", optional = true }
+
+[dev-dependencies]
+quill-heap = { path = "../quill-heap" }
+proptest = { version = "1", default-features = false, features = ["std"] }

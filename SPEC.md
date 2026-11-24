@@ -272,6 +272,7 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 
 - Cut and Copy place the selection on the clipboard as `Rich Text Format` (a registered format) and `CF_TEXT`; a selection that is exactly one picture also goes as `CF_DIB`.
 - Paste prefers `Rich Text Format`, then `CF_DIB`, then `CF_TEXT`. Pasting replaces the selection as one undo step.
+- A selection that ends inside a paragraph pastes inline, with no paragraph end of its own; a selection that includes a paragraph's end keeps it and the paragraph's format. A format that fails to read is skipped for the next one.
 
 ### Undo and redo
 
