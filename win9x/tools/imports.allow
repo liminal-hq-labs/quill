@@ -46,8 +46,9 @@ kernel32.dll!ExitProcess
 kernel32.dll!GetCommandLineA
 kernel32.dll!GetModuleFileNameA
 kernel32.dll!GetModuleHandleA
+kernel32.dll!GetProcAddress
 kernel32.dll!GetProcessHeap
-kernel32.dll!GetVersion
+kernel32.dll!GetVersionExA
 kernel32.dll!GlobalMemoryStatus
 kernel32.dll!HeapAlloc
 kernel32.dll!HeapFree
