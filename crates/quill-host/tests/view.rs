@@ -300,3 +300,34 @@ fn typing_past_the_bottom_of_a_page_scrolls_by_pixels_and_gaps() {
 	app.key(&mut s, &mut f, Key::CtrlHome);
 	assert_eq!(app.top_line(), 0);
 }
+
+#[test]
+fn the_scroll_bars_sit_in_the_page_area_only() {
+	use quill_app::view::scroll_layout;
+	// 800 by 600 client, toolbars and ruler 100 high, a status bar 20 high, bars 16 wide.
+	let l = scroll_layout(800, 600, 100, 20, 16, 16, false);
+	assert_eq!(l.vbar, (784, 100, 16, 480));
+	assert_eq!((l.hbar, l.corner), (None, None));
+	assert_eq!((l.page_w, l.page_bottom), (784, 580));
+	// With the horizontal bar the page area loses its height, and the corner box fills where the bars meet.
+	let l = scroll_layout(800, 600, 100, 20, 16, 16, true);
+	assert_eq!(l.vbar, (784, 100, 16, 464));
+	assert_eq!(l.hbar, Some((0, 564, 784, 16)));
+	assert_eq!(l.corner, Some((784, 564, 16, 16)));
+	// Hidden status bar: the bars reach the bottom of the window. A window too small for the chrome never gives a negative size.
+	assert_eq!(
+		scroll_layout(800, 600, 100, 0, 16, 16, false).vbar,
+		(784, 100, 16, 500)
+	);
+	let tiny = scroll_layout(50, 90, 100, 20, 16, 16, true);
+	assert!(tiny.vbar.3 >= 0 && tiny.hbar.unwrap().2 >= 0);
+	// The bars start below the toolbars and end above the status bar at every size.
+	for h in [300, 480, 600, 1000] {
+		for show in [false, true] {
+			let l = scroll_layout(640, h, 100, 20, 16, 16, show);
+			assert_eq!(l.vbar.1, 100);
+			assert_eq!(l.vbar.1 + l.vbar.3, l.page_bottom);
+			assert!(l.page_bottom + if show { 16 } else { 0 } <= h - 20);
+		}
+	}
+}

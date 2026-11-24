@@ -246,6 +246,18 @@ fn m2_find_script_matches_its_golden_screens() {
 }
 
 #[test]
+fn m10_menus_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("m10-menus");
+	compare("tests/golden/screens/m10-menus.frames.txt", &frames);
+}
+
+#[test]
+fn m11_recent_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("m11-recent");
+	compare("tests/golden/screens/m11-recent.frames.txt", &frames);
+}
+
+#[test]
 fn m2_lists_script_matches_its_golden_screens() {
 	let (_, frames) = scenario("m2-lists");
 	compare("tests/golden/screens/m2-lists.frames.txt", &frames);

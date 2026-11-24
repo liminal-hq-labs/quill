@@ -15,7 +15,9 @@
 )]
 
 pub mod accel;
+pub mod bios;
 mod chrome;
+pub mod datefmt;
 mod find;
 pub mod flow;
 mod form;
@@ -44,8 +46,9 @@ pub use chrome::{
 };
 pub use native::{Dialog, FindAction, VERSION};
 pub use paint::{
-	command_hint, command_tip, draw, line_label, menu_items, menu_title, status_text, Cursor, Item,
-	ListCounters, MENU_COUNT,
+	combo_hint, combo_tip, command_hint, command_tip, draw, item_for_mnemonic, line_label,
+	menu_box, menu_for_mnemonic, menu_items, menu_items_for, menu_title, mnemonic, slot,
+	status_text, Cursor, Item, ListCounters, Slot, COLOUR_HINT, COLOUR_TIP, MENU_COUNT,
 };
 pub use pointer::Grain;
 pub use quill_spell::{Candidate, Suggestions};
@@ -93,6 +96,9 @@ pub enum Key {
 	F(u8),
 	/// Ctrl with a letter, as the lower-case letter.
 	Ctrl(u8),
+	/// Alt with a letter or digit (the lower-case letter), or with Backspace (8). A shell without native menus passes it so Alt+letter
+	/// opens the menu with that mnemonic.
+	Alt(u8),
 }
 
 /// A direction for the movement keys.
@@ -602,6 +608,14 @@ impl<M: Measure + Clone> App<M> {
 	/// True once the person has chosen Exit.
 	pub fn quit(&self) -> bool {
 		self.quit
+	}
+
+	/// The menu that is open on the text menu bar and its highlighted item, or `None` when no menu is open.
+	pub fn menu_open(&self) -> Option<(u8, u8)> {
+		match self.mode {
+			Mode::Menu { menu, item } => Some((menu, item)),
+			_ => None,
+		}
 	}
 
 	/// The document, for tests.
@@ -1884,6 +1898,13 @@ impl<M: Measure + Clone> App<M> {
 				self.end_typing();
 				self.mode = Mode::Menu { menu: 0, item: 0 };
 			}
+			Key::Alt(8) => self.run(s, f, Command::Undo),
+			Key::Alt(c) if !self.native => {
+				if let Some(menu) = paint::menu_for_mnemonic(c) {
+					self.end_typing();
+					self.mode = Mode::Menu { menu, item: 0 };
+				}
+			}
 			Key::Ctrl(b's') => self.run(s, f, Command::Save),
 			Key::Ctrl(b'o') => self.run(s, f, Command::Open),
 			Key::Ctrl(b'p') => self.run(s, f, Command::Print),
@@ -1906,6 +1927,25 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	/// Runs what place `at` of the open menu holds: an item's command, or the recent file listed there.
+	fn run_slot<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		items: &[paint::Item],
+		recents: usize,
+		at: usize,
+	) {
+		match paint::slot(items.len(), recents, at) {
+			paint::Slot::Item(i) => {
+				if let Some(it) = items.get(i) {
+					self.run(s, f, it.command);
+				}
+			}
+			paint::Slot::Recent(k) => self.run(s, f, Command::Recent(k as u8)),
+		}
+	}
+
 	#[inline(never)] // keeps each mode's locals out of `key`'s frame (Win16 stacks are small)
 	fn key_menu<S: Store + ?Sized, F: Files>(
 		&mut self,
@@ -1915,7 +1955,7 @@ impl<M: Measure + Clone> App<M> {
 		menu: u8,
 		item: u8,
 	) {
-		let items = paint::menu_items(menu);
+		let items = paint::menu_items_for(menu, !self.native);
 		let recents = if menu == 0 {
 			self.recent_files().count() as u8
 		} else {
@@ -1940,6 +1980,20 @@ impl<M: Measure + Clone> App<M> {
 		};
 		match k {
 			Key::Esc | Key::F(10) => self.mode = Mode::Edit,
+			Key::Alt(c) => {
+				if let Some(m) = paint::menu_for_mnemonic(c) {
+					self.mode = Mode::Menu { menu: m, item: 0 };
+				}
+			}
+			Key::Char(c) => {
+				let c = c.to_ascii_lowercase();
+				if let Some(i) = paint::item_for_mnemonic(menu, c, recents as usize, !self.native) {
+					self.mode = Mode::Edit;
+					self.run_slot(s, f, items, recents as usize, i);
+				}
+			}
+			Key::Home if n > 0 => self.mode = Mode::Menu { menu, item: 0 },
+			Key::End if n > 0 => self.mode = Mode::Menu { menu, item: n - 1 },
 			Key::Left => {
 				self.mode = Mode::Menu {
 					menu: step(menu, false),
@@ -1966,11 +2020,7 @@ impl<M: Measure + Clone> App<M> {
 			}
 			Key::Enter => {
 				self.mode = Mode::Edit;
-				if let Some(it) = items.get(usize::from(item)) {
-					self.run(s, f, it.command);
-				} else if menu == 0 {
-					self.run(s, f, Command::Recent(item - items.len() as u8));
-				}
+				self.run_slot(s, f, items, recents as usize, usize::from(item));
 			}
 			_ => {}
 		}
