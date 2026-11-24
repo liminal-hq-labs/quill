@@ -64,7 +64,7 @@ sleep 1
 shot start
 left=0
 right=0
-for x in $(seq 0 630); do
+for x in $(seq 0 618); do
 	if [ "$(px start "$x" 300)" = "FFFFFF" ]; then
 		if [ "$left" -eq 0 ]; then left=$x; fi
 		right=$x
@@ -72,8 +72,25 @@ for x in $(seq 0 630); do
 done
 echo "wine-editing: the page runs from x=$left to x=$right on a 640 pixel screen"
 [ "$left" -ge 4 ] && [ "$left" -le 30 ] || fail "the page does not start near the left edge ($left)"
-d=$((left - (622 - right)))
-[ "${d#-}" -le 6 ] || fail "the page is not centred: $left pixels on the left, $((622 - right)) on the right"
+d=$((left - (623 - right)))
+[ "${d#-}" -le 6 ] || fail "the page is not centred: $left pixels on the left, $((623 - right)) on the right"
+
+# 1a. The vertical scroll bar belongs to the page area: its up arrow is just under the top of the page area (where the grey desk
+# starts), not up beside the toolbars and the ruler.
+top=0
+for y in $(seq 45 300); do
+	# The desk is a run of grey; the toolbars' shadow line is one row.
+	if [ "$(px start 4 "$y")" = "808080" ] && [ "$(px start 4 $((y + 4)))" = "808080" ]; then top=$y; break; fi
+done
+arrow=0
+for y in $(seq 45 300); do
+	for x in 626 628 630 632; do
+		v=$(px start "$x" "$y")
+		if [ "$((16#${v:0:2}))" -lt 112 ]; then arrow=$y; break 2; fi
+	done
+done
+echo "wine-editing: the page area starts at y=$top and the scroll bar's arrow is at y=$arrow"
+[ "$top" -gt 0 ] && [ "$arrow" -ge "$top" ] && [ "$((arrow - top))" -le 12 ] || fail "the scroll bar does not start at the top of the page area (page area $top, arrow $arrow)"
 
 # 1b. The caret is where the layout puts the end of the text, which is where the glyphs end: a zoomed font is hinted to whole pixels and
 # drifts from the layout's widths unless each character is drawn at its layout position. With the caret at the start, the text's
@@ -125,6 +142,7 @@ xdotool mousemove 115 62 click 1
 sleep 2
 shot preview
 [ "$(differ before preview)" -gt 5000 ] || fail "print preview did not show"
+[ "$(px preview 630 200)" = "808080" ] || fail "a scroll bar shows beside the whole-page preview"
 xdotool mousemove 130 64
 sleep 0.3
 xdotool mousemove 131 65

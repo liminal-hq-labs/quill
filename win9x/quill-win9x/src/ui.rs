@@ -67,12 +67,53 @@ pub enum Hover {
 pub unsafe fn page_area(hwnd: Handle, sh: &Shell) -> Rect {
 	let (w, h) = client_size(hwnd);
 	let status = if sh.app.show_status() { sh.ch } else { 0 };
+	let (vw, hh) = bar_sizes();
+	let top = crate::chrome_height(sh);
 	Rect {
 		left: 0,
-		top: crate::chrome_height(sh),
-		right: w,
-		bottom: (h - status).max(crate::chrome_height(sh)),
+		top,
+		right: w - if sh.vbar_on { vw } else { 0 },
+		bottom: (h - status - if sh.hbar_on { hh } else { 0 }).max(top),
 	}
+}
+
+/// The width of a vertical scroll bar and the height of a horizontal one.
+fn bar_sizes() -> (i32, i32) {
+	// SM_CXVSCROLL and SM_CYHSCROLL.
+	unsafe { (GetSystemMetrics(2).max(8), GetSystemMetrics(3).max(8)) }
+}
+
+/// Makes the two scroll bars as child windows, hidden: they belong to the page area and nowhere else, so they are controls placed in
+/// it and not the window's own bars, which would run the whole height of the window beside the toolbars.
+pub unsafe fn create_bars(hwnd: Handle, instance: Handle) -> (Handle, Handle) {
+	let make = |style: u32| {
+		CreateWindowExA(
+			0,
+			b"SCROLLBAR\0".as_ptr(),
+			null(),
+			WS_CHILD | style,
+			0,
+			0,
+			10,
+			10,
+			hwnd,
+			null_mut(),
+			instance,
+			null(),
+		)
+	};
+	// SBS_HORZ is 0 and SBS_VERT 1.
+	(make(1), make(0))
+}
+
+/// Puts the scroll bars along the right and bottom edges of the page area, and shows the ones that are needed.
+unsafe fn place_bars(hwnd: Handle, sh: &Shell) {
+	let area = page_area(hwnd, sh);
+	let (vw, hh) = bar_sizes();
+	MoveWindow(sh.vbar, area.right, area.top, vw, area.bottom - area.top, 1);
+	ShowWindow(sh.vbar, if sh.vbar_on { 5 } else { 0 });
+	MoveWindow(sh.hbar, area.left, area.bottom, area.right - area.left, hh, 1);
+	ShowWindow(sh.hbar, if sh.hbar_on { 5 } else { 0 });
 }
 
 /// How many sheets of paper the body takes, as the last paint or scroll update found it.
@@ -90,6 +131,31 @@ pub unsafe fn update_scroll(hwnd: Handle, sh: &mut Shell) {
 	if sh.grid {
 		return;
 	}
+	// Which bars show decides the page area and the page area decides which bars show: settle it in two passes.
+	let preview = sh.preview;
+	sh.vbar_on = preview.is_none_or(|pv| pv.actual);
+	sh.hbar_on = false;
+	for _ in 0..2 {
+		let area = page_area(hwnd, sh);
+		let (aw, ah) = (area.right - area.left, area.bottom - area.top);
+		let (hmax, vmax) = match preview {
+			Some(pv) => {
+				let (_, pwd, phd) = gdi::preview_scale(&sh.app, aw, ah, pv.two, pv.actual);
+				let n = if pv.two { 2 } else { 1 };
+				if pv.actual {
+					((16 + n * pwd + (n - 1) * 16 + 16 - aw).max(0), (phd + 32 - ah).max(0))
+				} else {
+					(0, 0)
+				}
+			}
+			None => (view::hscroll_max(&sh.app, aw), 1),
+		};
+		sh.hbar_on = hmax > 0;
+		if preview.is_some() {
+			sh.vbar_on = preview.is_some_and(|pv| pv.actual) && vmax > 0;
+		}
+	}
+	place_bars(hwnd, sh);
 	let area = page_area(hwnd, sh);
 	let (aw, ah) = (area.right - area.left, area.bottom - area.top);
 	if let Some(mut pv) = sh.preview {
@@ -104,8 +170,8 @@ pub unsafe fn update_scroll(hwnd: Handle, sh: &mut Shell) {
 		pv.hscroll = pv.hscroll.clamp(0, hmax);
 		pv.vscroll = pv.vscroll.clamp(0, vmax);
 		sh.preview = Some(pv);
-		set_bar(hwnd, SB_HORZ, hmax, aw, pv.hscroll, 1);
-		set_bar(hwnd, SB_VERT, vmax, ah, pv.vscroll, 1);
+		set_bar(sh.hbar, hmax, aw, pv.hscroll, 1);
+		set_bar(sh.vbar, vmax, ah, pv.vscroll, 1);
 		return;
 	}
 	sh.pages = gdi::body_pages(&sh.app, &sh.store);
@@ -115,13 +181,13 @@ pub unsafe fn update_scroll(hwnd: Handle, sh: &mut Shell) {
 	sh.vpos = sh.vpos.clamp(0, vmax);
 	let hmax = view::hscroll_max(&sh.app, aw);
 	sh.hscroll = sh.hscroll.clamp(0, hmax);
-	set_bar(hwnd, SB_HORZ, hmax, aw, sh.hscroll, 1);
+	set_bar(sh.hbar, hmax, aw, sh.hscroll, 1);
 	let k = view::bar_scale(vmax + view_h);
-	set_bar(hwnd, SB_VERT, vmax, view_h, sh.vpos, k);
+	set_bar(sh.vbar, vmax, view_h, sh.vpos, k);
 }
 
 /// Sets a scroll bar for positions 0 to `max` with a thumb of `page`, everything divided by `k` to fit 16 bits.
-unsafe fn set_bar(hwnd: Handle, bar: i32, max: i32, page: i32, pos: i32, k: i32) {
+unsafe fn set_bar(bar: Handle, max: i32, page: i32, pos: i32, k: i32) {
 	let info = ScrollInfo {
 		size: core::mem::size_of::<ScrollInfo>() as u32,
 		mask: SIF_ALL,
@@ -131,7 +197,8 @@ unsafe fn set_bar(hwnd: Handle, bar: i32, max: i32, page: i32, pos: i32, k: i32)
 		pos: pos / k,
 		track_pos: 0,
 	};
-	SetScrollInfo(hwnd, bar, &info, 1);
+	// SB_CTL: the bar is a control of its own.
+	SetScrollInfo(bar, 2, &info, 1);
 }
 
 /// The window changed size: lays the page, the ruler, the preview's bar and the scroll bars out again.
@@ -215,7 +282,8 @@ pub unsafe fn vscroll_by(hwnd: Handle, sh: &mut Shell, code: usize, thumb: i32) 
 
 /// A `WM_HSCROLL`.
 pub unsafe fn hscroll_by(hwnd: Handle, sh: &mut Shell, code: usize, thumb: i32) {
-	let (w, _) = client_size(hwnd);
+	let area = page_area(hwnd, sh);
+	let w = area.right - area.left;
 	let now = match sh.preview {
 		Some(pv) => pv.hscroll,
 		None => sh.hscroll,
