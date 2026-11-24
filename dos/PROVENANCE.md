@@ -10,7 +10,7 @@ The Rust-on-DOS foundation in this folder comes from [Desk](https://github.com/l
 | Here | From | Changes |
 |---|---|---|
 | `dos-elf.json`, `link.ld`, `.cargo/config.toml`, `rustfmt.toml` | The installer's `dos/` | None. The i486 ELF target, its linker script, the `-Zbuild-std` settings and the wider rustfmt width |
-| `rt/` (`start`, `dpmi`, `dos`, `heap`, `env`, `fpu`, `io`, `panic`, `cleanup`) | The installer's `dos/rt/` | None. Entry, DPMI client, INT 21h, heap, command tail and environment, x87, `println!`, panic and clean-up |
+| `rt/` (`start`, `dpmi`, `dos`, `heap`, `env`, `fpu`, `io`, `panic`, `cleanup`) | The installer's `dos/rt/` | Quill adds folder, drive, rename and INT 24h calls (below). Entry, DPMI client, INT 21h, heap, command tail and environment, x87, `println!`, panic and clean-up |
 | `tools/elf2go32.py`, `tools/dosrun.sh`, `tools/fetch-tools.sh`, `tools/frames.py` | The installer's `dos/tools/` | None. Packs the ELF behind a go32 stub; runs a command in headless DOSBox Staging with typed keys and a scratch drive; fetches DOSBox Staging and CWSDPMI with checksums |
 | `quill-dos/src/video.rs` | The installer's `dos/setup/src/video.rs` | Draws a `quill_grid::Grid` instead of the installer's `Cells`; adds `read_back` and `wait_key` |
 | `build.sh`, `check.sh` | The installer's `dos/` | Build `quill-dos` and pack it as `QUILLDOS.EXE` |
@@ -18,6 +18,8 @@ The Rust-on-DOS foundation in this folder comes from [Desk](https://github.com/l
 ## What is Quill's own
 
 `quill-dos/` (the program), `tools/e2e.sh` (the golden comparison) and the screens in `crates/quill-grid`.
+
+Added to the copied `rt/` (the end of `rt/src/dos.rs`, and `free_memory` in `rt/src/dpmi.rs`): searching a folder (`find_first`, `find_next`, `find_each`, `DirEntry`), drives (`current_drive`, `set_current_drive`, `current_dir`, `drive_attributes`, `drive_valid`, `logical_drive_map`, `floppy_count`, `drive_mask`), `rename`, `set_attributes`, `dos_version` and the INT 24h stub (`install_critical_handler`, `remove_critical_handler`). Refreshing from Desk keeps them. `rt-test/` and `tools/rt-test.sh` check them under headless DOSBox.
 
 ## Still to add (roadmap T4 and M1 to M2)
 

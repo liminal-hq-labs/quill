@@ -72,6 +72,37 @@ Missing from M2 as the roadmap states it: numbered and bulleted lists, headers a
 
 What M1 does not have yet: selection, overtype, find, formats beyond what a file carries, the other menus (the bar shows them, only File and Edit open), the ruler, and the temporary-file save (D66).
 
+### DOS runtime: directories, drives and rename
+
+`dos/rt` gained `find_first`, `find_next` and `find_each` (INT 21h 4Eh and 4Fh through a DTA in conventional memory), `current_drive`, `set_current_drive`, `current_dir`, `drive_attributes` and `drive_valid` (IOCTL 4409h), `logical_drive_map` (440Eh), `floppy_count` (INT 11h), `drive_mask`, `rename` (56h), `set_attributes` (4301h), `dos_version` (30h), `dpmi::free_memory` (0500h) and an INT 24h critical-error stub (`install_critical_handler`). `dos/tools/rt-test.sh` builds `RTTEST.EXE` and runs it under headless DOSBox Staging 0.83.0 on a prepared C: (`make dos` runs it):
+
+- `RTTEST list` reads a tree of 1149 entries back (folders, a folder of 600 files and one of 512, a path 12 levels deep, names in lower, upper and mixed case, punctuation that sorts differently by case) and its output equals the host's upper-cased, sorted listing, line for line.
+- `RTTEST self` passes 23 checks: C:, D: and Z: valid; E: refused with error 0Fh; find and open on E: fail at once with no hang; rename, rename onto an existing name (refused), rename of a missing file (error 2) and a move into a folder; the INT 24h vector points at the stub, the stub's bytes are `B0 03 CF`, the old vector comes back on removal and when the exit list runs.
+
+What DOSBox Staging 0.83.0 does, from `RT_PROBE=1 dos/tools/rt-test.sh`:
+
+- **`.` and `..` are returned** for every folder with mask 10h, **including the root of a mounted drive**, where real DOS returns neither. A dialog must decide "below the root" from the path, never from the presence of `..`.
+- **Order is not byte order.** Within a folder the entries come out alphabetical by 8.3 name (`A-B.TXT`, `A.TXT`, `A1.TXT`, `A_B.TXT`, `A~1.TXT`), but a drive's root lists folders first, then files. Real DOS gives directory order. The core sorts, as the plan says.
+- **Attribute masks.** With mask 0 only normal files return; mask 10h adds folders. A file made hidden with 4301h is not returned with mask 0 or 10h and is returned with mask 02h. Volume labels never appeared. A host file with mode 444 shows as attribute 21h (read-only, archive); ordinary files show 20h.
+- **Host names that are not 8.3 are shortened, not hidden:** `verylongfilename.txt` is `VERYLO~1.TXT`, `has space.txt` is `HASSPA~1.TXT`, `ok.html` is `OK~1.HTM`, `tw.o.dots` is `TW~1.DOT`, and `.dotfile` is not listed. Lower and mixed case come back in upper case. These are DOSBox's aliases and are not the host names, which is another reason to refuse rather than truncate.
+- **Errors:** a missing folder and a file used as a folder give 3; a missing file in an existing folder gives 12h (not 2), and a wildcard that matches nothing gives 12h too (`find_each` reports it as zero entries).
+- **Drives.** 4409h answers `Ok` (attribute word 0802h) for A:, B:, C:, D:, Y: and Z: and error 0Fh for E: to X:. **A: and B: are valid although no floppy is mounted and `INT 11h` reports 0 floppies**, so `drive_mask` leaves A: and B: out beyond the floppy count. Y: is valid in this DOSBox (an extra drive it provides); Z: reports 0 bytes free. 440Eh answers 1 for A: and B: (one device with two letters) and 0 for the rest. C: and D: report 256,000 KB free (DOSBox's default for a mount). `set_current_drive` returns 26. DOS reports version 5.0.
+- **A drive that is not ready cannot be made in DOSBox**, so the INT 24h stub is proven only to install, hold the right bytes, restore the old vector and be removed by the exit list. That DOS calls it, and that it makes the call fail rather than show "Abort, Retry, Fail", is not tested, and neither is it under CWSDPMI with a real floppy.
+- **`CWSDPMI.SWP`** appears in the program's folder (here the root of C:) when a DPMI client runs, so a directory listing of the program's own folder contains it.
+- **Free memory:** DPMI 0500h reports a largest block of about 148 MB with `memsize = 16`.
+
+Timings, `cputype = 386`, `core = normal`, `cpu_cycles = 3000` and `cpu_cycles_protected = 3000` (a 386SX-class machine, as `docs/testing.md` describes), set through `DOS_CONF` after the generated `[cpu]` section (a second section overrides the first: the program finds it cannot set the AC flag, which a 386 cannot, and the times are 20 times longer than with `cpu_cycles = max`). The BIOS tick counter has a 54.9 ms resolution, so each case runs for 40 ticks or more. Emulated time is deterministic: three runs gave the same numbers. `RT_TIME=1 dos/tools/rt-test.sh` reproduces them.
+
+| Read | Entries | Reads | Per read | Per entry |
+|---|---|---|---|---|
+| Find first and next over a folder of 600 files | 602 (with `.` and `..`) | 17 | 132 ms | 220 us |
+| The same over 512 files | 514 | 19 | 116 ms | 224 us |
+| A folder 12 levels deep, long path, 5 entries | 5 | 1567 | 1.4 ms | 280 us |
+| A walk of the whole tree, with sorting and string building | 1149 | 2 | 1.57 s | 1.36 ms |
+| `drive_mask` (26 drive checks) and `current_dir` | 1 | 403 | 5.5 ms | |
+
+With `cpu_cycles = max` the same reads take 4.9 to 6.3 ms for 512 and 600 entries. About 660 cycles per entry is the cost of one DPMI real-mode call plus the Rust that reads the DTA; DOSBox's own directory scan is native code, so a real DOS's scan (and a floppy's seek time) is **not** in these numbers. They bound what the runtime adds, not what a 386's disk costs. A listing of 512 entries is about an eighth of a second of runtime overhead at this speed, which fits the plan's estimate; the floppy-root estimate of a second is untested.
+
 ### T1
 
 Run with `win16/tools/run-w31.sh` (DOSBox-X 2025.02.01 in Docker, Xvfb, `machine=svga_s3`, `cputype=pentium`, Windows for Workgroups 3.11 in 386 Enhanced mode, `GetWinFlags=00000C29`). Logs: `docs/evidence/t1-probe-parent.log` and `t1-probe-child.log`. A second copy of the program, started with `WinExec`, yields in a loop with other patterns while the first runs every case.
