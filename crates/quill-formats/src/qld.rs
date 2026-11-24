@@ -465,7 +465,7 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 				{
 					return Err(FormatError::BadFile);
 				}
-				doc.page = p;
+				doc.set_page(p);
 			}
 			b"FONT" => {
 				let n = u32::from(c.u16()?);
