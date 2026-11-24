@@ -6,6 +6,7 @@ How Quill is built. [SPEC.md](../SPEC.md) says what it does, [decisions.md](deci
 
 - [The shape of it](#the-shape-of-it)
 - [Crates and workspaces](#crates-and-workspaces)
+- [Layers and the layer check](#layers-and-the-layer-check)
 - [The core](#the-core)
 - [What every platform can rely on](#what-every-platform-can-rely-on)
 - [The app layer and the two renderers](#the-app-layer-and-the-two-renderers)
@@ -96,6 +97,43 @@ fuzz/       cargo-fuzz targets
 installer/  the Liminal Installer project and the disk image recipes
 tests/      golden layouts, screens, RTF and picture corpus, self-test scripts, captured metrics
 ```
+
+## Layers and the layer check
+
+Every crate belongs to one of four layers, plus host tools, and a crate may depend only on its own layer or a lower one (D171). Lowest first:
+
+| Layer | Holds | Rules |
+|---|---|---|
+| `base` | Code that knows no document: byte streams and stores, text tables, pictures, settings, dialog logic, the spelling checker | `no_std`, no `alloc` unless its metadata says so, no floats, no panics |
+| `editor` | The document model, the file formats, the clipboard conversions, `App` and the dialog flows | `no_std`, no `alloc`, no floats, no panics |
+| `kit` | What two or more shells reuse to draw or describe UI: the text-mode grid, the page painter, strikes, chrome geometry | `no_std` unless its metadata says otherwise |
+| `shell` | One per operating system: only OS calls | May use `alloc` and `std` |
+| `tool` | Host tools such as `quill-host`, `quill-help` and `quill-dict` | May depend on anything; only a dev-dependency may point at one |
+
+Inside a layer there is an order, and a crate may use only the crates to its left. The table is `ORDER` in `scripts/check-layers.py`; crates it does not name are not ordered against each other, so a new crate lands without editing it.
+
+Each `Cargo.toml` declares where its crate stands:
+
+```toml
+[package.metadata.quill]
+layer = "base"      # base | editor | kit | shell | tool
+no_std = true
+alloc = false
+float = false
+```
+
+`scripts/check-layers.py` (run as `python3 -I scripts/check-layers.py`, by `make validate` and by the Layers job in CI) reads `cargo metadata --no-deps` for the root workspace and for `win16/`, `win9x/`, `dos/` and any `linux/` or `winui/` workspace that exists, and fails when:
+
+- a normal dependency points to a higher layer, or sideways against the order;
+- a normal dependency points at a tool;
+- a platform crate (`windows*`, `gtk*`, `crossterm`, `rt`) is used outside a shell;
+- `long-names` is turned on by a crate that is not a shell;
+- a crate marked `no_std` lacks `#![no_std]`, or one not marked `alloc` has `extern crate alloc`;
+- a crate has no `[package.metadata.quill]`.
+
+The check starts in report mode: the violations that exist today are listed in `scripts/layer-allow.txt` and printed as known (an editor crate using a kit crate is V1; a base crate using the document model for a trait is V3). A violation that is not listed fails the run, and a listed one that no longer exists is reported as stale, so the file only shrinks. `--strict` ignores the list, which is what the check becomes once it is empty (D172). A kit crate reaching into `quill-app` internals (V2) is a downward dependency and cannot be seen from the graph, so review catches it.
+
+`scripts/check-no-floats.sh` takes its crate list from the same metadata: a crate with `float = false` is searched for `f32` and `f64`. A new portable crate adds the metadata to its own `Cargo.toml` and no shared list needs an edit.
 
 ## The core
 

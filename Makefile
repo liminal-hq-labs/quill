@@ -3,9 +3,9 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-.PHONY: dos validate fmt clippy test headers floats goldens
+.PHONY: dos validate fmt clippy test headers floats layers goldens
 
-validate: fmt clippy test headers floats magic
+validate: fmt clippy test headers floats layers magic
 	@echo "validate: ok"
 
 fmt:
@@ -23,6 +23,9 @@ headers:
 
 floats:
 	bash scripts/check-no-floats.sh
+
+layers:
+	python3 -I scripts/check-layers.py
 
 magic:
 	bash scripts/check-magic.sh

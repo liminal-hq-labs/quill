@@ -8,3 +8,9 @@ description = "Quill's text-mode screens: a grid of CP437 cells with attributes,
 
 [dependencies]
 quill-core = { path = "../quill-core" }
+
+[package.metadata.quill]
+layer = "kit"
+no_std = true
+alloc = false
+float = true

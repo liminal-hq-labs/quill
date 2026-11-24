@@ -15,3 +15,9 @@ license = "Apache-2.0 OR MIT"
 # The panic handler is a lang item that `std` defines for itself, so a program that links `std` turns this off.
 default = ["panic-handler"]
 panic-handler = []
+
+[package.metadata.quill]
+layer = "shell"
+no_std = true
+alloc = true
+float = true

@@ -8,3 +8,9 @@ description = "A raw-deflate decoder with a 32 KB window that streams its input 
 
 [dev-dependencies]
 proptest = { version = "1", default-features = false, features = ["std"] }
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = false
+float = true

@@ -12,3 +12,9 @@ quill-inflate = { path = "../quill-inflate" }
 
 [dev-dependencies]
 proptest = { version = "1", default-features = false, features = ["std"] }
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = false
+float = true
