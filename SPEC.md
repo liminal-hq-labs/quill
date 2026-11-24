@@ -29,6 +29,8 @@ Quill is the companion application to the Liminal HQ blog series *Cross-compilin
 | Win16 | `QUILL.EXE` (NE) | Windows 3.1 and 3.11 in 386 Enhanced mode, 386 or later. It also runs on Windows 95, 98 and ME, as a bonus | The primary build |
 | Win32 | `QUILL32.EXE` (PE, subsystem 4.0) | Windows 95, 98 and ME on a Pentium or later; later, optionally, NT 4.0 to Windows 11 | The build for Windows 9x, with long file names |
 | DOS | `QUILLDOS.EXE` (go32 with a built-in DPMI host) | MS-DOS 5 or later on a 486 or later with a VGA | Text mode (80 × 25 or 80 × 50) first; a graphics mode with real fonts (`/G`) second |
+| Linux terminal | `quill-tty` | Linux, in a terminal of at least 80 × 25 | The DOS text screen on crossterm, with the same editor; see [docs/linux.md](docs/linux.md) |
+| Linux command line | `quill` | Linux | `cat`, `convert` and `info` for documents, with no screen |
 
 - Every build reads and writes byte-identical `.QLD` and RTF files and has the same document limits, so a document moves between them unchanged. A build that cannot show a property keeps it (see [Build differences](#build-differences)).
 - Windows 95 on a 486 uses the Win16 build: the Win32 build's floor is a Pentium (D33).
@@ -96,6 +98,8 @@ Everything in this table is v1 unless the last column says otherwise. When time 
 - **Quill for Windows 3.1** (`QUILL.EXE`, crate `quill-win16`): the Win16 application.
 - **Quill for Windows 95** (`QUILL32.EXE`, crate `quill-win9x`): the Win32 application.
 - **Quill for DOS** (`QUILLDOS.EXE`, crate `quill-dos`): the DOS application, text mode and graphics mode in one executable.
+- **Quill for Linux terminals** (`quill-tty`): the Linux terminal application, drawing `quill-grid`'s screen with crossterm.
+- **Quill command** (`quill`, crate `quill-cli`): `quill cat`, `quill convert` and `quill info`.
 - **Quill core** (`quill-core`): the document model, editing, undo and layout. Portable `no_std` Rust with no Windows or DOS dependency.
 - **Quill formats** (`quill-formats`): the native, RTF and plain text readers and writers.
 - **Quill image** (`quill-image`): the BMP and PNG decoders, scaling and colour reduction.
@@ -105,6 +109,7 @@ Everything in this table is v1 unless the last column says otherwise. When time 
 - **Quill dialogs** (`quill-dlg`): the logic of the file dialogs, apart from drawing: DOS 8.3 names and paths, the file types, the name Save As starts with, the state of the widgets the text dialogs share, and the file dialog's state machine over a file system trait.
 - **Help compiler** (`quill-help`, command `hlpc`): a host tool that compiles Quill's help sources into a WinHelp 3.1 `.HLP` file (and a DOS help file), with a reader (`hlpdump`) for tests. Built to be lifted out into its own repository later.
 - **Dictionary builder** (`quill-dict`): a host tool that builds `.DIC` files from SCOWL word lists.
+- **Quill fonts** (`quill-fonts`): `OutlineMeasure`, a layout `Measure` over outline font files with no hinting, the font fallback table and the Quill test fonts.
 - **Host tools** (`quill-host`): the reference renderer (`quill-render`) that writes PNG pages, text-mode screens or a text dump, and the test harnesses.
 - **Installer** (`installer/`): a Liminal Installer project that builds floppy images: a Windows `SETUP.EXE` that installs the right Windows build for the version it runs on, and a DOS `INSTALL.EXE` for the DOS build.
 
