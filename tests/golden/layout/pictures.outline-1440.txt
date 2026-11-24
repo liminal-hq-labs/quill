@@ -1,0 +1,8 @@
+# quill layout dump 1
+# measure outline, 1440 x 1440 units per inch
+# 46 characters, 5 lines, 1 pages
+page 1 y 0 para 0 line 0 start 0 len 14 x 0 width 1507 ascent 214 descent 52 | A PNG picture:
+page 1 y 266 para 1 line 0 start 15 len 1 x 0 width 960 ascent 720 descent 52 | .
+page 1 y 1038 para 2 line 0 start 17 len 17 x 0 width 1696 ascent 214 descent 52 | A bitmap picture:
+page 1 y 1304 para 3 line 0 start 35 len 1 x 0 width 960 ascent 720 descent 52 | .
+page 1 y 2076 para 4 line 0 start 37 len 8 x 0 width 841 ascent 214 descent 52 | The end.

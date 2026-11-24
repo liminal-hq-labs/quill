@@ -1,0 +1,10 @@
+# quill layout dump 1
+# measure outline, 1440 x 1440 units per inch
+# 70 characters, 7 lines, 1 pages
+page 1 y 0 para 0 line 0 start 0 len 13 x 0 width 1274 ascent 214 descent 52 | Shopping list
+page 1 y 386 para 1 line 0 start 14 len 6 x 360 width 587 ascent 214 descent 52 | Quills
+page 1 y 652 para 2 line 0 start 21 len 3 x 360 width 320 ascent 214 descent 52 | Ink
+page 1 y 918 para 3 line 0 start 25 len 10 x 360 width 887 ascent 214 descent 52 | First step
+page 1 y 1184 para 4 line 0 start 36 len 11 x 360 width 1154 ascent 214 descent 52 | Second step
+page 1 y 1450 para 5 line 0 start 48 len 8 x 360 width 802 ascent 214 descent 52 | Lettered
+page 1 y 1716 para 6 line 0 start 57 len 12 x 0 width 1135 ascent 214 descent 52 | Plain again.
