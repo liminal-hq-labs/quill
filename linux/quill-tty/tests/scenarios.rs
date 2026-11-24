@@ -53,6 +53,8 @@ fn typed(k: Key) -> KeyEvent {
 		Key::Insert => KeyEvent::new(KeyCode::Insert, n),
 		Key::F(i) => KeyEvent::new(KeyCode::F(i), n),
 		Key::Ctrl(c) => KeyEvent::new(KeyCode::Char(char::from(c)), KeyModifiers::CONTROL),
+		Key::Alt(8) => KeyEvent::new(KeyCode::Backspace, KeyModifiers::ALT),
+		Key::Alt(c) => KeyEvent::new(KeyCode::Char(char::from(c)), KeyModifiers::ALT),
 	}
 }
 
