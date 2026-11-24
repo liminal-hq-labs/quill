@@ -1,0 +1,19 @@
+[package]
+name = "quill-spike-reflow"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Spike J0: measures the whole-document layout per query and proves a checkpoint cache and a copy-on-write snapshot; throwaway, see docs/reflow-spike.md"
+
+[[bin]]
+name = "reflow-spike"
+path = "src/main.rs"
+
+[dependencies]
+quill-core = { path = "../quill-core", features = ["reflow-spike"] }
+quill-app = { path = "../quill-app" }
+quill-formats = { path = "../quill-formats" }
+quill-grid = { path = "../quill-grid" }
+quill-heap = { path = "../quill-heap" }
+quill-host = { path = "../quill-host" }

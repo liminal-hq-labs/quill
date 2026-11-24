@@ -1,0 +1,16 @@
+# THREAD95.EXE: spike J0's Windows 95 worker thread (throwaway; see docs/reflow-spike.md).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "spike-thread"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "A Windows 95 worker thread that posts WM_APP to the window thread"
+license = "Apache-2.0 OR MIT"
+
+[[bin]]
+name = "thread95"
+path = "src/main.rs"

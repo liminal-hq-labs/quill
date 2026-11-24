@@ -9,3 +9,7 @@ description = "Quill's document, piece table, undo and layout: no_std, no alloc,
 [dev-dependencies]
 quill-host = { path = "../quill-host" }
 proptest = { version = "1", default-features = false, features = ["std"] }
+
+[features]
+# Spike J0's prototype layout cache (`layout::reflow_spike`); throwaway, never in a product build.
+reflow-spike = []

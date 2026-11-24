@@ -722,3 +722,7 @@ pub fn picture_size<S: Store + ?Sized>(
 		to_units(p.shown_h, ry).max(1),
 	))
 }
+
+/// Spike J0's throwaway resumable layout and checkpoint cache; see `docs/reflow-spike.md`.
+#[cfg(feature = "reflow-spike")]
+pub mod reflow_spike;

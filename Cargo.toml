@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/quill-core", "crates/quill-dlg", "crates/quill-formats", "crates/quill-host", "crates/quill-grid", "crates/quill-app", "crates/quill-heap", "crates/quill-image", "crates/quill-inflate", "crates/quill-dict", "crates/quill-spell", "crates/quill-help", "linux/quill-tty", "crates/quill-cli", "crates/quill-fonts", "crates/quill-fntgen", "crates/quill-strike", "crates/quill-paint"]
+members = ["crates/quill-core", "crates/quill-dlg", "crates/quill-formats", "crates/quill-host", "crates/quill-grid", "crates/quill-app", "crates/quill-heap", "crates/quill-image", "crates/quill-inflate", "crates/quill-dict", "crates/quill-spell", "crates/quill-help", "linux/quill-tty", "crates/quill-cli", "crates/quill-fonts", "crates/quill-fntgen", "crates/quill-strike", "crates/quill-paint", "crates/quill-spike-reflow"]
 
 [workspace.package]
 version = "0.0.0"

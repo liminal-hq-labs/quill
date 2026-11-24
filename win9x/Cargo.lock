@@ -70,3 +70,7 @@ dependencies = [
  "quill-heap",
  "quill-image",
 ]
+
+[[package]]
+name = "spike-thread"
+version = "0.0.0"

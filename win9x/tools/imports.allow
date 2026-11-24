@@ -125,3 +125,8 @@ user32.dll!UpdateWindow
 user32.dll!KillTimer
 kernel32.dll!GetDateFormatA
 kernel32.dll!GetTimeFormatA
+kernel32.dll!CreateThread
+kernel32.dll!WaitForSingleObject
+kernel32.dll!GetCurrentThreadId
+kernel32.dll!Sleep
+user32.dll!PostMessageA
