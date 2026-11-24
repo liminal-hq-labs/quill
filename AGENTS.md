@@ -91,7 +91,7 @@ Use `#` comments for shell, YAML, TOML and Dockerfiles, and an XML comment for S
 
 ## Architecture rules
 
-- **Core first.** The portable crates (`quill-core`, `quill-formats`, `quill-image`, `quill-inflate`, `quill-spell`, `quill-app`, `quill-grid`, `quill-dlg`, `quill-strike`) never name a platform. Anything Windows or DOS comes in through a trait.
+- **Core first.** The portable crates (`quill-core`, `quill-formats`, `quill-image`, `quill-inflate`, `quill-spell`, `quill-app`, `quill-grid`, `quill-dlg`, `quill-strike`, `quill-paint`) never name a platform. Anything Windows or DOS comes in through a trait.
 - **No `alloc`, no floats, no panics in portable crates.** Document-sized data goes through `Store`; layout is integer; fallible work returns `Result`. Clippy enforces it.
 - **One file format.** Only `quill-formats` reads or writes documents, and every build saves the same bytes for the same document.
 - **Win32 and DOS lead, Win16 follows.** Windows UI lands on Win32 first and editing behaviour on DOS text mode first; Win16 ports a working design (D34, D37).
