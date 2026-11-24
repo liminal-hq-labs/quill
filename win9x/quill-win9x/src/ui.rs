@@ -443,6 +443,15 @@ pub unsafe fn visible_span(hwnd: Handle, sh: &Shell) -> (u32, u32) {
 	}
 }
 
+/// Where the caret is in the client area, as the pixel at its foot, for a menu that opens from the keyboard.
+pub unsafe fn caret_point(hwnd: Handle, sh: &Shell) -> Option<(i32, i32)> {
+	let area = page_area(hwnd, sh);
+	let p = pct(sh, area.right - area.left);
+	let (x, top, h) = sh.app.point_of(&sh.store, sh.app.caret(), view::stride(&sh.app))?;
+	let x0 = area.left + view::page_x0(area.right - area.left, dev(view::paper(&sh.app).0, p), sh.hscroll);
+	Some((x0 + dev(x, p), area.top + dev(view::rel(top + h, sh.vpos), p)))
+}
+
 /// Asks for the lines that hold the positions `lo` to `hi` to be painted again, and for nothing else.
 pub unsafe fn invalidate_range(hwnd: Handle, sh: &Shell, lo: u32, hi: u32) {
 	if sh.grid || sh.preview.is_some() {

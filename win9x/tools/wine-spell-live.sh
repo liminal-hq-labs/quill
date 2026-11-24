@@ -120,6 +120,20 @@ run_case() {
 	after=$(red "$name-fixed" | awk -v lo="$((xmax - 20))" '$1 >= lo' | wc -l)
 	[ "$after" -eq 0 ] || fail "$name: the corrected word still has $after red pixels"
 	[ "$(red "$name-fixed" | wc -l)" -ge "$one" ] || fail "$name: the other word lost its wave"
+	# The keyboard reaches the same menu: with the caret against a new misspelling, Shift+F10 opens it and Escape closes it.
+	xdotool type --delay 40 " zzqx "
+	sleep 4
+	xdotool key Left
+	sleep 1
+	shot "$name-before-key"
+	xdotool key shift+F10
+	sleep 2
+	shot "$name-key-menu"
+	compare -metric AE "$WORK/$name-before-key.png" "$WORK/$name-key-menu.png" null: 2> "$WORK/diff.txt" || true
+	d=$(cut -d' ' -f1 < "$WORK/diff.txt" | cut -d. -f1)
+	[ "${d:-0}" -gt 400 ] || fail "$name: Shift+F10 did not open the menu ($d pixels differ)"
+	xdotool key Escape
+	sleep 1
 	echo "wine-spell-live: ok at $name"
 	kill "$WPID" 2> /dev/null || true
 	wineserver -k 2> /dev/null || true

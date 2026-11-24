@@ -535,10 +535,17 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			mouse_up(hwnd, x, y);
 			0
 		}
-		// WM_RBUTTONUP: a misspelt word offers its corrections.
-		0x0205 => {
-			let (x, y) = xy(lparam);
-			spell_menu(hwnd, x, y);
+		// WM_CONTEXTMENU, from the right button or the keyboard (`lParam` is -1): a misspelt word offers its corrections. Anywhere else the
+		// system has nothing to show.
+		0x007B => {
+			if lparam == -1 {
+				spell_menu(hwnd, None);
+			} else {
+				let (sx, sy) = xy(lparam);
+				let mut o = Point { x: 0, y: 0 };
+				ClientToScreen(hwnd, &mut o);
+				spell_menu(hwnd, Some((sx - o.x, sy - o.y)));
+			}
 			0
 		}
 		0x0010 => {
@@ -1232,15 +1239,25 @@ const MF_GRAYED: u32 = 1;
 const TPM_RIGHTBUTTON: u32 = 2;
 const TPM_RETURNCMD: u32 = 0x100;
 
-/// The right button went up in the page: over a misspelt word it opens a menu of the word's suggestions, Ignore All and Add to Dictionary.
-unsafe fn spell_menu(hwnd: Handle, x: i32, y: i32) {
+/// The context menu was asked for, with the pointer at (`x`, `y`) in the client area or, from the keyboard (Shift+F10 or the menu key),
+/// at the caret: over a misspelt word it opens a menu of the word's suggestions, Ignore All and Add to Dictionary.
+unsafe fn spell_menu(hwnd: Handle, at: Option<(i32, i32)>) {
 	let Some(sh) = shell() else {
 		return;
 	};
-	if sh.preview.is_some() || sh.grid || !sh.app.spell_live() || !sh.app.editing() || !ui::in_page(hwnd, sh, x, y) {
+	if sh.preview.is_some() || sh.grid || !sh.app.spell_live() || !sh.app.editing() {
 		return;
 	}
-	let pos = ui::pos_under(hwnd, sh, x, y);
+	let (pos, x, y) = match at {
+		Some((x, y)) if ui::in_page(hwnd, sh, x, y) => (ui::pos_under(hwnd, sh, x, y), x, y),
+		Some(_) => return,
+		None => {
+			let Some((x, y)) = ui::caret_point(hwnd, sh) else {
+				return;
+			};
+			(sh.app.caret(), x, y)
+		}
+	};
 	let Some((lo, _)) = sh.app.spell_mark_at(&sh.store, pos) else {
 		return;
 	};
