@@ -270,7 +270,7 @@ impl<M: quill_core::layout::Measure + Clone> App<M> {
 	///
 	/// Yes saves and then goes on with `c`. A document with no name asks for one first: the editor leaves a `Dialog::SaveAs`
 	/// request with `c` waiting, and `save_as_chosen` goes on with it (`dialog_cancelled` drops it). A failed save leaves its
-	/// message on the status line and drops `c`. No discards the changes and goes on. Cancel does nothing.
+	/// message on the status line and drops `c`. No goes on without saving; the changes are dropped only when `c` completes, so cancelling the dialog that follows (Open's) leaves the document modified. Cancel does nothing.
 	pub fn confirm_answered<S: Store + ?Sized, F: Files>(
 		&mut self,
 		s: &mut S,
@@ -289,7 +289,7 @@ impl<M: quill_core::layout::Measure + Clone> App<M> {
 				}
 			}
 			Answer::No => {
-				self.discard_changes();
+				// The changes go only when `c` completes: a cancelled Open leaves them unsaved.
 				self.run_confirmed(s, f, c);
 			}
 			Answer::Cancel => self.pending = None,

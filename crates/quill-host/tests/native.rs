@@ -528,3 +528,46 @@ fn file_notices_and_the_remembered_folder() {
 	app.open_chosen(&mut s, &mut f, b"IN.TXT").unwrap();
 	assert_eq!(body(&app, &s), "from disk");
 }
+
+#[test]
+fn no_drops_the_changes_only_when_the_command_completes() {
+	// Open: No, then the file dialog is cancelled. The text is still unsaved and Exit still asks.
+	let (mut app, mut s, mut f) = setup("precious");
+	app.command(&mut s, &mut f, Command::Open);
+	assert_eq!(app.take_dialog(), Some(Dialog::ConfirmSave(Command::Open)));
+	app.confirm_answered(&mut s, &mut f, Command::Open, Answer::No);
+	assert_eq!(app.take_dialog(), Some(Dialog::Open));
+	assert!(app.modified(), "the Open dialog has not completed");
+	app.dialog_cancelled(Dialog::Open);
+	assert!(app.modified());
+	assert_eq!(body(&app, &s), "precious");
+	app.command(&mut s, &mut f, Command::Exit);
+	assert_eq!(app.take_dialog(), Some(Dialog::ConfirmSave(Command::Exit)));
+	// Choosing a file completes it, and then the changes are gone.
+	f.files.insert("IN.TXT".to_string(), b"other".to_vec());
+	app.confirm_answered(&mut s, &mut f, Command::Open, Answer::No);
+	assert_eq!(app.take_dialog(), Some(Dialog::Open));
+	app.open_chosen(&mut s, &mut f, b"IN.TXT").unwrap();
+	assert!(!app.modified());
+	// A file that cannot be read completes nothing.
+	app.key(&mut s, &mut f, Key::Char(b'!'));
+	app.confirm_answered(&mut s, &mut f, Command::Open, Answer::No);
+	app.take_dialog();
+	assert!(app.open_chosen(&mut s, &mut f, b"GONE.TXT").is_err());
+	assert!(app.modified());
+	// The shells' own order, discard then run, gives the same result.
+	let (mut app, mut s, mut f) = setup("shell");
+	app.discard_changes();
+	app.run_confirmed(&mut s, &mut f, Command::Open);
+	assert_eq!(app.take_dialog(), Some(Dialog::Open));
+	assert!(app.modified());
+	// The text-cell build too: N then Esc in the Open prompt.
+	let mut s = HostStore::new();
+	let mut app = App::new();
+	app.reset(&mut s).unwrap();
+	app.key(&mut s, &mut f, Key::Char(b'x'));
+	app.command(&mut s, &mut f, Command::Open);
+	app.key(&mut s, &mut f, Key::Char(b'n'));
+	app.key(&mut s, &mut f, Key::Esc);
+	assert!(app.modified());
+}
