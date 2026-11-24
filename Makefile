@@ -3,9 +3,9 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-.PHONY: dos validate fmt clippy test headers floats goldens
+.PHONY: dos validate fmt clippy test headers floats goldens wasm
 
-validate: fmt clippy test headers floats magic
+validate: fmt clippy test headers floats magic wasm
 	@echo "validate: ok"
 
 fmt:
@@ -23,6 +23,11 @@ headers:
 
 floats:
 	bash scripts/check-no-floats.sh
+
+# The pixel surface must build for the browser: no_std plus alloc, no operating system.
+wasm:
+	rustup target add wasm32-unknown-unknown
+	cargo check --target wasm32-unknown-unknown -p quill-paint --features pixel --locked
 
 magic:
 	bash scripts/check-magic.sh

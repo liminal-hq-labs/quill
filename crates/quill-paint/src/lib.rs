@@ -6,7 +6,8 @@
 //! The painter draws the laid-out page through a [`Surface`]; the surfaces here keep their pixels in caller-owned slices in the
 //! device's own format, so the host runs exactly the code DOS runs and a golden is byte-identical to a frame read back from video
 //! memory. Every glyph is drawn at the `x` that `walk_chars` gives, so the drawing, the caret and the hit tests are one set of
-//! integers. The design is in `docs/dos-graphics.md`.
+//! integers. The design is in `docs/dos-graphics.md`. With the `pixel` feature, [`pixel`] adds a truecolour RGBA surface over the same
+//! trait for the GTK, WinUI and browser clients (`docs/pixel-surface.md`).
 
 #![no_std]
 #![deny(
@@ -18,8 +19,13 @@
 	clippy::todo
 )]
 
+#[cfg(feature = "pixel")]
+extern crate alloc;
+
 pub mod page;
 pub mod palette;
+#[cfg(feature = "pixel")]
+pub mod pixel;
 pub mod raster;
 
 use quill_core::layout::FontRef;

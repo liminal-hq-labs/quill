@@ -10,9 +10,11 @@
 
 mod cp1252;
 mod face;
+mod glyphs;
 mod measure;
 mod set;
 
 pub use face::{Face, LoadError};
+pub use glyphs::MeasureGlyphs;
 pub use measure::{OutlineMeasure, SYNTHETIC_BOLD_DIVISOR};
 pub use set::{FontSet, Resolved};

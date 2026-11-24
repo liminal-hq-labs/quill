@@ -8,8 +8,10 @@ description = "Quill's outline-font measure: widths and metrics from the font fi
 
 [dependencies]
 quill-core = { path = "../quill-core" }
+quill-paint = { path = "../quill-paint", features = ["pixel"] }
 skrifa = "0.50"
 
 [dev-dependencies]
+quill-app = { path = "../quill-app" }
 quill-formats = { path = "../quill-formats" }
 quill-host = { path = "../quill-host" }

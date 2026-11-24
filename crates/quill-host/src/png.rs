@@ -229,3 +229,29 @@ pub fn encode_indexed(
 	chunk(&mut out, b"IEND", &[]);
 	out
 }
+
+/// Encodes a truecolour image: `rgb` holds red, green, blue bytes, row by row. Rows are filtered "up" and deflated with runs.
+pub fn encode_rgb(width: u32, height: u32, rgb: &[u8]) -> Vec<u8> {
+	let stride = width as usize * 3;
+	let mut raw = Vec::with_capacity((stride + 1) * height as usize);
+	for y in 0..height as usize {
+		let row = &rgb[y * stride..(y + 1) * stride];
+		raw.push(if y == 0 { 0 } else { 2 });
+		for (x, v) in row.iter().enumerate() {
+			raw.push(if y == 0 {
+				*v
+			} else {
+				v.wrapping_sub(rgb[(y - 1) * stride + x])
+			});
+		}
+	}
+	let mut out = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+	let mut ihdr = Vec::new();
+	ihdr.extend_from_slice(&width.to_be_bytes());
+	ihdr.extend_from_slice(&height.to_be_bytes());
+	ihdr.extend_from_slice(&[8, 2, 0, 0, 0]);
+	chunk(&mut out, b"IHDR", &ihdr);
+	chunk(&mut out, b"IDAT", &deflate_runs(&raw));
+	chunk(&mut out, b"IEND", &[]);
+	out
+}
