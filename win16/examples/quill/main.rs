@@ -15,6 +15,7 @@ mod chrome;
 mod dialogs;
 mod far;
 mod gdi;
+mod picture;
 mod store;
 
 use core::mem::MaybeUninit;
@@ -34,6 +35,8 @@ const WM_ERASEBKGND: u32 = 0x0014;
 const WM_KEYDOWN: u32 = 0x0100;
 const WM_CHAR: u32 = 0x0102;
 const WM_TIMER: u32 = 0x0113;
+/// The timer that `/EXIT` sets; timer 1 steps a `/PLAY` script.
+const EXIT_TIMER: u32 = 2;
 const WM_HSCROLL: u32 = 0x0114;
 const WM_VSCROLL: u32 = 0x0115;
 const WM_MOUSEMOVE: u32 = 0x0200;
@@ -1097,7 +1100,12 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				0
 			}
 			WM_TIMER => {
-				play(hwnd);
+				if wparam == EXIT_TIMER {
+					KillTimer(hwnd, EXIT_TIMER);
+					DestroyWindow(hwnd);
+				} else {
+					play(hwnd);
+				}
 				0
 			}
 			WM_SIZE => {
@@ -1306,6 +1314,8 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 	let mut dump_file: Option<([u8; 32], usize)> = None;
 	let mut open: Option<([u8; 32], usize)> = None;
 	let mut mono = false;
+	// `/EXIT [SECONDS]` closes the window, and ends Windows, after a while (for a test harness that reads the logs).
+	let mut exit_after: Option<u32> = None;
 	let mut words = cmd[..n].split(|b| *b == b' ').filter(|w| !w.is_empty());
 	let take = |w: Option<&[u8]>| {
 		let w = w?;
@@ -1324,7 +1334,8 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 			w16::fault::install();
 		} else if w.eq_ignore_ascii_case(b"/MONO") {
 			mono = true;
-
+		} else if w.eq_ignore_ascii_case(b"/EXIT") {
+			exit_after = Some(20);
 		} else if w[0] != b'/' {
 			open = take(Some(w));
 		}
@@ -1449,6 +1460,9 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		if (*core::ptr::addr_of!(PLAY)).is_some() {
 			SetTimer(hwnd, 1, 300, 0);
 		}
+		if let Some(secs) = exit_after {
+			SetTimer(hwnd, EXIT_TIMER, secs * 1000, 0);
+		}
 		let mut msg = core::mem::zeroed::<Msg>();
 		while GetMessage(&mut msg as *mut Msg as u32, 0, 0, 0) != 0 {
 			TranslateMessage(&mut msg as *mut Msg as u32);
@@ -1461,6 +1475,10 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 			// How deep the stack went in this session, beside the program, for `tools/check_stack_log.py`.
 			USE_HERE = true;
 			write_stack_log();
+			picture::write_log();
+			if exit_after.is_some() {
+				ExitWindows(0, 0);
+			}
 		}
 	}
 	0

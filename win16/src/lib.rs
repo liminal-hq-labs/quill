@@ -540,6 +540,11 @@ impl Log {
 	pub fn bytes(&self) -> &[u8] {
 		&self.buf[..self.len]
 	}
+	/// Empties the log, so a second file can be written from it.
+	pub fn clear(&mut self) -> &mut Self {
+		self.len = 0;
+		self
+	}
 }
 
 pub const HFILE_ERROR: u32 = 0xFFFF;

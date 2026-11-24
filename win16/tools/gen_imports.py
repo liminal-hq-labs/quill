@@ -121,7 +121,7 @@ def check_spec(rows, spec_dir):
 			continue
 		with open(os.path.join(spec_dir, files[mod]), encoding="utf-8") as f:
 			text = f.read()
-		m = re.search(rf"^{ordinal}\s+\S+(?:\s+-\S+)*\s+(\w+)\(([^)]*)\)", text, re.M)
+		m = re.search(rf"^{ordinal}\s+\S+(?:\s+-\S+)*\s+(\w+)\s*\(([^)]*)\)", text, re.M)
 		if not m:
 			print(f"spec mismatch: {mod}.{ordinal} {name} not found")
 			bad += 1

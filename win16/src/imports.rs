@@ -3661,6 +3661,86 @@ global_asm!(
 	".byte 0x66, 0xc3",
 );
 
+// GDI.439 StretchDIBits
+global_asm!(
+	".code16",
+	".section .text.imp_StretchDIBits,\"ax\"",
+	".globl StretchDIBits",
+	"StretchDIBits:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push word ptr [bp+8]",
+	"push word ptr [bp+12]",
+	"push word ptr [bp+16]",
+	"push word ptr [bp+20]",
+	"push word ptr [bp+24]",
+	"push word ptr [bp+28]",
+	"push word ptr [bp+32]",
+	"push word ptr [bp+36]",
+	"push word ptr [bp+40]",
+	"push word ptr [bp+46]",
+	"push word ptr [bp+44]",
+	"push word ptr [bp+50]",
+	"push word ptr [bp+48]",
+	"push word ptr [bp+52]",
+	"push word ptr [bp+58]",
+	"push word ptr [bp+56]",
+	"mov ss, word ptr [__w16_ss16]",
+	"movzx esp, sp",
+	".byte 0x9a",
+	".globl __w16imp_GDI_439_StretchDIBits",
+	"__w16imp_GDI_439_StretchDIBits:",
+	".word 0, 0",
+	".byte 0x66, 0xe8",
+	".long w16_sync_alias - . - 4",
+	"mov ss, word ptr [__w16_ss32]",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
+// GDI.7 SetStretchBltMode
+global_asm!(
+	".code16",
+	".section .text.imp_SetStretchBltMode,\"ax\"",
+	".globl SetStretchBltMode",
+	"SetStretchBltMode:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push word ptr [bp+8]",
+	"push word ptr [bp+12]",
+	"mov ss, word ptr [__w16_ss16]",
+	"movzx esp, sp",
+	".byte 0x9a",
+	".globl __w16imp_GDI_7_SetStretchBltMode",
+	"__w16imp_GDI_7_SetStretchBltMode:",
+	".word 0, 0",
+	".byte 0x66, 0xe8",
+	".long w16_sync_alias - . - 4",
+	"mov ss, word ptr [__w16_ss32]",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
 // KERNEL.36 GetCurrentTask
 global_asm!(
 	".code16",
@@ -5027,6 +5107,8 @@ unsafe extern "C" {
 	pub fn RestoreDC(a0: u32, a1: u32) -> u32;
 	pub fn IntersectClipRect(a0: u32, a1: u32, a2: u32, a3: u32, a4: u32) -> u32;
 	pub fn SetDIBitsToDevice(a0: u32, a1: u32, a2: u32, a3: u32, a4: u32, a5: u32, a6: u32, a7: u32, a8: u32, a9: u32, a10: u32, a11: u32) -> u32;
+	pub fn StretchDIBits(a0: u32, a1: u32, a2: u32, a3: u32, a4: u32, a5: u32, a6: u32, a7: u32, a8: u32, a9: u32, a10: u32, a11: u32, a12: u32) -> u32;
+	pub fn SetStretchBltMode(a0: u32, a1: u32) -> u32;
 	pub fn GetCurrentTask() -> u32;
 	pub fn InterruptRegister(a0: u32, a1: u32) -> u32;
 	pub fn InterruptUnRegister(a0: u32) -> u32;

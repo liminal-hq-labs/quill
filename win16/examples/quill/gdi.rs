@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // The same drawing as the Win32 build's `gdi.rs`, with the Win16 calls: every handle is a 16-bit word, rectangles and points are
-// 16-bit, and fonts come from `CreateFontIndirect` with a 50-byte LOGFONT. Pictures show as a grey box the size they print (they are
-// decoded in the Win32 build only for now).
+// 16-bit, and fonts come from `CreateFontIndirect` with a 50-byte LOGFONT. Bitmaps are drawn by `picture.rs`; a picture it does not
+// draw (PNG) shows as a grey box the size it prints.
 use quill_app::view::{self, PageGeom};
 use quill_app::{App, ListCounters, line_label};
 use quill_core::doc::{CFmt, StoryKind, cflag};
@@ -328,9 +328,12 @@ fn draw_line(
 			if c == 0x01 {
 				flush(&mut n, &run, run_x, run_cf, run_sel);
 				if let Some((pw, ph)) = quill_core::layout::picture_size(doc, s, text, p, 96, 96) {
-					// The picture's place: a grey box with a dark edge, the size it prints.
-					fill(dc, tx + x, base - ph, pw, ph, SHADOW);
-					fill(dc, tx + x + 1, base - ph + 1, pw - 2, ph - 2, FACE);
+					let idx = text.object_at(s, p).map_or(0, |v| v & 0xFFFF) as u16;
+					// The picture, or a grey box with a dark edge the size it prints when it is not drawn (see `picture.rs`).
+					if !crate::picture::draw(dc, doc, s, idx, tx + x, base - ph, pw, ph) {
+						fill(dc, tx + x, base - ph, pw, ph, SHADOW);
+						fill(dc, tx + x + 1, base - ph + 1, pw - 2, ph - 2, FACE);
+					}
 				}
 				return;
 			}
