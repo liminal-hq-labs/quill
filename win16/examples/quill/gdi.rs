@@ -180,6 +180,17 @@ pub fn font_handle(fr: &FontRef, extra: u8) -> u32 {
 }
 
 impl Measure for Gdi16 {
+	/// The editor draws a field's value where the field is, so the line makes room for the longest it can be: a date of ten
+	/// characters (`12/31/1999`) and a file name of twelve (`LONGNAME.QLD`).
+	fn field_digits(&self, kind: u8) -> u32 {
+		match kind {
+			_ if self.grid => 2,
+			3 => 10,
+			4 => 12,
+			_ => 2,
+		}
+	}
+
 	fn resolution(&self) -> (u16, u16) {
 		if self.grid {
 			(10, 6)
@@ -248,6 +259,7 @@ fn draw_line(
 	label: Option<([u8; 16], usize, usize)>,
 	tx: i32,
 	y_top: i32,
+	pages: u32,
 ) {
 	let doc = app.doc();
 	let text = doc.story(StoryKind::Body);
@@ -331,6 +343,18 @@ fn draw_line(
 					// The picture's place: a grey box with a dark edge, the size it prints.
 					fill(dc, tx + x, base - ph, pw, ph, SHADOW);
 					fill(dc, tx + x + 1, base - ph + 1, pw - 2, ph - 2, FACE);
+				} else if let Some(v) = text.object_at(s, p) {
+					// A field shows its value: the page it is on, the page count, the date or the file name.
+					let mut buf = [0u8; 32];
+					let n = app.field_text(v >> 16, l.page, pages, &mut buf);
+					let (fr, _, cfmt) = font_ref(doc, s, cf);
+					unsafe {
+						let old = SelectObject(dc, font_handle(&fr, 0));
+						SetBkMode(dc, TRANSPARENT);
+						SetTextColor(dc, colour_of(app, s, &cfmt));
+						TextOut(dc, (tx + x) as u32, base as u32, np(buf.as_ptr()), n as u32);
+						SelectObject(dc, old);
+					}
 				}
 				return;
 			}
@@ -465,7 +489,9 @@ pub fn paint_page(dc: u32, area: Rect16, hscroll: i32, app: &QApp, s: &FarStore)
 		let mut line_h = 16;
 		let first = app.top_line();
 		let mut counters: ListCounters = [[0; 9]; 4];
+		let mut pages = 1u32;
 		app.for_each_line(s, |i, l| {
+			pages = pages.max(l.page);
 			let label = line_label(app, s, l, &mut counters, view::DPI);
 			if i < first {
 				return;
@@ -486,7 +512,16 @@ pub fn paint_page(dc: u32, area: Rect16, hscroll: i32, app: &QApp, s: &FarStore)
 		let tx = x0 + margin_l;
 		SetTextAlign(dc, TA_BASELINE);
 		for sh in shown.iter().take(count) {
-			draw_line(dc, app, s, &sh.line, sh.label, tx, g.line_y(&sh.line, top));
+			draw_line(
+				dc,
+				app,
+				s,
+				&sh.line,
+				sh.label,
+				tx,
+				g.line_y(&sh.line, top),
+				pages,
+			);
 		}
 		SetTextAlign(dc, 0);
 		// The caret: a two-pixel bar the height of its line.

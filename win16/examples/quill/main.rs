@@ -15,9 +15,11 @@ mod chrome;
 mod dialogs;
 mod gdi;
 mod store;
+mod tips;
 
 use core::mem::MaybeUninit;
 use gdi::{Gdi16, QApp, Rect16, np};
+use quill_app::accel::{self, Accel};
 use quill_app::view::{self, Act, Hit};
 use quill_app::{Command, Dir, Files, Key, Scheme};
 use quill_formats::io::{Sink, Source};
@@ -31,24 +33,28 @@ const WM_SIZE: u32 = 0x0005;
 const WM_CLOSE: u32 = 0x0010;
 const WM_ERASEBKGND: u32 = 0x0014;
 const WM_KEYDOWN: u32 = 0x0100;
+const WM_SYSKEYDOWN: u32 = 0x0104;
 const WM_CHAR: u32 = 0x0102;
 const WM_TIMER: u32 = 0x0113;
+const WM_CTLCOLOR: u32 = 0x0019;
+const WM_INITMENU: u32 = 0x0116;
 const WM_HSCROLL: u32 = 0x0114;
 const WM_VSCROLL: u32 = 0x0115;
 const WM_MOUSEMOVE: u32 = 0x0200;
 const WM_LBUTTONDOWN: u32 = 0x0201;
 const WM_LBUTTONUP: u32 = 0x0202;
 const WS_OVERLAPPEDWINDOW: u32 = 0x00CF_0000;
-const WS_VSCROLL: u32 = 0x0020_0000;
-const WS_HSCROLL: u32 = 0x0010_0000;
 const WS_CLIPCHILDREN: u32 = 0x0200_0000;
 const CW_USEDEFAULT: u32 = 0x8000;
 const OEM_FIXED_FONT: u32 = 10;
 const MF_STRING: u32 = 0;
+const MF_SEPARATOR: u32 = 0x0800;
 const MF_POPUP: u32 = 0x10;
 const MK_SHIFT: u32 = 4;
-const SB_HORZ: u32 = 0;
-const SB_VERT: u32 = 1;
+const SB_CTL: u32 = 2;
+const WS_CHILD: u32 = 0x4000_0000;
+const WS_VISIBLE: u32 = 0x1000_0000;
+const SBS_VERT: u32 = 1;
 const VGA: [u32; 16] = [
 	0x000000, 0xAA0000, 0x00AA00, 0xAAAA00, 0x0000AA, 0xAA00AA, 0x0055AA, 0xAAAAAA, 0x555555,
 	0xFF5555, 0x55FF55, 0xFFFF55, 0x5555FF, 0xFF55FF, 0x55FFFF, 0xFFFFFF,
@@ -61,7 +67,8 @@ const PREFERRED_H: i32 = 600;
 
 static mut STORE: FarStore = FarStore::new();
 static mut APP: MaybeUninit<QApp> = MaybeUninit::uninit();
-static mut CMDS: [Command; 64] = [Command::New; 64];
+const NCMDS_MAX: usize = 72;
+static mut CMDS: [Command; NCMDS_MAX] = [Command::New; NCMDS_MAX];
 static mut NCMDS: usize = 0;
 static mut CELL: (u32, u32) = (8, 16);
 /// The program's own directory, ending in a backslash, when names should be looked for there.
@@ -89,6 +96,10 @@ struct Shell {
 	drag: Option<view::Drag>,
 	/// The left button went down in the text and is still down.
 	selecting: bool,
+	/// The page's scroll bars, child windows in the page area, and whether the horizontal one shows.
+	vbar: u32,
+	hbar: u32,
+	hbar_on: bool,
 }
 
 static mut SH: Shell = Shell {
@@ -103,6 +114,9 @@ static mut SH: Shell = Shell {
 	ruler_kind: 0,
 	drag: None,
 	selecting: false,
+	vbar: 0,
+	hbar: 0,
+	hbar_on: false,
 };
 
 fn app() -> &'static mut QApp {
@@ -253,12 +267,35 @@ fn client_size(hwnd: u32) -> (i32, i32) {
 /// The rectangle the page shows in: under the toolbars and the ruler, above the status bar.
 fn page_area(hwnd: u32) -> Rect16 {
 	let (w, h) = client_size(hwnd);
+	let l = layout(w, h, sh().hbar_on);
+	Rect16::new(0, view::chrome_height(app()), l.page_w, l.page_bottom)
+}
+
+/// The width of the vertical bar and the height of the horizontal one.
+fn bar_size() -> (i32, i32) {
+	unsafe {
+		(
+			i32::from(GetSystemMetrics(2) as u16),
+			i32::from(GetSystemMetrics(3) as u16),
+		)
+	}
+}
+
+/// Where the scroll bars and the page go in a window `w` by `h`.
+fn layout(w: i32, h: i32, show_h: bool) -> view::ScrollLayout {
 	let status = if app().show_status() {
 		chrome::status_h()
 	} else {
 		0
 	};
-	Rect16::new(0, view::chrome_height(app()), w, h - status)
+	let (bw, bh) = bar_size();
+	view::scroll_layout(w, h, view::chrome_height(app()), status, bw, bh, show_h)
+}
+
+/// The width the page lays out in: the window less the vertical scroll bar.
+fn page_w(hwnd: u32) -> i32 {
+	let (w, h) = client_size(hwnd);
+	layout(w, h, false).page_w
 }
 
 /// Makes (or remakes, after the window changed size) the off-screen bitmap. True when it is new and holds nothing yet.
@@ -357,22 +394,35 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 		if tb > 0 && dt < tb {
 			chrome::paint_toolbar(dc, w, app, s);
 		}
+		let lay = layout(w, h, sh().hbar_on);
 		if rl > 0 && dt < tb + rl && db > tb {
-			let (left, tw) = view::text_extent(app, w, sh().hscroll);
+			let (left, tw) = view::text_extent(app, lay.page_w, sh().hscroll);
 			let st = sh()
 				.drag
 				.map_or_else(|| view::RulerState::of(app, s), |d| d.state);
 			chrome::paint_ruler(dc, tb, w, left, tw, &st, sh().ruler_kind);
 		}
-		let area = Rect16::new(0, tb + rl, w, h - status);
-		if db > tb + rl && dt < h - status {
+		let area = Rect16::new(0, tb + rl, lay.page_w, lay.page_bottom);
+		if db > tb + rl && dt < lay.page_bottom {
 			let rows = gdi::paint_page(dc, area, sh().hscroll, app, s);
 			app.set_rows(rows);
-			app.set_view_height(h - status - tb - rl);
+			app.set_view_height(lay.page_bottom - tb - rl);
+		}
+		// The page area ends where the bars are; the bars are windows of their own, and the corner box between them is drawn here.
+		if let Some((cx, cy, cw, ch)) = lay.corner {
+			gdi::fill(dc, cx, cy, cw, ch, gdi::FACE);
 		}
 		if status > 0 && db > h - status {
 			let mut t = [0u8; 96];
-			let n = quill_app::status_text(app, s, &mut t);
+			let hint = tips::hint();
+			let n = if hint.is_empty() {
+				quill_app::status_text(app, s, &mut t)
+			} else {
+				let n = hint.len().min(t.len());
+				t.get_mut(..n)
+					.map(|d| d.copy_from_slice(hint.as_bytes().get(..n).unwrap_or(&[])));
+				n
+			};
 			chrome::paint_status(dc, h - status, w, t.get(..n).unwrap_or(&[]));
 		}
 		RestoreDC(dc, saved);
@@ -384,6 +434,16 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 fn invalidate_page(hwnd: u32) {
 	let (w, h) = client_size(hwnd);
 	let r = Rect16::new(0, view::chrome_height(app()), w, h);
+	unsafe { InvalidateRect(hwnd, gdi::fp(&r), 0) };
+}
+
+/// Asks for the status bar alone to be painted again.
+fn invalidate_status(hwnd: u32) {
+	if !app().show_status() {
+		return;
+	}
+	let (w, h) = client_size(hwnd);
+	let r = Rect16::new(0, h - chrome::status_h(), w, h);
 	unsafe { InvalidateRect(hwnd, gdi::fp(&r), 0) };
 }
 
@@ -409,23 +469,36 @@ fn update_scroll(hwnd: u32) {
 		return;
 	}
 	let (app, s) = (app(), store());
-	let (w, _) = client_size(hwnd);
+	let (cw, ch) = client_size(hwnd);
 	let lines = app.line_total(s).saturating_sub(1).min(32000);
-	let hmax = view::hscroll_max(app, w).min(32000);
+	let hmax = view::hscroll_max(app, layout(cw, ch, false).page_w).min(32000);
 	let sh = sh();
 	sh.hscroll = sh.hscroll.clamp(0, hmax);
+	let show_h = hmax > 0;
+	let changed = show_h != sh.hbar_on;
+	sh.hbar_on = show_h;
+	let l = layout(cw, ch, show_h);
 	unsafe {
-		SetScrollRange(hwnd, SB_VERT, 0, lines, 0);
-		SetScrollPos(hwnd, SB_VERT, app.top_line().min(lines), 1);
-		SetScrollRange(hwnd, SB_HORZ, 0, hmax as u32, 0);
-		SetScrollPos(hwnd, SB_HORZ, sh.hscroll as u32, 1);
+		let (x, y, w, h) = l.vbar;
+		MoveWindow(sh.vbar, x as u32, y as u32, w as u32, h.max(0) as u32, 1);
+		if let Some((x, y, w, h)) = l.hbar {
+			MoveWindow(sh.hbar, x as u32, y as u32, w as u32, h as u32, 1);
+		}
+		ShowWindow(sh.hbar, u32::from(show_h));
+		SetScrollRange(sh.vbar, SB_CTL, 0, lines, 0);
+		SetScrollPos(sh.vbar, SB_CTL, app.top_line().min(lines), 1);
+		SetScrollRange(sh.hbar, SB_CTL, 0, hmax as u32, 0);
+		SetScrollPos(sh.hbar, SB_CTL, sh.hscroll as u32, 1);
+	}
+	if changed {
+		invalidate_all(hwnd);
 	}
 }
 
 /// Scrolls sideways, when the window is narrower than the page, until the caret is in view.
 fn follow_caret(hwnd: u32) {
 	let (app, s) = (app(), store());
-	let (w, _) = client_size(hwnd);
+	let w = page_w(hwnd);
 	if sh().grid || !app.editing() || view::hscroll_max(app, w) == 0 {
 		return;
 	}
@@ -507,7 +580,36 @@ fn press(hwnd: u32, k: Key) {
 }
 
 /// Runs a command from the menu or the toolbar.
+/// Tells the editor today's date, written in the short date format of WIN.INI's `[intl]` section (`sShortDate`), for the Date field.
+fn set_today() {
+	let (y, m, d) = w16::dos_date();
+	let mut fmt = [0u8; 24];
+	let n = unsafe {
+		GetProfileString(
+			cs!("intl"),
+			cs!("sShortDate"),
+			cs!("M/d/yy"),
+			np(fmt.as_mut_ptr()),
+			23,
+		)
+	} as usize;
+	let mut out = [0u8; 24];
+	let k = quill_app::datefmt::format(
+		fmt.get(..n).unwrap_or(&[]),
+		u32::from(y),
+		u32::from(m),
+		u32::from(d),
+		&mut out,
+	);
+	if let Ok(text) = core::str::from_utf8(out.get(..k).unwrap_or(&[])) {
+		app().set_print_date(text);
+	}
+}
+
 fn run_command(hwnd: u32, c: Command) {
+	if matches!(c, Command::Field(3)) {
+		set_today();
+	}
 	let before = view::signature(app(), store());
 	if c == Command::PrintSetup {
 		// The common dialog's setup page: the printer and the paper.
@@ -616,7 +718,7 @@ fn mouse_down(hwnd: u32, x: i32, y: i32, shift: bool) {
 	}
 	let chrome_h = view::chrome_height(app);
 	if app.show_ruler() && y < chrome_h {
-		let (w, _) = client_size(hwnd);
+		let w = page_w(hwnd);
 		let (left, tw) = view::text_extent(app, w, sh().hscroll);
 		let st = view::RulerState::of(app, s);
 		let before = view::signature(app, s);
@@ -659,7 +761,7 @@ fn mouse_down(hwnd: u32, x: i32, y: i32, shift: bool) {
 fn mouse_move(hwnd: u32, x: i32, y: i32) {
 	let (app, s) = (app(), store());
 	if let Some(mut d) = sh().drag {
-		let (w, _) = client_size(hwnd);
+		let w = page_w(hwnd);
 		let (left, tw) = view::text_extent(app, w, sh().hscroll);
 		view::drag_to(&mut d, x, left, tw);
 		sh().drag = Some(d);
@@ -692,7 +794,7 @@ fn mouse_up(hwnd: u32, x: i32) {
 	let Some(mut d) = sh().drag.take() else {
 		return;
 	};
-	let (w, _) = client_size(hwnd);
+	let w = page_w(hwnd);
 	let (left, tw) = view::text_extent(app, w, sh().hscroll);
 	view::drag_to(&mut d, x, left, tw);
 	if matches!(d.hit, Hit::First | Hit::Left | Hit::Both | Hit::Right) {
@@ -722,7 +824,7 @@ fn scroll_bar(hwnd: u32, vertical: bool, code: u32, thumb: u32) {
 		update_scroll(hwnd);
 		invalidate_page(hwnd);
 	} else {
-		let (w, _) = client_size(hwnd);
+		let w = page_w(hwnd);
 		let now = sh().hscroll;
 		let to = match code {
 			0 => now - 16,
@@ -1059,19 +1161,43 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 			// Every pixel of the client area is painted from the off-screen picture, so the system never erases it first.
 			WM_ERASEBKGND => 1,
 			WM_KEYDOWN => {
+				tips::dismiss();
 				let shift = GetKeyState(0x10) & 0x8000 != 0;
 				let ctrl = GetKeyState(0x11) & 0x8000 != 0;
 				if let Some(k) = map_vk(wparam, shift, ctrl) {
 					press(hwnd, k);
+				} else if let Some(a) = accel::from_vk(wparam as u16, ctrl, shift, false) {
+					// A shortcut is taken from the key and the shift state, not from the character Ctrl makes of it (Ctrl+I is
+					// Tab's code and Ctrl+H Backspace's); the character message that follows is dropped.
+					match a {
+						Accel::Key(k) => press(hwnd, k),
+						Accel::Command(c) => run_command(hwnd, c),
+					}
 				}
 				0
 			}
-			WM_CHAR => {
-				let c = wparam as u8;
-				// Ctrl+H, Ctrl+I and Ctrl+M arrive as Backspace, Tab and Enter; the Ctrl key tells them apart.
+			// Alt with a key: Alt+Backspace is Undo; the rest is the system's (the menus).
+			WM_SYSKEYDOWN => {
+				let shift = GetKeyState(0x10) & 0x8000 != 0;
 				let ctrl = GetKeyState(0x11) & 0x8000 != 0;
+				match accel::from_vk(wparam as u16, ctrl, shift, true) {
+					Some(Accel::Command(c)) => {
+						tips::dismiss();
+						run_command(hwnd, c);
+						0
+					}
+					_ => DefWindowProc(hwnd, msg, wparam, lparam),
+				}
+			}
+			WM_CHAR => {
+				tips::dismiss();
+				let c = wparam as u8;
+				// The shortcuts were taken from the key-down message; the control characters Ctrl makes are not text.
+				let ctrl = GetKeyState(0x11) & 0x8000 != 0;
+				if ctrl && accel::is_ctrl_character(c) {
+					return 0;
+				}
 				let k = match c {
-					1..=26 if ctrl => Some(Key::Ctrl(c + 0x60)),
 					0x0D => Some(Key::Enter),
 					0x08 => Some(Key::Backspace),
 					0x09 => Some(Key::Tab),
@@ -1086,8 +1212,24 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				0
 			}
 			WM_TIMER => {
-				play(hwnd);
+				if wparam == tips::TIMER {
+					if tips::tick(hwnd, app()) {
+						invalidate_status(hwnd);
+					}
+				} else {
+					play(hwnd);
+				}
 				0
+			}
+			// A control asks its parent for colours: the tooltip's popup is the only one that is not the system's.
+			WM_CTLCOLOR if tips::is_tip(lparam & 0xFFFF) => {
+				SetBkColor(wparam, tips::TIP_BACK);
+				SetTextColor(wparam, 0);
+				tips::tip_brush()
+			}
+			WM_INITMENU => {
+				tips::dismiss();
+				DefWindowProc(hwnd, msg, wparam, lparam)
 			}
 			WM_SIZE => {
 				// SIZE_MINIMIZED: the class icon stands in for the window.
@@ -1099,9 +1241,14 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 			}
 			WM_VSCROLL | WM_HSCROLL => {
 				scroll_bar(hwnd, msg == WM_VSCROLL, wparam & 0xFFFF, lparam & 0xFFFF);
+				// The bars are controls that take the focus when clicked; the keys belong to the page.
+				if wparam & 0xFFFF != 4 {
+					SetFocus(hwnd);
+				}
 				0
 			}
 			WM_LBUTTONDOWN => {
+				tips::dismiss();
 				mouse_down(hwnd, lo16(lparam), hi16(lparam), wparam & MK_SHIFT != 0);
 				0
 			}
@@ -1160,6 +1307,46 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 	}
 }
 
+/// Adds one entry to a menu: a rule above it when the tree says so, then its text with the `&` before its mnemonic and the accelerator
+/// after a tab, or a submenu of its own entries.
+fn add_item(pop: u32, it: &quill_app::Item) {
+	unsafe {
+		if it.rule {
+			AppendMenu(pop, MF_SEPARATOR, 0, 0);
+		}
+		let mut text = [0u8; 64];
+		let mut n = 0;
+		for c in it.label.chars() {
+			text[n] = c as u32 as u8;
+			n += 1;
+		}
+		if !it.accel.is_empty() {
+			text[n] = b'\t';
+			n += 1;
+			for c in it.accel.chars() {
+				text[n] = c as u32 as u8;
+				n += 1;
+			}
+		}
+		if !it.sub.is_empty() {
+			let sub = CreateMenu();
+			for child in it.sub {
+				add_item(sub, child);
+			}
+			AppendMenu(pop, MF_POPUP, sub, text.as_ptr() as u32);
+			return;
+		}
+		let id = NCMDS;
+		if id < NCMDS_MAX {
+			(*core::ptr::addr_of_mut!(CMDS))[id] = it.command;
+			NCMDS += 1;
+		}
+		AppendMenu(pop, MF_STRING, 100 + id as u32, text.as_ptr() as u32);
+	}
+}
+
+/// The menu bar, built from the same tree the DOS and Windows 95 menus come from: the titles and items carry their mnemonics as `&`,
+/// and a rule goes where the tree has one.
 fn build_menu() -> u32 {
 	unsafe {
 		let bar = CreateMenu();
@@ -1170,26 +1357,7 @@ fn build_menu() -> u32 {
 			}
 			let pop = CreateMenu();
 			for it in items {
-				let mut text = [0u8; 64];
-				let mut n = 0;
-				for c in it.label.chars() {
-					text[n] = c as u32 as u8;
-					n += 1;
-				}
-				if !it.accel.is_empty() {
-					text[n] = b'\t';
-					n += 1;
-					for c in it.accel.chars() {
-						text[n] = c as u32 as u8;
-						n += 1;
-					}
-				}
-				let id = NCMDS;
-				if id < 64 {
-					(*core::ptr::addr_of_mut!(CMDS))[id] = it.command;
-					NCMDS += 1;
-				}
-				AppendMenu(pop, MF_STRING, 100 + id as u32, text.as_ptr() as u32);
+				add_item(pop, it);
 			}
 			let mut title = [0u8; 24];
 			let t = quill_app::menu_title(m);
@@ -1215,7 +1383,7 @@ fn init_app(measure: Gdi16) {
 /// The stack and local heap sizes `build.sh` gives the packer (it reads these two lines). The stack, the shadow return stack, the data
 /// and the heap must fit one 64 KB segment, and a play-back reports how much of the stack it used (`STACK.LOG`): running past the
 /// bottom overwrites the program's statics, which showed up as four zero bytes in the screen dump.
-const STACK_SIZE: u32 = 0x7800;
+const STACK_SIZE: u32 = 0x7000;
 const HEAP_SIZE: u32 = 0x1000;
 
 /// Where the window goes and how big it is: the preferred size, centred, or maximised when the screen is smaller (Windows 3.1 has no
@@ -1317,6 +1485,9 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 	// With a script, files are found beside the program.
 	unsafe { USE_HERE = gridview };
 	app().load_settings(&mut Win16Files);
+	if !gridview {
+		set_today();
+	}
 	app().set_about(if gridview {
 		"Host test run"
 	} else {
@@ -1386,7 +1557,7 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		let style = if gridview {
 			WS_OVERLAPPEDWINDOW
 		} else {
-			WS_OVERLAPPEDWINDOW | WS_VSCROLL | WS_HSCROLL | WS_CLIPCHILDREN
+			WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN
 		};
 		let (x, y, w, h, maximise) = placement(gridview, cw, ch);
 		let hwnd = CreateWindow(
@@ -1404,6 +1575,24 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		);
 		if !gridview {
 			chrome::create_combos(hwnd, hinst);
+			// The scroll bars are child windows in the page area, so they do not run up beside the toolbars.
+			let bar = |style: u32| {
+				CreateWindow(
+					cs!("SCROLLBAR"),
+					cs!(""),
+					WS_CHILD | WS_VISIBLE | style,
+					0,
+					0,
+					16,
+					16,
+					hwnd,
+					0,
+					hinst,
+					0,
+				)
+			};
+			sh().vbar = bar(SBS_VERT);
+			sh().hbar = bar(0);
 			sync_chrome(hwnd);
 			retitle(hwnd);
 			update_scroll(hwnd);
@@ -1418,6 +1607,9 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		UpdateWindow(hwnd);
 		if (*core::ptr::addr_of!(PLAY)).is_some() {
 			SetTimer(hwnd, 1, 300, 0);
+		}
+		if !gridview {
+			SetTimer(hwnd, tips::TIMER, 100, 0);
 		}
 		let mut msg = core::mem::zeroed::<Msg>();
 		while GetMessage(&mut msg as *mut Msg as u32, 0, 0, 0) != 0 {
