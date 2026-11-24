@@ -39,5 +39,6 @@ Real captures from Quill running on its target systems, small PNGs at native siz
 | `winhelp-quill-help-w311.png` | `QUILL.HLP`, compiled by `hlpc` from `assets/help/quill.qhm`, in the real WinHelp of Windows for Workgroups 3.11: the heading, body text, green jump links and the dotted pop-up link. | `HELPTEST.EXE` (calls `WinHelp(HELP_CONTENTS)`) in DOSBox-X, Windows 3.11 |
 | `help-f1-win32-wine.png` | F1 in `QUILL32.EXE`: the Help > Contents command opens `QUILL.HLP` in WinHelp (Wine's `winhlp32`) over the editor window. | `QUILL32.EXE` under Wine and Xvfb, key F1 |
 | `help-jump-wine.png` | A jump followed in `QUILL.HLP`: the Keyboard shortcuts topic, reached by clicking its link on the contents page (the context hashes and topic offsets the compiler wrote resolve). | `winhlp32 QUILL.HLP` under Wine, one mouse click |
+| `help-jump-w311.png` | A jump followed in the real WinHelp of Windows 3.11: Tab to the fourth link and Enter on the contents page opens Keyboard shortcuts (so the context hash and topic offset the compiler wrote resolve), with Back now enabled. | `HELPTEST.EXE` and `QUILL.HLP` in DOSBox-X, keys sent with `xdotool` |
 
 More arrive with the milestones: Windows 3.11 (from M5), the real GDI page (from M3's later half), print preview and the Win16 chrome.
