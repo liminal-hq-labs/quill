@@ -1,0 +1,17 @@
+# quill layout dump 1
+# measure outline, 1440 x 1440 units per inch
+# 548 characters, 14 lines, 1 pages
+page 1 y 0 para 0 line 0 start 0 len 23 x 3181 width 2277 ascent 214 descent 52 | Quill: a plain document
+page 1 y 506 para 1 line 0 start 24 len 86 x 0 width 8569 ascent 214 descent 52 | Quill is a small word processor for DOS, Windows 3.1 and Windows 95, written in Rust. 
+page 1 y 772 para 1 line 1 start 110 len 90 x 0 width 8522 ascent 214 descent 52 | This paragraph is long enough to wrap onto several lines in a sixty column text area, and 
+page 1 y 1038 para 1 line 2 start 200 len 91 x 0 width 8540 ascent 214 descent 52 | its lines break after spaces and hyphens, never in the middle of a word unless the word is 
+page 1 y 1304 para 1 line 3 start 291 len 20 x 0 width 1856 ascent 214 descent 52 | wider than the line.
+page 1 y 1570 para 2 line 0 start 312 len 0 x 0 width 0 ascent 214 descent 52 | 
+page 1 y 1836 para 3 line 0 start 313 len 19 x 0 width 2654 ascent 214 descent 52 | Name→Quantity→Price
+page 1 y 2102 para 4 line 0 start 333 len 14 x 0 width 1860 ascent 214 descent 52 | Quills→12→3.50
+page 1 y 2368 para 5 line 0 start 348 len 18 x 0 width 2580 ascent 214 descent 52 | Ink bottles→3→8.25
+page 1 y 2634 para 6 line 0 start 367 len 0 x 0 width 0 ascent 214 descent 52 | 
+page 1 y 2900 para 7 line 0 start 368 len 12 x 0 width 1188 ascent 214 descent 52 | A line break
+page 1 y 3166 para 7 line 1 start 381 len 89 x 0 width 8564 ascent 214 descent 52 | keeps the paragraph together, and a supercalifragilisticexpialidocious-looking-word-that-
+page 1 y 3432 para 7 line 2 start 470 len 68 x 0 width 6466 ascent 214 descent 52 | has-no-spaces-and-is-far-longer-than-a-line is cut where it must be.
+page 1 y 3698 para 8 line 0 start 539 len 8 x 0 width 841 ascent 214 descent 52 | The end.

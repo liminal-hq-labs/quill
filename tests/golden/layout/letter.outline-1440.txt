@@ -1,0 +1,17 @@
+# quill layout dump 1
+# measure outline, 1440 x 1440 units per inch
+# 501 characters, 14 lines, 1 pages
+page 1 y 0 para 0 line 0 start 0 len 12 x 3475 width 1690 ascent 290 descent 68 | Quill Letter
+page 1 y 598 para 1 line 0 start 13 len 12 x 0 width 1188 ascent 214 descent 52 | Dear reader,
+page 1 y 984 para 2 line 0 start 26 len 88 x 0 width 8228 ascent 214 descent 52 | This letter has bold, italic, underlined and struck text, plus a coloured word and some 
+page 1 y 1250 para 2 line 1 start 114 len 24 x 0 width 1844 ascent 214 descent 106 | raised and lowered text.
+page 1 y 1690 para 3 line 0 start 139 len 14 x 0 width 5760 ascent 214 descent 52 | Item→Qty→Price
+page 1 y 2016 para 4 line 0 start 154 len 14 x 0 width 5760 ascent 214 descent 52 | Quills→12→3.50
+page 1 y 2282 para 5 line 0 start 169 len 18 x 0 width 5760 ascent 214 descent 52 | Ink bottles→3→8.25
+page 1 y 2548 para 6 line 0 start 188 len 25 x 0 width 5760 ascent 214 descent 52 | Paper (500 sheets)→1→6.75
+page 1 y 2934 para 7 line 0 start 214 len 83 x 360 width 7787 ascent 214 descent 52 | A justified paragraph with a hanging indent. It is long enough to run over several 
+page 1 y 3200 para 7 line 1 start 297 len 78 x 720 width 7494 ascent 214 descent 52 | lines, so the line breaks and the spacing between the words can be checked on 
+page 1 y 3466 para 7 line 2 start 375 len 69 x 720 width 7166 ascent 214 descent 72 | every platform that shows it, in a typewriter font as well as .curly 
+page 1 y 3752 para 7 line 3 start 444 len 28 x 720 width 2996 ascent 214 descent 52 | quotes. and an em dash.here.
+page 1 y 4138 para 8 line 0 start 473 len 12 x 7480 width 1160 ascent 214 descent 52 | Yours truly,
+page 1 y 4404 para 8 line 1 start 486 len 14 x 7184 width 1456 ascent 214 descent 52 | The Quill team
