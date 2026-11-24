@@ -94,6 +94,13 @@ fn hello_screen_matches_its_golden() {
 }
 
 #[test]
+fn hello_screen_80x50_matches_its_golden() {
+	let mut text = String::new();
+	quill_grid::hello::<50>().dump(1, &mut text).unwrap();
+	compare("tests/golden/screens/hello.80x50.txt", &text);
+}
+
+#[test]
 fn qld_round_trip_is_byte_stable() {
 	let mut s = HostStore::new();
 	let bytes = std::fs::read(root().join("tests/docs/plain.qld")).unwrap();
@@ -209,6 +216,13 @@ fn m8_spelling_script_matches_its_golden_screens_and_user_dictionary() {
 fn m1_edit_script_matches_its_golden_screens_and_file() {
 	let (files, frames) = scenario("m1-edit");
 	compare("tests/golden/screens/m1-edit.frames.txt", &frames);
+	compare_bytes("tests/golden/files/m1-edit.qld", &files.files["PLAIN.QLD"]);
+}
+
+#[test]
+fn m1_edit_script_on_50_rows_matches_its_golden_screens_and_the_same_file() {
+	let (files, frames) = scenario("m1-edit-50");
+	compare("tests/golden/screens/m1-edit-50.frames.txt", &frames);
 	compare_bytes("tests/golden/files/m1-edit.qld", &files.files["PLAIN.QLD"]);
 }
 
