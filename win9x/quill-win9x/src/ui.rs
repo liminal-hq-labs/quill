@@ -963,6 +963,25 @@ pub unsafe fn ini_save(sh: &Shell) {
 	}
 }
 
+/// Gives the editor the date and the time as the system shows them, for the Date and Time fields: the short date and the time without
+/// seconds in the user's own formats (`GetDateFormatA` and `GetTimeFormatA` with no time given mean now).
+pub unsafe fn refresh_clock(sh: &mut Shell) {
+	// LOCALE_USER_DEFAULT, DATE_SHORTDATE and TIME_NOSECONDS.
+	let mut buf = [0u8; 64];
+	let n = GetDateFormatA(0x0400, 1, null(), null(), buf.as_mut_ptr(), 64);
+	if n > 1 {
+		if let Ok(t) = core::str::from_utf8(buf.get(..n as usize - 1).unwrap_or(&[])) {
+			sh.app.set_print_date(t);
+		}
+	}
+	let n = GetTimeFormatA(0x0400, 2, null(), null(), buf.as_mut_ptr(), 64);
+	if n > 1 {
+		if let Ok(t) = core::str::from_utf8(buf.get(..n as usize - 1).unwrap_or(&[])) {
+			sh.app.set_print_time(t);
+		}
+	}
+}
+
 /// Used to reach the shell from a callback.
 pub fn with_shell(f: impl FnOnce(&mut Shell)) {
 	if let Some(sh) = shell() {

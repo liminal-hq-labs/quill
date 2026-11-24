@@ -383,6 +383,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) about: Msg,
 	/// The date the Date field prints as (the platform fills it in).
 	pub(crate) date: Msg,
+	/// The time the Time field prints as (the platform fills it in).
+	pub(crate) time: Msg,
 	/// The four most recent files, most recent first.
 	pub(crate) recent: recent::RecentList,
 	/// The settings section the recent files live in: `Recent` (DOS, Win16) or `Recent32`.
@@ -441,6 +443,7 @@ impl<M: Measure + Clone> App<M> {
 			last_find: None,
 			about: Msg::new(),
 			date: Msg::new(),
+			time: Msg::new(),
 			recent: recent::RecentList::new(),
 			recent_section: "Recent",
 			clip: [0; 2048],

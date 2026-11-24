@@ -34,7 +34,13 @@ impl<M: Measure + Clone> App<M> {
 		self.date.set(text);
 	}
 
-	/// The text a field object shows when printed: 1 the page number, 2 the number of pages, 3 the date, 4 the file name. Returns how
+	/// Sets the time the Time field prints as.
+	pub fn set_print_time(&mut self, text: &str) {
+		self.time.set(text);
+	}
+
+	/// The text a field object shows when printed: 1 the page number, 2 the number of pages, 3 the date, 4 the file name, 5 the time.
+	/// Returns how
 	/// many bytes of `out` it filled.
 	pub fn field_text(&self, kind: u32, page: u32, pages: u32, out: &mut [u8; 32]) -> usize {
 		let mut digits = [0u8; 10];
@@ -55,6 +61,7 @@ impl<M: Measure + Clone> App<M> {
 				digits.get(i..).unwrap_or(&[])
 			}
 			3 => self.date.bytes(),
+			5 => self.time.bytes(),
 			4 if self.name_len == 0 => b"(Untitled)",
 			4 => self.name(),
 			_ => &[],
@@ -208,6 +215,7 @@ impl<M: Measure + Clone> App<M> {
 				let v: &[u8] = match t.object_at(s, at).map(|v| v >> 16) {
 					Some(2) => b"1",
 					Some(3) => self.date.bytes(),
+					Some(5) => self.time.bytes(),
 					Some(4) => {
 						if self.name_len == 0 {
 							b"(Untitled)"

@@ -182,6 +182,8 @@ extern "system" {
 	pub fn WriteFile(file: Handle, buf: *const u8, len: u32, written: *mut u32, overlapped: *mut c_void) -> i32;
 	pub fn CloseHandle(h: Handle) -> i32;
 	pub fn GetTickCount() -> u32;
+	pub fn GetDateFormatA(locale: u32, flags: u32, time: *const u8, format: *const u8, out: *mut u8, size: i32) -> i32;
+	pub fn GetTimeFormatA(locale: u32, flags: u32, time: *const u8, format: *const u8, out: *mut u8, size: i32) -> i32;
 	pub fn GetPrivateProfileStringA(
 		section: *const u8,
 		key: *const u8,

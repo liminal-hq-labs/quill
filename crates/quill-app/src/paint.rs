@@ -90,12 +90,13 @@ const FIND: [Item; 4] = [
 	item("Replace...", "Ctrl+H", Command::Replace),
 	rule(item("Spelling...", "F7", Command::Spelling)),
 ];
-const INSERT: [Item; 5] = [
+const INSERT: [Item; 6] = [
 	item("Picture...", "", Command::Picture),
 	rule(item("Page Number", "", Command::Field(1))),
 	item("Page Count", "", Command::Field(2)),
 	item("Date", "", Command::Field(3)),
 	item("File Name", "", Command::Field(4)),
+	item("Time", "", Command::Field(5)),
 ];
 const DOCUMENT: [Item; 6] = [
 	item("Header", "", Command::View(1)),
@@ -505,6 +506,7 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 					Some(2) => b'N',
 					Some(3) => b'D',
 					Some(4) => b'F',
+					Some(5) => b'T',
 					_ => 0,
 				};
 				if letter == 0 {
@@ -970,7 +972,8 @@ pub fn command_tip(c: Command) -> &'static str {
 		Command::Field(1) => "Page Number",
 		Command::Field(2) => "Page Count",
 		Command::Field(3) => "Date",
-		Command::Field(_) => "File Name",
+		Command::Field(4) => "File Name",
+		Command::Field(_) => "Time",
 		Command::Help => "Help Contents",
 		Command::About => "About Quill",
 		_ => "",
@@ -1023,7 +1026,8 @@ pub fn command_hint(c: Command) -> &'static str {
 		Command::Field(1) => "Insert the number of the page",
 		Command::Field(2) => "Insert the number of pages",
 		Command::Field(3) => "Insert today's date",
-		Command::Field(_) => "Insert the name of the file",
+		Command::Field(4) => "Insert the name of the file",
+		Command::Field(_) => "Insert the time",
 		Command::View(0) => "Go back to the body of the document",
 		Command::View(_) => "Edit the text that repeats on every page",
 		Command::FirstPage => "Give the first page its own header and footer",

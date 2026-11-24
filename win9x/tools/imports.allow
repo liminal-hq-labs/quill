@@ -122,3 +122,5 @@ user32.dll!RegisterWindowMessageA
 user32.dll!SetCursor
 user32.dll!UpdateWindow
 user32.dll!KillTimer
+kernel32.dll!GetDateFormatA
+kernel32.dll!GetTimeFormatA
