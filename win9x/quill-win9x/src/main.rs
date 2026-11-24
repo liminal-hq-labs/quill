@@ -19,6 +19,9 @@ mod dialogs;
 mod gdi;
 mod rt;
 mod sys;
+mod tips;
+mod ui;
+mod view;
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -175,8 +178,8 @@ struct Shell {
 	store: HeapStore,
 	screen_dc: Handle,
 	pics: gdi::PicCache,
-	/// The print preview, when it is showing: the first page shown, and whether two pages are.
-	preview: Option<(u32, bool)>,
+	/// The print preview, when it is showing.
+	preview: Option<gdi::PreviewView>,
 	combos: Option<chrome::Combos>,
 	/// The TrueType faces on the display, for the font box and the Fonts dialog.
 	faces: Vec<Vec<u8>>,
@@ -191,6 +194,28 @@ struct Shell {
 	hold: bool,
 	/// How far the page is scrolled sideways, in pixels; zero unless the window is narrower than the page.
 	hscroll: i32,
+	/// How far the page is scrolled down: the page unit at the top of the view, counted from the first sheet's top edge.
+	vpos: i32,
+	/// The sheets of paper the body takes, as the last scroll update found them.
+	pages: u32,
+	/// The vertical scroll the body view had before a header or footer was opened, for when it comes back.
+	saved_vpos: i32,
+	/// The story the last command left the view on, to notice a change.
+	last_view: u8,
+	/// The last click, for double and triple clicks, and the selection a drag is growing.
+	click: Option<ui::Click>,
+	sel: Option<ui::SelDrag>,
+	/// What the pointer is over on the toolbars, and whether the status line is showing its hint.
+	hover: ui::Hover,
+	hint_on: bool,
+	/// The toolbar button the mouse button went down on.
+	pressed: Option<usize>,
+	/// The tooltip control, the preview's push buttons, and the registered message a Windows 95 wheel mouse sends.
+	tips: Option<tips::Tips>,
+	pv_btns: [Handle; 6],
+	wheel_msg: u32,
+	/// Whether a rule closes the recent files in the File menu.
+	recent_rule: bool,
 	/// The off-screen picture every paint draws into before one copy to the window.
 	back: Option<Back>,
 }
@@ -308,6 +333,11 @@ unsafe fn draw_rows(dc: Handle, g: &Grid<25>, from: usize, to: usize, sh: &Shell
 	}
 }
 
+/// The low and high 16 bits of a message's `lParam`, as signed pixel positions.
+fn xy(lparam: isize) -> (i32, i32) {
+	((lparam & 0xFFFF) as i16 as i32, ((lparam >> 16) & 0xFFFF) as i16 as i32)
+}
+
 unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam: isize) -> isize {
 	match msg {
 		WM_PAINT => {
@@ -317,19 +347,45 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 		WM_KEYDOWN => {
 			let shift = GetKeyState(VK_SHIFT) < 0;
 			let ctrl = GetKeyState(VK_CONTROL) < 0;
+			let alt = GetKeyState(VK_MENU) < 0;
+			// The shortcuts come from the key itself: with Ctrl held the character message for I is the one for Tab, for H the one for
+			// Backspace, and a program that waits for it inserts a tab where Italic was meant.
+			if let Some(a) = quill_app::accel::from_vk(wparam as u16, ctrl, shift, alt) {
+				match a {
+					quill_app::accel::Accel::Key(k) => press(hwnd, k),
+					quill_app::accel::Accel::Command(c) => run_command(hwnd, c),
+				}
+				return 0;
+			}
 			if let Some(k) = map_vk(wparam, shift, ctrl) {
 				press(hwnd, k);
 			}
 			0
 		}
+		// Alt+Backspace is Undo: the system sends it as a system key.
+		0x0104 => {
+			if let Some(quill_app::accel::Accel::Command(c)) =
+				quill_app::accel::from_vk(wparam as u16, GetKeyState(VK_CONTROL) < 0, GetKeyState(VK_SHIFT) < 0, true)
+			{
+				run_command(hwnd, c);
+				return 0;
+			}
+			DefWindowProcA(hwnd, msg, wparam, lparam)
+		}
 		WM_CHAR => {
 			let c = wparam as u8;
+			// What Ctrl turns a letter into is not text: the shortcut was handled when the key went down.
+			let ctrl = GetKeyState(VK_CONTROL) < 0 && GetKeyState(VK_MENU) >= 0;
+			if ctrl && quill_app::accel::is_ctrl_character(c) {
+				return 0;
+			}
 			let k = match c {
 				0x0D => Some(Key::Enter),
 				0x08 => Some(Key::Backspace),
 				0x09 => Some(Key::Tab),
 				0x1B => Some(Key::Esc),
 				1..=26 => Some(Key::Ctrl(c + 0x60)),
+				0x7F => None,
 				0x20..=0xFF => Some(Key::Char(c)),
 				_ => None,
 			};
@@ -339,7 +395,21 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			0
 		}
 		WM_TIMER => {
-			play(hwnd);
+			match wparam {
+				ui::TIMER_HINT => {
+					if let Some(sh) = shell() {
+						ui::poll_hover(hwnd, sh);
+					}
+				}
+				ui::TIMER_DRAG => {
+					if let Some(sh) = shell() {
+						if let Some(d) = sh.sel {
+							ui::page_drag(hwnd, sh, d.last.0, d.last.1);
+						}
+					}
+				}
+				_ => play(hwnd),
+			}
 			0
 		}
 		// Every pixel of the client area is painted from the off-screen picture, so the system never erases it first.
@@ -347,14 +417,27 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 		WM_SIZE => {
 			if wparam != SIZE_MINIMIZED {
 				if let Some(sh) = shell() {
-					relayout(hwnd, sh);
+					ui::relayout(hwnd, sh);
 				}
 			}
 			0
 		}
 		WM_HSCROLL => {
 			if let Some(sh) = shell() {
-				hscroll_by(hwnd, sh, wparam & 0xFFFF, ((wparam >> 16) & 0xFFFF) as u16 as i32);
+				ui::hscroll_by(hwnd, sh, wparam & 0xFFFF, ((wparam >> 16) & 0xFFFF) as u16 as i32);
+			}
+			0
+		}
+		0x0115 => {
+			if let Some(sh) = shell() {
+				ui::vscroll_by(hwnd, sh, wparam & 0xFFFF, ((wparam >> 16) & 0xFFFF) as u16 as i32);
+			}
+			0
+		}
+		// WM_MOUSEWHEEL, on Windows 98, Me and NT: the distance is the high word of `wParam`.
+		0x020A => {
+			if let Some(sh) = shell() {
+				ui::wheel(hwnd, sh, ((wparam >> 16) & 0xFFFF) as u16 as i16 as i32);
 			}
 			0
 		}
@@ -366,16 +449,67 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			}
 			0
 		}
+		// Notifications to this window are in ANSI: the tooltip control asks, and answers with ANSI text (`NFR_ANSI`) when told so.
+		0x0055 => 1,
+		// The tooltip control asks for the text of the button it is about to explain.
+		0x004E => {
+			if let Some(sh) = shell() {
+				if ui::notify(sh, lparam) {
+					return 0;
+				}
+			}
+			DefWindowProcA(hwnd, msg, wparam, lparam)
+		}
+		// The hint for the menu item that is highlighted, on the status line; none when the menu closes.
+		0x011F => {
+			if let Some(sh) = shell() {
+				let (id, flags) = (wparam & 0xFFFF, (wparam >> 16) & 0xFFFF);
+				let text = if flags == 0xFFFF && lparam == 0 || flags & 0x10 != 0 {
+					""
+				} else {
+					ui::menu_hint(sh, id)
+				};
+				sh.app.set_message(text);
+				sh.hint_on = !text.is_empty();
+				ui::invalidate_status(hwnd, sh);
+				UpdateWindow(hwnd);
+			}
+			0
+		}
+		// The pointer over the page is an I-beam; over a child window (a drop-down box or a preview button) it gives the hint.
+		0x0020 => {
+			if let Some(sh) = shell() {
+				let over = wparam as Handle;
+				if over != hwnd {
+					let h = ui::hover_of_child(sh, over);
+					ui::set_hover(hwnd, sh, h);
+				} else if lparam & 0xFFFF == 1 && !sh.grid {
+					let mut p = Point { x: 0, y: 0 };
+					GetCursorPos(&mut p);
+					let mut o = Point { x: 0, y: 0 };
+					ClientToScreen(hwnd, &mut o);
+					let (x, y) = (p.x - o.x, p.y - o.y);
+					if sh.preview.is_none() && ui::in_page(hwnd, sh, x, y) {
+						SetCursor(LoadCursorA(null_mut(), IDC_IBEAM as *const u8));
+						return 1;
+					}
+				}
+			}
+			DefWindowProcA(hwnd, msg, wparam, lparam)
+		}
 		0x0201 => {
-			mouse_down(hwnd, (lparam & 0xFFFF) as i16 as i32, (lparam >> 16) as i16 as i32);
+			let (x, y) = xy(lparam);
+			mouse_down(hwnd, x, y);
 			0
 		}
 		0x0200 => {
-			mouse_move(hwnd, (lparam & 0xFFFF) as i16 as i32);
+			let (x, y) = xy(lparam);
+			mouse_move(hwnd, x, y);
 			0
 		}
 		0x0202 => {
-			mouse_up(hwnd, (lparam & 0xFFFF) as i16 as i32);
+			let (x, y) = xy(lparam);
+			mouse_up(hwnd, x, y);
 			0
 		}
 		0x0010 => {
@@ -389,10 +523,25 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			0
 		}
 		WM_DESTROY => {
+			if let Some(sh) = shell() {
+				if !sh.grid {
+					ui::ini_save(sh);
+				}
+			}
 			PostQuitMessage(0);
 			0
 		}
-		_ => DefWindowProcA(hwnd, msg, wparam, lparam),
+		_ => {
+			// A wheel on Windows 95 has no message of its own: the IntelliPoint driver sends a registered one to the window that has
+			// the focus, with the distance in `wParam`.
+			if let Some(sh) = shell() {
+				if sh.wheel_msg != 0 && msg == sh.wheel_msg {
+					ui::wheel(hwnd, sh, wparam as u16 as i16 as i32);
+					return 0;
+				}
+			}
+			DefWindowProcA(hwnd, msg, wparam, lparam)
+		}
 	}
 }
 
@@ -584,6 +733,81 @@ unsafe fn print_job(hwnd: Handle, sh: &Shell, ask: bool, output: Option<&[u8]>) 
 	ok
 }
 
+/// What the Explorer-style common dialog tells its hook about a change of the file type: the header, then the dialog's own structure.
+#[repr(C)]
+struct OfNotifyA {
+	hwnd_from: Handle,
+	id_from: usize,
+	code: u32,
+	ofn: *const OpenFileNameA,
+	file: *const u8,
+}
+
+/// `CDN_TYPECHANGE`: `CDN_FIRST` is 0U - 601U and the type change is six after it.
+const CDN_TYPECHANGE: u32 = 0u32.wrapping_sub(607);
+/// The messages that read and write the dialog's controls (`CDM_FIRST` is `WM_USER` + 100).
+const CDM_GETSPEC: u32 = 0x0464;
+const CDM_SETCONTROLTEXT: u32 = 0x0468;
+const CDM_SETDEFEXT: u32 = 0x046A;
+/// The file name box of the Explorer-style dialog (`cmb13`) and of the older one (`edt1`).
+const CMB13: usize = 0x047C;
+const EDT1: usize = 0x0480;
+/// The extensions the Save As types write, by the number of the type in the list.
+const SAVE_EXTS: [&[u8]; 3] = [b"qld", b"rtf", b"txt"];
+
+/// Replaces the extension of `name` with `ext` when it has one of the Save As types' extensions, and adds it when it has none.
+fn with_extension(name: &[u8], ext: &[u8]) -> Vec<u8> {
+	let dot = name.iter().rposition(|b| *b == b'.');
+	let stem = match dot {
+		Some(d)
+			if name
+				.get(d + 1..)
+				.is_some_and(|e| SAVE_EXTS.iter().any(|k| e.eq_ignore_ascii_case(k))) =>
+		{
+			&name[..d]
+		}
+		_ => name,
+	};
+	let mut out = stem.to_vec();
+	out.push(b'.');
+	out.extend_from_slice(ext);
+	out
+}
+
+/// The Save As dialog's hook: when the type changes, the file name stays and only its extension follows the type, so a name already
+/// typed is never typed again. Windows 95's common dialog sends `CDN_TYPECHANGE` to a hook in the Explorer style.
+unsafe extern "system" fn save_hook(dlg: Handle, msg: u32, _wparam: usize, lparam: isize) -> usize {
+	if msg != 0x004E || lparam == 0 {
+		return 0;
+	}
+	let nm = &*(lparam as *const OfNotifyA);
+	if nm.code != CDN_TYPECHANGE || nm.ofn.is_null() {
+		return 0;
+	}
+	let Some(ext) = (*nm.ofn).filter_index.checked_sub(1).and_then(|i| SAVE_EXTS.get(i as usize)) else {
+		return 0;
+	};
+	let parent = GetParent(dlg);
+	let mut spec = [0u8; 264];
+	let n = SendMessageA(parent, CDM_GETSPEC, 260, spec.as_mut_ptr() as isize);
+	if n <= 1 {
+		return 0;
+	}
+	let name = spec.get(..(n as usize - 1).min(260)).unwrap_or(&[]);
+	if name.iter().any(|b| *b == b'*' || *b == b'?') {
+		return 0;
+	}
+	let mut new = with_extension(name, ext);
+	new.push(0);
+	// Which box holds the name depends on the dialog's style; the one that is not there ignores the message.
+	SendMessageA(parent, CDM_SETCONTROLTEXT, CMB13, new.as_ptr() as isize);
+	SendMessageA(parent, CDM_SETCONTROLTEXT, EDT1, new.as_ptr() as isize);
+	let mut def = ext.to_vec();
+	def.push(0);
+	SendMessageA(parent, CDM_SETDEFEXT, 0, def.as_ptr() as isize);
+	0
+}
+
 /// Which file dialog.
 #[derive(Copy, Clone, PartialEq)]
 enum FileKind {
@@ -603,6 +827,23 @@ unsafe fn file_dialog(hwnd: Handle, sh: &mut Shell, kind: FileKind) -> Option<Ve
 	let filter = if kind == FileKind::Picture { pics } else { docs };
 	let mut dir = sh.app.last_folder().to_vec();
 	dir.push(0);
+	// Save As starts with the document's own file name, so it is never typed again, in the type that matches its extension.
+	let mut filter_index = 1;
+	if kind == FileKind::Save {
+		let own = sh.app.name();
+		let base = own
+			.iter()
+			.rposition(|b| *b == b'\\' || *b == b':')
+			.map_or(own, |i| &own[i + 1..]);
+		let n = base.len().min(259);
+		file[..n].copy_from_slice(&base[..n]);
+		if let Some(d) = base.iter().rposition(|b| *b == b'.') {
+			let e = &base[d + 1..];
+			if let Some(i) = SAVE_EXTS.iter().position(|k| e.eq_ignore_ascii_case(k)) {
+				filter_index = i as u32 + 1;
+			}
+		}
+	}
 	let title: &[u8] = match kind {
 		FileKind::Open => b"Open\0",
 		FileKind::Save => b"Save As\0",
@@ -615,7 +856,7 @@ unsafe fn file_dialog(hwnd: Handle, sh: &mut Shell, kind: FileKind) -> Option<Ve
 		filter: filter.as_ptr(),
 		custom: null_mut(),
 		max_custom: 0,
-		filter_index: 1,
+		filter_index,
 		file: file.as_mut_ptr(),
 		max_file: 260,
 		title_file: null_mut(),
@@ -623,12 +864,17 @@ unsafe fn file_dialog(hwnd: Handle, sh: &mut Shell, kind: FileKind) -> Option<Ve
 		initial_dir: if dir.len() > 1 { dir.as_ptr() } else { null() },
 		title: title.as_ptr(),
 		// OFN_EXPLORER | OFN_HIDEREADONLY | OFN_PATHMUSTEXIST, then OFN_OVERWRITEPROMPT (save) or OFN_FILEMUSTEXIST (open)
-		flags: 0x0008_0000 | 0x0004 | 0x0800 | if kind == FileKind::Save { 0x0002 } else { 0x1000 },
+		// ... and for Save As, OFN_ENABLEHOOK so the file name follows a change of type.
+		flags: 0x0008_0000 | 0x0004 | 0x0800 | if kind == FileKind::Save { 0x0002 | 0x0020 } else { 0x1000 },
 		file_offset: 0,
 		file_ext: 0,
 		def_ext: if kind == FileKind::Save { b"qld\0".as_ptr() } else { null() },
 		cust_data: 0,
-		hook: null(),
+		hook: if kind == FileKind::Save {
+			save_hook as *const c_void
+		} else {
+			null()
+		},
 		template: null(),
 	};
 	let ok = if kind == FileKind::Save {
@@ -716,6 +962,11 @@ unsafe fn menu_command(hwnd: Handle, id: usize) {
 	let Some(sh) = shell() else {
 		return;
 	};
+	// A recent file.
+	if (ui::ID_RECENT..ui::ID_RECENT + quill_app::recent::RECENT_MAX).contains(&id) {
+		run_command(hwnd, Command::Recent((id - ui::ID_RECENT) as u8));
+		return;
+	}
 	let Some(c) = id.checked_sub(100).and_then(|i| sh.cmds.get(i)).copied() else {
 		return;
 	};
@@ -728,7 +979,10 @@ unsafe fn run_command(hwnd: Handle, c: Command) {
 		return;
 	};
 	match c {
-		Command::Preview if !sh.grid => sh.preview = Some((1, false)),
+		Command::Preview if !sh.grid => {
+			let first = 1;
+			ui::preview_open(hwnd, sh, first, false);
+		}
 		Command::PrintSetup if !sh.grid => {
 			// The common dialog's setup page: choose the printer and paper.
 			print_dialog(hwnd, 0x0040);
@@ -738,23 +992,48 @@ unsafe fn run_command(hwnd: Handle, c: Command) {
 	if !sh.grid {
 		handle_dialogs(hwnd);
 	}
-	if let Command::Chrome(_) = c {
+	if !sh.grid {
 		sync_chrome(hwnd, sh);
+		if matches!(
+			c,
+			Command::Chrome(_) | Command::Zoom(_) | Command::Recent(_) | Command::Open | Command::SaveAs | Command::Save
+		) {
+			ui::ini_save(sh);
+		}
 	}
 	retitle(hwnd, sh);
-	update_scroll(hwnd, sh);
+	story_changed(sh);
+	ui::update_scroll(hwnd, sh);
+	ui::ensure_visible(hwnd, sh);
 	InvalidateRect(hwnd, null(), 0);
 	if sh.app.quit() {
 		DestroyWindow(hwnd);
 	}
 }
 
-/// A face or size was chosen in one of the boxes.
+/// When the view moved to a header or a footer (or came back), the page scrolls to the top of it and back to where it was.
+fn story_changed(sh: &mut Shell) {
+	let now = sh.app.story_view();
+	if now == sh.last_view {
+		return;
+	}
+	if sh.last_view == 0 {
+		sh.saved_vpos = sh.vpos;
+	}
+	sh.vpos = if now == 0 { sh.saved_vpos } else { 0 };
+	sh.last_view = now;
+}
+
+/// A face or size was chosen in one of the boxes, or one of the preview's buttons was pressed.
 unsafe fn combo_changed(hwnd: Handle, wparam: usize) {
 	let Some(sh) = shell() else {
 		return;
 	};
 	let (id, code) = (wparam & 0xFFFF, wparam >> 16);
+	if (ui::ID_PV_PRINT..=ui::ID_PV_CLOSE).contains(&id) {
+		ui::preview_command(hwnd, sh, id);
+		return;
+	}
 	if code != 1 {
 		return; // CBN_SELCHANGE
 	}
@@ -781,7 +1060,7 @@ unsafe fn fill_rect(dc: Handle, r: &Rect, colour: u32) {
 	DeleteObject(b);
 }
 
-unsafe fn client_size(hwnd: Handle) -> (i32, i32) {
+pub(crate) unsafe fn client_size(hwnd: Handle) -> (i32, i32) {
 	let mut r = Rect {
 		left: 0,
 		top: 0,
@@ -792,17 +1071,20 @@ unsafe fn client_size(hwnd: Handle) -> (i32, i32) {
 	(r.right, r.bottom)
 }
 
-/// The height of the toolbars and the ruler together, which is where the page starts.
-fn chrome_height(sh: &Shell) -> i32 {
-	if sh.grid || sh.preview.is_some() {
+/// The height of the toolbars and the ruler together (or of the preview's bar), which is where the page starts.
+pub(crate) fn chrome_height(sh: &Shell) -> i32 {
+	if sh.grid {
 		return 0;
+	}
+	if sh.preview.is_some() {
+		return ui::PV_BAR;
 	}
 	let (h0, h1) = chrome::rows(&sh.app);
 	h0 + h1 + if sh.app.show_ruler() { chrome::RULER_H } else { 0 }
 }
 
 /// Asks for the page, the text below the toolbars and the ruler, and the status line to be painted again, and nothing above them.
-unsafe fn invalidate_page(hwnd: Handle, sh: &Shell) {
+pub(crate) unsafe fn invalidate_page(hwnd: Handle, sh: &Shell) {
 	if sh.grid || sh.preview.is_some() {
 		InvalidateRect(hwnd, null(), 0);
 		return;
@@ -818,7 +1100,7 @@ unsafe fn invalidate_page(hwnd: Handle, sh: &Shell) {
 }
 
 /// Asks for the ruler alone to be painted again.
-unsafe fn invalidate_ruler(hwnd: Handle, sh: &Shell) {
+pub(crate) unsafe fn invalidate_ruler(hwnd: Handle, sh: &Shell) {
 	if !sh.app.show_ruler() || sh.grid || sh.preview.is_some() {
 		return;
 	}
@@ -833,100 +1115,13 @@ unsafe fn invalidate_ruler(hwnd: Handle, sh: &Shell) {
 	InvalidateRect(hwnd, &r, 0);
 }
 
-/// Keeps the sideways scroll inside what the window and the page allow, and shows the scroll bar only when the page is wider than the window.
-unsafe fn update_scroll(hwnd: Handle, sh: &mut Shell) {
-	if sh.grid {
-		return;
-	}
+/// Where the ruler is and where the text's left edge is, for the mouse: the ruler's top, the text's left edge and its width in pixels.
+unsafe fn ruler_geometry(hwnd: Handle, sh: &Shell) -> (i32, i32, i32, i32) {
 	let (w, _) = client_size(hwnd);
-	let max = if sh.preview.is_some() {
-		0
-	} else {
-		chrome::hscroll_max(&sh.app, w)
-	};
-	sh.hscroll = sh.hscroll.clamp(0, max);
-	let info = ScrollInfo {
-		size: core::mem::size_of::<ScrollInfo>() as u32,
-		mask: SIF_ALL,
-		min: 0,
-		max: max + w - 1,
-		page: w.max(1) as u32,
-		pos: sh.hscroll,
-		track_pos: 0,
-	};
-	SetScrollInfo(hwnd, SB_HORZ, &info, 1);
-}
-
-/// The window changed size: lays the page, the ruler and the scroll bar out again for the new width.
-unsafe fn relayout(hwnd: Handle, sh: &mut Shell) {
-	update_scroll(hwnd, sh);
-	InvalidateRect(hwnd, null(), 0);
-}
-
-/// Scrolls the page sideways to `pos` pixels and paints the ruler and the page again.
-unsafe fn scroll_to(hwnd: Handle, sh: &mut Shell, pos: i32) {
-	let before = sh.hscroll;
-	sh.hscroll = pos;
-	update_scroll(hwnd, sh);
-	if sh.hscroll != before {
-		invalidate_ruler(hwnd, sh);
-		invalidate_page(hwnd, sh);
-	}
-}
-
-/// A scroll bar message: `code` is what the user did and `thumb` is where the box is.
-unsafe fn hscroll_by(hwnd: Handle, sh: &mut Shell, code: usize, thumb: i32) {
-	let (w, _) = client_size(hwnd);
-	let now = sh.hscroll;
-	let to = match code {
-		SB_LINELEFT => now - 16,
-		SB_LINERIGHT => now + 16,
-		SB_PAGELEFT => now - w,
-		SB_PAGERIGHT => now + w,
-		SB_THUMBTRACK | SB_THUMBPOSITION => thumb,
-		SB_LEFT => 0,
-		SB_RIGHT => i32::MAX / 2,
-		_ => return,
-	};
-	scroll_to(hwnd, sh, to);
-}
-
-/// Scrolls sideways, when the window is narrower than the page, until the caret is in view.
-unsafe fn follow_caret(hwnd: Handle, sh: &mut Shell) {
-	if sh.grid || sh.preview.is_some() || !sh.app.editing() {
-		return;
-	}
-	let (w, _) = client_size(hwnd);
-	if chrome::hscroll_max(&sh.app, w) == 0 {
-		return;
-	}
-	if let Some((_, _, x)) = sh.app.caret_xy(&sh.store) {
-		let margin = quill_core::layout::to_units(sh.app.doc().page.margin_l, 96);
-		let at = chrome::PAGE_PAD + margin + x;
-		let slack = 32.min(w / 4);
-		let mut to = sh.hscroll;
-		if at - to < slack {
-			to = at - slack;
-		} else if at - to > w - slack {
-			to = at - (w - slack);
-		}
-		scroll_to(hwnd, sh, to);
-	}
-}
-
-/// Where the ruler is and where the text's left edge is, for the mouse.
-unsafe fn ruler_geometry(hwnd: Handle, sh: &Shell) -> (i32, i32, i32) {
-	let mut r = Rect {
-		left: 0,
-		top: 0,
-		right: 0,
-		bottom: 0,
-	};
-	GetClientRect(hwnd, &mut r);
-	let (left, w) = chrome::text_extent(&sh.app, r.right, sh.hscroll);
+	let pct = ui::pct(sh, w);
+	let (left, tw) = chrome::text_extent(&sh.app, w, sh.hscroll, pct);
 	let (h0, h1) = chrome::rows(&sh.app);
-	let top = h0 + h1;
-	(top, left, w)
+	(h0 + h1, left, tw, pct)
 }
 
 unsafe fn mouse_down(hwnd: Handle, x: i32, y: i32) {
@@ -936,28 +1131,19 @@ unsafe fn mouse_down(hwnd: Handle, x: i32, y: i32) {
 	if sh.preview.is_some() || sh.grid {
 		return;
 	}
-	{
-		if let Some((b, row_top)) = chrome::button_at(&sh.app, x, y) {
-			match b.act {
-				chrome::Act::Cmd(c) => run_command(hwnd, c),
-				chrome::Act::Colour => {
-					if let Some(choice) = chrome::colour_menu(hwnd, b.x, row_top + chrome::TB_H) {
-						sh.app.set_colour(&mut sh.store, choice);
-					}
-				}
-				chrome::Act::None => {
-					run_command(hwnd, Command::Spelling);
-					return;
-				}
-			}
-			InvalidateRect(hwnd, null(), 0);
-			return;
-		}
+	if let Some((i, _)) = chrome::button_index(&sh.app, x, y) {
+		// A button acts when the mouse button comes back up over it, as a Windows 95 button does; until then it shows pressed.
+		sh.pressed = Some(i);
+		SetCapture(hwnd);
+		ui::set_hover(hwnd, sh, ui::Hover::Button(i));
+		ui::invalidate_status(hwnd, sh);
+		InvalidateRect(hwnd, null(), 0);
+		return;
 	}
 	if sh.app.show_ruler() {
-		let (top, left, w) = ruler_geometry(hwnd, sh);
+		let (top, left, w, pct) = ruler_geometry(hwnd, sh);
 		let st = chrome::RulerState::of(&sh.app, &sh.store);
-		match chrome::ruler_hit(x, y, top, left, w, &st) {
+		match chrome::ruler_hit(x, y, top, left, w, &st, pct) {
 			Some(chrome::Hit::Kind) => sh.ruler_kind = (sh.ruler_kind + 1) % 4,
 			Some(chrome::Hit::Scale(t)) => sh.app.add_tab(&mut sh.store, chrome::snap(t), sh.ruler_kind),
 			Some(hit) => {
@@ -970,32 +1156,73 @@ unsafe fn mouse_down(hwnd: Handle, x: i32, y: i32) {
 			}
 			None => {}
 		}
-		InvalidateRect(hwnd, null(), 0);
+		if y < top + chrome::RULER_H {
+			InvalidateRect(hwnd, null(), 0);
+			return;
+		}
+	}
+	if ui::in_page(hwnd, sh, x, y) {
+		ui::page_down(hwnd, sh, x, y);
 	}
 }
 
-unsafe fn mouse_move(hwnd: Handle, x: i32) {
+unsafe fn mouse_move(hwnd: Handle, x: i32, y: i32) {
 	let Some(sh) = shell() else {
 		return;
 	};
 	if let Some(mut d) = sh.drag {
-		let (_, left, w) = ruler_geometry(hwnd, sh);
-		chrome::drag_to(&mut d, x, left, w);
+		let (_, left, w, pct) = ruler_geometry(hwnd, sh);
+		chrome::drag_to(&mut d, x, left, w, pct);
 		sh.drag = Some(d);
 		invalidate_ruler(hwnd, sh);
+		return;
 	}
+	if sh.sel.is_some() {
+		ui::page_drag(hwnd, sh, x, y);
+		return;
+	}
+	if sh.pressed.is_some() {
+		return;
+	}
+	let h = ui::hover_at(sh, x, y);
+	ui::set_hover(hwnd, sh, h);
 }
 
-unsafe fn mouse_up(hwnd: Handle, x: i32) {
+unsafe fn mouse_up(hwnd: Handle, x: i32, y: i32) {
 	let Some(sh) = shell() else {
 		return;
 	};
+	if let Some(i) = sh.pressed.take() {
+		ReleaseCapture();
+		let over = chrome::button_index(&sh.app, x, y).map(|(j, _)| j);
+		InvalidateRect(hwnd, null(), 0);
+		if over == Some(i) {
+			if let Some((r, b)) = chrome::button_rect(&sh.app, i) {
+				match b.act {
+					chrome::Act::Cmd(c) => run_command(hwnd, c),
+					chrome::Act::Colour => {
+						let top = r.top - 2;
+						if let Some(choice) = chrome::colour_menu(hwnd, b.x, top + chrome::TB_H) {
+							sh.app.set_colour(&mut sh.store, choice);
+						}
+					}
+					chrome::Act::None => run_command(hwnd, Command::Spelling),
+				}
+			}
+			InvalidateRect(hwnd, null(), 0);
+		}
+		return;
+	}
+	if sh.sel.is_some() {
+		ui::page_up(hwnd, sh);
+		return;
+	}
 	let Some(mut d) = sh.drag.take() else {
 		return;
 	};
 	ReleaseCapture();
-	let (_, left, w) = ruler_geometry(hwnd, sh);
-	chrome::drag_to(&mut d, x, left, w);
+	let (_, left, w, pct) = ruler_geometry(hwnd, sh);
+	chrome::drag_to(&mut d, x, left, w, pct);
 	match d.hit {
 		chrome::Hit::First | chrome::Hit::Left | chrome::Hit::Both | chrome::Hit::Right => {
 			sh.app
@@ -1006,20 +1233,27 @@ unsafe fn mouse_up(hwnd: Handle, x: i32) {
 	InvalidateRect(hwnd, null(), 0);
 }
 
-/// Shows or hides the combo boxes with the toolbar, ticks the menu items and lays the page out again.
+/// Shows or hides the combo boxes with the toolbar, ticks the menu items, rewrites the recent files in the File menu and lays the
+/// page out again.
 unsafe fn sync_chrome(hwnd: Handle, sh: &mut Shell) {
 	if let Some(cb) = &sh.combos {
-		cb.show(&sh.app);
+		cb.show(&sh.app, sh.preview.is_some());
 	}
 	let menu = GetMenu(hwnd);
 	if !menu.is_null() {
 		for (i, c) in sh.cmds.iter().enumerate() {
-			if let Command::Chrome(bit) = c {
-				let on = sh.app.chrome_on(*bit);
+			let on = match c {
+				Command::Chrome(bit) => Some(sh.app.chrome_on(*bit)),
+				Command::Zoom(z) => Some(sh.app.zoom() == *z),
+				_ => None,
+			};
+			if let Some(on) = on {
 				CheckMenuItem(menu, 100 + i as u32, if on { 0x8 } else { 0 });
 			}
 		}
 	}
+	ui::sync_recent_menu(hwnd, sh);
+	ui::tips_rebuild(hwnd, sh);
 	InvalidateRect(hwnd, null(), 0);
 }
 
@@ -1035,50 +1269,72 @@ unsafe fn retitle(hwnd: Handle, sh: &Shell) {
 }
 
 unsafe fn press(hwnd: Handle, k: Key) {
-	if let Some(sh) = shell() {
-		if let Some((first, two)) = sh.preview {
-			let (_, _, pages) = gdi::preview_pages(&sh.app, &sh.store, sh.screen_dc);
-			let step = if two { 2 } else { 1 };
-			match k {
-				Key::Esc => sh.preview = None,
-				Key::PageDown | Key::Down | Key::Right if first + step <= pages => sh.preview = Some((first + step, two)),
-				Key::PageUp | Key::Up | Key::Left => sh.preview = Some((first.saturating_sub(step).max(1), two)),
-				Key::Home | Key::CtrlHome => sh.preview = Some((1, two)),
-				Key::End | Key::CtrlEnd => sh.preview = Some((pages, two)),
-				Key::Char(b'T' | b't') => sh.preview = Some((first, !two)),
-				Key::Char(b'P' | b'p') | Key::Ctrl(b'p') => {
-					if !print_job(hwnd, sh, true, None) {
-						sh.app.set_message("Quill could not print.");
-					}
-				}
-				_ => {}
+	let Some(sh) = shell() else {
+		return;
+	};
+	if let Some(pv) = sh.preview {
+		let (_, _, pages) = gdi::preview_pages(&sh.app, &sh.store, sh.screen_dc);
+		let line = view::LINE_STEP * 3;
+		match k {
+			Key::Esc => ui::preview_close(hwnd, sh),
+			Key::PageDown => ui::preview_step(hwnd, sh, 1),
+			Key::PageUp => ui::preview_step(hwnd, sh, -1),
+			Key::Down if pv.actual => ui::scroll_v(hwnd, sh, pv.vscroll + line),
+			Key::Up if pv.actual => ui::scroll_v(hwnd, sh, pv.vscroll - line),
+			Key::Right if pv.actual => ui::scroll_h(hwnd, sh, pv.hscroll + line),
+			Key::Left if pv.actual => ui::scroll_h(hwnd, sh, pv.hscroll - line),
+			Key::Down | Key::Right => ui::preview_step(hwnd, sh, 1),
+			Key::Up | Key::Left => ui::preview_step(hwnd, sh, -1),
+			Key::Home | Key::CtrlHome | Key::End | Key::CtrlEnd => {
+				let mut v = pv;
+				v.first = if matches!(k, Key::Home | Key::CtrlHome) { 1 } else { pages };
+				v.vscroll = 0;
+				sh.preview = Some(v);
+				ui::update_scroll(hwnd, sh);
+				InvalidateRect(hwnd, null(), 0);
 			}
-			update_scroll(hwnd, sh);
-			InvalidateRect(hwnd, null(), 0);
+			Key::Char(b'T' | b't') => ui::preview_command(hwnd, sh, ui::ID_PV_PAGES),
+			Key::Char(b'Z' | b'z') => ui::preview_command(hwnd, sh, ui::ID_PV_ZOOM),
+			Key::Char(b'P' | b'p') | Key::Ctrl(b'p') => ui::preview_command(hwnd, sh, ui::ID_PV_PRINT),
+			_ => {}
+		}
+		return;
+	}
+	if !sh.grid && sh.app.editing() {
+		let page = match k {
+			Key::PageDown => Some((true, false)),
+			Key::PageUp => Some((false, false)),
+			Key::Select(Dir::PageDown) => Some((true, true)),
+			Key::Select(Dir::PageUp) => Some((false, true)),
+			_ => None,
+		};
+		if let Some((down, extend)) = page {
+			ui::page_key(hwnd, sh, down, extend);
 			return;
 		}
-		let before = chrome::signature(&sh.app, &sh.store);
-		sh.app.key(&mut sh.store, &mut sh.files, k);
-		if !sh.grid {
-			handle_dialogs(hwnd);
-		}
-		retitle(hwnd, sh);
-		if sh.grid {
+	}
+	let before = chrome::signature(&sh.app, &sh.store);
+	sh.app.key(&mut sh.store, &mut sh.files, k);
+	if !sh.grid {
+		handle_dialogs(hwnd);
+	}
+	retitle(hwnd, sh);
+	if sh.grid {
+		InvalidateRect(hwnd, null(), 0);
+	} else {
+		// A key changes the page and the status line; the toolbars and the ruler are painted again only when they show something new.
+		let (hs, vs) = (sh.hscroll, sh.vpos);
+		story_changed(sh);
+		ui::update_scroll(hwnd, sh);
+		ui::ensure_visible(hwnd, sh);
+		if before != chrome::signature(&sh.app, &sh.store) || hs != sh.hscroll || vs != sh.vpos {
 			InvalidateRect(hwnd, null(), 0);
 		} else {
-			// A key changes the page and the status line; the toolbars and the ruler are painted again only when they show something new.
-			let scrolled = sh.hscroll;
-			update_scroll(hwnd, sh);
-			follow_caret(hwnd, sh);
-			if before != chrome::signature(&sh.app, &sh.store) || scrolled != sh.hscroll {
-				InvalidateRect(hwnd, null(), 0);
-			} else {
-				invalidate_page(hwnd, sh);
-			}
+			invalidate_page(hwnd, sh);
 		}
-		if sh.app.quit() {
-			DestroyWindow(hwnd);
-		}
+	}
+	if sh.app.quit() {
+		DestroyWindow(hwnd);
 	}
 }
 
@@ -1155,10 +1411,11 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 		let status = if sh.app.show_status() { sh.ch } else { 0 };
 		let area = Rect {
 			left: 0,
-			top: tb + rl,
+			top: chrome_height(sh),
 			right: r.right,
-			bottom: r.bottom - status,
+			bottom: (r.bottom - status).max(chrome_height(sh)),
 		};
+		let pct = ui::pct(sh, r.right);
 		if sh.preview.is_none() {
 			if tb > 0 {
 				// The boxes follow the caret even when the toolbar's own pixels are not damaged.
@@ -1166,27 +1423,61 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 					cb.sync(&sh.app, &sh.store);
 				}
 				if damage.top < tb {
-					chrome::paint_toolbar(dc, r.right, &sh.app, &sh.store);
+					let hover = match sh.hover {
+						ui::Hover::Button(i) => Some(i),
+						_ => None,
+					};
+					chrome::paint_toolbar(dc, r.right, &sh.app, &sh.store, hover, sh.pressed);
 				}
 			}
 			if rl > 0 && damage.top < tb + rl && damage.bottom > tb {
-				let (left, w) = chrome::text_extent(&sh.app, r.right, sh.hscroll);
+				let (left, w) = chrome::text_extent(&sh.app, r.right, sh.hscroll, pct);
 				let st = sh
 					.drag
 					.map_or_else(|| chrome::RulerState::of(&sh.app, &sh.store), |d| d.state);
-				chrome::paint_ruler(dc, tb, r.right, left, w, &st, sh.ruler_kind);
+				chrome::paint_ruler(dc, tb, r.right, left, w, &st, sh.ruler_kind, pct);
 			}
 		}
-		if let Some((first, two)) = sh.preview {
-			let pages = gdi::paint_preview(dc, area, &sh.app, &sh.store, sh.screen_dc, first, two, &mut sh.pics);
+		if let Some(pv) = sh.preview {
+			// The bar the preview's own buttons sit on.
+			fill_rect(
+				dc,
+				&Rect {
+					left: 0,
+					top: 0,
+					right: r.right,
+					bottom: ui::PV_BAR,
+				},
+				0x00C0_C0C0,
+			);
+			fill_rect(
+				dc,
+				&Rect {
+					left: 0,
+					top: ui::PV_BAR - 1,
+					right: r.right,
+					bottom: ui::PV_BAR,
+				},
+				0x0080_8080,
+			);
+			let size = gdi::paint_preview(dc, area, &sh.app, &sh.store, sh.screen_dc, &pv, &mut sh.pics);
 			SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
-			let mut line = alloc::format!(
-				"Print Preview: page {first} of {pages}   PgUp PgDn: page   T: one or two pages   P: print   Esc: close"
-			)
-			.into_bytes();
+			let mut line = if sh.hint_on {
+				let mut l = b" ".to_vec();
+				l.extend_from_slice(sh.app.message());
+				l
+			} else {
+				let last = if pv.two { (pv.first + 1).min(size.pages) } else { pv.first };
+				if last > pv.first {
+					alloc::format!(" Pages {}-{} of {}   Esc: close", pv.first, last, size.pages)
+				} else {
+					alloc::format!(" Page {} of {}   Esc: close", pv.first, size.pages)
+				}
+				.into_bytes()
+			};
 			line.truncate(200);
 			SetBkMode(dc, OPAQUE);
-			SetBkColor(dc, 0x00AA_AAAA);
+			SetBkColor(dc, 0x00C0_C0C0);
 			SetTextColor(dc, 0);
 			ExtTextOutA(
 				dc,
@@ -1206,7 +1497,7 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 			RestoreDC(dc, saved);
 			return;
 		}
-		let rows = gdi::paint_page(dc, area, sh.hscroll, &sh.app, &sh.store, &mut sh.pics);
+		let (rows, _) = gdi::paint_page(dc, area, sh.hscroll, sh.vpos, pct, &sh.app, &sh.store, &mut sh.pics);
 		SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
 		sh.app.set_rows(rows);
 		if !sh.app.editing() {
@@ -1387,7 +1678,12 @@ pub extern "C" fn start() -> ! {
 	// The windowed build never draws a dialog in text cells (D86); the text view that the golden runs use keeps them.
 	app.set_native_dialogs(!text_view);
 	let mut files = Win32Files;
-	app.load_settings(&mut files);
+	if text_view {
+		app.load_settings(&mut files);
+	} else {
+		// The Windows build keeps its recent files apart from the Win16 build's, in the Windows directory's QUILL.INI.
+		app.set_recent_section("Recent32");
+	}
 	app.set_about(if text_view { "Host test run" } else { "Windows 9x, Win32" });
 	let mut play_file: Option<Vec<u8>> = None;
 	let mut dump_file: Option<Vec<u8>> = None;
@@ -1499,7 +1795,7 @@ pub extern "C" fn start() -> ! {
 		store,
 		screen_dc,
 		pics: gdi::PicCache::new(),
-		preview: preview_start.then_some((1, false)),
+		preview: None,
 		combos: None,
 		faces: Vec::new(),
 		instance: null_mut(),
@@ -1511,6 +1807,19 @@ pub extern "C" fn start() -> ! {
 		dump,
 		hold: hold && playing || (!playing),
 		hscroll: 0,
+		vpos: 0,
+		pages: 1,
+		saved_vpos: 0,
+		last_view: 0,
+		click: None,
+		sel: None,
+		hover: ui::Hover::None,
+		hint_on: false,
+		pressed: None,
+		tips: None,
+		pv_btns: [null_mut(); 6],
+		wheel_msg: 0,
+		recent_rule: false,
 		back: None,
 	});
 	// SAFETY: single-threaded start-up; the boxes live for the whole process.
@@ -1563,7 +1872,7 @@ pub extern "C" fn start() -> ! {
 		let style = if gridview {
 			WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE
 		} else {
-			WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_HSCROLL | WS_CLIPCHILDREN
+			WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | WS_CLIPCHILDREN
 		};
 		let menu = match SHELL.as_mut() {
 			Some(s) if !gridview => build_menu(s, instance),
@@ -1619,10 +1928,18 @@ pub extern "C" fn start() -> ! {
 			if !gridview {
 				sh.faces = chrome::enumerate_faces(sh.screen_dc);
 				sh.instance = instance;
+				ui::ini_load(sh);
 				let cb = chrome::create_combos(hwnd, instance, &sh.faces);
-				cb.show(&sh.app);
+				cb.show(&sh.app, false);
 				sh.combos = Some(cb);
+				sh.pv_btns = ui::create_preview_buttons(hwnd, instance);
+				sh.wheel_msg = RegisterWindowMessageA(b"MSWHEEL_ROLLMSG\0".as_ptr());
+				sh.tips = tips::Tips::new(hwnd, instance);
 				sync_chrome(hwnd, sh);
+				ui::update_scroll(hwnd, sh);
+				if preview_start {
+					ui::preview_open(hwnd, sh, 1, false);
+				}
 			}
 		}
 		if playing {

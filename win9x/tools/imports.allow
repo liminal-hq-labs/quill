@@ -1,4 +1,4 @@
-# The functions QUILL32.EXE may import, as dll!Function, all available on Windows 95 (and up).
+# The functions QUILL32.EXE may import, as dll!Function, all available on Windows 95 (and up); COMCTL32 is the 4.00 that Windows 95 shipped.
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 comdlg32.dll!GetOpenFileNameA
@@ -104,3 +104,20 @@ user32.dll!ShowWindow
 user32.dll!SystemParametersInfoA
 user32.dll!TrackPopupMenu
 user32.dll!TranslateMessage
+comctl32.dll!InitCommonControls
+gdi32.dll!SetViewportOrgEx
+kernel32.dll!GetPrivateProfileStringA
+kernel32.dll!GetTickCount
+kernel32.dll!WritePrivateProfileStringA
+user32.dll!DeleteMenu
+user32.dll!EnableWindow
+user32.dll!GetCursorPos
+user32.dll!GetDoubleClickTime
+user32.dll!GetMenuItemCount
+user32.dll!GetParent
+user32.dll!GetSubMenu
+user32.dll!InsertMenuA
+user32.dll!RegisterWindowMessageA
+user32.dll!SetCursor
+user32.dll!UpdateWindow
+user32.dll!KillTimer

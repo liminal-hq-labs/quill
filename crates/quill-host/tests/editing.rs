@@ -628,3 +628,91 @@ fn every_command_in_the_menus_has_a_hint() {
 		}
 	}
 }
+
+// ---- shortcuts ---------------------------------------------------------------------------------------------------------------------
+
+/// The virtual-key code, and the shift state, an accelerator label such as `Ctrl+Shift+=` names.
+fn parse_accel(label: &str) -> Option<(u16, bool, bool)> {
+	let mut ctrl = false;
+	let mut shift = false;
+	let mut key = None;
+	for part in label.split('+').filter(|p| !p.is_empty()) {
+		match part {
+			"Ctrl" => ctrl = true,
+			"Shift" => shift = true,
+			"Alt" => return None,
+			p if p.len() == 1 => {
+				let c = p.as_bytes()[0];
+				key = Some(match c {
+					b'A'..=b'Z' => u16::from(c),
+					b'0'..=b'9' => u16::from(c),
+					b'=' => 0xBB,
+					_ => return None,
+				});
+			}
+			_ => return None,
+		}
+	}
+	let _ = shift;
+	key.filter(|_| ctrl).map(|k| (k, ctrl, shift))
+}
+
+#[test]
+fn every_ctrl_shortcut_in_the_menus_comes_from_its_key_down_and_none_from_a_character() {
+	use quill_app::accel::{from_vk, is_ctrl_character, Accel};
+	let mut seen = 0;
+	for m in 0..quill_app::MENU_COUNT {
+		for it in quill_app::menu_items(m) {
+			if !it.accel.starts_with("Ctrl+") {
+				continue;
+			}
+			let (code, ctrl, _) =
+				parse_accel(it.accel).unwrap_or_else(|| panic!("{} {}", it.label, it.accel));
+			let shift = it.accel.contains("Shift");
+			let got = from_vk(code, ctrl, shift, false)
+				.unwrap_or_else(|| panic!("{} ({}) has no shortcut", it.label, it.accel));
+			match got {
+				Accel::Command(c) => assert_eq!(c, it.command, "{}", it.label),
+				Accel::Key(k) => {
+					// A Ctrl+letter goes to the key handler, which must turn it into the item's command or its own equivalent.
+					let (mut app, mut s, mut f) = setup();
+					app.set_native_dialogs(true);
+					type_text(&mut app, &mut s, &mut f, "x");
+					app.key(&mut s, &mut f, k);
+					let direct = app.take_dialog();
+					let (mut other, mut s2, mut f2) = setup();
+					other.set_native_dialogs(true);
+					type_text(&mut other, &mut s2, &mut f2, "x");
+					other.command(&mut s2, &mut f2, it.command);
+					assert_eq!(direct, other.take_dialog(), "{} ({})", it.label, it.accel);
+					assert_eq!(
+						paragraphs(&app, &s),
+						paragraphs(&other, &s2),
+						"{} ({})",
+						it.label,
+						it.accel
+					);
+				}
+			}
+			seen += 1;
+		}
+	}
+	assert!(seen >= 18, "only {seen} Ctrl shortcuts found");
+	// The four letters whose character is another key's character are shortcuts here, and their characters are not text.
+	for (letter, code) in [(b'h', 0x48u16), (b'i', 0x49), (b'j', 0x4A), (b'm', 0x4D)] {
+		assert_eq!(
+			from_vk(code, true, false, false),
+			Some(Accel::Key(Key::Ctrl(letter)))
+		);
+	}
+	for c in [8u8, 9, 10, 13, 27] {
+		assert!(is_ctrl_character(c));
+	}
+	// Without Ctrl nothing is a shortcut: Tab and Backspace stay the keys they are, and AltGr text is left alone.
+	assert_eq!(from_vk(0x49, false, false, false), None);
+	assert_eq!(from_vk(0x49, true, false, true), None);
+	assert_eq!(
+		from_vk(0x2E, false, true, false),
+		Some(Accel::Command(Command::Cut))
+	);
+}

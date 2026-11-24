@@ -71,6 +71,8 @@ Both Windows builds run under Wine with Xvfb in CI: `QUILL32.EXE` in a prefix se
 
 `win9x/tools/wine-layout.sh` opens `QUILL32.EXE` on Xvfb screens of 640 by 480, 800 by 600, 1024 by 768 and 1280 by 1024 and checks that the window is no larger than the screen. It then types twenty characters with Wine's call trace on and checks that every paint reaches the window through one `BitBlt`, with no draw call straight onto the window, no full-window invalidation and no background erase. `--shots DIR` keeps a screenshot per size. It is local only: the trace is large and Wine's own pacing makes it slow.
 
+`win9x/tools/wine-editing.sh` starts `QUILL32.EXE` on a 640 by 480 screen and checks by pixels that the page is centred without a horizontal bar, that Ctrl+I switches Italic on, that a drag highlights text, that the wheel scrolls, that print preview shows a tooltip and that Esc leaves the window as it was. It is local only, for the same reason. The Windows 95 checks use the test bed of Liminal Installer's `scripts/win95` with `xdotool` for the keys and the mouse; the guest has no wheel driver, so the wheel is checked under Wine only.
+
 ## Windows 3.11 in DOSBox-X (local)
 
 The real check for the Win16 build, using the pre-installed Windows for Workgroups 3.11 tree in `~/Downloads/win31.zip`. It is not redistributable, so this runs on the developer's machine and its screenshots and logs are committed as evidence, never the tree (D21).
