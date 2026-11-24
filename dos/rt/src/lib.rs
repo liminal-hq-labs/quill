@@ -13,6 +13,8 @@
 // - `fpu`      the x87: initial state and the maths `core` does not have
 // - `io`       `print!`, `println!` and a `core::fmt` writer over standard output
 // - `panic`    the panic handler: report, run the clean-up list, exit with status 3 (the `panic-handler` feature, on by default)
+// - `bios`     the HAL's `Bios` over DPMI 0300h: real-mode interrupts with a buffer in conventional memory
+// - `mem`      `memcpy` and `memset` with `rep movsd` and `rep stosd`
 // - `cleanup`  what must be undone before the program ends, by exit or by panic
 //
 // Single-threaded, with one exception: interrupt handlers, which touch only `static`s and never allocate or call DOS.
@@ -20,6 +22,7 @@
 
 extern crate alloc;
 
+pub mod bios;
 pub mod cleanup;
 pub mod dos;
 pub mod dpmi;
@@ -27,6 +30,7 @@ pub mod env;
 pub mod fpu;
 pub mod heap;
 pub mod io;
+mod mem;
 #[cfg(feature = "panic-handler")]
 mod panic;
 pub mod start;

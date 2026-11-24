@@ -4,8 +4,21 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
 [workspace]
-members = ["rt", "quill-dos", "rt-test"]
+members = ["rt", "quill-dos", "rt-test", "hal-probe"]
 resolver = "2"
+# The HAL is a workspace of its own, with host tests (`cd hal && cargo test`). Its crates inherit package fields and dependencies from
+# their own root, and cargo resolves that inheritance against the workspace being built, so the same tables are repeated here.
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+
+[workspace.dependencies]
+desk-hal = { path = "hal/hal" }
+desk-hal-mock = { path = "hal/platform/mock" }
+desk-kbd = { path = "hal/drivers/kbd" }
 
 [profile.release]
 opt-level = "s"
