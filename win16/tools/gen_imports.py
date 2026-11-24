@@ -114,9 +114,11 @@ def render(rows):
 
 
 def check_spec(rows, spec_dir):
-	files = {"KERNEL": "krnl.spec", "USER": "user.exe16.spec", "GDI": "gdi.exe16.spec"}
+	files = {"KERNEL": "krnl.spec", "USER": "user.exe16.spec", "GDI": "gdi.exe16.spec", "COMMDLG": "commdlg.dll16.spec"}
 	bad = 0
 	for mod, ordinal, name, args, ret in rows:
+		if mod not in files:
+			continue
 		with open(os.path.join(spec_dir, files[mod]), encoding="utf-8") as f:
 			text = f.read()
 		m = re.search(rf"^{ordinal}\s+\S+(?:\s+-\S+)*\s+(\w+)\(([^)]*)\)", text, re.M)

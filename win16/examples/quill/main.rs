@@ -207,7 +207,7 @@ fn after(hwnd: u32) {
 		if app().take_help() {
 			open_help(hwnd);
 		}
-		InvalidateRect(hwnd, 0, 1);
+		InvalidateRect(hwnd, 0, 0);
 		if app().quit() {
 			DestroyWindow(hwnd);
 		}

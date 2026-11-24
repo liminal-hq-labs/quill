@@ -69,7 +69,7 @@ USER 111 SendMessage wwwl l
 USER 113 TranslateMessage p w
 USER 114 DispatchMessage p l
 USER 124 UpdateWindow w v
-USER 125 InvalidateRect wpw v
+USER 125 InvalidateRect wlw v
 USER 173 LoadCursor wl w
 USER 174 LoadIcon wl w
 USER 176 LoadString wwpw w
@@ -121,3 +121,36 @@ KERNEL 36 GetCurrentTask - w
 TOOLHELP 75 InterruptRegister wf w
 TOOLHELP 76 InterruptUnRegister w w
 USER 171 WinHelp wpwl w
+# Added for Quill's native interface: the off-screen page, scrolling, the toolbar bitmap, dialogs and the common dialogs.
+# InvalidateRect takes its rectangle as a far pointer (`l`), so 0 is a null pointer and not DS:0.
+USER 23 GetFocus - w
+USER 31 IsIconic w w
+USER 32 GetWindowRect wp v
+USER 62 SetScrollPos wwww w
+USER 64 SetScrollRange wwwww v
+USER 96 CheckRadioButton wwww v
+USER 97 CheckDlgButton www v
+USER 98 IsDlgButtonChecked ww w
+USER 101 SendDlgItemMessage wwwwl l
+USER 155 EnableMenuItem www w
+USER 175 LoadBitmap wl w
+USER 232 SetWindowPos wwwwwww v
+USER 267 ShowScrollBar www v
+GDI 29 PatBlt wwwwwl w
+GDI 34 BitBlt wwwwwwwwl w
+GDI 36 Polygon wpw w
+GDI 51 CreateCompatibleBitmap www w
+GDI 52 CreateCompatibleDC w w
+GDI 57 CreateFontIndirect p w
+GDI 68 DeleteDC w w
+GDI 91 GetTextExtent wpw l
+GDI 377 StartDoc wp w
+GDI 378 EndDoc w w
+GDI 379 StartPage w w
+GDI 380 EndPage w w
+KERNEL 169 GetFreeSpace w l
+COMMDLG 1 GetOpenFileName p w
+COMMDLG 2 GetSaveFileName p w
+COMMDLG 15 ChooseFont p w
+COMMDLG 20 PrintDlg p w
+COMMDLG 26 CommDlgExtendedError - l
