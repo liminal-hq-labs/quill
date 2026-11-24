@@ -29,6 +29,14 @@ pub const ID_RECENT: usize = 600;
 /// Timers: the pointer poll while a hint shows, and the scrolling while a selection is dragged past the edge.
 pub const TIMER_HINT: usize = 2;
 pub const TIMER_DRAG: usize = 3;
+/// The idle timer of Check Spelling as You Type.
+pub const TIMER_SPELL: usize = 4;
+/// How long the keyboard and the mouse stay quiet before spelling is checked, and the wait between the small batches after it, in
+/// milliseconds (the system clock ticks every 55).
+const SPELL_QUIET: u32 = 300;
+const SPELL_STEP: u32 = 55;
+/// The words checked in one batch.
+const SPELL_WORDS: u32 = 6;
 
 const WS_CHILD: u32 = 0x4000_0000;
 const WS_TABSTOP: u32 = 0x0001_0000;
@@ -207,6 +215,7 @@ pub unsafe fn relayout(hwnd: Handle, sh: &mut Shell) {
 	preview_layout(hwnd, sh);
 	update_scroll(hwnd, sh);
 	tips_rebuild(hwnd, sh);
+	spell_arm(hwnd, sh);
 	InvalidateRect(hwnd, null(), 0);
 }
 
@@ -224,6 +233,7 @@ pub unsafe fn scroll_v(hwnd: Handle, sh: &mut Shell, pos: i32) {
 	update_scroll(hwnd, sh);
 	if sh.vpos != before {
 		crate::invalidate_page(hwnd, sh);
+		spell_arm(hwnd, sh);
 	}
 }
 
@@ -400,10 +410,101 @@ pub unsafe fn page_key(hwnd: Handle, sh: &mut Shell, down: bool, extend: bool) {
 	InvalidateRect(hwnd, null(), 0);
 }
 
+// ---- Check Spelling as You Type ---------------------------------------------------------------------------------------------------
+
+/// Starts the wait for a quiet moment: every key, click, scroll and command calls it, so the idle work begins only when they stop.
+pub unsafe fn spell_arm(hwnd: Handle, sh: &mut Shell) {
+	sh.spell_view = true;
+	if sh.app.spell_live() && sh.preview.is_none() && !sh.grid {
+		SetTimer(hwnd, TIMER_SPELL, SPELL_QUIET, null());
+	} else {
+		KillTimer(hwnd, TIMER_SPELL);
+	}
+}
+
+/// The first position of the first line on the screen and the position after the last one.
+pub unsafe fn visible_span(hwnd: Handle, sh: &Shell) -> (u32, u32) {
+	let area = page_area(hwnd, sh);
+	let p = pct(sh, area.right - area.left);
+	let view_h = log(area.bottom - area.top, p);
+	let stride = view::stride(&sh.app);
+	let (margin_t, mut lo, mut hi) = (quill_core::layout::to_units(sh.app.doc().page.margin_t, 96), u32::MAX, 0);
+	sh.app.for_each_line(&sh.store, |_, l| {
+		let y_top = view::rel((l.page as i32 - 1) * stride + margin_t + l.y, sh.vpos);
+		if y_top + l.ascent + l.descent >= 0 && y_top <= view_h {
+			lo = lo.min(l.start);
+			hi = hi.max(l.start + l.len + 1);
+		}
+	});
+	if lo > hi {
+		(0, 0)
+	} else {
+		(lo, hi)
+	}
+}
+
+/// Asks for the lines that hold the positions `lo` to `hi` to be painted again, and for nothing else.
+pub unsafe fn invalidate_range(hwnd: Handle, sh: &Shell, lo: u32, hi: u32) {
+	if sh.grid || sh.preview.is_some() {
+		return;
+	}
+	let area = page_area(hwnd, sh);
+	let p = pct(sh, area.right - area.left);
+	let stride = view::stride(&sh.app);
+	let margin_t = quill_core::layout::to_units(sh.app.doc().page.margin_t, 96);
+	let (mut top, mut bottom) = (i32::MAX, i32::MIN);
+	sh.app.for_each_line(&sh.store, |_, l| {
+		if l.start <= hi && l.start + l.len + 1 > lo {
+			let y = view::rel((l.page as i32 - 1) * stride + margin_t + l.y, sh.vpos);
+			top = top.min(y);
+			bottom = bottom.max(y + l.ascent + l.descent);
+		}
+	});
+	if top > bottom {
+		return;
+	}
+	// A line's wave is a few pixels under its text, so the rectangle is a little taller than the line.
+	let r = Rect {
+		left: area.left,
+		top: (area.top + dev(top, p) - 1).max(area.top),
+		right: area.right,
+		bottom: (area.top + dev(bottom, p) + 3).min(area.bottom),
+	};
+	if r.bottom > r.top {
+		InvalidateRect(hwnd, &r, 0);
+	}
+}
+
+/// The timer fired: the keyboard has been quiet. Checks a few words, paints again only the lines whose marks changed, and asks for the
+/// next batch while there is more to do.
+pub unsafe fn spell_tick(hwnd: Handle, sh: &mut Shell) {
+	if !sh.app.spell_live() || sh.preview.is_some() || sh.grid || !sh.app.editing() {
+		KillTimer(hwnd, TIMER_SPELL);
+		return;
+	}
+	if core::mem::take(&mut sh.spell_view) {
+		let (lo, hi) = visible_span(hwnd, sh);
+		sh.app.spell_set_view(lo, hi);
+	}
+	if !sh.app.spell_live_ready(&mut sh.store, &mut sh.files) {
+		KillTimer(hwnd, TIMER_SPELL);
+		return;
+	}
+	let more = sh.app.spell_idle(&mut sh.store, SPELL_WORDS);
+	if let Some((lo, hi)) = sh.app.spell_take_changed() {
+		invalidate_range(hwnd, sh, lo, hi);
+	}
+	if more {
+		SetTimer(hwnd, TIMER_SPELL, SPELL_STEP, null());
+	} else {
+		KillTimer(hwnd, TIMER_SPELL);
+	}
+}
+
 // ---- the pointer in the page -------------------------------------------------------------------------------------------------------
 
 /// The page position under a pointer at (`x`, `y`).
-unsafe fn pos_under(hwnd: Handle, sh: &Shell, x: i32, y: i32) -> u32 {
+pub unsafe fn pos_under(hwnd: Handle, sh: &Shell, x: i32, y: i32) -> u32 {
 	let (px, py) = to_page(hwnd, sh, x, y);
 	sh.app.pos_at_point(&sh.store, px, py, view::stride(&sh.app))
 }
@@ -888,6 +989,13 @@ pub fn menu_hint(sh: &Shell, id: usize) -> &'static str {
 	if (ID_RECENT..ID_RECENT + quill_app::recent::RECENT_MAX).contains(&id) {
 		return quill_app::command_hint(Command::Recent(0));
 	}
+	// The pop-up on a misspelt word.
+	match id {
+		700..=704 => return "Replace the word with this suggestion",
+		705 => return "Leave this word alone for the rest of the session",
+		706 => return "Add this word to the user dictionary",
+		_ => {}
+	}
 	id.checked_sub(100)
 		.and_then(|i| sh.cmds.get(i))
 		.map_or("", |c| quill_app::command_hint(*c))
@@ -906,12 +1014,13 @@ fn z(text: &[u8]) -> Vec<u8> {
 /// Reads the settings `QUILL.INI` in the Windows directory holds (the SPEC's settings file) into the editor.
 pub unsafe fn ini_load(sh: &mut Shell) {
 	let recent = z(b"Recent32");
-	let keys: [(&[u8], &[u8]); 11] = [
+	let keys: [(&[u8], &[u8]); 12] = [
 		(b"Recent32", b"File1"),
 		(b"Recent32", b"File2"),
 		(b"Recent32", b"File3"),
 		(b"Recent32", b"File4"),
 		(b"Quill", b"Language"),
+		(b"Quill", b"AsYouType"),
 		(b"Quill", b"Folder"),
 		(b"Quill", b"Zoom"),
 		(b"Quill", b"Toolbar"),

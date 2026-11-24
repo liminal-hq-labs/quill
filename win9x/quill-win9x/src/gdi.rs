@@ -357,6 +357,9 @@ struct LineCtx<'a> {
 	/// Draw each character at its own layout position (a zoomed screen), so no rounding of the font's widths or of the layout's
 	/// advances builds up along the line.
 	per_char: bool,
+	/// The half-period of the wavy underline of misspelt words in page units, or 0 when the page shows none (the printer, a header
+	/// or footer, and the screen with Check Spelling as You Type off).
+	wave: i32,
 }
 
 /// How pictures reach the device: from a cache of renderings (the screen) or in bands (the printer).
@@ -468,7 +471,24 @@ unsafe fn draw_line(
 		grid: false,
 		dpi,
 	};
+	// The misspelt words in this line, and where the layout put the first and last of their characters.
+	let mut marks = [(0u32, 0u32, i32::MAX, i32::MIN); 8];
+	let mut nmarks = 0;
+	if cx.wave > 0 {
+		for (st, en) in app.spell_marks(s, l.start, l.start + l.len).take(marks.len()) {
+			if let Some(m) = marks.get_mut(nmarks) {
+				*m = (st, en, i32::MAX, i32::MIN);
+				nmarks += 1;
+			}
+		}
+	}
 	quill_core::layout::walk_line(doc, s, &mut m, cx.kind, l, |p, c, x, w, leader, cf| {
+		for m in marks.iter_mut().take(nmarks) {
+			if p >= m.0 && p < m.1 {
+				m.2 = m.2.min(x);
+				m.3 = m.3.max(x + w);
+			}
+		}
 		let selected = sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
 		if c == 0x01 {
 			flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
@@ -573,6 +593,33 @@ unsafe fn draw_line(
 		}
 	});
 	flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
+	// The wave goes in after the text, from the layout's own positions, so it is under the glyphs the caret and the clicks agree with.
+	for m in marks.iter().take(nmarks) {
+		if m.3 > m.2 {
+			wavy_underline(dc, tx + m.2, tx + m.3, base + 1, cx.wave, (l.descent - 1).max(1));
+		}
+	}
+}
+
+/// Draws a red zig-zag from `x0` to `x1` with its top at `y`: points `unit` apart across and at most `unit` down (and `room` at the
+/// most), joined with `LineTo`.
+///
+/// # Safety
+/// `dc` must be a valid device context.
+unsafe fn wavy_underline(dc: Handle, x0: i32, x1: i32, y: i32, unit: i32, room: i32) {
+	let pen = CreatePen(0, 1, 0x0000_00FF);
+	let old = SelectObject(dc, pen);
+	let depth = unit.min(room).max(1);
+	let mut x = x0;
+	let mut low = false;
+	MoveToEx(dc, x, y, null_mut());
+	while x < x1 {
+		x = (x + unit).min(x1);
+		low = !low;
+		LineTo(dc, x, y + if low { depth } else { 0 });
+	}
+	SelectObject(dc, old);
+	DeleteObject(pen);
 }
 
 /// The number of sheets of paper the body takes on the screen.
@@ -688,6 +735,7 @@ pub unsafe fn paint_page(
 				page: l.page,
 				fields,
 				per_char: pct != 100,
+				wave: if app.spell_live() { (200 / pct.max(1)).clamp(2, 8) } else { 0 },
 			},
 			&mut Pics::Cache(cache),
 			l,
@@ -791,6 +839,7 @@ unsafe fn draw_page(
 				page: p,
 				fields: Some(pages),
 				per_char: pl.per_char,
+				wave: 0,
 			};
 			let label = line_label(app, s, l, &mut c, dpi);
 			draw_line(dc, &cx, &mut Pics::Banded(cache), l, label, tx, oy + top + l.y - pl.offy);
@@ -811,6 +860,7 @@ unsafe fn draw_page(
 			page: p,
 			fields: Some(pages),
 			per_char: pl.per_char,
+			wave: 0,
 		};
 		draw_line(
 			dc,
