@@ -263,3 +263,23 @@ fn a_picture_with_a_copy_after_it_is_read_once_and_damage_is_dropped() {
 		assert_eq!(d.pic_data.len(), 0);
 	}
 }
+
+#[test]
+fn absurd_paper_and_margins_are_cut_to_what_layout_can_add_up() {
+	let mut s = HostStore::new();
+	let d = read(
+		&mut s,
+		b"{\\rtf1\\paperw2147483647\\paperh1\\margl2147483647\\margr2147483647\\margt2147483647\\margb2147483647 text\\par}",
+	)
+	.unwrap();
+	let mut lines = 0;
+	quill_core::layout::layout_story(
+		&d,
+		&s,
+		&mut quill_grid::GridMeasure,
+		quill_core::doc::StoryKind::Body,
+		|_| lines += 1,
+	);
+	assert!(lines > 0);
+	assert_eq!(d.page.margin_t, quill_core::doc::PAGE_LIMIT);
+}

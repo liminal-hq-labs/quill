@@ -7,7 +7,7 @@
 //! text and bytes; `main` only reads arguments and files.
 
 use quill_core::doc::{cflag, Doc, StoryKind};
-use quill_core::store::Store;
+use quill_core::store::ReadStore;
 use quill_core::text::SRC_OBJECT;
 use quill_formats::io::SliceSource;
 use quill_formats::FormatError;
@@ -235,7 +235,7 @@ struct Counts {
 	paragraphs: u32,
 }
 
-fn count<S: Store + ?Sized>(doc: &Doc, s: &S) -> Counts {
+fn count<S: ReadStore + ?Sized>(doc: &Doc, s: &S) -> Counts {
 	let t = &doc.body;
 	let mut c = Counts {
 		characters: 0,
@@ -334,7 +334,7 @@ pub fn info(name: &str, l: &Loaded) -> String {
 
 /// The pages the document takes laid out for the DOS text screen (10 characters to the inch, 6 lines): the same layout the
 /// DOS build shows. Real pages depend on the printer's fonts.
-fn pages<S: Store + ?Sized>(doc: &Doc, s: &S) -> (u32, u32) {
+fn pages<S: ReadStore + ?Sized>(doc: &Doc, s: &S) -> (u32, u32) {
 	let mut lines = 0;
 	let pages =
 		quill_core::layout::layout_story(doc, s, &mut GridMeasure, StoryKind::Body, |_| lines += 1);

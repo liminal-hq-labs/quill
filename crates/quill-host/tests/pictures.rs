@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use quill_app::{App, Command};
-use quill_core::store::{ChunkId, Store};
+use quill_core::store::{ChunkId, ReadStore, Store};
 use quill_heap::HeapStore;
 use quill_host::script::MemFiles;
 
@@ -14,6 +14,12 @@ struct Limited {
 	budget: usize,
 	used: usize,
 	sizes: std::collections::HashMap<u16, usize>,
+}
+
+impl ReadStore for Limited {
+	fn read(&self, id: ChunkId, offset: u16, out: &mut [u8]) {
+		self.inner.read(id, offset, out);
+	}
 }
 
 impl Store for Limited {
@@ -29,9 +35,6 @@ impl Store for Limited {
 	fn free(&mut self, id: ChunkId) {
 		self.used -= self.sizes.remove(&id.0).unwrap_or(0);
 		self.inner.free(id);
-	}
-	fn read(&self, id: ChunkId, offset: u16, out: &mut [u8]) {
-		self.inner.read(id, offset, out);
 	}
 	fn write(&mut self, id: ChunkId, offset: u16, data: &[u8]) {
 		self.inner.write(id, offset, data);

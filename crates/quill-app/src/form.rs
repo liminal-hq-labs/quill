@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use quill_core::doc::{cflag, CFmt, Font, PFmt, TabSet, TabStop, MAX_STOPS, NO_TABS};
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 
 use quill_core::layout::Measure;
 
@@ -106,7 +106,7 @@ fn parse_inches(r: &Row) -> Option<i32> {
 }
 
 impl<M: Measure + Clone> App<M> {
-	pub(crate) fn open_fonts<S: Store + ?Sized>(&mut self, s: &S) {
+	pub(crate) fn open_fonts<S: ReadStore + ?Sized>(&mut self, s: &S) {
 		let t = &self.doc.body;
 		let at = if self.caret > 0 { self.caret - 1 } else { 0 };
 		let cf = self
@@ -390,7 +390,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Copies the selection to the clipboard, which lives until Quill exits.
-	pub(crate) fn clip_copy<S: Store + ?Sized>(&mut self, s: &S) -> bool {
+	pub(crate) fn clip_copy<S: ReadStore + ?Sized>(&mut self, s: &S) -> bool {
 		let Some((lo, hi)) = self.selection() else {
 			return false;
 		};

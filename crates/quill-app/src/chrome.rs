@@ -5,7 +5,7 @@
 
 use quill_core::doc::{cflag, CFmt, Colour, Font, PFmt, TabSet, TabStop, NO_TABS};
 use quill_core::layout::Measure;
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 
 use crate::App;
 
@@ -122,7 +122,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The character format a toolbar shows: the typing format, or the one at the start of the selection or before the caret.
-	pub fn char_state<S: Store + ?Sized>(&self, s: &S) -> CharState {
+	pub fn char_state<S: ReadStore + ?Sized>(&self, s: &S) -> CharState {
 		let at = self
 			.selection()
 			.map_or(self.caret.saturating_sub(1), |(lo, _)| lo);
@@ -156,12 +156,12 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The paragraph format at the caret.
-	pub fn para_state<S: Store + ?Sized>(&self, s: &S) -> PFmt {
+	pub fn para_state<S: ReadStore + ?Sized>(&self, s: &S) -> PFmt {
 		self.para_pfmt(s, self.caret)
 	}
 
 	/// The tab stops of the paragraph at the caret: (position in twips, kind).
-	pub fn tab_stops<S: Store + ?Sized>(&self, s: &S, out: &mut [(i32, u8); 16]) -> usize {
+	pub fn tab_stops<S: ReadStore + ?Sized>(&self, s: &S, out: &mut [(i32, u8); 16]) -> usize {
 		let pf = self.para_pfmt(s, self.caret);
 		if pf.tabset == NO_TABS {
 			return 0;
@@ -175,7 +175,11 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The tab stops of the paragraph at the caret with their leaders: (position in twips, kind, leader).
-	pub fn tab_stops_full<S: Store + ?Sized>(&self, s: &S, out: &mut [(i32, u8, u8); 16]) -> usize {
+	pub fn tab_stops_full<S: ReadStore + ?Sized>(
+		&self,
+		s: &S,
+		out: &mut [(i32, u8, u8); 16],
+	) -> usize {
 		let pf = self.para_pfmt(s, self.caret);
 		if pf.tabset == NO_TABS {
 			return 0;
@@ -193,12 +197,14 @@ impl<M: Measure + Clone> App<M> {
 		if let Ok(fi) = self.doc.fonts.intern(s, Font::new(name, family)) {
 			self.char_command(s, move |c| CFmt { font: fi, ..c }, None);
 		}
+		self.sync_layout(s);
 	}
 
 	/// Sets the size, in half points.
 	pub fn set_size<S: Store + ?Sized>(&mut self, s: &mut S, half_points: u16) {
 		let size = half_points.clamp(8, 288);
 		self.char_command(s, move |c| CFmt { size, ..c }, None);
+		self.sync_layout(s);
 	}
 
 	/// Sets the text colour, or Automatic for `None`.
@@ -211,6 +217,7 @@ impl<M: Measure + Clone> App<M> {
 			},
 		};
 		self.char_command(s, move |c| CFmt { colour: idx, ..c }, None);
+		self.sync_layout(s);
 	}
 
 	/// Sets the left, first-line and right indents of the paragraphs in the selection, in twips.
@@ -221,16 +228,19 @@ impl<M: Measure + Clone> App<M> {
 			right: right.max(0),
 			..p
 		});
+		self.sync_layout(s);
 	}
 
 	/// Adds (or changes) a tab stop at `pos` twips of the given kind (0 left, 1 centre, 2 right, 3 decimal).
 	pub fn add_tab<S: Store + ?Sized>(&mut self, s: &mut S, pos: i32, kind: u8) {
 		self.tab_edit(s, "< Set >", Some(pos), kind, 0);
+		self.sync_layout(s);
 	}
 
 	/// Removes the tab stop at `pos` twips.
 	pub fn remove_tab<S: Store + ?Sized>(&mut self, s: &mut S, pos: i32) {
 		self.tab_edit(s, "< Clear >", Some(pos), 0, 0);
+		self.sync_layout(s);
 	}
 
 	/// The empty tab set, for callers that build one.
@@ -239,7 +249,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The index of the preset the paragraph at the caret matches exactly (paragraph format and the character format at its start), if any.
-	pub fn style_of<S: Store + ?Sized>(&self, s: &S) -> Option<usize> {
+	pub fn style_of<S: ReadStore + ?Sized>(&self, s: &S) -> Option<usize> {
 		let pf = self.para_pfmt(s, self.caret);
 		let start = self.para_start(s, self.caret);
 		let cf = self
@@ -337,6 +347,7 @@ impl<M: Measure + Clone> App<M> {
 		self.doc.body.end_group();
 		self.typing_fmt = None;
 		self.modified = true;
+		self.sync_layout(s);
 	}
 
 	/// Shows or hides a part of the chrome (`CHROME_*`).

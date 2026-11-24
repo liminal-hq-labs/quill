@@ -5,10 +5,10 @@
 
 use quill_core::doc::{Doc, StoryKind};
 use quill_core::layout::{layout_story, Measure};
-use quill_core::store::Store;
+use quill_core::store::ReadStore;
 
 /// The text dump of a story's layout: one line per line box, with its text after a bar (see `quill_core::layout::dump_story`).
-pub fn text_dump<S: Store, M: Measure>(
+pub fn text_dump<S: ReadStore, M: Measure>(
 	doc: &Doc,
 	s: &S,
 	m: &mut M,
@@ -22,7 +22,7 @@ pub fn text_dump<S: Store, M: Measure>(
 
 /// A page map: the page's lines drawn as blocks, one block per character cell (`cw` by `ch` pixels), with the text
 /// area outlined. Deterministic, small, and enough to see where lines break. Returns a PNG.
-pub fn page_map_png<S: Store, M: Measure>(
+pub fn page_map_png<S: ReadStore, M: Measure>(
 	doc: &Doc,
 	s: &S,
 	m: &mut M,

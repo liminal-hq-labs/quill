@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use quill_core::doc::Doc;
-use quill_core::store::Store;
+use quill_core::store::ReadStore;
 use quill_formats::io::Source;
 use quill_image::scale::{Scaler, MAX_OUT};
 use quill_image::{bmp, png, ImageError};
@@ -12,14 +12,14 @@ use quill_image::{bmp, png, ImageError};
 pub use quill_inflate::WINDOW;
 
 /// A picture's file bytes in the document's pool, read from the start.
-pub struct PictureSource<'a, S: Store + ?Sized> {
+pub struct PictureSource<'a, S: ReadStore + ?Sized> {
 	doc: &'a Doc,
 	s: &'a S,
 	idx: u16,
 	pos: u32,
 }
 
-impl<'a, S: Store + ?Sized> PictureSource<'a, S> {
+impl<'a, S: ReadStore + ?Sized> PictureSource<'a, S> {
 	/// The bytes of picture `idx`.
 	pub fn new(doc: &'a Doc, s: &'a S, idx: u16) -> Self {
 		PictureSource {
@@ -31,7 +31,7 @@ impl<'a, S: Store + ?Sized> PictureSource<'a, S> {
 	}
 }
 
-impl<S: Store + ?Sized> Source for PictureSource<'_, S> {
+impl<S: ReadStore + ?Sized> Source for PictureSource<'_, S> {
 	fn read(&mut self, out: &mut [u8]) -> usize {
 		let n = self.doc.picture_bytes(self.s, self.idx, self.pos, out);
 		self.pos += n as u32;
@@ -40,7 +40,7 @@ impl<S: Store + ?Sized> Source for PictureSource<'_, S> {
 }
 
 /// A fingerprint of a picture (its size, place and first bytes), to tell one picture from another that took its index.
-pub fn fingerprint<S: Store + ?Sized>(doc: &Doc, s: &S, idx: u16) -> u32 {
+pub fn fingerprint<S: ReadStore + ?Sized>(doc: &Doc, s: &S, idx: u16) -> u32 {
 	let mut h = 0x811C_9DC5u32;
 	if let Some(p) = doc.pictures.get(s, u32::from(idx)) {
 		let mut b = [0u8; 128];
@@ -61,7 +61,7 @@ pub fn fingerprint<S: Store + ?Sized>(doc: &Doc, s: &S, idx: u16) -> u32 {
 /// Decodes picture `idx` and calls `emit(row, rgb)` for each of its `out_h` rows of `out_w` pixels, where `row` 0 is the *bottom* row
 /// (the order a Windows DIB wants) and `rgb` holds red, green, blue for each pixel. `window` is the inflater's working memory.
 /// A picture that stops early leaves its remaining rows unwritten and returns an error.
-pub fn render<S: Store + ?Sized>(
+pub fn render<S: ReadStore + ?Sized>(
 	doc: &Doc,
 	s: &S,
 	idx: u16,

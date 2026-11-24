@@ -481,25 +481,26 @@ pub fn paint_page(dc: u32, area: Rect16, hscroll: i32, app: &QApp, s: &FarStore)
 		let mut line_h = 16;
 		let first = app.top_line();
 		let mut counters: ListCounters = [[0; 9]; 4];
-		let mut pages = 1u32;
-		app.for_each_line(s, |i, l| {
-			pages = pages.max(l.page);
+		let pages = app.page_total(s).max(1);
+		app.for_each_line_from(s, first, |i, l| {
 			let label = line_label(app, s, l, &mut counters, view::DPI);
 			if i < first {
-				return;
+				return true;
 			}
 			let y = g.line_y(l, top);
 			if i == first {
 				line_h = (l.ascent + l.descent).max(8);
 			}
 			if y > bottom {
-				return;
+				// Below the window: no later line is shown either.
+				return false;
 			}
 			fitted += 1;
 			if let Some(slot) = shown.get_mut(count) {
 				*slot = Shown { line: *l, label };
 				count += 1;
 			}
+			true
 		});
 		let tx = x0 + margin_l;
 		SetTextAlign(dc, TA_BASELINE);

@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use crate::doc::{cflag, CFmt, Doc, Font, PFmt, StoryKind, MAX_STOPS, NO_TABS};
-use crate::store::Store;
+use crate::store::ReadStore;
 use crate::text::Piece;
 
 /// Number of characters a width table covers: ANSI 0x20 to 0xFF.
@@ -150,7 +150,7 @@ pub struct Stops {
 
 impl Stops {
 	/// The stops of paragraph format `pf`, converted at `rx` units per inch.
-	pub fn for_para<S: Store + ?Sized>(doc: &Doc, s: &S, pf: &PFmt, rx: u16) -> Stops {
+	pub fn for_para<S: ReadStore + ?Sized>(doc: &Doc, s: &S, pf: &PFmt, rx: u16) -> Stops {
 		let mut st = Stops {
 			n: 0,
 			set: [Stop::default(); MAX_STOPS],
@@ -236,7 +236,7 @@ pub fn to_units(twips: i32, res: u16) -> i32 {
 }
 
 /// The font and vertical position a character format asks for, and the format itself.
-pub fn font_ref<S: Store + ?Sized>(doc: &Doc, s: &S, cfmt: u16) -> (FontRef, u8, CFmt) {
+pub fn font_ref<S: ReadStore + ?Sized>(doc: &Doc, s: &S, cfmt: u16) -> (FontRef, u8, CFmt) {
 	let cf = doc
 		.cfmts
 		.get(s, cfmt)
@@ -283,12 +283,63 @@ enum End {
 	Text,
 }
 
+/// Where a layout stands between two paragraphs: everything the rest of the story's layout depends on.
+///
+/// Layout reads neither the page number, the paragraph number nor the line number (only `y` and the text), so two layouts whose
+/// cursors differ in those three alone lay out the rest of the story the same, with those three apart by a constant.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct LayoutCursor {
+	/// The position of the next paragraph's first character; the length of the text when there is none.
+	pub pos: u32,
+	/// How many paragraphs came before.
+	pub para: u32,
+	/// The page the last line was on (1 before the first line).
+	pub page: u32,
+	/// The y after the last line, from the top of the text area of `page`.
+	pub y: i32,
+	/// How many lines came before.
+	pub line: u32,
+}
+
+impl LayoutCursor {
+	/// The state at the start of a story.
+	pub const START: LayoutCursor = LayoutCursor {
+		pos: 0,
+		para: 0,
+		page: 1,
+		y: 0,
+		line: 0,
+	};
+}
+
 /// Lays out one story with `m`, calling `f` for each line, and returns the number of pages.
-pub fn layout_story<S, M, F>(doc: &Doc, s: &S, m: &mut M, kind: StoryKind, mut f: F) -> u32
+pub fn layout_story<S, M, F>(doc: &Doc, s: &S, m: &mut M, kind: StoryKind, f: F) -> u32
 where
-	S: Store + ?Sized,
+	S: ReadStore + ?Sized,
 	M: Measure + ?Sized,
 	F: FnMut(&Line),
+{
+	layout_from(doc, s, m, kind, LayoutCursor::START, f, |_| true).page
+}
+
+/// Lays out one story from the paragraph boundary `start`, calling `f` for each line and `after_para` with the cursor after each
+/// paragraph; `after_para` returns false to stop. Returns the cursor where it stopped, which is the cursor to start the next call from:
+/// the lines of a story laid out in several calls are the lines `layout_story` gives. From [`LayoutCursor::START`] with an
+/// `after_para` that always says true it is `layout_story`.
+pub fn layout_from<S, M, F, G>(
+	doc: &Doc,
+	s: &S,
+	m: &mut M,
+	kind: StoryKind,
+	start: LayoutCursor,
+	mut f: F,
+	mut after_para: G,
+) -> LayoutCursor
+where
+	S: ReadStore + ?Sized,
+	M: Measure + ?Sized,
+	F: FnMut(&Line),
+	G: FnMut(&LayoutCursor) -> bool,
 {
 	let (rx, ry) = m.resolution();
 	let text = doc.story(kind);
@@ -296,10 +347,11 @@ where
 	let text_w = to_units(doc.page.text_w(), rx);
 	let text_h = to_units(doc.page.text_h(), ry);
 	let mut cache = FontCache::new();
-	let mut page = 1u32;
-	let mut y = 0i32;
-	let mut pos = 0u32;
-	let mut para = 0u32;
+	let mut page = start.page;
+	let mut y = start.y;
+	let mut pos = start.pos;
+	let mut para = start.para;
+	let mut lines = start.line;
 	while pos < total {
 		let end = para_end(text, s, pos, total);
 		let mark = end
@@ -454,6 +506,7 @@ where
 				y = 0;
 			}
 			let top = y + if y == 0 { 0 } else { extra_before };
+			lines += 1;
 			f(&Line {
 				para,
 				line: line_no,
@@ -478,12 +531,33 @@ where
 		}
 		pos = end;
 		para += 1;
+		let here = LayoutCursor {
+			pos,
+			para,
+			page,
+			y,
+			line: lines,
+		};
+		if !after_para(&here) {
+			return here;
+		}
 	}
-	page
+	LayoutCursor {
+		pos,
+		para,
+		page,
+		y,
+		line: lines,
+	}
 }
 
 /// The position after the paragraph mark that ends the paragraph starting at `pos` (or the end of the text).
-fn para_end<S: Store + ?Sized>(text: &crate::doc::StoryText, s: &S, pos: u32, total: u32) -> u32 {
+fn para_end<S: ReadStore + ?Sized>(
+	text: &crate::doc::StoryText,
+	s: &S,
+	pos: u32,
+	total: u32,
+) -> u32 {
 	let mut at = pos;
 	let mut buf = [0u8; 128];
 	while at < total {
@@ -512,7 +586,7 @@ fn segment<S, M>(
 	end: u32,
 ) -> (i32, i32)
 where
-	S: Store + ?Sized,
+	S: ReadStore + ?Sized,
 	M: Measure + ?Sized,
 {
 	let text = &doc.body;
@@ -553,7 +627,7 @@ where
 /// (from the left margin, the line's alignment included). Tabs take the width layout gave them, so a painter and the layout agree.
 pub fn walk_line<S, M, F>(doc: &Doc, s: &S, m: &mut M, kind: StoryKind, line: &Line, mut f: F)
 where
-	S: Store + ?Sized,
+	S: ReadStore + ?Sized,
 	M: Measure + ?Sized,
 	F: FnMut(u32, u8, i32, i32, u8, u16),
 {
@@ -623,7 +697,7 @@ pub fn dump_story<S, M, W>(
 	w: &mut W,
 ) -> core::fmt::Result
 where
-	S: Store + ?Sized,
+	S: ReadStore + ?Sized,
 	M: Measure + ?Sized,
 	W: core::fmt::Write,
 {
@@ -653,7 +727,7 @@ where
 	result
 }
 
-fn write_line<S: Store + ?Sized, W: core::fmt::Write>(
+fn write_line<S: ReadStore + ?Sized, W: core::fmt::Write>(
 	text: &crate::doc::StoryText,
 	s: &S,
 	l: &Line,
@@ -704,7 +778,7 @@ fn field_digits(object: Option<u32>, rx: u16) -> i32 {
 }
 
 /// The size in device units of the picture at `pos`, when the object there is one (kind 0).
-pub fn picture_size<S: Store + ?Sized>(
+pub fn picture_size<S: ReadStore + ?Sized>(
 	doc: &Doc,
 	s: &S,
 	text: &crate::doc::StoryText,

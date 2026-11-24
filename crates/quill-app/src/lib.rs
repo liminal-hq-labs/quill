@@ -28,14 +28,15 @@ pub mod platform;
 mod pointer;
 mod print;
 pub mod recent;
+mod reflow;
 pub mod script;
 mod spell_live;
 mod spelling;
 pub mod view;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
-use quill_core::layout::{layout_story, Line, Measure};
-use quill_core::store::Store;
+use quill_core::layout::{Line, Measure};
+use quill_core::store::{ReadStore, Store};
 use quill_core::Error;
 use quill_formats::io::{Sink, Source};
 use quill_formats::{qld, rtf, text, FormatError};
@@ -403,6 +404,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) recent: recent::RecentList,
 	/// The settings section the recent files live in: `Recent` (DOS, Win16) or `Recent32`.
 	pub(crate) recent_section: &'static str,
+	/// The layout checkpoints of the body (see `reflow`).
+	pub(crate) reflow: reflow::Reflow,
 	/// The format the document was opened in: 0 native, 1 RTF, 2 text.
 	fmt: u8,
 	/// The view's zoom: a percentage, or 0 for the page's width.
@@ -454,6 +457,7 @@ impl<M: Measure + Clone> App<M> {
 			dialog: None,
 			folder: [0; NAME_MAX],
 			folder_len: 0,
+			reflow: reflow::Reflow::new(),
 			fmt: 0,
 			last_find: None,
 			about: Msg::new(),
@@ -472,6 +476,7 @@ impl<M: Measure + Clone> App<M> {
 	/// Starts an empty, untitled document.
 	pub fn reset<S: Store + ?Sized>(&mut self, s: &mut S) -> Result<(), Error> {
 		self.doc.init(s)?;
+		self.reflow.invalidate();
 		self.spell_forget();
 		self.caret = 0;
 		self.top = 0;
@@ -479,6 +484,7 @@ impl<M: Measure + Clone> App<M> {
 		self.modified = false;
 		self.mode = Mode::Edit;
 		self.typing = false;
+		self.sync_layout(s);
 		Ok(())
 	}
 
@@ -526,6 +532,7 @@ impl<M: Measure + Clone> App<M> {
 		self.discarded = false;
 		self.msg.clear();
 		self.run(s, f, c);
+		self.sync_layout(s);
 		self.scroll(s);
 	}
 
@@ -568,12 +575,12 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Calls `f(index, line)` for each line of the body (or the story being edited), laid out for the app's device.
-	pub fn for_each_line<S: Store + ?Sized>(&self, s: &S, f: impl FnMut(u32, &Line)) {
+	pub fn for_each_line<S: ReadStore + ?Sized>(&self, s: &S, f: impl FnMut(u32, &Line)) {
 		self.lines(s, f);
 	}
 
 	/// Calls `f(position, character, x, width, leader, character format)` for each character of a line.
-	pub fn walk_chars<S: Store + ?Sized>(
+	pub fn walk_chars<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		line: &Line,
@@ -590,7 +597,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The index of the line holding the caret, the line, and the caret's x within it.
-	pub fn caret_xy<S: Store + ?Sized>(&self, s: &S) -> Option<(u32, Line, i32)> {
+	pub fn caret_xy<S: ReadStore + ?Sized>(&self, s: &S) -> Option<(u32, Line, i32)> {
 		let (i, l) = self.caret_line(s)?;
 		Some((i, l, self.x_of(s, &l, self.caret)))
 	}
@@ -864,6 +871,20 @@ impl<M: Measure + Clone> App<M> {
 		f: &mut F,
 		name: &[u8],
 	) -> Result<(), FormatError> {
+		let r = self.open_file(s, f, name);
+		self.sync_layout(s);
+		r
+	}
+
+	/// Reads the file into a new document and swaps it in. A separate function, so the new document's 5 KB is off the stack when the
+	/// layout cache is made.
+	#[inline(never)]
+	fn open_file<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		name: &[u8],
+	) -> Result<(), FormatError> {
 		let mut head = [0u8; 12];
 		let n = f.open(name).ok_or(FormatError::BadFile)?.read(&mut head);
 		let native = n == 12 && head.starts_with(b"RIFF") && head.get(8..12) == Some(b"QLD1");
@@ -883,6 +904,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 		self.doc.reset(s);
 		core::mem::swap(&mut self.doc, &mut fresh);
+		self.reflow.invalidate();
 		self.spell_forget();
 		self.caret = 0;
 		self.top = 0;
@@ -934,57 +956,22 @@ impl<M: Measure + Clone> App<M> {
 		Ok(())
 	}
 
-	pub(crate) fn lines<S: Store + ?Sized>(&self, s: &S, mut f: impl FnMut(u32, &Line)) {
-		let mut i = 0;
-		layout_story(
-			&self.doc,
-			s,
-			&mut self.measure.clone(),
-			quill_core::doc::StoryKind::Body,
-			|l| {
-				f(i, l);
-				i += 1;
-			},
-		);
+	/// Every line of the body, from the first, with its index.
+	pub(crate) fn lines<S: ReadStore + ?Sized>(&self, s: &S, mut f: impl FnMut(u32, &Line)) {
+		self.lines_from(s, 0, |i, l| {
+			f(i, l);
+			true
+		});
 	}
 
 	/// The index and line holding the caret.
-	pub(crate) fn caret_line<S: Store + ?Sized>(&self, s: &S) -> Option<(u32, Line)> {
+	pub(crate) fn caret_line<S: ReadStore + ?Sized>(&self, s: &S) -> Option<(u32, Line)> {
 		self.line_for(s, self.caret)
-	}
-
-	/// The index and line holding position `pos`: the line it is on, except that the end of a line that wraps belongs to the next one.
-	pub(crate) fn line_for<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<(u32, Line)> {
-		let caret = pos;
-		let mut found: Option<(u32, Line)> = None;
-		let mut prev: Option<(u32, Line)> = None;
-		self.lines(s, |i, l| {
-			if found.is_none() {
-				if let Some((pi, p)) = prev {
-					let soft = l.start == p.start + p.len;
-					if caret >= p.start
-						&& caret <= p.start + p.len
-						&& !(soft && caret == p.start + p.len)
-					{
-						found = Some((pi, p));
-					}
-				}
-			}
-			prev = Some((i, *l));
-		});
-		if found.is_none() {
-			if let Some((pi, p)) = prev {
-				if caret >= p.start {
-					found = Some((pi, p));
-				}
-			}
-		}
-		found
 	}
 
 	/// The x of each character of a line, calling `f(position, character, x, width, leader)`. The leader is 0 except for a tab
 	/// that has one (1 dots, 2 hyphens, 3 underline).
-	pub(crate) fn walk<S: Store + ?Sized>(
+	pub(crate) fn walk<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		line: &Line,
@@ -1001,7 +988,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The x of position `pos` in `line`.
-	pub(crate) fn x_of<S: Store + ?Sized>(&self, s: &S, line: &Line, pos: u32) -> i32 {
+	pub(crate) fn x_of<S: ReadStore + ?Sized>(&self, s: &S, line: &Line, pos: u32) -> i32 {
 		let mut x = line.x;
 		let mut end = line.x;
 		self.walk(s, line, |p, _, cx, w, _| {
@@ -1017,7 +1004,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
-	fn pos_at_x<S: Store + ?Sized>(&self, s: &S, line: &Line, want: i32) -> u32 {
+	fn pos_at_x<S: ReadStore + ?Sized>(&self, s: &S, line: &Line, want: i32) -> u32 {
 		let mut best = (line.start, i32::MAX);
 		self.walk(s, line, |p, _, x, _, _| {
 			let d = (x - want).abs();
@@ -1032,20 +1019,8 @@ impl<M: Measure + Clone> App<M> {
 		best.0
 	}
 
-	fn line_at<S: Store + ?Sized>(&self, s: &S, idx: u32) -> Option<Line> {
-		let mut out = None;
-		self.lines(s, |i, l| {
-			if i == idx {
-				out = Some(*l);
-			}
-		});
-		out
-	}
-
-	fn line_count<S: Store + ?Sized>(&self, s: &S) -> u32 {
-		let mut n = 0;
-		self.lines(s, |_, _| n += 1);
-		n
+	fn line_count<S: ReadStore + ?Sized>(&self, s: &S) -> u32 {
+		self.lines_total(s)
 	}
 
 	fn end_typing(&mut self) {
@@ -1056,7 +1031,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The position of the paragraph mark that ends the paragraph holding `pos`.
-	fn para_mark<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u32> {
+	fn para_mark<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<u32> {
 		let t = &self.doc.body;
 		let mut at = pos;
 		let mut buf = [0u8; 64];
@@ -1237,7 +1212,7 @@ impl<M: Measure + Clone> App<M> {
 		self.doc.body.end_group();
 	}
 
-	fn move_vertical<S: Store + ?Sized>(&mut self, s: &S, delta: i32, keep_x: bool) {
+	fn move_vertical<S: ReadStore + ?Sized>(&mut self, s: &S, delta: i32, keep_x: bool) {
 		let Some((idx, line)) = self.caret_line(s) else {
 			return;
 		};
@@ -1264,6 +1239,7 @@ impl<M: Measure + Clone> App<M> {
 				core::mem::swap(&mut self.doc.body, &mut self.doc.first_footer)
 			}
 		}
+		self.reflow.invalidate();
 		let _ = s;
 	}
 
@@ -1692,7 +1668,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The paragraph format of the paragraph holding `pos`.
-	pub(crate) fn para_pfmt<S: Store + ?Sized>(&self, s: &S, pos: u32) -> PFmt {
+	pub(crate) fn para_pfmt<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> PFmt {
 		self.para_mark(s, pos)
 			.and_then(|m| self.doc.body.pfmt_at(s, m))
 			.and_then(|i| self.doc.pfmts.get(s, i))
@@ -1700,7 +1676,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// The position where the paragraph holding `pos` starts.
-	pub(crate) fn para_start<S: Store + ?Sized>(&self, s: &S, pos: u32) -> u32 {
+	pub(crate) fn para_start<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> u32 {
 		let t = &self.doc.body;
 		let mut end = pos;
 		let mut buf = [0u8; 64];
@@ -1778,10 +1754,11 @@ impl<M: Measure + Clone> App<M> {
 				_ => {}
 			},
 		}
+		self.sync_layout(s);
 		self.scroll(s);
 	}
 
-	fn move_caret<S: Store + ?Sized>(&mut self, s: &S, d: Dir) {
+	fn move_caret<S: ReadStore + ?Sized>(&mut self, s: &S, d: Dir) {
 		let len = self.doc.body.len();
 		match d {
 			Dir::Left => {
@@ -2082,7 +2059,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Keeps the caret on the screen.
-	fn scroll<S: Store + ?Sized>(&mut self, s: &S) {
+	fn scroll<S: ReadStore + ?Sized>(&mut self, s: &S) {
 		let Some((idx, caret_line)) = self.caret_line(s) else {
 			return;
 		};
@@ -2096,22 +2073,19 @@ impl<M: Measure + Clone> App<M> {
 			// On the text screen a row is a unit of layout, so spacing and tall lines count: move down until the caret's line fits.
 			let page_rows = quill_core::layout::to_units(self.doc.page.text_h(), 6);
 			let cum = |l: &Line| (l.page as i32 - 1) * page_rows + l.y;
-			let mut top = self.top;
-			loop {
-				let (mut top_cum, mut caret_end) = (0, 0);
-				self.lines(s, |i, l| {
-					if i == top {
-						top_cum = cum(l);
-					}
-					if i == idx {
-						caret_end = cum(l) + (l.ascent + l.descent).max(1);
-					}
-				});
-				if caret_end - top_cum <= rows as i32 || top >= idx {
-					break;
+			let caret_end = cum(&caret_line) + (caret_line.ascent + caret_line.descent).max(1);
+			let from = self.top;
+			let mut top = idx;
+			self.lines_from(s, from, |i, l| {
+				if i < from {
+					return true;
 				}
-				top += 1;
-			}
+				if i >= idx || caret_end - cum(l) <= rows as i32 {
+					top = i.min(idx);
+					return false;
+				}
+				true
+			});
 			self.top = top;
 		} else if idx >= self.top + rows {
 			self.top = idx + 1 - rows;

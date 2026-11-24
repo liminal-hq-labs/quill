@@ -6,9 +6,9 @@
 use quill_core::doc::{
 	CFmt, Colour, Doc, Font, ListDef, ListLevel, PFmt, PageSetup, StoryKind, TabSet, TabStop,
 	MAX_CFMTS, MAX_COLOURS, MAX_FONTS, MAX_LISTS, MAX_PFMTS, MAX_PICTURES, MAX_PICTURE_BYTES,
-	MAX_STOPS, MAX_TABSETS,
+	MAX_STOPS, MAX_TABSETS, PAGE_LIMIT,
 };
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 use quill_core::text::{MAX_TEXT, SRC_OBJECT};
 
 use crate::io::{Sink, Source};
@@ -107,7 +107,7 @@ impl<'a, K: Sink> Emit<'a, K> {
 	}
 }
 
-fn runs<S: Store + ?Sized>(doc: &Doc, s: &S, kind: StoryKind, mut f: impl FnMut(u32, u16)) {
+fn runs<S: ReadStore + ?Sized>(doc: &Doc, s: &S, kind: StoryKind, mut f: impl FnMut(u32, u16)) {
 	let t = doc.story(kind);
 	let mut cur: Option<(u32, u16)> = None;
 	t.for_each_run(s, 0, t.len(), |_, p| match cur {
@@ -123,7 +123,7 @@ fn runs<S: Store + ?Sized>(doc: &Doc, s: &S, kind: StoryKind, mut f: impl FnMut(
 	}
 }
 
-fn marks<S: Store + ?Sized>(doc: &Doc, s: &S, kind: StoryKind, mut f: impl FnMut(u32)) {
+fn marks<S: ReadStore + ?Sized>(doc: &Doc, s: &S, kind: StoryKind, mut f: impl FnMut(u32)) {
 	let t = doc.story(kind);
 	let mut at = 0u32;
 	let mut buf = [0u8; 256];
@@ -141,7 +141,7 @@ fn marks<S: Store + ?Sized>(doc: &Doc, s: &S, kind: StoryKind, mut f: impl FnMut
 	}
 }
 
-fn body<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, e: &mut Emit<'_, K>, stories: u16) {
+fn body<S: ReadStore + ?Sized, K: Sink>(doc: &Doc, s: &S, e: &mut Emit<'_, K>, stories: u16) {
 	e.begin(b"RIFF", Some(b"QLD1"));
 	e.begin(b"HEAD", None);
 	e.u16(VERSION.0);
@@ -324,7 +324,7 @@ fn body<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, e: &mut Emit<'_, K>, stori
 }
 
 /// Writes `doc` as a `.QLD` file. The same document always gives the same bytes.
-pub fn write<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<()> {
+pub fn write<S: ReadStore + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<()> {
 	let stories = StoryKind::ALL
 		.iter()
 		.filter(|k| **k == StoryKind::Body || !doc.story(**k).is_empty())
@@ -458,14 +458,19 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 				p.flags = c.u16()?;
 				p.units = c.u8()?;
 				p.lang = c.u8()?;
+				let sane = |v: i32| (0..=PAGE_LIMIT).contains(&v);
 				if p.paper_w <= 0
 					|| p.paper_h <= 0
-					|| p.margin_l.saturating_add(p.margin_r) >= p.paper_w
+					|| ![
+						p.paper_w, p.paper_h, p.margin_l, p.margin_r, p.margin_t, p.margin_b,
+					]
+					.into_iter()
+					.all(sane) || p.margin_l.saturating_add(p.margin_r) >= p.paper_w
 					|| p.margin_t.saturating_add(p.margin_b) >= p.paper_h
 				{
 					return Err(FormatError::BadFile);
 				}
-				doc.page = p;
+				doc.set_page(p);
 			}
 			b"FONT" => {
 				let n = u32::from(c.u16()?);

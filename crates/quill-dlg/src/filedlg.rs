@@ -20,7 +20,7 @@ use crate::name83::{is_wild, last_part, matches_any, resolve, NameError, PathBuf
 use crate::savename::{swap_extension, with_default_ext, Rule};
 use crate::types::{types, write_label, FileType, Format, Kind};
 use crate::widgets::{Combo, ComboEvent, Field, FieldKind, List};
-use quill_core::store::{ChunkId, Store};
+use quill_core::store::{ChunkId, ReadStore, Store};
 
 /// The most files listed.
 pub const FILES_MAX: usize = 512;
@@ -130,7 +130,7 @@ impl Entry {
 	}
 }
 
-fn get<S: Store + ?Sized>(store: &S, id: ChunkId, i: usize) -> Entry {
+fn get<S: ReadStore + ?Sized>(store: &S, id: ChunkId, i: usize) -> Entry {
 	let mut e = Entry { bytes: [0; REC] };
 	store.read(id, (i * REC) as u16, &mut e.bytes);
 	e
@@ -413,7 +413,7 @@ impl FileDlg {
 	}
 
 	/// An entry of the Files or Directories list; `None` past the end or after the dialog has ended.
-	pub fn entry<S: Store + ?Sized>(&self, store: &S, dirs: bool, i: usize) -> Option<Entry> {
+	pub fn entry<S: ReadStore + ?Sized>(&self, store: &S, dirs: bool, i: usize) -> Option<Entry> {
 		let (id, n) = if dirs {
 			(self.dirs_id?, self.ndirs)
 		} else {
@@ -682,7 +682,7 @@ impl FileDlg {
 	}
 
 	/// The first character of each entry of a list, for type-ahead.
-	fn first_of<'a, S: Store + ?Sized>(
+	fn first_of<'a, S: ReadStore + ?Sized>(
 		store: &'a S,
 		id: Option<ChunkId>,
 	) -> impl Fn(usize) -> u8 + 'a {
@@ -725,7 +725,7 @@ impl FileDlg {
 	}
 
 	/// Moving in Files copies the name into the field.
-	fn copy_selected_name<S: Store + ?Sized>(&mut self, store: &S) {
+	fn copy_selected_name<S: ReadStore + ?Sized>(&mut self, store: &S) {
 		if let Some(e) = self
 			.files
 			.selected()

@@ -5,7 +5,7 @@
 //
 // A moveable block in protected mode keeps its selector when Windows moves it, so the far pointer from the single `GlobalLock` stays
 // good until the block is freed. The table of blocks lives in the data segment (160 entries of 8 bytes: 5 MB at 32 KB each, which holds a 4 MB picture, the most a document takes, and the rest of the document).
-use quill_core::store::{ChunkId, Store};
+use quill_core::store::{ChunkId, ReadStore, Store};
 use w16::{GlobalAlloc, GlobalFree, GlobalLock, GlobalUnlock, far_read, far_write};
 
 const CHUNKS: usize = 160;
@@ -101,6 +101,24 @@ impl FarStore {
 	}
 }
 
+impl ReadStore for FarStore {
+	fn read(&self, id: ChunkId, offset: u16, out: &mut [u8]) {
+		let have = match self.at(id, offset) {
+			Some((p, left)) => {
+				let n = left.min(out.len());
+				// Far copies move at most 32 KB, which fits the count register.
+				unsafe { far_read(p, out.as_mut_ptr(), n) };
+				check(1);
+				n
+			}
+			None => 0,
+		};
+		for b in out.iter_mut().skip(have) {
+			*b = 0;
+		}
+	}
+}
+
 impl Store for FarStore {
 	fn alloc(&mut self, len: u16) -> Option<ChunkId> {
 		let Some(i) = self.handle.iter().position(|h| *h == 0) else {
@@ -148,22 +166,6 @@ impl Store for FarStore {
 		self.handle[i] = 0;
 		self.ptr[i] = 0;
 		self.len[i] = 0;
-	}
-
-	fn read(&self, id: ChunkId, offset: u16, out: &mut [u8]) {
-		let have = match self.at(id, offset) {
-			Some((p, left)) => {
-				let n = left.min(out.len());
-				// Far copies move at most 32 KB, which fits the count register.
-				unsafe { far_read(p, out.as_mut_ptr(), n) };
-				check(1);
-				n
-			}
-			None => 0,
-		};
-		for b in out.iter_mut().skip(have) {
-			*b = 0;
-		}
 	}
 
 	fn write(&mut self, id: ChunkId, offset: u16, data: &[u8]) {

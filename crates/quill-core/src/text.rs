@@ -7,7 +7,7 @@ use core::cell::Cell;
 
 use crate::bytes::{Pod, Reader, Writer};
 use crate::farvec::FarVec;
-use crate::store::{ChunkId, Store, MAX_CHUNK};
+use crate::store::{ChunkId, ReadStore, Store, MAX_CHUNK};
 use crate::{Error, Result};
 
 /// The most characters a body story holds.
@@ -149,7 +149,7 @@ impl<const CH: usize> ByteBuf<CH> {
 	}
 
 	/// Copies `out.len()` bytes starting at `pos`. Bytes past the end read as zero.
-	pub fn read<S: Store + ?Sized>(&self, s: &S, pos: u32, out: &mut [u8]) {
+	pub fn read<S: ReadStore + ?Sized>(&self, s: &S, pos: u32, out: &mut [u8]) {
 		let mut done = 0usize;
 		while done < out.len() {
 			let at = pos + done as u32;
@@ -239,6 +239,19 @@ enum Log {
 	Redo,
 }
 
+/// What has changed in a story since the last [`Text::take_damage`]: the text before `lo` is as it was, and the text from `hi` on is
+/// what was at `hi - delta` before, where `delta` is the new length less the length then. Between them anything may have changed
+/// (a deletion leaves `lo == hi`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Damage {
+	/// The first position that may have changed.
+	pub lo: u32,
+	/// The position the changed part ends at, in the text as it is now.
+	pub hi: u32,
+}
+
+const CLEAN: (u32, u32) = (u32::MAX, 0);
+
 /// A story's text: the piece table, its buffers and its history.
 pub struct Text<const PC: usize, const BC: usize, const UC: usize> {
 	orig: ByteBuf<BC>,
@@ -250,6 +263,8 @@ pub struct Text<const PC: usize, const BC: usize, const UC: usize> {
 	group: Option<u8>,
 	group_begun: bool,
 	cursor: Cell<(u32, u32)>,
+	rev: u32,
+	changed: (u32, u32),
 }
 
 impl<const PC: usize, const BC: usize, const UC: usize> Default for Text<PC, BC, UC> {
@@ -276,7 +291,55 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			group: None,
 			group_begun: false,
 			cursor: Cell::new((0, 0)),
+			rev: 0,
+			changed: CLEAN,
 		}
+	}
+
+	/// The story's revision: a number that changes (wrapping, by one) whenever the text, a format run or the objects in it change,
+	/// and never otherwise. Undo history, groups and reads do not touch it. Two equal revisions of one story mean equal content.
+	pub const fn revision(&self) -> u32 {
+		self.rev
+	}
+
+	const fn touch(&mut self) {
+		self.rev = self.rev.wrapping_add(1);
+	}
+
+	/// Says that `removed` characters at `at` were replaced by `inserted` (a format change replaces a range by itself). Changes made
+	/// one after another merge into one range that covers them all.
+	fn note(&mut self, at: u32, removed: u32, inserted: u32) {
+		let new_hi = at.saturating_add(inserted);
+		let (lo, hi) = self.changed;
+		if lo == u32::MAX {
+			self.changed = (at, new_hi);
+			return;
+		}
+		let shifted = if hi <= at {
+			hi
+		} else if hi >= at.saturating_add(removed) {
+			hi - removed + inserted
+		} else {
+			new_hi
+		};
+		self.changed = (lo.min(at), shifted.max(new_hi));
+	}
+
+	/// What has changed since the last [`Text::take_damage`], or `None` when nothing has.
+	pub const fn damage(&self) -> Option<Damage> {
+		let (lo, hi) = self.changed;
+		if lo == u32::MAX {
+			None
+		} else {
+			Some(Damage { lo, hi })
+		}
+	}
+
+	/// Returns what has changed since the last call and starts again from nothing.
+	pub const fn take_damage(&mut self) -> Option<Damage> {
+		let c = self.damage();
+		self.changed = CLEAN;
+		c
 	}
 
 	/// Characters in the story.
@@ -310,6 +373,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			return Ok(());
 		}
 		self.pieces.reserve(s, 1)?;
+		self.note(0, 0, bytes.len() as u32);
 		let start = self.orig.append(s, bytes)?;
 		self.pieces.push(
 			s,
@@ -340,6 +404,8 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			return Err(Error::TooLarge);
 		}
 		self.pieces.reserve(s, 1)?;
+		self.touch();
+		self.note(self.len, 0, bytes.len() as u32);
 		let start = self.orig.append(s, bytes)?;
 		let at = self.pieces.len();
 		self.pieces.push(
@@ -372,6 +438,8 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			return Err(Error::TooLarge);
 		}
 		self.pieces.reserve(s, 1)?;
+		self.touch();
+		self.note(self.len, 0, 1);
 		self.pieces.push(
 			s,
 			Piece {
@@ -395,6 +463,8 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		index: u32,
 	) -> Result<()> {
 		self.pieces.reserve(s, 3)?;
+		self.touch();
+		self.note(pos, 1, 1);
 		let ia = self.split_at(s, pos)?;
 		self.split_at(s, pos + 1)?;
 		let p = self.piece(s, ia).ok_or(Error::Range)?;
@@ -422,6 +492,8 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 
 	/// Frees everything, including the history.
 	pub fn clear<S: Store + ?Sized>(&mut self, s: &mut S) {
+		self.touch();
+		self.note(0, self.len, 0);
 		self.pieces.clear(s);
 		self.orig.clear(s);
 		self.add.clear(s);
@@ -433,12 +505,12 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		self.cursor.set((0, 0));
 	}
 
-	fn piece(&self, s: &(impl Store + ?Sized), i: u32) -> Option<Piece> {
+	fn piece(&self, s: &(impl ReadStore + ?Sized), i: u32) -> Option<Piece> {
 		self.pieces.get(s, i)
 	}
 
 	/// The piece holding character `pos`: its index, the piece and the position where it starts.
-	fn find<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<(u32, Piece, u32)> {
+	fn find<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<(u32, Piece, u32)> {
 		if pos >= self.len {
 			return None;
 		}
@@ -456,7 +528,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// Copies characters from `pos` into `out` and returns how many there were. Inline objects read as `0x01`.
-	pub fn read<S: Store + ?Sized>(&self, s: &S, pos: u32, out: &mut [u8]) -> usize {
+	pub fn read<S: ReadStore + ?Sized>(&self, s: &S, pos: u32, out: &mut [u8]) -> usize {
 		let mut done = 0usize;
 		let Some((mut i, mut p, mut at)) = self.find(s, pos) else {
 			return 0;
@@ -488,14 +560,14 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// The `start` of the inline object at `pos` (its kind in the high half), when the character there is one.
-	pub fn object_at<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u32> {
+	pub fn object_at<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<u32> {
 		self.find(s, pos)
 			.filter(|(_, p, _)| p.source == SRC_OBJECT)
 			.map(|(_, p, _)| p.start)
 	}
 
 	/// The character at `pos`.
-	pub fn read_byte<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u8> {
+	pub fn read_byte<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<u8> {
 		let mut b = [0u8; 1];
 		(self.read(s, pos, &mut b) == 1)
 			.then_some(b)
@@ -503,7 +575,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// Calls `f(position, piece)` for each stretch of one format inside `[pos, pos + len)`, the pieces trimmed to it.
-	pub fn for_each_run<S: Store + ?Sized>(
+	pub fn for_each_run<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		pos: u32,
@@ -532,7 +604,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// Copies the characters of one trimmed piece (as given to `for_each_run`) into `out`, starting `skip` into it.
-	pub fn read_piece<S: Store + ?Sized>(&self, s: &S, p: &Piece, skip: u32, out: &mut [u8]) {
+	pub fn read_piece<S: ReadStore + ?Sized>(&self, s: &S, p: &Piece, skip: u32, out: &mut [u8]) {
 		match p.source {
 			SRC_ORIGINAL => self.orig.read(s, p.start + skip, out),
 			SRC_ADD => self.add.read(s, p.start + skip, out),
@@ -569,7 +641,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// Number of pieces that overlap `[pos, pos + len)`.
-	fn overlapping<S: Store + ?Sized>(&self, s: &S, pos: u32, len: u32) -> u32 {
+	fn overlapping<S: ReadStore + ?Sized>(&self, s: &S, pos: u32, len: u32) -> u32 {
 		let mut n = 0;
 		self.for_each_run(s, pos, len, |_, _| n += 1);
 		n
@@ -720,6 +792,8 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		self.pieces.reserve(s, 3)?;
 		self.reserve_log(s, Log::Undo, 3)?;
 		let start = self.add.append(s, bytes)?;
+		self.touch();
+		self.note(pos, 0, bytes.len() as u32);
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		let (ia, _) = self.remove_range(s, pos, 0, Log::Undo)?;
@@ -772,6 +846,8 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		}
 		self.pieces.reserve(s, 3)?;
 		self.reserve_log(s, Log::Undo, 3)?;
+		self.touch();
+		self.note(pos, 0, 1);
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		let (ia, _) = self.remove_range(s, pos, 0, Log::Undo)?;
@@ -817,6 +893,8 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		let k = self.overlapping(s, pos, len);
 		self.pieces.reserve(s, 3)?;
 		self.reserve_log(s, Log::Undo, k + 3)?;
+		self.touch();
+		self.note(pos, len, 0);
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		let (ia, n) = self.remove_range(s, pos, len, Log::Undo)?;
@@ -864,12 +942,12 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// The paragraph format of the paragraph mark at `pos`.
-	pub fn pfmt_at<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u16> {
+	pub fn pfmt_at<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<u16> {
 		self.find(s, pos).map(|(_, p, _)| p.pfmt)
 	}
 
 	/// The character format of the character at `pos`.
-	pub fn cfmt_at<S: Store + ?Sized>(&self, s: &S, pos: u32) -> Option<u16> {
+	pub fn cfmt_at<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> Option<u16> {
 		self.find(s, pos).map(|(_, p, _)| p.cfmt)
 	}
 
@@ -890,6 +968,8 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 		let k = self.overlapping(s, pos, len);
 		self.pieces.reserve(s, 3)?;
 		self.reserve_log(s, Log::Undo, k + 3)?;
+		self.touch();
+		self.note(pos, len, len);
 		self.redo.clear(s);
 		self.begin_step(s, label)?;
 		self.fmt_range(s, pos, len, Log::Undo, change)
@@ -971,16 +1051,16 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 	}
 
 	/// The label of the step Undo would undo.
-	pub fn undo_label<S: Store + ?Sized>(&self, s: &S) -> Option<u8> {
+	pub fn undo_label<S: ReadStore + ?Sized>(&self, s: &S) -> Option<u8> {
 		Self::top_label(&self.undo, s)
 	}
 
 	/// The label of the step Redo would redo.
-	pub fn redo_label<S: Store + ?Sized>(&self, s: &S) -> Option<u8> {
+	pub fn redo_label<S: ReadStore + ?Sized>(&self, s: &S) -> Option<u8> {
 		Self::top_label(&self.redo, s)
 	}
 
-	fn top_label<S: Store + ?Sized>(log: &FarVec<Rec, UC>, s: &S) -> Option<u8> {
+	fn top_label<S: ReadStore + ?Sized>(log: &FarVec<Rec, UC>, s: &S) -> Option<u8> {
 		let mut i = log.len();
 		while i > 0 {
 			i -= 1;
@@ -1034,6 +1114,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			}
 			count
 		};
+		self.touch();
 		self.pieces
 			.reserve(s, n.saturating_mul(2).saturating_add(4))?;
 		self.reserve_log(s, to, n.saturating_add(8))?;
@@ -1087,6 +1168,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 			)?;
 			tally += p.b;
 		}
+		self.note(r.a, r.b, tally);
 		self.push_log(
 			s,
 			to,
@@ -1122,6 +1204,7 @@ impl<const PC: usize, const BC: usize, const UC: usize> Text<PC, BC, UC> {
 				.ok_or(Error::Range)?;
 			total += rec.a;
 		}
+		self.note(r.a, total, total);
 		let ia = self.split_at(s, r.a)?;
 		let ib = self.split_at(s, r.a + total)?;
 		for i in (ia..ib).rev() {

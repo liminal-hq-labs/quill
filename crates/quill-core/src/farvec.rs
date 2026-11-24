@@ -6,11 +6,33 @@
 use core::marker::PhantomData;
 
 use crate::bytes::{Pod, Reader, Writer, MAX_POD};
-use crate::store::{ChunkId, Store, MAX_CHUNK};
+use crate::store::{ChunkId, ReadStore, Store, MAX_CHUNK};
 use crate::{Error, Result};
 
 /// How many spare chunks a vector can hold for a reserved run of inserts.
 pub const SPARES: usize = 16;
+
+/// A spare chunk's id, or none, in two bytes (an `Option<ChunkId>` takes four, and a vector holds sixteen of them).
+#[derive(Copy, Clone)]
+struct Spare(u16);
+
+impl Spare {
+	const NONE: Spare = Spare(u16::MAX);
+
+	const fn of(c: ChunkId) -> Spare {
+		Spare(c.0)
+	}
+
+	const fn is_none(&self) -> bool {
+		self.0 == u16::MAX
+	}
+
+	fn take(&mut self) -> Option<ChunkId> {
+		let id = (!self.is_none()).then_some(ChunkId(self.0));
+		self.0 = u16::MAX;
+		id
+	}
+}
 
 /// A growable array on top of a [`Store`]. Elements never straddle a chunk. `CH` is the most chunks it can hold.
 ///
@@ -21,7 +43,7 @@ pub struct FarVec<T: Pod, const CH: usize> {
 	nchunks: usize,
 	len: u32,
 	per: u16,
-	spares: [Option<ChunkId>; SPARES],
+	spares: [Spare; SPARES],
 	_t: PhantomData<T>,
 }
 
@@ -51,7 +73,7 @@ impl<T: Pod, const CH: usize> FarVec<T, CH> {
 			nchunks: 0,
 			len: 0,
 			per: per as u16,
-			spares: [None; SPARES],
+			spares: [Spare::NONE; SPARES],
 			_t: PhantomData,
 		}
 	}
@@ -110,7 +132,7 @@ impl<T: Pod, const CH: usize> FarVec<T, CH> {
 	}
 
 	fn spare_count(&self) -> usize {
-		self.spares.iter().filter(|s| s.is_some()).count()
+		self.spares.iter().filter(|s| !s.is_none()).count()
 	}
 
 	/// Makes sure `extra` inserts, together, cannot fail for lack of memory. On error nothing has changed.
@@ -137,7 +159,7 @@ impl<T: Pod, const CH: usize> FarVec<T, CH> {
 				return Err(Error::NoMemory);
 			};
 			match self.spares.iter_mut().find(|x| x.is_none()) {
-				Some(slot) => *slot = Some(c),
+				Some(slot) => *slot = Spare::of(c),
 				None => {
 					s.free(c);
 					break;
@@ -148,7 +170,7 @@ impl<T: Pod, const CH: usize> FarVec<T, CH> {
 	}
 
 	/// Reads element `i`.
-	pub fn get<S: Store + ?Sized>(&self, s: &S, i: u32) -> Option<T> {
+	pub fn get<S: ReadStore + ?Sized>(&self, s: &S, i: u32) -> Option<T> {
 		let (ci, off) = self.locate(i)?;
 		let c = *self.chunks.get(ci)?;
 		let mut buf = [0u8; MAX_POD];
