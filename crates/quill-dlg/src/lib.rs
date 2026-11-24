@@ -10,6 +10,8 @@
 //!   valid is refused.
 //! - [`types`]: the one table of document and picture types, and the `\0`-separated filter strings the Windows common dialogs take.
 //! - [`savename`]: the name and type Save As starts with, the extension swap when the type changes, and the default extension.
+//! - [`key`], [`widgets`] and [`focus`]: the keys a dialog understands, the state of its widgets (text field, list, drop-down, check
+//!   box, radio group) and the focus ring with mnemonics and the default button. None of them draws.
 //!
 //! The crate is `no_std`, allocates nothing, uses no floating point and cannot panic on any input.
 
@@ -21,9 +23,13 @@
 	clippy::indexing_slicing
 )]
 
+pub mod focus;
+pub mod key;
 pub mod name83;
 pub mod savename;
 pub mod types;
+pub mod widgets;
 
 #[cfg(test)]
+#[macro_use]
 extern crate std;
