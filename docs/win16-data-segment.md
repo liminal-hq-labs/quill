@@ -61,7 +61,7 @@ The main frame is the other half of the stack. `w16_main` holds the message loop
 | Windows 3.11, `m1-edit` play-back, stack 0x7400 | Used (from the sample at `w16_main`) | Margin above the shadow stack |
 |---|---:|---:|
 | `origin/main`, 3 runs | 23,078 | 3,838 |
-| After, 25 runs | 23,078 | 6,042 |
+| After, 20 runs of the final build (and 40 of earlier ones) | 23,078 | 6,042 |
 | After, a windowed session that opens `pictures.rtf` | 19,046 | 7,326 (before the main-frame change) |
 
 The margin is the same in every run, so it is the deepest call chain and not chance. `check_stack_log.py` wants 2,048.

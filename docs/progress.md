@@ -189,7 +189,7 @@ Not proven or not done: printing (Print shows the dialog and then says printing 
 
 ### The Win16 data segment and pictures (experiment, D180)
 
-`docs/win16-data-segment.md` has the table of what fills the segment (65,240 of 65,536 bytes before), what moved (3.3 KB of statics to far memory, 2.2 KB of stack margin from the main frame: 3,838 to 6,042 bytes on Windows 3.11), what happens when it is pushed, and the picture path. Proven on Windows for Workgroups 3.11 under DOSBox-X: the `m1-edit` play-back equal to the golden 20 of 20 times (and 5 of 5 on the tree with its Startup group), BMPs of 1, 8 and 24 bits from 64 by 48 to 1024 by 768 drawn on the page, and a clean grey box when `GlobalAlloc` refuses. Not proven: PNG (grey box), other displays, Windows 3.1 without the Workgroups update, real hardware, printing a picture.
+`docs/win16-data-segment.md` has the table of what fills the segment (65,240 of 65,536 bytes before), what moved (3.3 KB of statics to far memory, 2.2 KB of stack margin from the main frame: 3,838 to 6,042 bytes on Windows 3.11), what happens when it is pushed, and the picture path. Proven on Windows for Workgroups 3.11 under DOSBox-X: the `m1-edit` play-back equal to the golden 20 of 20 times (and 5 of 5 on the tree with its Startup group, on the build before the `bswap` change), BMPs of 1, 8 and 24 bits from 64 by 48 to 1024 by 768 drawn on the page, and a clean grey box when `GlobalAlloc` refuses. Not proven: PNG (grey box), other displays, Windows 3.1 without the Workgroups update, real hardware, printing a picture.
 
 ### How the branches stack
 

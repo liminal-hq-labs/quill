@@ -18,7 +18,7 @@ The Win16 runtime and packer in this folder are copied from the `rust-win16` rep
 
 ## What is Quill's own
 
-`src/fault.rs` (the ToolHelp fault handler, switched on with `/FAULT`), `examples/{probe,segtest,icontest,quill,stackprobe}/` (each program's `segments.json` follows the packer's format), `build.sh`, `tools/run-w31.sh` (the Windows 3.11 harness), `tools/check_segments.py`, `tools/check_resources.py`, `tools/dosbox-x/*.conf` and `tools/dosbox-x.Dockerfile`.
+`src/fault.rs` (the ToolHelp fault handler, switched on with `/FAULT`), `examples/{probe,segtest,icontest,quill,stackprobe}/` (each program's `segments.json` follows the packer's format), `build.sh`, `tools/run-w31.sh` (the Windows 3.11 harness), `tools/check_segments.py`, `tools/check_cpu.py`, `tools/check_resources.py`, `tools/dosbox-x/*.conf` and `tools/dosbox-x.Dockerfile`.
 
 ## Refreshing
 
