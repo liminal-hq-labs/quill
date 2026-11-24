@@ -14,6 +14,7 @@
 	clippy::indexing_slicing
 )]
 
+pub mod accel;
 mod chrome;
 mod find;
 mod form;
@@ -489,6 +490,11 @@ impl<M: Measure + Clone> App<M> {
 	/// The index of the first line shown.
 	pub fn top_line(&self) -> u32 {
 		self.top
+	}
+
+	/// Which story the view edits: 0 the body, 1 the header, 2 the footer, 3 the first page's header, 4 its footer.
+	pub fn story_view(&self) -> u8 {
+		self.view
 	}
 
 	/// True when no menu, dialog or prompt of the app's own is open.

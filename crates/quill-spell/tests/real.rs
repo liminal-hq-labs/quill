@@ -98,3 +98,45 @@ fn common_misspellings_get_their_word_in_the_first_eight_within_the_budget() {
 		assert!(!sg.partial, "{bad} ran out of budget");
 	}
 }
+
+/// Prints what one dictionary lookup costs on this machine, for the notes on spelling as you type. Run it with
+/// `cargo test -p quill-spell --release --test real lookup_cost -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn lookup_cost() {
+	use std::time::Instant;
+	let (words, dic) = build();
+	let mut s = HeapStore::new();
+	let d = Dict::load(&mut s, &mut SliceSource::new(&dic)).unwrap();
+	let text: Vec<&Vec<u8>> = words
+		.iter()
+		.filter(|w| w.len() <= 20)
+		.take(100_000)
+		.collect();
+	let mut sink = 0usize;
+	let t = Instant::now();
+	let rounds = 5;
+	for _ in 0..rounds {
+		for w in &text {
+			sink += usize::from(d.known(&s, w));
+		}
+	}
+	let per = t.elapsed().as_nanos() / (rounds * text.len() as u128);
+	let avg: usize = text.iter().map(|w| w.len()).sum::<usize>() / text.len();
+	println!(
+		"lookup_cost: {per} ns a word over {} words of {avg} letters on average ({sink} found)",
+		text.len()
+	);
+	// A misspelt word walks the same edges and stops sooner.
+	let t = Instant::now();
+	for w in text.iter().take(20_000) {
+		let mut bad = w.to_vec();
+		bad.push(b'q');
+		bad.push(b'x');
+		sink += usize::from(d.known(&s, &bad));
+	}
+	println!(
+		"lookup_cost: {} ns a misspelt word ({sink})",
+		t.elapsed().as_nanos() / 20_000
+	);
+}
