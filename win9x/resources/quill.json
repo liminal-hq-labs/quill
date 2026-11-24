@@ -68,7 +68,8 @@
 			{ "text": "Status Bar", "id": 148 }
 		] },
 		{ "title": "Help", "items": [
-			{ "text": "About Quill...", "id": 149 }
+			{ "text": "Contents\tF1", "id": 149 },
+			{ "text": "About Quill...", "id": 150 }
 		] }
 	]
 }

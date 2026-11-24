@@ -158,6 +158,7 @@ extern "system" {
 	pub fn GetWindowRect(hwnd: Handle, r: *mut Rect) -> i32;
 	pub fn SetWindowPos(hwnd: Handle, after: Handle, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
 	pub fn MessageBoxA(hwnd: Handle, text: *const u8, caption: *const u8, flags: u32) -> i32;
+	pub fn WinHelpA(hwnd: Handle, file: *const u8, command: u32, data: usize) -> i32;
 	pub fn SendMessageA(hwnd: Handle, msg: u32, wparam: usize, lparam: isize) -> isize;
 	pub fn MoveWindow(hwnd: Handle, x: i32, y: i32, w: i32, h: i32, repaint: i32) -> i32;
 	pub fn ShowWindow(hwnd: Handle, cmd: i32) -> i32;

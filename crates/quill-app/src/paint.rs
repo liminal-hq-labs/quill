@@ -81,7 +81,10 @@ const VIEW: [Item; 4] = [
 	item("Ruler", "", Command::Chrome(2)),
 	item("Status Bar", "", Command::Chrome(4)),
 ];
-const HELP: [Item; 1] = [item("About Quill...", "", Command::About)];
+const HELP: [Item; 2] = [
+	item("Contents", "F1", Command::Help),
+	item("About Quill...", "", Command::About),
+];
 const FILE: [Item; 8] = [
 	item("New", "Ctrl+N", Command::New),
 	item("Open...", "Ctrl+O", Command::Open),

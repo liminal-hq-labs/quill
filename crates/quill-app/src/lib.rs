@@ -172,6 +172,8 @@ pub enum Command {
 	Tabs,
 	/// Help > About Quill.
 	About,
+	/// Help > Contents (F1): the Windows builds open QUILL.HLP in WinHelp.
+	Help,
 	/// Insert > Picture.
 	Picture,
 	/// File > Print.
@@ -317,6 +319,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	typing: bool,
 	quit: bool,
 	pub(crate) msg: Msg,
+	/// Help > Contents was chosen and the shell has not taken the request.
+	pub(crate) help: bool,
 	pending: Option<Command>,
 	/// The other end of the selection, when there is one.
 	pub(crate) anchor: Option<u32>,
@@ -384,6 +388,7 @@ impl<M: Measure + Clone> App<M> {
 			typing: false,
 			quit: false,
 			msg: Msg::new(),
+			help: false,
 			pending: None,
 			anchor: None,
 			extend: false,
@@ -457,6 +462,15 @@ impl<M: Measure + Clone> App<M> {
 	) -> bool {
 		self.set_name(name);
 		self.do_save(s, f)
+	}
+
+	/// True once when Help > Contents (or F1) was chosen: the shell opens its help and the message the editor left is cleared.
+	pub fn take_help(&mut self) -> bool {
+		let h = core::mem::take(&mut self.help);
+		if h {
+			self.msg.clear();
+		}
+		h
 	}
 
 	/// Puts a message on the status line.
@@ -1299,6 +1313,11 @@ impl<M: Measure + Clone> App<M> {
 			Command::Fonts => self.open_fonts(s),
 			Command::Tabs => self.open_tabs(),
 			Command::About => self.mode = Mode::About,
+			Command::Help => {
+				self.help = true;
+				// Shells that show help take the request and clear this.
+				self.set_message("Help is in the Windows builds for now");
+			}
 			Command::Picture => {
 				self.mode = Mode::Prompt {
 					kind: Prompt::Picture,
@@ -1653,6 +1672,7 @@ impl<M: Measure + Clone> App<M> {
 			Key::Insert => self.overtype = !self.overtype,
 			Key::F(5) => self.run(s, f, Command::Regular),
 			Key::F(3) => self.run(s, f, Command::FindNext),
+			Key::F(1) => self.run(s, f, Command::Help),
 			Key::F(7) => self.run(s, f, Command::Spelling),
 			Key::Ctrl(b'f') => self.run(s, f, Command::Find),
 			Key::Ctrl(b'h') => self.run(s, f, Command::Replace),
