@@ -3,19 +3,45 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
-// INT 16h AH=00h gives an ASCII code in AL and a scan code in AH; AL is 0 (or 0xE0) for the extended keys. Control keys come as
-// the codes 01h to 1Ah, so the scan code tells Enter, Backspace and Tab from Ctrl+M, Ctrl+H and Ctrl+I.
+// INT 16h AH=00h gives an ASCII code in AL and a scan code in AH; `quill_app::bios::decode` turns the pair into a key, using the scan
+// code to tell Enter, Backspace and Tab from Ctrl+M, Ctrl+H and Ctrl+I.
 
 use core::arch::asm;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use quill_app::{Dir, Key};
 
-/// Waits for the next key and decodes it; keys Quill has no use for come back as `None`.
+/// Set when a key was typed while Alt was held, so that letting Alt go afterwards is the end of a chord and not a tap.
+static ALT_USED: AtomicBool = AtomicBool::new(false);
+
+/// Waits for the next key and decodes it; keys Quill has no use for come back as `None`. Alt pressed and let go with no key between
+/// comes back as F10, which is how Alt activates the menu bar: the BIOS reports only the state of Alt, so this polls it while it waits.
 pub fn wait() -> Option<Key> {
+	let mut alt_down = false;
+	while !key_ready() {
+		if alt_flag() {
+			alt_down = true;
+		} else if alt_down {
+			// Alt went up; a key that Alt let through (a keypad code) may have arrived in the same instant.
+			if ALT_USED.swap(false, Ordering::Relaxed) {
+				alt_down = false;
+			} else if !key_ready() {
+				return Some(Key::F(10));
+			} else {
+				break;
+			}
+		} else {
+			ALT_USED.store(false, Ordering::Relaxed);
+		}
+		idle();
+	}
+	if alt_flag() {
+		ALT_USED.store(true, Ordering::Relaxed);
+	}
 	let ax: u32;
 	// SAFETY: INT 16h is a BIOS service with register arguments only.
 	unsafe { asm!("int 0x16", inout("eax") 0u32 => ax) };
-	let key = decode(ax as u8, (ax >> 8) as u8)?;
+	let key = quill_app::bios::decode(ax as u8, (ax >> 8) as u8)?;
 	if shift_down() {
 		let dir = match key {
 			Key::Left => Dir::Left,
@@ -41,30 +67,26 @@ fn shift_down() -> bool {
 	ax & 3 != 0
 }
 
-/// Turns a BIOS key (ASCII code, scan code) into a `Key`.
-pub fn decode(ascii: u8, scan: u8) -> Option<Key> {
-	Some(match (ascii, scan) {
-		(0 | 0xE0, 0x48) => Key::Up,
-		(0 | 0xE0, 0x50) => Key::Down,
-		(0 | 0xE0, 0x4B) => Key::Left,
-		(0 | 0xE0, 0x4D) => Key::Right,
-		(0 | 0xE0, 0x47) => Key::Home,
-		(0 | 0xE0, 0x4F) => Key::End,
-		(0 | 0xE0, 0x49) => Key::PageUp,
-		(0 | 0xE0, 0x51) => Key::PageDown,
-		(0 | 0xE0, 0x53) => Key::Delete,
-		(0 | 0xE0, 0x52) => Key::Insert,
-		(0, 0x77) => Key::CtrlHome,
-		(0, 0x75) => Key::CtrlEnd,
-		(0, 0x3B..=0x44) => Key::F(scan - 0x3B + 1),
-		(0, 0x85) => Key::F(11),
-		(0, 0x86) => Key::F(12),
-		(0x0D, _) => Key::Enter,
-		(0x08, _) => Key::Backspace,
-		(0x09, _) => Key::Tab,
-		(0x1B, _) => Key::Esc,
-		(0x01..=0x1A, _) => Key::Ctrl(ascii + 0x60),
-		(0x20..=0xFF, _) => Key::Char(ascii),
-		_ => return None,
-	})
+/// True when a key is waiting in the BIOS buffer (INT 16h AH=01h clears ZF when there is one).
+fn key_ready() -> bool {
+	let ready: u32;
+	// SAFETY: INT 16h is a BIOS service with register arguments only; the flags come back in the byte after `lahf`.
+	unsafe {
+		asm!("int 0x16", "lahf", "movzx {r:e}, ah", r = out(reg) ready, inout("eax") 0x0100u32 => _);
+	}
+	ready & 0x40 == 0
+}
+
+/// True while an Alt key is held (bit 3 of the shift flags, INT 16h AH=02h).
+fn alt_flag() -> bool {
+	let ax: u32;
+	// SAFETY: INT 16h is a BIOS service with register arguments only.
+	unsafe { asm!("int 0x16", inout("eax") 0x0200u32 => ax) };
+	ax & 8 != 0
+}
+
+/// Gives the rest of the time slice back (INT 2Fh AX=1680h), so waiting for a key does not spin an emulator's or a multitasker's CPU.
+fn idle() {
+	// SAFETY: INT 2Fh is a DOS service with register arguments only; a host that has no idle call leaves AL at 80h and does nothing.
+	unsafe { asm!("int 0x2f", inout("eax") 0x1680u32 => _) };
 }

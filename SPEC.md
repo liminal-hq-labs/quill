@@ -122,7 +122,7 @@ Everything below describes the Windows builds; the DOS build follows it with the
 
 ### Menus and accelerators
 
-Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis on items that open a dialog, check marks on toggles, unavailable items greyed out (Cut and Copy with no selection, Paste with nothing on the clipboard, Redo with nothing to redo). A rule separates the groups of a menu, as in Windows 95 and Word 97: File holds New and Open, then Save and Save As, then Print, Print Preview and Print Setup, then the recent files, then Exit; Edit holds Undo and Redo, then Cut, Copy and Paste, then Select All; Character and Paragraph group their alignments, spacings and lists the same way. The DOS text menu draws the same rules (D98).
+Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis on items that open a dialog, check marks on toggles, unavailable items greyed out (Cut and Copy with no selection, Paste with nothing on the clipboard, Redo with nothing to redo). Every title and item has one mnemonic, written with `&` in the menu tree and shown underlined by Windows (D125). A rule separates the groups of a menu, as in Windows 95 and Word 97: File holds New and Open, then Save and Save As, then Print, Print Preview and Print Setup, then the recent files, then Exit; Edit holds Undo and Redo, then Cut, Copy and Paste, then Select All; Character and Paragraph group their alignments, spacings and lists the same way. The DOS text menu draws the same rules (D98).
 
 | Menu | Item | Accelerator |
 |---|---|---|
@@ -305,7 +305,7 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 
 - **Screen.** Row 1 is the menu bar, with the same tree and accelerators as Windows minus the items in the differences table. The last row is the status line: the file name, `Pg 1 Ln 14 Col 22`, the font and size at the caret (`Times New Roman 12`), `OVR`, and `Mod` when there are unsaved changes. Row 2 shows the ruler when it is on, with `L`, `F` and `R` indent marks and `L C R D` tab marks on a scale in tenths of an inch.
 - **Selection without Shift.** Shift with a movement key extends the selection as on Windows. F8 also toggles extend mode (`EXT` on the status line), in which plain movement keys extend the selection until F8 or Escape ends it; it exists for keyboards and test harnesses that cannot hold Shift.
-- **Menus and dialogs.** Alt or F10 activates the menu bar; Alt+letter opens a menu. Dialogs (Open, Save As, Find, Replace, Spelling, Fonts, Indents and Spacing, Tabs, Numbering, Page Layout, About) are shadowed boxes with `< OK >` and `< Cancel >`; Tab moves between fields.
+- **Menus and dialogs.** Alt (pressed and let go) or F10 activates the menu bar; Alt+letter opens the menu with that mnemonic, which is drawn in a colour of its own; the arrow keys move, a letter picks the item with that mnemonic (1 to 4 the recent files), Enter runs it and Esc leaves. The bar carries the same nine menus as Windows, and File has no Print Preview or Print Setup. Ctrl+I, Ctrl+H and Ctrl+M are the shortcuts of Italic and Replace, not Tab, Backspace and Enter (D126). Dialogs (Open, Save As, Find, Replace, Spelling, Fonts, Indents and Spacing, Tabs, Numbering, Page Layout, About) are shadowed boxes with `< OK >` and `< Cancel >`; Tab moves between fields.
 - **Styles.** Text mode has one font in one size, so formats are shown with attributes, as WordPerfect did:
 
 | Format | Colour scheme | Mono scheme |
