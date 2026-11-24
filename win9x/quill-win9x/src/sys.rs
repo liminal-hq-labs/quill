@@ -166,7 +166,8 @@ extern "system" {
 	pub fn GetCommandLineA() -> *const u8;
 	pub fn GetProcessHeap() -> Handle;
 	pub fn GlobalMemoryStatus(status: *mut MemoryStatus);
-	pub fn GetVersion() -> u32;
+	pub fn GetVersionExA(info: *mut OsVersionInfo) -> i32;
+	pub fn GetProcAddress(module: Handle, name: *const u8) -> *const u8;
 	pub fn HeapAlloc(heap: Handle, flags: u32, bytes: usize) -> *mut u8;
 	pub fn HeapFree(heap: Handle, flags: u32, p: *mut u8) -> i32;
 	pub fn CreateFileA(
@@ -286,6 +287,31 @@ extern "system" {
 extern "system" {
 	/// Registers the common controls' window classes; comctl32 4.00, the version Windows 95 shipped, has it.
 	pub fn InitCommonControls();
+}
+
+/// What `GetVersionExA` and `RtlGetVersion` fill in (`OSVERSIONINFOA`; `RtlGetVersion`'s wide record has the same first five fields).
+#[repr(C)]
+pub struct OsVersionInfo {
+	pub size: u32,
+	pub major: u32,
+	pub minor: u32,
+	pub build: u32,
+	pub platform: u32,
+	pub csd: [u8; 128],
+}
+
+/// What `GlobalMemoryStatusEx` fills in (Windows 98 and NT 4.0 SP3 and later; it is looked up at run time).
+#[repr(C)]
+pub struct MemoryStatusEx {
+	pub length: u32,
+	pub load: u32,
+	pub total_phys: u64,
+	pub avail_phys: u64,
+	pub total_page: u64,
+	pub avail_page: u64,
+	pub total_virtual: u64,
+	pub avail_virtual: u64,
+	pub avail_extended: u64,
 }
 
 /// What `GlobalMemoryStatus` fills in.

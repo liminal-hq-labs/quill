@@ -93,34 +93,121 @@ unsafe fn run(owner: Handle, sh: &mut Shell, id: usize, proc_: unsafe extern "sy
 
 // ---- About ---------------------------------------------------------------------------------------------------------------------
 
+/// Looks a function up by name in a module that is already loaded, so nothing is imported (and nothing is loaded) on a system that
+/// lacks it. `name` ends in a NUL.
+unsafe fn lookup(module: &[u8], name: &[u8]) -> Option<*const u8> {
+	let m = GetModuleHandleA(module.as_ptr());
+	if m.is_null() {
+		return None;
+	}
+	let p = GetProcAddress(m, name.as_ptr());
+	if p.is_null() {
+		None
+	} else {
+		Some(p)
+	}
+}
+
+/// The About box's platform line: the product name from the platform id and version, and Wine's version when it is Wine.
+///
+/// `GetVersionEx` tells a program without a manifest that it runs on Windows 8 (6.2) from Windows 8.1 on, so on NT the real
+/// version comes from `RtlGetVersion` in `NTDLL.DLL`, which is not subject to that. NT systems have `NTDLL.DLL` loaded in every
+/// process; Windows 9x has no such module and keeps what `GetVersionEx` says, which is exact there.
+unsafe fn platform_line() -> quill_app::platform::Line {
+	use quill_app::platform::{platform_line, Os, PLATFORM_NT};
+	let mut v = OsVersionInfo {
+		size: core::mem::size_of::<OsVersionInfo>() as u32,
+		major: 0,
+		minor: 0,
+		build: 0,
+		platform: 0,
+		csd: [0; 128],
+	};
+	GetVersionExA(&mut v);
+	if v.platform == PLATFORM_NT {
+		if let Some(p) = lookup(b"ntdll.dll\0", b"RtlGetVersion\0") {
+			// RtlGetVersion takes the wide record, whose five leading fields are the same; ours is larger, so it fits.
+			let rtl: unsafe extern "system" fn(*mut OsVersionInfo) -> i32 = core::mem::transmute(p);
+			let mut real = OsVersionInfo {
+				size: 276,
+				major: 0,
+				minor: 0,
+				build: 0,
+				platform: 0,
+				csd: [0; 128],
+			};
+			if rtl(&mut real) >= 0 && real.major != 0 {
+				v = real;
+			}
+		}
+	}
+	// Windows 9x keeps the build in the low word of the build number.
+	let build = if v.platform == PLATFORM_NT {
+		v.build
+	} else {
+		v.build & 0xFFFF
+	};
+	// Wine exports its own version from NTDLL.DLL as a C string.
+	let mut wine = [0u8; 24];
+	let mut wine_len = 0;
+	if let Some(p) = lookup(b"ntdll.dll\0", b"wine_get_version\0") {
+		let get: unsafe extern "system" fn() -> *const u8 = core::mem::transmute(p);
+		let s = get();
+		while !s.is_null() && wine_len < wine.len() && *s.add(wine_len) != 0 {
+			wine[wine_len] = *s.add(wine_len);
+			wine_len += 1;
+		}
+	}
+	let wine_str = core::str::from_utf8(&wine[..wine_len]).ok().filter(|w| !w.is_empty());
+	platform_line(&Os {
+		platform: v.platform,
+		major: v.major,
+		minor: v.minor,
+		build,
+		wine: wine_str,
+	})
+}
+
+/// The About box's memory line. `GlobalMemoryStatusEx` counts past 4 GB but does not exist on Windows 95, so it is looked up; the
+/// older call is the fallback, and its 32-bit counts are exact on the machines that lack the newer one.
+unsafe fn memory_line() -> quill_app::platform::Line {
+	if let Some(p) = lookup(b"kernel32.dll\0", b"GlobalMemoryStatusEx\0") {
+		let ex: unsafe extern "system" fn(*mut MemoryStatusEx) -> i32 = core::mem::transmute(p);
+		let mut m = MemoryStatusEx {
+			length: core::mem::size_of::<MemoryStatusEx>() as u32,
+			load: 0,
+			total_phys: 0,
+			avail_phys: 0,
+			total_page: 0,
+			avail_page: 0,
+			total_virtual: 0,
+			avail_virtual: 0,
+			avail_extended: 0,
+		};
+		if ex(&mut m) != 0 {
+			return quill_app::platform::memory_line(m.avail_phys, m.total_phys);
+		}
+	}
+	let mut m = MemoryStatus {
+		length: 32,
+		load: 0,
+		total_phys: 0,
+		avail_phys: 0,
+		total_page: 0,
+		avail_page: 0,
+		total_virtual: 0,
+		avail_virtual: 0,
+	};
+	GlobalMemoryStatus(&mut m);
+	quill_app::platform::memory_line(u64::from(m.avail_phys), u64::from(m.total_phys))
+}
+
 unsafe extern "system" fn about_proc(dlg: Handle, msg: u32, wparam: usize, _lparam: isize) -> isize {
 	match msg {
 		WM_INITDIALOG => {
-			let sh = shell();
 			set_text(dlg, 22, &alloc::format!("Version {}", quill_app::VERSION));
-			let v = GetVersion();
-			let (major, minor) = (v & 0xFF, (v >> 8) & 0xFF);
-			set_text(
-				dlg,
-				25,
-				&alloc::format!("{} on Windows {major}.{minor:02}", sh.app.about_platform()),
-			);
-			let mut m = MemoryStatus {
-				length: 32,
-				load: 0,
-				total_phys: 0,
-				avail_phys: 0,
-				total_page: 0,
-				avail_page: 0,
-				total_virtual: 0,
-				avail_virtual: 0,
-			};
-			GlobalMemoryStatus(&mut m);
-			set_text(
-				dlg,
-				26,
-				&alloc::format!("Free memory: {} KB of {} KB", m.avail_phys / 1024, m.total_phys / 1024),
-			);
+			set_text(dlg, 25, platform_line().as_str());
+			set_text(dlg, 26, memory_line().as_str());
 			centre(dlg);
 			1
 		}
