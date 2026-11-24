@@ -136,7 +136,21 @@ fn menu_bar<Sf: Surface, M: Measure + Clone>(sf: &mut Sf, ui: &Ui<Sf::Font>, app
 	let mut x = 10;
 	for m in 0..MENU_COUNT {
 		let title = menu_title(m);
-		x = ui.text(sf, x, y, title, INK) + 18;
+		// An ampersand marks the letter that opens the menu with Alt: it is not drawn, and the letter after it is underlined.
+		for (i, part) in title.split(|c| *c == b'&').enumerate() {
+			let (mark, rest) = match part.split_first() {
+				Some((c, rest)) if i > 0 => (Some(*c), rest),
+				_ => (None, part),
+			};
+			if let Some(c) = mark {
+				let w = sf.advance(ui.font, c);
+				ui.text(sf, x, y, &[c], INK);
+				sf.hline(x, x + w, y + ui.height, INK);
+				x += w;
+			}
+			x = ui.text(sf, x, y, rest, INK);
+		}
+		x += 18;
 	}
 	let _ = app;
 	sf.clip(None);

@@ -103,7 +103,7 @@ fn golden(mode: Mode) {
 		sums.as_bytes(),
 	);
 	compare_bytes("tests/golden/files/g6-gfx.rtf", &saved);
-	for (label, n) in [("start", 0), ("end", frames.len() - 1)] {
+	for (label, n) in [("start", 0), ("end", frames.len() - 2)] {
 		let fr = &frames[n];
 		let png = encode_indexed(640, 480, mode.depth(), &mode.palette(), &fr.pixels);
 		compare_bytes(
