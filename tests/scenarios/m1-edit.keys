@@ -6,4 +6,4 @@ p l a i n period q l d enter    # the file name
 h e l l o space enter           # typed at the start of the centred title, then Enter splits it
 down down z bspace           # onto the next paragraph, a letter and back out
 f10 down down enter             # File > Save
-f10 down down down down down enter   # File > Exit
+f10 end enter   # File > Exit

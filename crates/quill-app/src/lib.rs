@@ -23,6 +23,7 @@ mod form;
 mod native;
 mod paint;
 pub mod picture;
+pub mod platform;
 mod pointer;
 mod print;
 pub mod recent;
@@ -44,8 +45,8 @@ pub use chrome::{
 pub use native::{Dialog, FindAction, VERSION};
 pub use paint::{
 	combo_hint, combo_tip, command_hint, command_tip, draw, item_for_mnemonic, line_label,
-	menu_for_mnemonic, menu_items, menu_items_for, menu_title, mnemonic, status_text, Cursor, Item,
-	ListCounters, COLOUR_HINT, COLOUR_TIP, MENU_COUNT,
+	menu_box, menu_for_mnemonic, menu_items, menu_items_for, menu_title, mnemonic, slot,
+	status_text, Cursor, Item, ListCounters, Slot, COLOUR_HINT, COLOUR_TIP, MENU_COUNT,
 };
 pub use pointer::Grain;
 
@@ -1873,6 +1874,25 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	/// Runs what place `at` of the open menu holds: an item's command, or the recent file listed there.
+	fn run_slot<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		items: &[paint::Item],
+		recents: usize,
+		at: usize,
+	) {
+		match paint::slot(items.len(), recents, at) {
+			paint::Slot::Item(i) => {
+				if let Some(it) = items.get(i) {
+					self.run(s, f, it.command);
+				}
+			}
+			paint::Slot::Recent(k) => self.run(s, f, Command::Recent(k as u8)),
+		}
+	}
+
 	#[inline(never)] // keeps each mode's locals out of `key`'s frame (Win16 stacks are small)
 	fn key_menu<S: Store + ?Sized, F: Files>(
 		&mut self,
@@ -1916,10 +1936,7 @@ impl<M: Measure + Clone> App<M> {
 				let c = c.to_ascii_lowercase();
 				if let Some(i) = paint::item_for_mnemonic(menu, c, recents as usize, !self.native) {
 					self.mode = Mode::Edit;
-					match items.get(i) {
-						Some(it) => self.run(s, f, it.command),
-						None => self.run(s, f, Command::Recent((i - items.len()) as u8)),
-					}
+					self.run_slot(s, f, items, recents as usize, i);
 				}
 			}
 			Key::Home if n > 0 => self.mode = Mode::Menu { menu, item: 0 },
@@ -1950,11 +1967,7 @@ impl<M: Measure + Clone> App<M> {
 			}
 			Key::Enter => {
 				self.mode = Mode::Edit;
-				if let Some(it) = items.get(usize::from(item)) {
-					self.run(s, f, it.command);
-				} else if menu == 0 {
-					self.run(s, f, Command::Recent(item - items.len() as u8));
-				}
+				self.run_slot(s, f, items, recents as usize, usize::from(item));
 			}
 			_ => {}
 		}
