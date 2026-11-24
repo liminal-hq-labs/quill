@@ -471,9 +471,11 @@ dependencies = [
 name = "quill-fonts"
 version = "0.0.0"
 dependencies = [
+ "quill-app",
  "quill-core",
  "quill-formats",
  "quill-host",
+ "quill-paint",
  "skrifa",
 ]
 
