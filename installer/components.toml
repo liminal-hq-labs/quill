@@ -17,8 +17,8 @@ targets  = ["dos-x86"]
 files    = [{ from = "dist/{target}/QUILLDOS.EXE", to = "{install}/" }]
 shortcut = [{ name = "Quill", target = "{install}/QUILLDOS.EXE", in = "start_menu" }]
 
-# `.QLD` is the one file type Quill registers by default. The compiler drops file types for the retro runtimes with a warning
-# until the installer registers them, so the rule is declared now and takes effect when it does.
+# `.QLD` is the one file type Quill registers by default: `SETUP` writes it to `WIN.INI` on Windows 3.x and to the registry on
+# Windows 95 and later, and puts the previous owner back on uninstall. DOS has no file types.
 [[component]]
 id         = "app16"
 name       = "Quill"
@@ -61,8 +61,7 @@ name    = "Sample documents"
 files   = [{ from = "dist/samples/*", to = "{install}/SAMPLES/" }]
 
 # The two optional file types are components that start unticked (`default = false`). The installer has no such field yet, so
-# today they start ticked like any optional component; the field is the planned "unticked components" change, and each rule
-# restores the previous owner on uninstall once the installer registers file types.
+# today they start ticked like any optional component; the field is the planned "unticked components" change.
 [[component]]
 id         = "assoc-rtf16"
 name       = "Open .RTF files with Quill"
