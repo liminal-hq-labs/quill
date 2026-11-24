@@ -114,6 +114,13 @@ name = "quill-dict"
 version = "0.0.0"
 
 [[package]]
+name = "quill-dlg"
+version = "0.0.0"
+dependencies = [
+ "proptest",
+]
+
+[[package]]
 name = "quill-formats"
 version = "0.0.0"
 dependencies = [

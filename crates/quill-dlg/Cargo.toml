@@ -1,0 +1,15 @@
+# quill-dlg: the logic of Quill's file dialogs: DOS 8.3 names, file types, Save As naming, widgets and the file dialog's state machine.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-dlg"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "Quill's dialog logic: 8.3 names, file types, Save As naming, widgets and the file dialog, with no drawing and no platform"
+
+[dev-dependencies]
+proptest = { version = "1", default-features = false, features = ["std"] }
