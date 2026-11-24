@@ -224,26 +224,28 @@ struct Play {
 	at: usize,
 	frames: u32,
 	out: u32,
-	stage: [u8; 512],
 	staged: usize,
 }
 
 static mut PLAY: Option<Play> = None;
 
+const STAGE_LEN: usize = 512;
+static mut STAGE: [u8; STAGE_LEN] = [0; STAGE_LEN];
+
 impl Play {
 	fn put(&mut self, data: &[u8]) {
 		for &b in data {
-			if self.staged == self.stage.len() {
+			if self.staged == STAGE_LEN {
 				self.flush();
 			}
-			self.stage[self.staged] = b;
+			unsafe { STAGE[self.staged] = b };
 			self.staged += 1;
 		}
 	}
 
 	fn flush(&mut self) {
 		if self.staged > 0 {
-			unsafe { _lwrite(self.out, self.stage.as_ptr() as u32, self.staged as u32) };
+			unsafe { _lwrite(self.out, core::ptr::addr_of!(STAGE) as u32, self.staged as u32) };
 			self.staged = 0;
 		}
 	}
@@ -436,7 +438,6 @@ fn load_script(name: &[u8]) -> Option<(u32, usize, [u8; 32], usize)> {
 		at: 0,
 		frames: 0,
 		out: 0,
-		stage: [0; 512],
 		staged: 0,
 	};
 	let mut opened = ([0u8; 32], 0usize);
@@ -642,7 +643,6 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 					at: 0,
 					frames: 0,
 					out,
-					stage: [0; 512],
 					staged: 0,
 				});
 			}
