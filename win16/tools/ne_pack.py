@@ -21,9 +21,9 @@
 #   w16_shadow_overflow           optional: where a full shadow return stack sends the program (the runtime defines it)
 #   _start                        the entry point (CS:IP in the header)
 #
-# Resources come from a JSON file (see scripts/build.sh and examples/*/resources.json): dialogs, strings and raw data, each with an
-# integer ID. Raw data (RT_RCDATA) starts with its exact length as a little-endian 32-bit number. Segments come from a JSON file too
-# (`--segments`, see docs/packer.md).
+# Resources come from a JSON file (see scripts/build.sh and examples/*/resources.json): icons (an .ico file each, as a group with the
+# given ID), bitmaps, dialogs (inline or from `dialog_files`), strings and raw data, each with an integer ID. Raw data (RT_RCDATA)
+# starts with its exact length as a little-endian 32-bit number. Segments come from a JSON file too (`--segments`, see docs/packer.md).
 import fnmatch
 import json
 import os
@@ -49,9 +49,12 @@ NE_WINAPI = 0x0300
 RES_FLAGS = 0x1030  # MOVEABLE | PURE | DISCARDABLE
 RES_SHIFT = 4
 FILE_SHIFT = 4
+RT_BITMAP = 2
+RT_ICON = 3
 RT_DIALOG = 5
 RT_STRING = 6
 RT_RCDATA = 10
+RT_GROUP_ICON = 14
 DATA_SEG = 2
 MAX_SEG = 0xFFFF  # the longest segment the packer writes; a length of 0 would mean 64 KB, which nothing here needs
 DEFAULT_BUDGET = 0xF000  # bytes of units per automatically filled segment, leaving room for veneers and the slot table
@@ -94,6 +97,16 @@ WS = {
 	"center": 1,
 	"left": 0,
 	"right": 2,
+	# Quill: the control styles assets/dialogs/dialogs.json names (the same values win9x/tools/res_pack.py uses).
+	"vscroll": 0x00200000,
+	"autocheckbox": 3,
+	"autoradiobutton": 9,
+	"groupbox": 7,
+	"icon": 3,
+	"autohscroll": 0x80,
+	"dropdown": 2,
+	"dropdownlist": 3,
+	"notify": 1,
 }
 
 
@@ -413,7 +426,8 @@ def dialog_template(d):
 		out += struct.pack("<I", istyle | WS["child"] | WS["visible"])
 		cls = it["class"]
 		out += bytes([CLASS_IDS[cls]]) if cls in CLASS_IDS else cls.encode("latin-1") + b"\0"
-		out += it.get("text", "").encode("latin-1") + b"\0"
+		# Quill: a static icon control names its icon resource by number (0xFF, then the id).
+		out += b"\xff" + struct.pack("<H", it["icon"]) if "icon" in it else it.get("text", "").encode("latin-1") + b"\0"
 		out += b"\0"  # no creation data
 	return bytes(out)
 
@@ -436,6 +450,34 @@ def string_blocks(strings):
 	return res
 
 
+def icon_resources(group_id, ico_path, first_icon_id):
+	"""Quill: an RT_GROUP_ICON and its RT_ICON images from an .ico file. The images are the resources byte for byte (a DIB with the
+	doubled height, its palette, the XOR bits and the AND mask); the group lists them in 14-byte entries whose last field is the RT_ICON id."""
+	with open(ico_path, "rb") as f:
+		data = f.read()
+	reserved, kind, count = struct.unpack_from("<HHH", data, 0)
+	if (reserved, kind) != (0, 1) or count == 0:
+		raise PackError(f"{ico_path}: not an icon file")
+	group = struct.pack("<HHH", 0, 1, count)
+	res = []
+	for i in range(count):
+		w, h, colours, rsv, planes, bits, size, off = struct.unpack_from("<BBBBHHII", data, 6 + 16 * i)
+		if data[off : off + 4] == b"\x89PNG":
+			raise PackError(f"{ico_path}: PNG images are not valid in a Win16 icon")
+		group += struct.pack("<BBBBHHIH", w, h, colours, rsv, planes, bits, size, first_icon_id + i)
+		res.append((RT_ICON, first_icon_id + i, data[off : off + size]))
+	return [(RT_GROUP_ICON, group_id, group)] + res
+
+
+def bitmap_resource(bmp_id, bmp_path):
+	"""Quill: an RT_BITMAP from a .bmp file: the file without its 14-byte file header."""
+	with open(bmp_path, "rb") as f:
+		data = f.read()
+	if data[:2] != b"BM":
+		raise PackError(f"{bmp_path}: not a bitmap file")
+	return (RT_BITMAP, bmp_id, data[14:])
+
+
 def load_resources(path):
 	"""Returns a sorted list of (type_id, res_id, bytes) from a JSON description."""
 	if not path:
@@ -444,6 +486,17 @@ def load_resources(path):
 	with open(path, encoding="utf-8") as f:
 		spec = json.load(f)
 	res = []
+	next_icon = 1
+	for ic in spec.get("icons", []):
+		items = icon_resources(ic["id"], os.path.join(base, ic["file"]), next_icon)
+		next_icon += len(items) - 1
+		res += items
+	for b in spec.get("bitmaps", []):
+		res.append(bitmap_resource(b["id"], os.path.join(base, b["file"])))
+	for df in spec.get("dialog_files", []):
+		# Quill: a JSON file of dialogs (`{"dialogs": [...]}`), shared with the Win32 resource packer.
+		with open(os.path.join(base, df), encoding="utf-8") as f:
+			spec.setdefault("dialogs", []).extend(json.load(f)["dialogs"])
 	for d in spec.get("dialogs", []):
 		res.append((RT_DIALOG, d["id"], dialog_template(d)))
 	for bid, blob in string_blocks(spec.get("strings", {})).items():
