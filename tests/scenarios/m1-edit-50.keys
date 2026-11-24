@@ -1,0 +1,10 @@
+@copy plain.qld
+@rows 50
+# M1 again on 80 by 50 (`@rows 50` is the /50 switch on DOS): the same keys, so the saved file matches the 25-row run byte for byte.
+# The same tokens go to DOSBox's AUTOTYPE and to the host's script player.
+f10 down enter                  # File > Open...
+p l a i n period q l d enter    # the file name
+h e l l o space enter           # typed at the start of the centred title, then Enter splits it
+down down z bspace           # onto the next paragraph, a letter and back out
+f10 down down enter             # File > Save
+f10 down down down down down down down enter   # File > Exit
