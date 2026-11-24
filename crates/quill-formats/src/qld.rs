@@ -6,7 +6,7 @@
 use quill_core::doc::{
 	CFmt, Colour, Doc, Font, ListDef, ListLevel, PFmt, PageSetup, StoryKind, TabSet, TabStop,
 	MAX_CFMTS, MAX_COLOURS, MAX_FONTS, MAX_LISTS, MAX_PFMTS, MAX_PICTURES, MAX_PICTURE_BYTES,
-	MAX_STOPS, MAX_TABSETS,
+	MAX_STOPS, MAX_TABSETS, PAGE_LIMIT,
 };
 use quill_core::store::{ReadStore, Store};
 use quill_core::text::{MAX_TEXT, SRC_OBJECT};
@@ -458,9 +458,14 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 				p.flags = c.u16()?;
 				p.units = c.u8()?;
 				p.lang = c.u8()?;
+				let sane = |v: i32| (0..=PAGE_LIMIT).contains(&v);
 				if p.paper_w <= 0
 					|| p.paper_h <= 0
-					|| p.margin_l.saturating_add(p.margin_r) >= p.paper_w
+					|| ![
+						p.paper_w, p.paper_h, p.margin_l, p.margin_r, p.margin_t, p.margin_b,
+					]
+					.into_iter()
+					.all(sane) || p.margin_l.saturating_add(p.margin_r) >= p.paper_w
 					|| p.margin_t.saturating_add(p.margin_b) >= p.paper_h
 				{
 					return Err(FormatError::BadFile);
