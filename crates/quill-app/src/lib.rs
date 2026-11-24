@@ -17,6 +17,7 @@
 pub mod accel;
 mod chrome;
 mod find;
+pub mod flow;
 mod form;
 mod native;
 mod paint;
@@ -520,8 +521,16 @@ impl<M: Measure + Clone> App<M> {
 		f: &mut F,
 		name: &[u8],
 	) -> bool {
+		// The document takes the new name only when the save works.
+		let (old, old_len, old_fmt) = (self.name, self.name_len, self.fmt);
 		self.set_name(name);
-		self.do_save(s, f)
+		let ok = self.do_save(s, f);
+		if !ok {
+			self.name = old;
+			self.name_len = old_len;
+			self.fmt = old_fmt;
+		}
+		ok
 	}
 
 	/// True once when Help > Contents (or F1) was chosen: the shell opens its help and the message the editor left is cleared.
@@ -884,11 +893,11 @@ impl<M: Measure + Clone> App<M> {
 			2 => text::write(&self.doc, s, &mut w)?,
 			_ => qld::write(&self.doc, s, &mut w)?,
 		}
-		self.fmt = kind;
-		self.push_recent();
 		if !f.close(w) {
 			return Err(FormatError::Write);
 		}
+		self.fmt = kind;
+		self.push_recent();
 		self.modified = false;
 		Ok(())
 	}
@@ -1958,8 +1967,7 @@ impl<M: Measure + Clone> App<M> {
 						}
 					}
 					Prompt::SaveAs => {
-						self.set_name(name);
-						self.do_save(s, f);
+						self.save_as(s, f, name);
 					}
 					Prompt::Picture => {
 						if self.insert_picture(s, f, name).is_err() {

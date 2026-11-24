@@ -89,6 +89,8 @@ impl<M: Measure + Clone> App<M> {
 			Command::Picture => Dialog::Picture,
 			Command::Print => Dialog::Print,
 			Command::Find => Dialog::Find(false),
+			// Find Next before any search has no text to look for: it asks for the Find dialog, as Find does.
+			Command::FindNext if self.last_find.is_none() => Dialog::Find(false),
 			Command::Replace => Dialog::Find(true),
 			Command::Spelling => Dialog::Spelling,
 			_ => return None,
@@ -181,12 +183,10 @@ impl<M: Measure + Clone> App<M> {
 		let found = match action {
 			FindAction::Next => self.find_next(s, &st),
 			FindAction::Replace => {
-				if self.selection().is_none() {
-					self.find_next(s, &st)
-				} else {
+				if self.selection_matches(s, &st) {
 					self.replace_here(s, &st);
-					self.find_next(s, &st)
 				}
+				self.find_next(s, &st)
 			}
 			FindAction::ReplaceAll => {
 				self.replace_all(s, &st);
