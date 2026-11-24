@@ -12,6 +12,7 @@
 #![no_main]
 
 mod chrome;
+mod dialogs;
 mod gdi;
 mod store;
 
@@ -508,7 +509,12 @@ fn press(hwnd: u32, k: Key) {
 /// Runs a command from the menu or the toolbar.
 fn run_command(hwnd: u32, c: Command) {
 	let before = view::signature(app(), store());
-	app().command(store(), &mut Win16Files, c);
+	if c == Command::PrintSetup {
+		// The common dialog's setup page: the printer and the paper.
+		dialogs::print_dialog(hwnd, true);
+	} else {
+		app().command(store(), &mut Win16Files, c);
+	}
 	if let Command::Chrome(_) = c {
 		sync_chrome(hwnd);
 		invalidate_all(hwnd);
@@ -516,41 +522,9 @@ fn run_command(hwnd: u32, c: Command) {
 	after_edit(hwnd, before);
 }
 
-/// Shows the dialogs the editor asked for.
+/// Shows the dialogs the editor asked for (`dialogs.rs`).
 fn handle_dialogs(hwnd: u32) {
-	while let Some(d) = app().take_dialog() {
-		match d {
-			quill_app::Dialog::ConfirmSave(c) => {
-				let mut text = [0u8; 120];
-				let n = confirm_text(c, &mut text);
-				text[n] = 0;
-				// MB_YESNOCANCEL | MB_ICONQUESTION: 6 yes, 7 no, 2 cancel.
-				let answer = unsafe { MessageBox(hwnd, np(text.as_ptr()), cs!("Quill"), 0x23) };
-				match answer {
-					6 => {
-						let a = app();
-						a.command(store(), &mut Win16Files, Command::Save);
-						if !a.modified() {
-							a.run_confirmed(store(), &mut Win16Files, c);
-						}
-					}
-					7 => {
-						app().discard_changes();
-						app().run_confirmed(store(), &mut Win16Files, c);
-					}
-					_ => {}
-				}
-			}
-			_ => unsafe {
-				MessageBox(
-					hwnd,
-					cs!("That dialog is not in this build yet."),
-					cs!("Quill"),
-					0x40,
-				);
-			},
-		}
-	}
+	dialogs::handle(hwnd);
 }
 
 /// "Save the changes to NAME before ...?" for the unsaved-changes question.
@@ -1094,7 +1068,10 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 			}
 			WM_CHAR => {
 				let c = wparam as u8;
+				// Ctrl+H, Ctrl+I and Ctrl+M arrive as Backspace, Tab and Enter; the Ctrl key tells them apart.
+				let ctrl = GetKeyState(0x11) & 0x8000 != 0;
 				let k = match c {
+					1..=26 if ctrl => Some(Key::Ctrl(c + 0x60)),
 					0x0D => Some(Key::Enter),
 					0x08 => Some(Key::Backspace),
 					0x09 => Some(Key::Tab),
