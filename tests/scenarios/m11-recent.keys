@@ -1,0 +1,9 @@
+# M11: a recent file is listed in File between the groups and Exit, and in no other menu.
+@copy plain.qld
+f10 down enter                  # File > Open...
+p l a i n period q l d enter    # the file name
+f10                             # File, with the recent file
+right right right right right right right   # to View: no recent file there
+right                           # Help
+esc
+f10 end enter                       # File > Exit

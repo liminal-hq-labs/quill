@@ -84,7 +84,24 @@ fn run<const ROWS: usize>(rows_in_ini: bool) -> i32 {
 		return 1;
 	}
 	app.load_settings(&mut files);
-	app.set_about("Host test run");
+	// The test runs (`QUILL_DUMP`) keep one fixed line so the DOS screens match the host's; otherwise About says what it runs on.
+	if env::var("QUILL_DUMP").is_some() {
+		app.set_about("Host test run");
+	} else {
+		let (dos_major, dos_minor) = rt::dos::dos_version();
+		let (dpmi_major, dpmi_minor, ..) = rt::dpmi::version();
+		let mem = rt::dpmi::free_memory().unwrap_or_default();
+		let free = (mem.free_pages != u32::MAX).then(|| mem.free_pages.saturating_mul(4));
+		let mut text = [0u8; 96];
+		let n = quill_app::platform::dos_about(
+			&mut text,
+			(dos_major, dos_minor),
+			(dpmi_major, dpmi_minor),
+			mem.largest_block / 1024,
+			free,
+		);
+		app.set_about(core::str::from_utf8(text.get(..n).unwrap_or(&[])).unwrap_or(""));
+	}
 	app.set_rows(ROWS - 2);
 	let args = env::args();
 	for a in &args {

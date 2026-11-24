@@ -48,7 +48,7 @@ pub fn item_for_mnemonic(menu: u8, c: u8, recents: usize, text: bool) -> Option<
 		return Some(i);
 	}
 	let n = usize::from(c.wrapping_sub(b'1'));
-	(menu == 0 && n < recents).then(|| items.len() + n)
+	(menu == 0 && n < recents).then(|| items.len().saturating_sub(1) + n)
 }
 
 /// The title of menu `menu`, with `&` before its mnemonic.
@@ -203,6 +203,28 @@ const FILE_TEXT: [Item; 6] = [
 	rule(item("E&xit", "Ctrl+Q", Command::Exit)),
 ];
 
+/// What a place in an open menu holds: one of its own items, or one of the recent files.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Slot {
+	/// The item at this index of the menu's items.
+	Item(usize),
+	/// The recent file at this index.
+	Recent(usize),
+}
+
+/// What place `at` of the File menu holds when `recents` recent files are listed: the recent files go between the last group and the
+/// last item (Exit), as on Windows. Other menus have no recent files; pass 0.
+pub fn slot(items: usize, recents: usize, at: usize) -> Slot {
+	let before = items.saturating_sub(1);
+	if recents == 0 || at < before {
+		Slot::Item(at)
+	} else if at < before + recents {
+		Slot::Recent(at - before)
+	} else {
+		Slot::Item(at - recents)
+	}
+}
+
 /// The items menu `menu` shows in a shell: `text` is true for the text menu bar (DOS), which has fewer items in File than the
 /// Windows menus have; everywhere else it is [`menu_items`].
 pub fn menu_items_for(menu: u8, text: bool) -> &'static [Item] {
@@ -211,6 +233,27 @@ pub fn menu_items_for(menu: u8, text: bool) -> &'static [Item] {
 	} else {
 		menu_items(menu)
 	}
+}
+
+/// Where the drop-down of `menu` goes on the text screen: its column, its width and its height with the frame, the menu's own items
+/// and `recents` recent files below them. It starts under its title, moved left when it would run past the right edge, and the two
+/// columns of its shadow still fit inside the 80.
+pub fn menu_box(menu: u8, text: bool, recents: usize) -> (usize, usize, usize) {
+	let items = menu_items_for(menu, text);
+	// Wide enough for the longest label and its accelerator with a gap between them (the Character menu needs more).
+	let w = items
+		.iter()
+		.map(|it| it.label.chars().filter(|c| *c != '&').count() + it.accel.len() + 6)
+		.fold(26, usize::max);
+	// A rule above an item takes a row of its own, and so does the one above the recent files.
+	let rules = items.iter().filter(|it| it.rule).count() + usize::from(recents > 0);
+	let rows = items.len() + recents + rules + 2;
+	let col = MENU_COLS
+		.get(usize::from(menu))
+		.copied()
+		.unwrap_or(1)
+		.saturating_sub(1);
+	(col.min(COLS.saturating_sub(w + 2)), w, rows)
 }
 
 /// The items of menu `menu` (0 File to 7 Help); empty for a menu that has none yet.
@@ -620,78 +663,62 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 	match app.mode {
 		Mode::Menu { menu, item } => {
 			let items = menu_items_for(menu, !app.native);
-			let col = MENU_COLS.get(usize::from(menu)).copied().unwrap_or(1) - 1;
-			// Wide enough for the longest label and its accelerator with a gap between them (the Character menu needs more).
-			let w = items
-				.iter()
-				.map(|it| it.label.chars().filter(|c| *c != '&').count() + it.accel.len() + 6)
-				.fold(26, usize::max);
 			let recents = if menu == 0 {
 				app.recent_files().count()
 			} else {
 				0
 			};
-			// A rule above an item takes a row of its own, and so does the one above the recent files.
-			let rules = items.iter().filter(|it| it.rule).count() + usize::from(recents > 0);
-			let rows = items.len() + recents + rules;
-			g.fill(col, 1, w, rows + 2, b' ', attr::CHROME);
-			g.frame(col, 1, w, rows + 2, attr::CHROME);
+			let (col, w, rows) = menu_box(menu, !app.native, recents);
+			g.fill(col, 1, w, rows, b' ', attr::CHROME);
+			g.frame(col, 1, w, rows, attr::CHROME);
 			let mut y = 2;
-			for (i, it) in items.iter().enumerate() {
-				if it.rule {
-					menu_rule(g, col, y, w);
-					y += 1;
+			let names: [Option<&[u8]>; 4] = {
+				let mut n = [None; 4];
+				if menu == 0 {
+					for (slot, name) in n.iter_mut().zip(app.recent_files()) {
+						*slot = Some(name);
+					}
 				}
-				let a = if i == usize::from(item) {
-					SELECTED
-				} else {
-					attr::CHROME
-				};
-				g.fill(col + 1, y, w - 2, 1, b' ', a);
-				let h = if i == usize::from(item) {
-					HOT_SELECTED
-				} else {
-					HOT
-				};
-				put_label(g, col + 2, y, it.label, a, h);
-				if it.sub.is_empty() {
-					g.text(col + w - 2 - it.accel.len(), y, it.accel.as_bytes(), a);
-				} else {
-					g.put(col + w - 3, y, 0x10, a);
+				n
+			};
+			for i in 0..items.len() + recents {
+				let sel = i == usize::from(item);
+				let a = if sel { SELECTED } else { attr::CHROME };
+				let h = if sel { HOT_SELECTED } else { HOT };
+				match slot(items.len(), recents, i) {
+					Slot::Item(k) => {
+						let Some(it) = items.get(k) else { continue };
+						if it.rule {
+							menu_rule(g, col, y, w);
+							y += 1;
+						}
+						g.fill(col + 1, y, w - 2, 1, b' ', a);
+						put_label(g, col + 2, y, it.label, a, h);
+						if it.sub.is_empty() {
+							g.text(col + w - 2 - it.accel.len(), y, it.accel.as_bytes(), a);
+						} else {
+							g.put(col + w - 3, y, 0x10, a);
+						}
+					}
+					Slot::Recent(k) => {
+						if k == 0 {
+							menu_rule(g, col, y, w);
+							y += 1;
+						}
+						g.fill(col + 1, y, w - 2, 1, b' ', a);
+						g.put(col + 2, y, b'1' + k as u8, h);
+						let name = names.get(k).copied().flatten().unwrap_or(&[]);
+						g.text(
+							col + 4,
+							y,
+							name.get(..name.len().min(w - 6)).unwrap_or(&[]),
+							a,
+						);
+					}
 				}
 				y += 1;
 			}
-			if recents > 0 {
-				menu_rule(g, col, y, w);
-				y += 1;
-			}
-			for (k, name) in app.recent_files().enumerate() {
-				let i = items.len() + k;
-				let a = if i == usize::from(item) {
-					SELECTED
-				} else {
-					attr::CHROME
-				};
-				g.fill(col + 1, y, w - 2, 1, b' ', a);
-				g.put(
-					col + 2,
-					y,
-					b'1' + k as u8,
-					if i == usize::from(item) {
-						HOT_SELECTED
-					} else {
-						HOT
-					},
-				);
-				g.text(
-					col + 4,
-					y,
-					name.get(..name.len().min(w - 6)).unwrap_or(&[]),
-					a,
-				);
-				y += 1;
-			}
-			shadow(g, col, 1, w, rows + 2);
+			shadow(g, col, 1, w, rows);
 			cursor = None;
 		}
 		Mode::Prompt { kind, buf, len } => {
@@ -811,7 +838,10 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 			g.text(10, 11, v.buf.get(..v.n).unwrap_or(&[]), attr::CHROME);
 			g.text(10, 12, b"A Liminal HQ Labs experiment", attr::CHROME);
 			g.text(10, 13, b"Apache-2.0 OR MIT", attr::CHROME);
-			g.text(10, 14, app.about.bytes(), attr::CHROME);
+			// The platform text may run to two lines.
+			for (i, line) in app.about.bytes().split(|b| *b == b'\n').take(2).enumerate() {
+				g.text(10, 14 + i, line, attr::CHROME);
+			}
 			g.text(34, 16, b"< OK >", SELECTED);
 			cursor = None;
 		}
