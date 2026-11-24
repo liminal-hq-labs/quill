@@ -35,6 +35,23 @@
 		return systemDark() ? "dark" : "light";
 	}
 
+	// The browser's toolbar colour follows a chosen theme as well as the system's.
+	function themeColour(theme) {
+		var colour = theme === "dark" ? "#070d24" : "#fffaf0";
+		Array.prototype.forEach.call(document.querySelectorAll('meta[name="theme-color"]'), function (m) {
+			m.setAttribute("content", colour);
+		});
+	}
+	if (root.getAttribute("data-theme")) themeColour(root.getAttribute("data-theme"));
+
+	// The small-screen section menu is a details element; choosing a section closes it.
+	var mobileNav = document.querySelector("[data-mobile-nav]");
+	if (mobileNav) {
+		mobileNav.addEventListener("click", function (event) {
+			if (event.target.closest("a")) mobileNav.open = false;
+		});
+	}
+
 	// The theme toggle: shows the theme it will switch to.
 	var toggle = document.querySelector("[data-theme-toggle]");
 	function label() {
@@ -51,6 +68,7 @@
 		toggle.addEventListener("click", function () {
 			var next = current() === "dark" ? "light" : "dark";
 			root.setAttribute("data-theme", next);
+			themeColour(next);
 			store(next);
 			label();
 		});
@@ -66,7 +84,7 @@
 
 	// The lightbox: every screenshot link opens its full-size image in a modal dialog with the caption; arrows step through
 	// the group, Escape closes, and focus returns to the screenshot that opened it. Without the dialog element the links
-	// simply open the image.
+	// open the image itself.
 	var dialog = document.querySelector("[data-lightbox]");
 	if (!dialog || typeof dialog.showModal !== "function") return;
 

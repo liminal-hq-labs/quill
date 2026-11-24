@@ -123,7 +123,7 @@ README.md SPEC.md AGENTS.md CLAUDE.md LICENSE-APACHE LICENSE-MIT
 assets/        hero banner, the app icon (`assets/icon`: SVG masters, PNGs, `QUILL.ICO`, the Windows 3.x icons)
 docs/          architecture, decisions, roadmap, toolchain needs, testing, documentation plan, hero brief
 scripts/       header check, banner check and its Chromium text-fit harness, site link check
-tools/         the icon generator (`make_icons.py`, `make-icons.sh` for Docker) and its checks
+tools/         the icon generator (`make_icons.py`, `make-icons.sh` for Docker) and its checks, and the site's link-preview card (`make_social_card.py`)
 site/          the product page published to GitHub Pages (see `site/README.md`)
 .github/       CI and Pages workflows, issue and pull request templates, release notes configuration
 ```

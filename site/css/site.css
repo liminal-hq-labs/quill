@@ -339,13 +339,66 @@ li {
 	height: 1.1rem;
 }
 
+.mobile-nav {
+	display: none;
+	margin-left: auto;
+	position: relative;
+}
+
+.mobile-nav > summary {
+	list-style: none;
+	cursor: pointer;
+	font-size: 0.9rem;
+	border: 1px solid var(--rule);
+	border-radius: 999px;
+	padding: 0.3rem 0.85rem;
+	min-height: 2.25rem;
+	display: inline-flex;
+	align-items: center;
+}
+
+.mobile-nav > summary::-webkit-details-marker {
+	display: none;
+}
+
+.mobile-nav > summary::after {
+	content: "▾";
+	margin-left: 0.4rem;
+	font-size: 0.8em;
+}
+
+.mobile-nav ul {
+	position: absolute;
+	right: 0;
+	top: calc(100% + 0.4rem);
+	min-width: 13rem;
+	list-style: none;
+	margin: 0;
+	padding: 0.4rem 0;
+	background: var(--surface);
+	border: 1px solid var(--rule);
+	border-radius: 6px;
+	box-shadow: var(--shadow);
+}
+
+.mobile-nav a {
+	display: block;
+	padding: 0.55rem 1rem;
+	color: var(--text);
+	text-decoration: none;
+}
+
+.mobile-nav a:hover {
+	background: var(--bg-band);
+}
+
 @media (max-width: 56rem) {
 	.site-nav {
 		display: none;
 	}
 
-	.theme-toggle {
-		margin-left: auto;
+	.mobile-nav {
+		display: block;
 	}
 }
 
@@ -391,9 +444,9 @@ li {
 	align-items: center;
 }
 
-@media (min-width: 60rem) {
+@media (min-width: 64rem) {
 	.hero .wrap {
-		grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+		grid-template-columns: minmax(0, 1fr) minmax(0, 640px);
 	}
 }
 
@@ -420,7 +473,7 @@ li {
 .lede {
 	font-size: clamp(1.15rem, 1rem + 0.6vw, 1.4rem);
 	line-height: 1.45;
-	margin: 0 0 1.25rem;
+	margin: 0 0 1rem;
 	max-width: 34ch;
 }
 
@@ -491,73 +544,23 @@ li {
 	margin: 0;
 }
 
-/* Three screens fanned out like papers on a desk. */
-.hero-shots {
-	position: relative;
+.hero-shot {
 	margin: 0;
 }
 
-.hero-shots ul {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: grid;
-	grid-template-columns: repeat(12, 1fr);
-	grid-template-rows: auto;
+.hero-shot img {
+	image-rendering: auto;
 }
 
-.hero-shots li {
-	max-width: none;
-	position: relative;
+.hook {
+	margin: 0 0 0.75rem;
+	max-width: 46ch;
 }
 
-.hero-shots li:nth-child(1) {
-	grid-column: 1 / span 8;
-	grid-row: 1;
-	z-index: 1;
-	margin-top: 0;
-}
-
-.hero-shots li:nth-child(2) {
-	grid-column: 5 / span 8;
-	grid-row: 1;
-	z-index: 2;
-	margin-top: 22%;
-}
-
-.hero-shots li:nth-child(3) {
-	grid-column: 2 / span 8;
-	grid-row: 1;
-	z-index: 3;
-	margin-top: 48%;
-}
-
-.hero-shots img {
-	display: block;
-	width: 100%;
-	border: 1px solid var(--ink-800);
-	box-shadow: var(--shadow);
-	background: #000;
-}
-
-/* Each label sits on its own screenshot's top-left corner, the part the fan never covers. */
-.hero-shots .tag {
-	position: absolute;
-	top: 0.4rem;
-	left: 0.4rem;
-	font-family: var(--font-mono);
-	font-size: 0.72rem;
-	line-height: 1.4;
-	color: var(--parchment-200);
-	background: rgb(7 13 36 / 0.88);
-	padding: 0.1rem 0.4rem;
-	border-radius: 3px;
-}
-
-.hero-shots figcaption {
-	margin-top: 1rem;
-	font-size: 0.9rem;
+.audience {
+	margin: 0 0 1.25rem;
 	color: var(--text-muted);
+	max-width: 46ch;
 }
 
 /* What Quill is */
@@ -831,7 +834,7 @@ li {
 
 .gallery {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
 	gap: 1.5rem 1.25rem;
 	list-style: none;
 	padding: 0;
@@ -840,6 +843,48 @@ li {
 
 .gallery li {
 	max-width: none;
+}
+
+.gallery--small {
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+}
+
+details.more {
+	margin-top: 1.5rem;
+	border: 1px solid var(--rule);
+	border-radius: 6px;
+	padding: 0 1rem;
+	background: var(--surface);
+}
+
+details.more > summary {
+	cursor: pointer;
+	padding: 0.85rem 0;
+	font-weight: 600;
+	color: var(--heading);
+}
+
+details.more[open] {
+	padding-bottom: 1.25rem;
+}
+
+details.more > p {
+	margin-top: 0;
+	color: var(--text-muted);
+}
+
+.prose {
+	margin-top: 2.5rem;
+}
+
+.glossary dt {
+	font-weight: 700;
+	margin-top: 0.6rem;
+}
+
+.glossary dd {
+	margin: 0.1rem 0 0;
+	max-width: var(--measure);
 }
 
 /* Lightbox */
