@@ -16,6 +16,12 @@ publish = false
 autoexamples = false
 autobins = false
 
+[package.metadata.quill]
+layer = "shell"
+no_std = true
+alloc = true
+float = true
+
 [lib]
 name = "w16"
 path = "src/lib.rs"

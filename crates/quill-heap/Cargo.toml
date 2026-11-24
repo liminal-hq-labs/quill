@@ -8,3 +8,9 @@ description = "A Store over heap blocks, for builds with a flat heap (host, DOS,
 
 [dependencies]
 quill-core = { path = "../quill-core" }
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = true
+float = true

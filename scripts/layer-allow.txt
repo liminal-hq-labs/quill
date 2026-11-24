@@ -1,0 +1,18 @@
+# Known layer violations that scripts/check-layers.py reports but does not fail on. Fix one, then delete its line.
+# A new violation that is not listed here fails the check. Once this file is empty, the check is strict.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# V1: the editor depends on a kit crate (GridMeasure, the text painter, ansi_to_cp437). Removed by the T-series.
+UP quill-app -> quill-grid
+
+# V3: base crates pull in the document model only for a trait (Store, Source). Removed when quill-base lands (B1).
+UP quill-dlg -> quill-core
+UP quill-heap -> quill-core
+UP quill-image -> quill-formats
+UP quill-spell -> quill-core
+UP quill-spell -> quill-formats
+
+# V4: the terminal client uses the host crate for its file and font helpers.
+TOOL quill-tty -> quill-host

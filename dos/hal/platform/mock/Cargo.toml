@@ -11,3 +11,9 @@ desk-hal.workspace = true
 
 [features]
 std = ["desk-hal/std"]
+
+[package.metadata.quill]
+layer = "shell"
+no_std = true
+alloc = true
+float = true

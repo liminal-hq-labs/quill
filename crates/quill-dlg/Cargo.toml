@@ -21,3 +21,9 @@ fake = []
 [dev-dependencies]
 quill-heap = { path = "../quill-heap" }
 proptest = { version = "1", default-features = false, features = ["std"] }
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = false
+float = false

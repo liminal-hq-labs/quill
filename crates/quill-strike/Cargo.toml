@@ -21,3 +21,9 @@ builder = []
 [dev-dependencies]
 quill-strike = { path = ".", features = ["builder"] }
 proptest = { version = "1", default-features = false, features = ["std"] }
+
+[package.metadata.quill]
+layer = "kit"
+no_std = true
+alloc = false
+float = false

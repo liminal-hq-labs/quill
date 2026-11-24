@@ -21,3 +21,9 @@ quill-grid = { path = "../../crates/quill-grid" }
 quill-app = { path = "../../crates/quill-app" }
 quill-formats = { path = "../../crates/quill-formats" }
 quill-heap = { path = "../../crates/quill-heap" }
+
+[package.metadata.quill]
+layer = "shell"
+no_std = true
+alloc = true
+float = true

@@ -13,3 +13,9 @@ quill-formats = { path = "../quill-formats" }
 [dev-dependencies]
 quill-dict = { path = "../quill-dict" }
 quill-heap = { path = "../quill-heap" }
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = false
+float = true

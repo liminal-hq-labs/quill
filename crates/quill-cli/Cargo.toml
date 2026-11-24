@@ -14,3 +14,9 @@ path = "src/main.rs"
 quill-core = { path = "../quill-core" }
 quill-formats = { path = "../quill-formats" }
 quill-host = { path = "../quill-host" }
+
+[package.metadata.quill]
+layer = "tool"
+no_std = false
+alloc = false
+float = true

@@ -18,3 +18,9 @@ skrifa = "0.50"
 tiny-skia = "0.12"
 miniz_oxide = "0.8"
 sha2 = "0.10"
+
+[package.metadata.quill]
+layer = "tool"
+no_std = false
+alloc = false
+float = true

@@ -24,3 +24,9 @@ long-names = ["quill-app/long-names"]
 
 [dev-dependencies]
 proptest = { version = "1", default-features = false, features = ["std"] }
+
+[package.metadata.quill]
+layer = "tool"
+no_std = false
+alloc = true
+float = true
