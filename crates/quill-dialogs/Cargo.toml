@@ -1,0 +1,16 @@
+[package]
+name = "quill-dialogs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Quill's dialogs as data: captions, controls, mnemonics, geometry and control IDs, generated from assets/dialogs/dialogs.json"
+
+[package.metadata.quill]
+layer = "kit"
+no_std = true
+alloc = false
+float = false
+
+[dev-dependencies]
+quill-host = { path = "../quill-host" }

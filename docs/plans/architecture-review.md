@@ -450,7 +450,7 @@ Update CLAUDE.md to match.
 - D180 `quill-paint` as the painter and `quill-raster` as its std surface;
 - D181 the text painter moves to `quill-grid` and `GridMeasure` to core;
 - D182 settings through `Profile`;
-- D183 dialog descriptions generated from `dialogs.json`;
+- ARCH-5 dialog descriptions generated from `dialogs.json`;
 - D184 size budgets per PR;
 - D185 segment placement by crate path;
 - D186 hints in `RT_STRING` on Win16;
