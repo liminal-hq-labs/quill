@@ -253,3 +253,50 @@ fn the_signature_changes_with_what_the_toolbar_shows_and_not_with_typing() {
 	assert_eq!(view::family_of(b"ARIAL"), 2);
 	assert_eq!(view::family_of(b"Times New Roman"), 1);
 }
+
+#[test]
+fn a_click_in_the_space_after_a_paragraph_goes_to_the_nearer_line() {
+	let (mut app, mut s, mut f) = app_with("Title\nbody");
+	app.key(&mut s, &mut f, Key::CtrlHome);
+	app.apply_style(&mut s, 4);
+	let area_top = 0;
+	let g = PageGeom::of(&app, &s);
+	let mut boxes = Vec::new();
+	app.for_each_line(&s, |_, l| {
+		let top = g.line_y(l, area_top);
+		boxes.push((top, top + l.ascent + l.descent));
+	});
+	let (title_bottom, body_top) = (boxes[0].1, boxes[1].0);
+	assert_eq!(body_top - title_bottom, 16, "Title has 12 points after it");
+	assert_eq!(app.line_at_y(&s, area_top, title_bottom + 3), Some(0));
+	assert_eq!(app.line_at_y(&s, area_top, body_top - 3), Some(1));
+	assert_eq!(app.line_at_y(&s, area_top, boxes[0].0 + 1), Some(0));
+}
+
+#[test]
+fn typing_past_the_bottom_of_a_page_scrolls_by_pixels_and_gaps() {
+	let mut text = String::from("first");
+	for _ in 0..70 {
+		text.push('\n');
+	}
+	text.push_str("last");
+	let (mut app, mut s, mut f) = app_with("");
+	app.set_view_height(300);
+	app.set_rows(40);
+	for b in text.bytes() {
+		let k = if b == b'\n' { Key::Enter } else { Key::Char(b) };
+		app.key(&mut s, &mut f, k);
+	}
+	let (idx, l, _) = app.caret_xy(&s).unwrap();
+	assert!(l.page >= 2, "the text runs onto a second page");
+	let g = PageGeom::of(&app, &s);
+	let y = g.line_y(&l, 0);
+	assert!(app.top_line() < idx);
+	assert!(y + 16 <= 300, "the caret's line is inside the area: {y}");
+	assert!(
+		y + 16 > 300 - 32,
+		"and the view moved no further than it had to: {y}"
+	);
+	app.key(&mut s, &mut f, Key::CtrlHome);
+	assert_eq!(app.top_line(), 0);
+}

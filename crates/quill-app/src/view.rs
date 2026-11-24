@@ -486,6 +486,30 @@ impl PageGeom {
 }
 
 impl<M: Measure + Clone> App<M> {
+	/// Tells scrolling how many pixels high the page area is (`view::PageGeom`'s layout), so the caret's line is kept inside it.
+	pub fn set_view_height(&mut self, pixels: i32) {
+		self.view_h = pixels.max(0);
+	}
+
+	/// The first line to show so that line `idx` (`l`), at or after the current first line, fits in the page area: the current one when
+	/// it already does.
+	pub(crate) fn top_to_show<S: Store + ?Sized>(&self, s: &S, idx: u32, l: &Line) -> u32 {
+		let g = PageGeom::of(self, s);
+		let room = self.view_h - PAGE_TOP;
+		let need = g.cum(l) + (l.ascent + l.descent).max(1) - room;
+		if need <= g.top {
+			return self.top;
+		}
+		let mut top = idx;
+		let from = self.top;
+		self.lines(s, |i, line| {
+			if i >= from && i < top && g.cum(line) >= need {
+				top = i;
+			}
+		});
+		top
+	}
+
 	/// How many lines the body has, laid out for the app's device.
 	pub fn line_total<S: Store + ?Sized>(&self, s: &S) -> u32 {
 		self.line_count(s)
@@ -496,22 +520,29 @@ impl<M: Measure + Clone> App<M> {
 		self.top = top.min(self.line_count(s).saturating_sub(1));
 	}
 
-	/// The line under the window's `y` in a page area whose top is `area_top`, as its index: the nearest line on that page, or the last
-	/// line above when `y` is in a gap or below the text.
+	/// The line under the window's `y` in a page area whose top is `area_top`, as its index: the line `y` is in, the nearer of the two
+	/// lines around a gap (space before or after a paragraph, a page break), the first line shown above the text and the last below it.
 	pub fn line_at_y<S: Store + ?Sized>(&self, s: &S, area_top: i32, y: i32) -> Option<u32> {
 		let g = PageGeom::of(self, s);
-		let mut best = None;
+		let mut above: Option<(u32, i32)> = None;
+		let mut below: Option<(u32, i32)> = None;
 		let first = self.top;
 		self.lines(s, |i, l| {
 			if i < first {
 				return;
 			}
 			let top = g.line_y(l, area_top);
-			if best.is_none() || top <= y {
-				best = Some(i);
+			if above.is_none() || top <= y {
+				above = Some((i, top + l.ascent + l.descent));
+			} else if below.is_none() {
+				below = Some((i, top));
 			}
 		});
-		best
+		match (above, below) {
+			(Some((_, bottom)), Some((b, top))) if y >= bottom && top - y < y - bottom => Some(b),
+			(Some((a, _)), _) => Some(a),
+			_ => None,
+		}
 	}
 
 	/// A click in the text: the caret goes to the character nearest `x` (pixels from the left margin) on line `line`. With `extend`

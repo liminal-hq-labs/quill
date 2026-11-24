@@ -311,6 +311,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) measure: M,
 	/// Lines the view shows at once (23 on an 80 by 25 screen); the shell sets it.
 	pub(crate) rows: usize,
+	/// The height in pixels of a window's page area, which scrolling keeps the caret inside; 0 on the text screen.
+	pub(crate) view_h: i32,
 	pub(crate) doc: Doc,
 	pub(crate) caret: u32,
 	pub(crate) top: u32,
@@ -380,6 +382,7 @@ impl<M: Measure + Clone> App<M> {
 		App {
 			measure,
 			rows: paint::TEXT_ROWS,
+			view_h: 0,
 			doc: Doc::new(),
 			caret: 0,
 			top: 0,
@@ -1833,12 +1836,15 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Keeps the caret on the screen.
 	fn scroll<S: Store + ?Sized>(&mut self, s: &S) {
-		let Some((idx, _)) = self.caret_line(s) else {
+		let Some((idx, caret_line)) = self.caret_line(s) else {
 			return;
 		};
 		let rows = self.rows as u32;
 		if idx < self.top {
 			self.top = idx;
+		} else if self.view_h > 0 {
+			// A window that draws pages one under another: the caret's line must fit in the page area's pixels, gaps and all.
+			self.top = self.top_to_show(s, idx, &caret_line);
 		} else if self.measure.resolution().1 <= 6 {
 			// On the text screen a row is a unit of layout, so spacing and tall lines count: move down until the caret's line fits.
 			let page_rows = quill_core::layout::to_units(
