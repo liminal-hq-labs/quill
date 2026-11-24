@@ -110,6 +110,7 @@
 						<h2 id="what-title">A word processor for the PCs of the 1990s</h2>
 						<p>The everyday things are here: fonts and sizes, bold, italic and underline, text colour, tab stops with dot leaders, lists, headers and footers with page numbers, find and replace, and a spelling checker that knows Canadian English. Quill saves its own <code>.QLD</code> files and RTF.</p>
 						<p>It comes as separate programs for separate machines. <code>QUILLDOS.EXE</code> runs on DOS in text mode; a graphics mode with real fonts is being built. <code>QUILL.EXE</code> targets Windows 3.1 and 3.11 and has a native interface with a menu bar, toolbars, a ruler, the system's common dialogs and a WinHelp help file. <code>QUILL32.EXE</code> targets Windows 95, 98 and Me, and has run on 95 and Me. They share one Rust core, so they read and write the same files with the same code.</p>
+						<p>On Linux, <code>quill-tty</code> draws the DOS text screen in a terminal, and the <code>quill</code> command converts and inspects documents (<code>cat</code>, <code>convert</code> and <code>info</code>).</p>
 						<p>The programs are small. As built today, <code>QUILLDOS.EXE</code> is 224 KB with its DPMI host inside it, <code>QUILL.EXE</code> is 326 KB and <code>QUILL32.EXE</code> is 370 KB. The Canadian English dictionary adds 293 KB, so the largest program and its dictionary come to about 663 KB. Any one of them would fit on a 1.44 MB floppy; a built disk image is planned.</p>
 					</div>
 					<aside class="aside-card" aria-labelledby="why-title">
@@ -451,10 +452,9 @@
 					<section class="planned" aria-labelledby="planned-title">
 						<h3 id="planned-title">Planned, or in progress</h3>
 						<ul>
-							<li>A DOS graphics mode with real fonts, in progress on branches that haven't merged</li>
+							<li>A DOS graphics mode with real fonts, in progress: the video and mouse drivers have merged and the page painter and fonts are in review</li>
 							<li>Toolbar tooltips and keyboard access to the menus on Windows 3.x, in review</li>
-							<li>A Linux terminal client and a command-line tool for converting and inspecting documents, both in review</li>
-							<li>A GTK4 client for Linux, planned</li>
+							<li>A GTK4 client for Linux, planned; a spike of its page widget is in review</li>
 							<li>A Windows 11 build on WinUI 3, planned; two spikes are in review</li>
 							<li>Printing on DOS and Windows 3.x, and printing pictures</li>
 							<li>The mouse on DOS</li>
@@ -522,7 +522,7 @@
 							</tbody>
 						</table>
 					</div>
-					<p class="footnote">Windows 95 on a 486 is meant to use the Windows 3.x build, because the Windows 95 build needs a Pentium. By design, neither Windows build needs Win32s or any other add-on. Linux and Windows 11 builds are planned and aren't in this table because nothing of them has run on a Windows or DOS system.</p>
+					<p class="footnote">Windows 95 on a 486 is meant to use the Windows 3.x build, because the Windows 95 build needs a Pentium. By design, neither Windows build needs Win32s or any other add-on. The Linux terminal client has run in tmux and a pseudo-terminal, not yet in kitty, foot, WezTerm or a VTE terminal, and it isn't in this table. A GTK4 client for Linux and a Windows 11 build are planned.</p>
 				</div>
 			</section>
 
