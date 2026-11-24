@@ -6,7 +6,7 @@
 use core::marker::PhantomData;
 
 use crate::bytes::{Pod, Reader, Writer, MAX_POD};
-use crate::store::{ChunkId, Store, MAX_CHUNK};
+use crate::store::{ChunkId, ReadStore, Store, MAX_CHUNK};
 use crate::{Error, Result};
 
 /// How many spare chunks a vector can hold for a reserved run of inserts.
@@ -170,7 +170,7 @@ impl<T: Pod, const CH: usize> FarVec<T, CH> {
 	}
 
 	/// Reads element `i`.
-	pub fn get<S: Store + ?Sized>(&self, s: &S, i: u32) -> Option<T> {
+	pub fn get<S: ReadStore + ?Sized>(&self, s: &S, i: u32) -> Option<T> {
 		let (ci, off) = self.locate(i)?;
 		let c = *self.chunks.get(ci)?;
 		let mut buf = [0u8; MAX_POD];

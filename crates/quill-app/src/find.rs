@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 
 use quill_core::layout::Measure;
 
@@ -109,7 +109,7 @@ fn same(a: u8, b: u8, case: bool) -> bool {
 
 impl<M: Measure + Clone> App<M> {
 	/// The position of the next match at or after `from` and before `limit` (a match must end by `limit`).
-	fn search<S: Store + ?Sized>(
+	fn search<S: ReadStore + ?Sized>(
 		&self,
 		s: &S,
 		from: u32,
@@ -146,7 +146,7 @@ impl<M: Measure + Clone> App<M> {
 		None
 	}
 
-	fn word_ok<S: Store + ?Sized>(&self, s: &S, at: u32, m: u32, st: &FindState) -> bool {
+	fn word_ok<S: ReadStore + ?Sized>(&self, s: &S, at: u32, m: u32, st: &FindState) -> bool {
 		if !st.word {
 			return true;
 		}
@@ -158,7 +158,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Finds the next match from the caret (or the end of the selection), wrapping once, and selects it.
-	pub(crate) fn find_next<S: Store + ?Sized>(&mut self, s: &S, st: &FindState) -> bool {
+	pub(crate) fn find_next<S: ReadStore + ?Sized>(&mut self, s: &S, st: &FindState) -> bool {
 		let len = self.doc.body.len();
 		let m = st.flen as u32;
 		let start = self.selection().map_or(self.caret, |(_, hi)| hi);
@@ -183,7 +183,7 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// True when the selection is exactly a match for `st`, so Replace may replace it.
-	pub(crate) fn selection_matches<S: Store + ?Sized>(&self, s: &S, st: &FindState) -> bool {
+	pub(crate) fn selection_matches<S: ReadStore + ?Sized>(&self, s: &S, st: &FindState) -> bool {
 		self.selection().is_some_and(|(lo, hi)| {
 			hi - lo == st.flen as u32 && self.search(s, lo, hi, st) == Some(lo)
 		})

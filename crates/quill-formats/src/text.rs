@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use quill_core::doc::Doc;
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 use quill_core::text::MAX_TEXT;
 
 use crate::io::{Sink, Source};
@@ -65,7 +65,7 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 
 /// Writes the body as ANSI text with CRLF after every paragraph and a form feed's place left to the page-break flag (not yet
 /// written). Pictures and headers are left out.
-pub fn write<S: Store + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<()> {
+pub fn write<S: ReadStore + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<()> {
 	let t = &doc.body;
 	let mut at = 0u32;
 	let mut buf = [0u8; 256];
