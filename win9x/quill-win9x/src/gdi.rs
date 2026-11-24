@@ -516,7 +516,14 @@ unsafe fn draw_line(
 ///
 /// # Safety
 /// `dc` must be a valid device context.
-pub unsafe fn paint_page(dc: Handle, area: Rect, app: &App<GdiMeasure>, s: &HeapStore, cache: &mut PicCache) -> usize {
+pub unsafe fn paint_page(
+	dc: Handle,
+	area: Rect,
+	hscroll: i32,
+	app: &App<GdiMeasure>,
+	s: &HeapStore,
+	cache: &mut PicCache,
+) -> usize {
 	// Nothing of the page may spill over the toolbar and ruler above it.
 	let saved = SaveDC(dc);
 	IntersectClipRect(dc, area.left, area.top, area.right, area.bottom);
@@ -526,7 +533,7 @@ pub unsafe fn paint_page(dc: Handle, area: Rect, app: &App<GdiMeasure>, s: &Heap
 	let margin_l = to_units(page.margin_l, 96);
 	let margin_t = to_units(page.margin_t, 96);
 	let client_w = area.right - area.left;
-	let x0 = area.left + ((client_w - page_w) / 2).max(PAD);
+	let x0 = area.left + crate::chrome::page_x0(client_w, page_w, hscroll);
 	let desk = CreateSolidBrush(0x0080_8080);
 	FillRect(dc, &area, desk);
 	DeleteObject(desk);
