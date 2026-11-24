@@ -1612,6 +1612,7 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 			sh.hscroll,
 			sh.vpos,
 			pct,
+			damage,
 			&sh.app,
 			&sh.store,
 			sh.screen_dc,

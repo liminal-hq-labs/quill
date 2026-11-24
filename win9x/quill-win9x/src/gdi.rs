@@ -662,7 +662,7 @@ unsafe fn map_pages(dc: Handle, pct: i32, x: i32, y: i32) {
 }
 
 /// Paints the page view into the client rectangle `area`, scrolled `hscroll` pixels sideways and `vpos` page units down, at `pct`
-/// percent. `mdc` is a device context with no mapping set, which character widths are asked of: under the zoom's mapping a font's widths
+/// percent. Only the lines that reach into `damage` (in the device's pixels) are drawn; the rest of the page is already in the picture. `mdc` is a device context with no mapping set, which character widths are asked of: under the zoom's mapping a font's widths
 /// come back in scaled, hinted units and no longer agree with the layout. Returns how many lines a screenful holds and how many sheets the document takes.
 ///
 /// # Safety
@@ -673,6 +673,7 @@ pub unsafe fn paint_page(
 	hscroll: i32,
 	vpos: i32,
 	pct: i32,
+	damage: Rect,
 	app: &App<GdiMeasure>,
 	s: &HeapStore,
 	mdc: Handle,
@@ -722,6 +723,12 @@ pub unsafe fn paint_page(
 			return;
 		}
 		line_h = h.max(8);
+		// A line wholly outside the damaged rectangle is left as it is: its text, with its wave, is already in the picture, and drawing
+		// it again would cost a character at a time for nothing.
+		let (top_px, bottom_px) = (area.top + dev(y_top, pct), area.top + dev(y_top + h, pct));
+		if bottom_px + 4 < damage.top || top_px - 4 > damage.bottom {
+			return;
+		}
 		draw_line(
 			dc,
 			&LineCtx {
