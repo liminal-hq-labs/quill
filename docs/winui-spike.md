@@ -1,6 +1,6 @@
 # WinUI 3 spike S0a
 
-What spike S0a found: can Windows Reactor, a WinUI 3 library for Rust, show a pixel-exact Quill page from a zip built on Linux and run on a clean Windows 11 machine. The plan is in [winui.md](winui.md); the code is in `winui/spike`, with the build and runtime staging in `winui/tools`. This is the S0a half only: input methods and accessibility (S0b) are not covered.
+What spike S0a found: can Windows Reactor, a WinUI 3 library for Rust, show a pixel-exact Quill page from a zip built on Linux and run on a clean Windows 11 machine. The plan is in [winui.md](winui.md); the code is in `winui/spike`, with the build and runtime staging in `winui/tools`. S0b, input methods and accessibility, is in the second half of this page.
 
 ## Result
 
@@ -73,7 +73,7 @@ The VM started from the snapshot `Password never expires` with the network cable
 
 The guest starts at 175% (`AppliedDPI` 168, `PerMonitorSettings` `DpiValue` 3). Setting `DpiValue` to 2 and 0 and restarting gave 150% (`AppliedDPI` 144) and 100% (96); a restart was enough, no sign-out. Afterwards the VM was powered off and `Password never expires` restored. The password was not changed or written anywhere.
 
-The final binary in the zip differs from the one tested only by two lint-driven edits (`as_chunks_mut` in the pixel swap, one removed `.into()`); the three comparisons ran on the build before them.
+The final binary in the zip differs from the one tested first only by two lint-driven edits (`as_chunks_mut` in the pixel swap, one removed `.into()`). That final build was run once more at 175% and compared with `analyse.py`: 100.000% of the pixels equal, maximum channel difference 0, best shift (0, 0), so the lint edits changed nothing.
 
 ## Baseline: `QUILL32.EXE` on Windows 11
 
@@ -97,3 +97,78 @@ The final binary in the zip differs from the one tested only by two lint-driven 
 ## For S0b
 
 Start with the hidden `TextBox` proxy (P1) and the child window with IMM32 (P2) side by side. The first needs `TextBox` and focus control from Reactor, which exist; the second needs the window handle, found through `EnumWindows` on the process id. Custom automation peers need the raw `UIElement`, which Reactor does not give, so P1's Narrator work likely means the proxy `TextBox` carrying the text, or generating bindings with `windows-bindgen` as the plan's fallback describes.
+
+## WinUI 3 spike S0b
+
+What spike S0b found: can a page that Quill draws itself take typed text, dead keys, Alt codes and input methods, and be read by UI Automation, inside a Reactor window. The code is `winui/spike/src/s0b` (`quill-winui-s0b.exe`, built by the same `winui/tools/build.sh`); `--p1` and `--p2` pick the hosting, `--popup` makes P2 an owned top-level window, `--imeon` opens the input method at focus, `--nobackdrop` drops Mica. The log is `quill-winui-s0b.log` next to the exe. The guest was `WinDev2407Eval` from the snapshot `Password never expires`, cable off, at 175%, with the US-International layout added through `Set-WinUserLanguageList`.
+
+### Result
+
+**P2 as a child window fails. P2 as an owned pop-up window works for typing and is the only hosting that was measured. P1 was built and never run. The go/no-go is therefore not "go" yet: see the end.** The run was cut short: the VM host ran out of memory, so the VM was powered off and restored with the checks below still open.
+
+| Check | P1 (swap-chain panel and proxy `TextBox`) | P2 (own window, IMM32, AccessKit) |
+|---|---|---|
+| Builds on Linux, clippy clean | Yes | Yes (`accesskit` 0.25.2, `accesskit_windows` 0.35.2) |
+| `CoreTextEditContext` | Probe built, never run | not applicable |
+| Dead key then e (US-International) logs 0xE9 | Not run | **Yes**: `WM_KEYDOWN vk=0xDE`, `WM_KEYDOWN vk=0x45`, `WM_CHAR 0x00E9`, `insert via WM_CHAR: U+00E9 -> 0xE9` |
+| Alt+0233 logs 0xE9 | Not run | **Yes**: `WM_CHAR 0x00E9`, `insert via WM_CHAR: U+00E9 -> 0xE9` |
+| An emoji is refused with a status message | Code written, not run | **Not shown.** The emoji panel opened (Win+.) but no emoji was chosen: no key or pointer path to pick one was tried. The refusal is covered by the host test (`doc.rs`: `an_emoji_is_refused_whole`) and the code path logs `refused via ...` |
+| IME candidate window at the caret | Not run | **Not shown.** See "Input methods" |
+| PowerShell UI Automation reads text, selection, caret | Not run | **Partly**: text yes, selection and caret not completed |
+| Narrator reads the line | Not run | Not run (manual steps below) |
+| Tab moves between the command bar and the page | Not run | Not run |
+| Dialog and flyout not hidden | Not run | Not run |
+
+### The child window is hidden by the XAML content
+
+The first P2 build created a `WS_CHILD` window over the page area, found with `EnumWindows` on the process id (the top-level window's children were `DesktopChildSiteBridge`, `InputSiteWindowClass` and `InputNonClientPointerSource`; ours was listed first, which is the top of the z-order). Its `WM_PAINT` ran with the full 1750 × 910 rectangle and the page was blitted, yet the screenshots show only the XAML surface: [s0b-p2-child-hidden.png](media/winui-spike/s0b-p2-child-hidden.png). It was hidden with the Mica backdrop and with `--nobackdrop`. The XAML island is composed above the GDI content of the top-level window, so a child window of the Reactor window cannot show anything under or over XAML. This is the airspace problem in its worst form, and it is independent of the z-order.
+
+The workaround that works is an owned top-level pop-up (`WS_POPUP`, owner the Reactor window) placed over the page area, with a 30 ms timer that follows the owner's client rectangle and hides it when the owner is minimized. [s0b-p2-popup-typed.png](media/winui-spike/s0b-p2-popup-typed.png) shows the page drawn by skrifa and tiny-skia in it, with the caret and typed text. Its costs: it is not a child (no automatic clipping, no sharing of focus with the island, flicker while the window moves), the owner's title bar looks inactive while the pop-up has focus, and the timer is a polling loop.
+
+### Typing
+
+With the pop-up focused, `keyboardputstring "abc"` produced `WM_KEYDOWN` and `WM_CHAR` and three characters on the page. The sequences in the table above went through `WM_CHAR` only; no `WM_IME_*` message arrived, because no input method was composing. Windows also sent `IMR_QUERYCHARPOSITION` to the window, which the code answers with the caret's screen position (logged as `IMR_QUERYCHARPOSITION -> screen (197, 394)`), so the text services framework does ask for the caret.
+
+A system caret (`CreateCaret`, `SetCaretPos`) tracks the page caret. Before it existed the emoji panel opened at the bottom right of the screen ([s0b-p2-popup-emoji-panel.png](media/winui-spike/s0b-p2-popup-emoji-panel.png) is the later run, with the caret); with it the panel opened higher up, still at the right of the screen, so this run did not show it following the caret.
+
+### Input methods
+
+- **Installed.** `C:\Windows\System32\IME` holds `IMEJP`, `IMEKR` and `IMETC`, and the Microsoft Japanese text input processor `{03B5835F-F03C-411B-9CE2-AA23E1171E36}` is registered. `Set-WinUserLanguageList` accepted `ja-JP` with the input method tip `0411:{03B5835F-...}{A76C93D9-...}` and the tray showed the IME's `A` (direct input) indicator with the cable off. No download was started.
+- **Not usable from outside the machine.** The page never received `WM_IME_STARTCOMPOSITION` or `WM_IME_COMPOSITION`. `Alt+Shift` changed the language, but typing `nihon` produced Latin letters. With `--imeon` the app called `LoadKeyboardLayoutW("E0010411", KLF_ACTIVATE)`, which returned the current layout (`HKL(0x04090409)`), and `ImmSetOpenStatus` and `ImmSetConversionStatus` succeeded without any effect on typing, so the thread kept the US-International layout. Alt with the backtick key, `Ctrl+Space` and the layout switch did not turn the input method on. Whether the half-installed Japanese IME works at all in this guest is therefore open. The IMM32 code (`WM_IME_COMPOSITION`, `ImmSetCompositionWindow`, `ImmSetCandidateWindow` with `CFS_EXCLUDE`, `IMR_QUERYCHARPOSITION`, `WM_CHAR` surrogate pairs) is written and compiles, and none of it was exercised.
+
+### UI Automation
+
+The AccessKit adapter answered `WM_GETOBJECT` (`WM_GETOBJECT answered by AccessKit` in the log). `uia.ps1` (`System.Windows.Automation`, run in the desktop session through a scheduled task) found the element by `AutomationId` `page` and read:
+
+```text
+element: name='Quill page' class='QuillPageChild' type=ControlType.Edit rect=100,294,1750,910
+DocumentRange text: Dear Reader,\nType here: a dead key then e, Alt+0233, or Win+. for an emoji.\nHi
+selection ranges: 1
+```
+
+So the text pattern's `DocumentRange` returns the document text exactly. The script then stopped at the first call on the selection range (`GetText` or `GetBoundingRectangles`); the output file has nothing after `selection ranges: 1`, and the log shows the page taking focus again (`WM_IME_SETCONTEXT`, `page: focus gained`) just after. Whether that was a hang in the provider, in PowerShell, or an exception that was not logged was not determined before the VM had to be stopped. Selection, caret rectangles, lines, words and `RangeFromPoint` are unread.
+
+### P1
+
+`TextBox` in Reactor 0.100.0 has `text`, `on_text_changed`, `accepts_return`, opacity and `request_focus`, and nothing for selection, caret, composition or key events; `AutomationExt` has only name, id and heading level; `SwapChainPanel` cannot take focus. The P1 build therefore treats a hidden single-line `TextBox` as the document (opacity 0, placed near the caret, `automation_id` `page`), draws the page from its text, reverts the box when a character has no 1252 form, and probes `CoreTextServicesManager::GetForCurrentView`. It was built and never started in the guest. What follows from the API alone: the caret cannot be read or set, so editing in the middle of the text, arrow keys and clicks cannot work through the proxy, and a refused character resets the box's caret to the start. The UI Automation text pattern would be the `TextBox`'s own.
+
+### Go/no-go
+
+- **P2 as a child window: no-go.** It is invisible.
+- **P2 as an owned pop-up with IMM32 and AccessKit: promising, not proven.** Typing, dead keys and Alt codes work, AccessKit exposes an `Edit` with a correct document text, and TSF queries the caret position. Open: input method composition and the candidate window, the rest of the text pattern, Narrator, Tab handover, and whether `ContentDialog` and flyouts draw over a pop-up that sits above the owner.
+- **P1: unproven and weak by API.** Reactor 0.100.0 gives no selection or caret on the proxy.
+- **Option B** (Win32, DirectComposition, Direct2D, DWM Mica, IMM32, AccessKit) removes the airspace problem by construction, because there is one window and no XAML island. The evidence here, a child window of a XAML window being invisible and the pop-up being a polling workaround, is the argument for it.
+
+The recommendation is to repeat S0b's open items once, on a machine with RAM to spare, before committing W3 to the pop-up; if the pop-up fails the dialog and Tab checks, take Option B.
+
+### Steps to repeat the open checks
+
+1. Start `quill-winui-s0b.exe --p2 --popup` from the zip's folder in the interactive session; dismiss any toast first, because a toast can take the keyboard (the host's keystrokes went to it twice) and `Alt+Tab` to the app.
+2. Turn on a Japanese input method by hand (the language bar or `Win+Space`), type `nihon`, and capture the composition and candidate window.
+3. Run `uia.ps1` and `Win+.` with an emoji chosen by hand. Read the log for `refused via`.
+4. Narrator: `Win+Ctrl+Enter`, click the page, then `Caps Lock+Right`/`Left` for the character, `Caps Lock+L` for the line; compare with the log's `WM_GETOBJECT` lines. Inspect.exe or Accessibility Insights show the `Edit` and its text pattern.
+5. `Tab` from the page logs `Tab leaves the page`; check the focus that follows. `View > Open dialog` and the Flyout button show the airspace result against the pop-up.
+
+### What is not proven
+
+Everything marked "not run" above, and: an IME of any kind, `CoreTextEditContext` on this VM, Narrator, selection and caret through UI Automation, Tab handover, `ContentDialog` and flyout order against the pop-up, pop-up behaviour while the owner moves, resizes or is minimized, and 100% and 150% scales.

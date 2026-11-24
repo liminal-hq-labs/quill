@@ -28,5 +28,6 @@ mkdir -p "$pack"
 cp -r "$stage"/. "$pack"/
 rm -f "$pack/app.manifest"
 cp "$exe" "$pack/"
+cp "$target/x86_64-pc-windows-msvc/release/quill-winui-s0b.exe" "$pack/"
 (cd "$pack" && zip -q -9 -r "$out/quill-winui-spike.zip" .)
-ls -l "$exe" "$out/quill-winui-spike.zip"
+ls -l "$exe" "$target/x86_64-pc-windows-msvc/release/quill-winui-s0b.exe" "$out/quill-winui-spike.zip"
