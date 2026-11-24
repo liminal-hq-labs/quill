@@ -32,6 +32,10 @@ pub const MB_ICONSTOP: u32 = 0x10;
 pub const PM_REMOVE: u32 = 1;
 pub const SW_SHOW: u32 = 5;
 
+/// Nonzero (the `noalias` feature, for experiments) keeps Rust on the real 16-bit stack.
+#[unsafe(no_mangle)]
+pub static W16_NOALIAS: u8 = if cfg!(feature = "noalias") { 1 } else { 0 };
+
 /// The command line's far address (offset, then selector), saved from the registers `InitTask` returns.
 #[unsafe(no_mangle)]
 pub static mut W16_CMD: [u16; 2] = [0; 2];
@@ -154,6 +158,8 @@ global_asm!(
 	"push ecx",
 	"mov [__w16_ss16], ss",
 	"mov [__w16_ss32], ss",
+	"cmp byte ptr [{noalias}], 0",
+	"jne 3f",
 	// DPMI 000Ah: an alias of the data segment; 0009h: the same access rights with the big (B) bit; 0008h: a 64 KB limit.
 	"mov bx, ds",
 	"mov ax, 0x000a",
@@ -196,6 +202,7 @@ global_asm!(
 	exit = sym w16_exit,
 	overflow = sym w16_shadow_overflow,
 	cmd = sym W16_CMD,
+	noalias = sym W16_NOALIAS,
 );
 
 // Keeps the 32-bit alias over the data segment. Windows may move the data segment in memory during any call (compacting memory, growing

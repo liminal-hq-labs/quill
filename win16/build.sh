@@ -21,7 +21,7 @@ if [ "${1:-}" = "--regen" ]; then
 fi
 
 # One cargo build links every program; the packer then places each program's code in segments (examples/<name>/segments.json, if any).
-if ! cargo build --release 2>"$CARGO_TARGET_DIR/build.log"; then
+if ! cargo build --release ${W16_FEATURES:+--features $W16_FEATURES} 2>"$CARGO_TARGET_DIR/build.log"; then
 	cat "$CARGO_TARGET_DIR/build.log" >&2
 	exit 1
 fi
@@ -29,7 +29,7 @@ fi
 out="${OUT_DIR:-out}"
 mkdir -p "$out"
 elf_dir="$CARGO_TARGET_DIR/win16/release"
-for prog in probe icontest segtest quill; do
+for prog in probe icontest segtest quill stackprobe helptest; do
 	RES_ARGS=()
 	[ -f "examples/$prog/resources.json" ] && RES_ARGS=(--resources "examples/$prog/resources.json")
 	[ -f "examples/$prog/segments.json" ] && RES_ARGS+=(--segments "examples/$prog/segments.json")

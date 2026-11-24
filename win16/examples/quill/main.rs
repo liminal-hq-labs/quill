@@ -245,7 +245,13 @@ impl Play {
 
 	fn flush(&mut self) {
 		if self.staged > 0 {
-			unsafe { _lwrite(self.out, core::ptr::addr_of!(STAGE) as u32, self.staged as u32) };
+			unsafe {
+				_lwrite(
+					self.out,
+					core::ptr::addr_of!(STAGE) as u32,
+					self.staged as u32,
+				)
+			};
 			self.staged = 0;
 		}
 	}

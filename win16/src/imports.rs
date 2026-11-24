@@ -3758,6 +3758,43 @@ global_asm!(
 	".byte 0x66, 0xc3",
 );
 
+// USER.171 WinHelp
+global_asm!(
+	".code16",
+	".section .text.imp_WinHelp,\"ax\"",
+	".globl WinHelp",
+	"WinHelp:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push word ptr [bp+8]",
+	"push ds",
+	"push word ptr [bp+12]",
+	"push word ptr [bp+16]",
+	"push word ptr [bp+22]",
+	"push word ptr [bp+20]",
+	"mov ss, word ptr [__w16_ss16]",
+	"movzx esp, sp",
+	".byte 0x9a",
+	".globl __w16imp_USER_171_WinHelp",
+	"__w16imp_USER_171_WinHelp:",
+	".word 0, 0",
+	".byte 0x66, 0xe8",
+	".long w16_sync_alias - . - 4",
+	"mov ss, word ptr [__w16_ss32]",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
 unsafe extern "C" {
 	pub fn GetVersion() -> u32;
 	pub fn GlobalAlloc(a0: u32, a1: u32) -> u32;
@@ -3868,4 +3905,5 @@ unsafe extern "C" {
 	pub fn GetCurrentTask() -> u32;
 	pub fn InterruptRegister(a0: u32, a1: u32) -> u32;
 	pub fn InterruptUnRegister(a0: u32) -> u32;
+	pub fn WinHelp(a0: u32, a1: u32, a2: u32, a3: u32) -> u32;
 }

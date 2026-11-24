@@ -120,3 +120,4 @@ GDI 443 SetDIBitsToDevice wwwwwwwwwppw w
 KERNEL 36 GetCurrentTask - w
 TOOLHELP 75 InterruptRegister wf w
 TOOLHELP 76 InterruptUnRegister w w
+USER 171 WinHelp wpwl w

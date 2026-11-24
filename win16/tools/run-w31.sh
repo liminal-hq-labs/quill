@@ -20,6 +20,7 @@ WAIT="${3:-120}"
 : "${W31_TREE:?set W31_TREE to the unpacked Windows 3.11 tree}"
 : "${W31_WORK:?set W31_WORK to a scratch directory}"
 DISP="${W31_DISPLAY:-:97}"
+CONT="${W31_CONTAINER:-quill16-dbx}"
 
 mkdir -p "$W31_WORK/d"
 find "$W31_WORK/d" -maxdepth 1 -type f \( -name '*.LOG' -o -name '*.log' \) -exec rm -f {} + 2> /dev/null || true
@@ -28,8 +29,8 @@ name="$(basename "$PROG")"
 sed -i "s|^run=.*|run=D:\\\\$name ${W31_ARGS:-}|" "$W31_TREE/WINDOWS/WIN.INI"
 pgrep -f "Xvfb $DISP" > /dev/null || (Xvfb "$DISP" -screen 0 1024x768x24 > "$W31_WORK/xvfb.log" 2>&1 &)
 sleep 1
-docker rm -f quill16-dbx > /dev/null 2>&1 || true
-docker run -d --name quill16-dbx --network host -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY="$DISP" -e SDL_AUDIODRIVER=dummy \
+docker rm -f $CONT > /dev/null 2>&1 || true
+docker run -d --name $CONT --network host -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY="$DISP" -e SDL_AUDIODRIVER=dummy \
 	-e HOME=/tmp -v "$W31_TREE":/c -v "$W31_WORK/d":/d -v "$HERE/dosbox-x":/conf quill16-dosbox-x:local \
 	dosbox-x -conf "/conf/${W31_CONF:-fast.conf}" -nomenu -fastlaunch > /dev/null
 third=$((WAIT / 3))
@@ -38,12 +39,12 @@ for i in 1 2 3; do
 	while [ "$slept" -lt "$third" ]; do
 		sleep 2
 		slept=$((slept + 2))
-		[ "$(docker inspect -f '{{.State.Running}}' quill16-dbx)" = true ] || break
+		[ "$(docker inspect -f '{{.State.Running}}' $CONT)" = true ] || break
 	done
-	if [ "$(docker inspect -f '{{.State.Running}}' quill16-dbx)" = true ]; then
+	if [ "$(docker inspect -f '{{.State.Running}}' $CONT)" = true ]; then
 		DISPLAY="$DISP" import -window root "$PREFIX-$i.png"
 	else
 		break
 	fi
 done
-docker rm -f quill16-dbx > /dev/null 2>&1 || true
+docker rm -f $CONT > /dev/null 2>&1 || true
