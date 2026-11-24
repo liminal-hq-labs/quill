@@ -137,9 +137,6 @@ impl Measure for GdiMeasure {
 	}
 }
 
-const PAGE_GAP: i32 = 10;
-const PAD: i32 = 8;
-
 fn colour_of(app: &App<GdiMeasure>, s: &HeapStore, cf: &CFmt) -> u32 {
 	if cf.colour == 0 {
 		return 0;
@@ -254,7 +251,8 @@ unsafe fn draw_picture(
 		clr_used: 0,
 		clr_important: 0,
 	};
-	SetDIBitsToDevice(dc, x, y, w as u32, h as u32, 0, 0, 0, h as u32, r.bits.as_ptr(), &info, 0);
+	// Stretched, so a zoomed view (a mapping mode that scales page units to pixels) draws the picture at the size it is shown.
+	StretchDIBits(dc, x, y, w, h, 0, 0, w, h, r.bits.as_ptr(), &info, 0, SRCCOPY);
 }
 
 /// Draws a picture on the printer: decoded again at up to 1,024 pixels across in bands of 48 rows, each stretched to its place,
@@ -356,6 +354,9 @@ struct LineCtx<'a> {
 	/// The page the line is on, and the number of pages when fields should show their values.
 	page: u32,
 	fields: Option<u32>,
+	/// Draw each character at its own layout position (a zoomed screen), so no rounding of the font's widths or of the layout's
+	/// advances builds up along the line.
+	per_char: bool,
 }
 
 /// How pictures reach the device: from a cache of renderings (the screen) or in bands (the printer).
@@ -395,11 +396,15 @@ unsafe fn draw_line(
 	}
 	// Runs of one format and selection state, split at tabs and objects.
 	let mut run = [0u8; 200];
+	// The layout's advance of each character of the run, which the drawing follows: a zoomed font is hinted to whole pixels and its own
+	// widths drift from the layout's, and each advance given to the system is rounded alone, so a run drawn in one call ends away from
+	// where the caret and the clicks think.
+	let mut adv = [0i32; 200];
 	let mut n = 0usize;
 	let mut run_x = 0;
 	let mut run_cf = 0u16;
 	let mut run_sel = false;
-	let flush = |n: &mut usize, run: &[u8; 200], x: i32, cf: u16, selected: bool| {
+	let flush = |n: &mut usize, run: &[u8; 200], adv: &[i32; 200], x: i32, cf: u16, selected: bool| {
 		if *n == 0 {
 			return;
 		}
@@ -411,6 +416,32 @@ unsafe fn draw_line(
 			2 => l.ascent / 4,
 			_ => 0,
 		};
+		if cx.per_char {
+			let total: i32 = adv.iter().take(*n).sum();
+			if selected {
+				let r = Rect {
+					left: tx + x,
+					top: y_top,
+					right: tx + x + total,
+					bottom: y_top + l.ascent + l.descent,
+				};
+				let b = CreateSolidBrush(0x0080_0000);
+				FillRect(dc, &r, b);
+				DeleteObject(b);
+				SetTextColor(dc, 0x00FF_FFFF);
+			} else {
+				SetTextColor(dc, colour_of(app, s, &cfmt));
+			}
+			SetBkMode(dc, TRANSPARENT);
+			let mut at = 0;
+			for (ch, a) in run.iter().zip(adv.iter()).take(*n) {
+				TextOutA(dc, tx + x + at, base + shift, ch, 1);
+				at += *a;
+			}
+			SelectObject(dc, old);
+			*n = 0;
+			return;
+		}
 		if selected {
 			SetBkMode(dc, OPAQUE);
 			SetBkColor(dc, 0x0080_0000);
@@ -419,7 +450,16 @@ unsafe fn draw_line(
 			SetBkMode(dc, TRANSPARENT);
 			SetTextColor(dc, colour_of(app, s, &cfmt));
 		}
-		TextOutA(dc, tx + x, base + shift, run.as_ptr(), *n as i32);
+		ExtTextOutA(
+			dc,
+			tx + x,
+			base + shift,
+			0,
+			core::ptr::null(),
+			run.as_ptr(),
+			*n as u32,
+			adv.as_ptr(),
+		);
 		SelectObject(dc, old);
 		*n = 0;
 	};
@@ -431,7 +471,7 @@ unsafe fn draw_line(
 	quill_core::layout::walk_line(doc, s, &mut m, cx.kind, l, |p, c, x, w, leader, cf| {
 		let selected = sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
 		if c == 0x01 {
-			flush(&mut n, &run, run_x, run_cf, run_sel);
+			flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
 			if let Some((pw, ph)) = quill_core::layout::picture_size(doc, s, text, p, dpi, dpi) {
 				let idx = text.object_at(s, p).map_or(0, |v| v & 0xFFFF) as u16;
 				match pics {
@@ -440,14 +480,34 @@ unsafe fn draw_line(
 				}
 				return;
 			}
-			if let (Some(fv), Some(v)) = (cx.fields, text.object_at(s, p)) {
+			if let Some(kind) = text.object_at(s, p).map(|v| v >> 16).filter(|k| (1..=5).contains(k)) {
+				// A field shows its value where it will print (the body), and its name where it is edited (a header or footer).
 				let mut buf = [0u8; 32];
-				let n = app.field_text(v >> 16, cx.page, fv, &mut buf);
+				let n = match cx.fields {
+					Some(total) => app.field_text(kind, cx.page, total, &mut buf),
+					None => {
+						let name: &[u8] = match kind {
+							1 => b"[Page]",
+							2 => b"[Pages]",
+							3 => b"[Date]",
+							5 => b"[Time]",
+							_ => b"[File]",
+						};
+						buf.get_mut(..name.len()).unwrap_or(&mut []).copy_from_slice(name);
+						name.len()
+					}
+				};
 				if n > 0 {
 					let (fr, _, cfmt) = font_ref(doc, s, cf);
 					let old = SelectObject(dc, fhandle(&fr, 0));
-					SetBkMode(dc, TRANSPARENT);
-					SetTextColor(dc, colour_of(app, s, &cfmt));
+					if selected {
+						SetBkMode(dc, OPAQUE);
+						SetBkColor(dc, 0x0080_0000);
+						SetTextColor(dc, 0x00FF_FFFF);
+					} else {
+						SetBkMode(dc, TRANSPARENT);
+						SetTextColor(dc, colour_of(app, s, &cfmt));
+					}
 					TextOutA(dc, tx + x, base, buf.as_ptr(), n as i32);
 					SelectObject(dc, old);
 				}
@@ -455,7 +515,7 @@ unsafe fn draw_line(
 			}
 		}
 		if c == 0x09 || c == 0x01 {
-			flush(&mut n, &run, run_x, run_cf, run_sel);
+			flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
 			if c == 0x09 && w > 0 {
 				let (fr, _, cfmt) = font_ref(doc, s, cf);
 				let old = SelectObject(dc, fhandle(&fr, 0));
@@ -497,7 +557,7 @@ unsafe fn draw_line(
 			return;
 		}
 		if n > 0 && (cf != run_cf || selected != run_sel || n == run.len()) {
-			flush(&mut n, &run, run_x, run_cf, run_sel);
+			flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
 		}
 		if n == 0 {
 			run_x = x;
@@ -506,79 +566,115 @@ unsafe fn draw_line(
 		}
 		if let Some(slot) = run.get_mut(n) {
 			*slot = c;
+			if let Some(a) = adv.get_mut(n) {
+				*a = w;
+			}
 			n += 1;
 		}
 	});
-	flush(&mut n, &run, run_x, run_cf, run_sel);
+	flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
 }
 
-/// Paints the page view into the client rectangle `area` and returns how many lines fit.
+/// The number of sheets of paper the body takes on the screen.
+pub fn body_pages(app: &App<GdiMeasure>, s: &HeapStore) -> u32 {
+	let mut pages = 1;
+	app.for_each_line(s, |_, l| pages = pages.max(l.page));
+	pages
+}
+
+/// Fills a device rectangle with a colour.
+unsafe fn fill(dc: Handle, left: i32, top: i32, right: i32, bottom: i32, colour: u32) {
+	let r = Rect {
+		left,
+		top,
+		right,
+		bottom,
+	};
+	let b = CreateSolidBrush(colour);
+	FillRect(dc, &r, b);
+	DeleteObject(b);
+}
+
+/// Draws one sheet of paper in device pixels: a black edge, a shadow below and to the right, and the white page.
+unsafe fn paper_sheet(dc: Handle, left: i32, top: i32, w: i32, h: i32) {
+	fill(dc, left + 3, top + 3, left + w + 3, top + h + 3, 0x0040_4040);
+	fill(dc, left - 1, top - 1, left + w + 1, top + h + 1, 0);
+	fill(dc, left, top, left + w, top + h, 0x00FF_FFFF);
+}
+
+/// Sets the mapping from page units to pixels: `pct` percent, with page unit (0, 0) at device pixel (`x`, `y`).
+unsafe fn map_pages(dc: Handle, pct: i32, x: i32, y: i32) {
+	if pct == 100 {
+		SetMapMode(dc, 1);
+	} else {
+		SetMapMode(dc, 8);
+		SetWindowExtEx(dc, 100, 100, null_mut());
+		SetViewportExtEx(dc, pct, pct, null_mut());
+	}
+	SetViewportOrgEx(dc, x, y, null_mut());
+}
+
+/// Paints the page view into the client rectangle `area`, scrolled `hscroll` pixels sideways and `vpos` page units down, at `pct`
+/// percent. `mdc` is a device context with no mapping set, which character widths are asked of: under the zoom's mapping a font's widths
+/// come back in scaled, hinted units and no longer agree with the layout. Returns how many lines a screenful holds and how many sheets the document takes.
 ///
 /// # Safety
 /// `dc` must be a valid device context.
-pub unsafe fn paint_page(dc: Handle, area: Rect, app: &App<GdiMeasure>, s: &HeapStore, cache: &mut PicCache) -> usize {
+pub unsafe fn paint_page(
+	dc: Handle,
+	area: Rect,
+	hscroll: i32,
+	vpos: i32,
+	pct: i32,
+	app: &App<GdiMeasure>,
+	s: &HeapStore,
+	mdc: Handle,
+	cache: &mut PicCache,
+) -> (usize, u32) {
+	use crate::view::{dev, log, page_x0, paper, rel, stride};
 	// Nothing of the page may spill over the toolbar and ruler above it.
 	let saved = SaveDC(dc);
 	IntersectClipRect(dc, area.left, area.top, area.right, area.bottom);
 	let page = &app.doc().page;
-	let page_w = to_units(page.paper_w, 96);
-	let page_h = to_units(page.paper_h, 96);
+	let (page_w, page_h) = paper(app);
+	let stride = stride(app);
 	let margin_l = to_units(page.margin_l, 96);
 	let margin_t = to_units(page.margin_t, 96);
 	let client_w = area.right - area.left;
-	let x0 = area.left + ((client_w - page_w) / 2).max(PAD);
-	let desk = CreateSolidBrush(0x0080_8080);
-	FillRect(dc, &area, desk);
-	DeleteObject(desk);
-	let white = CreateSolidBrush(0x00FF_FFFF);
-
-	let cum = |l: &quill_core::layout::Line| (l.page as i32 - 1) * (page_h + PAGE_GAP) + margin_t + l.y;
-	// Where the first shown line sits decides the scroll offset.
-	let mut top_cum = 0;
-	let mut line_h = 16;
-	app.for_each_line(s, |i, l| {
-		if i == app.top_line() {
-			top_cum = cum(l);
-			line_h = (l.ascent + l.descent).max(8);
-		}
-	});
-	let off = top_cum - PAD;
-	// The pages that show.
-	let mut p = 0;
-	loop {
-		let top = p * (page_h + PAGE_GAP) - off + area.top;
-		if top > area.bottom || p > 200 {
+	let x0 = area.left + page_x0(client_w, dev(page_w, pct), hscroll);
+	fill(dc, area.left, area.top, area.right, area.bottom, 0x0080_8080);
+	let pages = body_pages(app, s);
+	let view_h = log(area.bottom - area.top, pct);
+	for p in 0..pages as i32 {
+		let top = rel(p * stride, vpos);
+		if top > view_h + 4 {
 			break;
 		}
-		if top + page_h > area.top {
-			let r = Rect {
-				left: x0,
-				top,
-				right: x0 + page_w,
-				bottom: top + page_h,
-			};
-			FillRect(dc, &r, white);
+		if top + page_h + 4 < 0 {
+			continue;
 		}
-		p += 1;
+		let (l, t) = (x0, area.top + dev(top, pct));
+		paper_sheet(dc, l, t, dev(page_w, pct), dev(top + page_h, pct) - dev(top, pct));
 	}
-	DeleteObject(white);
 
-	let tx = x0 + margin_l;
+	// Text and the caret are drawn in page units, relative to the first sheet's corner, under a mapping that scales them.
+	map_pages(dc, pct, x0, area.top);
+	let tx = margin_l;
 	SetTextAlign(dc, TA_BASELINE);
 	let sel = app.selection();
 	let mut counters: ListCounters = [[0; 9]; 4];
-	let mut fitted = 0usize;
 	let doc = app.doc();
-	app.for_each_line(s, |i, l| {
+	let fields = (app.story_view() == 0).then_some(pages);
+	let mut line_h = 16;
+	let cum = |l: &quill_core::layout::Line| (l.page as i32 - 1) * stride + margin_t + l.y;
+	app.for_each_line(s, |_, l| {
 		let label = line_label(app, s, l, &mut counters, 96);
-		if i < app.top_line() {
+		let y_top = rel(cum(l), vpos);
+		let h = (l.ascent + l.descent).max(1);
+		if y_top + h < -4 || y_top > view_h + 4 {
 			return;
 		}
-		let y_top = cum(l) - off + area.top;
-		if y_top > area.bottom {
-			return;
-		}
-		fitted += 1;
+		line_h = h.max(8);
 		draw_line(
 			dc,
 			&LineCtx {
@@ -588,9 +684,10 @@ pub unsafe fn paint_page(dc: Handle, area: Rect, app: &App<GdiMeasure>, s: &Heap
 				kind: StoryKind::Body,
 				dpi: 96,
 				sel,
-				mdc: dc,
+				mdc,
 				page: l.page,
-				fields: None,
+				fields,
+				per_char: pct != 100,
 			},
 			&mut Pics::Cache(cache),
 			l,
@@ -602,22 +699,18 @@ pub unsafe fn paint_page(dc: Handle, area: Rect, app: &App<GdiMeasure>, s: &Heap
 
 	// The caret.
 	if app.editing() {
-		if let Some((idx, l, x)) = app.caret_xy(s) {
-			if idx >= app.top_line() {
-				let y = cum(&l) - off + area.top;
-				let pen = CreatePen(0, 2, 0);
-				let old = SelectObject(dc, pen);
-				MoveToEx(dc, tx + x, y, null_mut());
-				LineTo(dc, tx + x, y + l.ascent + l.descent);
-				SelectObject(dc, old);
-				DeleteObject(pen);
-			}
+		if let Some((_, l, x)) = app.caret_xy(s) {
+			let y = rel(cum(&l), vpos);
+			let pen = CreatePen(0, 2, 0);
+			let old = SelectObject(dc, pen);
+			MoveToEx(dc, tx + x, y, null_mut());
+			LineTo(dc, tx + x, y + l.ascent + l.descent);
+			SelectObject(dc, old);
+			DeleteObject(pen);
 		}
 	}
 	RestoreDC(dc, saved);
-	(((area.bottom - area.top) / line_h.max(1)) as usize)
-		.max(fitted.min(1))
-		.max(1)
+	((view_h / line_h.max(1)).max(1) as usize, pages)
 }
 
 /// The laid-out body of a document for one device, and where on that device the page's top left corner is.
@@ -631,6 +724,8 @@ struct PageLayout<'a> {
 	offy: i32,
 	/// A device context to ask for widths.
 	mdc: Handle,
+	/// Whether the sheet is drawn scaled, so characters are placed one at a time.
+	per_char: bool,
 }
 
 /// Draws page `p`: the header, the footer and the body lines of the page, with the paper's top left at (`ox`, `oy`) in the units of `dc`.
@@ -695,6 +790,7 @@ unsafe fn draw_page(
 				mdc: pl.mdc,
 				page: p,
 				fields: Some(pages),
+				per_char: pl.per_char,
 			};
 			let label = line_label(app, s, l, &mut c, dpi);
 			draw_line(dc, &cx, &mut Pics::Banded(cache), l, label, tx, oy + top + l.y - pl.offy);
@@ -714,6 +810,7 @@ unsafe fn draw_page(
 			mdc: pl.mdc,
 			page: p,
 			fields: Some(pages),
+			per_char: pl.per_char,
 		};
 		draw_line(
 			dc,
@@ -746,7 +843,41 @@ pub fn preview_pages(
 	(lines, labels, pages)
 }
 
-/// Paints the print preview: one page, or two side by side, scaled to fit the area, from page `first`.
+/// How the print preview is showing: the first page, one or two across, fitted to the window or at actual size, and the scroll
+/// positions that matter at actual size.
+#[derive(Copy, Clone)]
+pub struct PreviewView {
+	pub first: u32,
+	pub two: bool,
+	pub actual: bool,
+	pub hscroll: i32,
+	pub vscroll: i32,
+}
+
+/// What painting the preview worked out: the page count, and the size of everything it shows in pixels (for the scroll bars).
+#[derive(Copy, Clone)]
+pub struct PreviewSize {
+	pub pages: u32,
+	pub w: i32,
+	pub h: i32,
+}
+
+/// The percentage the preview draws at for an area `aw` by `ah` pixels, and the size in pixels of the sheets at that scale.
+pub fn preview_scale(app: &App<GdiMeasure>, aw: i32, ah: i32, two: bool, actual: bool) -> (i32, i32, i32) {
+	let setup = app.doc().page;
+	let (pw, ph) = (to_units(setup.paper_w, 96), to_units(setup.paper_h, 96));
+	let n = if two { 2 } else { 1 };
+	let pct = if actual {
+		100
+	} else {
+		((aw - 16 * (n + 1)) * 100 / (pw * n))
+			.min((ah - 32) * 100 / ph)
+			.clamp(10, 200)
+	};
+	(pct, pw * pct / 100, ph * pct / 100)
+}
+
+/// Paints the print preview into `area`: one sheet, or two side by side, from `v.first`.
 ///
 /// # Safety
 /// `dc` must be a valid device context.
@@ -756,28 +887,29 @@ pub unsafe fn paint_preview(
 	app: &App<GdiMeasure>,
 	s: &HeapStore,
 	mdc: Handle,
-	first: u32,
-	two: bool,
+	v: &PreviewView,
 	cache: &mut PicCache,
-) -> u32 {
-	let desk = CreateSolidBrush(0x0080_8080);
-	FillRect(dc, &area, desk);
-	DeleteObject(desk);
-	let (lines, labels, pages) = preview_pages(app, s, mdc);
-	let setup = app.doc().page;
-	let (pw, ph) = (to_units(setup.paper_w, 96), to_units(setup.paper_h, 96));
-	let n = if two { 2 } else { 1 };
-	let (aw, ah) = (area.right - area.left - 16 * (n + 1), area.bottom - area.top - 32);
-	// The scale, in percent, that fits n pages across and one page down.
-	let pct = (aw * 100 / (pw * n)).min(ah * 100 / ph).clamp(10, 200);
-	let first = first.clamp(1, pages);
-	let used = pw * pct / 100 * n + 16 * (n - 1);
-	let left = area.left + ((area.right - area.left - used) / 2).max(8);
+) -> PreviewSize {
 	let saved = SaveDC(dc);
-	SetMapMode(dc, 8);
-	SetWindowExtEx(dc, 100, 100, null_mut());
-	SetViewportExtEx(dc, pct, pct, null_mut());
-	let white = CreateSolidBrush(0x00FF_FFFF);
+	IntersectClipRect(dc, area.left, area.top, area.right, area.bottom);
+	fill(dc, area.left, area.top, area.right, area.bottom, 0x0080_8080);
+	let (lines, labels, pages) = preview_pages(app, s, mdc);
+	let n = if v.two { 2 } else { 1 };
+	let (aw, ah) = (area.right - area.left, area.bottom - area.top);
+	let (pct, pwd, phd) = preview_scale(app, aw, ah, v.two, v.actual);
+	let content_w = 16 + n * pwd + (n - 1) * 16 + 16;
+	let content_h = phd + 32;
+	let first = v.first.clamp(1, pages);
+	let left = if content_w <= aw {
+		area.left + (aw - content_w) / 2 + 16
+	} else {
+		area.left + 16 - v.hscroll
+	};
+	let top = if content_h <= ah {
+		area.top + (ah - phd) / 2
+	} else {
+		area.top + 16 - v.vscroll
+	};
 	let mut pl = PageLayout {
 		lines: &lines,
 		labels: &labels,
@@ -786,28 +918,28 @@ pub unsafe fn paint_preview(
 		offx: 0,
 		offy: 0,
 		mdc,
+		per_char: pct != 100,
 	};
 	for k in 0..n {
 		let p = first + k as u32;
 		if p > pages {
 			break;
 		}
-		// Device pixels to the logical units of the page: the paper's corner.
-		let ox = (left - area.left + k * (pw * pct / 100 + 16)) * 100 / pct;
-		let oy = 16 * 100 / pct;
-		let paper = Rect {
-			left: ox,
-			top: oy,
-			right: ox + pw,
-			bottom: oy + ph,
-		};
-		FillRect(dc, &paper, white);
+		let l = left + k * (pwd + 16);
+		paper_sheet(dc, l, top, pwd, phd);
+		// The sheet's text, in page units, with the paper's corner at the origin.
+		map_pages(dc, pct, l, top);
 		SetTextAlign(dc, TA_BASELINE);
-		draw_page(dc, app, s, &mut pl, p, ox, oy, cache);
+		draw_page(dc, app, s, &mut pl, p, 0, 0, cache);
+		SetMapMode(dc, 1);
+		SetViewportOrgEx(dc, 0, 0, null_mut());
 	}
-	DeleteObject(white);
 	RestoreDC(dc, saved);
-	pages
+	PreviewSize {
+		pages,
+		w: content_w,
+		h: content_h,
+	}
 }
 
 /// Prints pages `from` to `to` (1-based, inclusive) of the document on the printer `pdc`, laid out for that printer. `output` names a
@@ -870,6 +1002,7 @@ pub unsafe fn print_document(
 		offx,
 		offy,
 		mdc: pdc,
+		per_char: false,
 	};
 	for p in from.max(1)..=to.min(pages) {
 		StartPage(pdc);

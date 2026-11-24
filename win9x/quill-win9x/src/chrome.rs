@@ -171,15 +171,44 @@ unsafe fn glyph(dc: Handle, k: i32, x: i32, y: i32) {
 	SetDIBitsToDevice(dc, x, y, 16, 15, k * 16, 0, 0, 15, STRIP.as_ptr().add(off), info, 0);
 }
 
-/// A raised or sunken three-dimensional button face.
-unsafe fn bevel(dc: Handle, x: i32, y: i32, w: i32, h: i32, down: bool) {
-	fill(dc, x, y, w, h, BLACK);
-	fill(dc, x + 1, y + 1, w - 2, h - 2, FACE);
-	let (tl, br) = if down { (SHADOW, WHITE) } else { (WHITE, SHADOW) };
-	fill(dc, x + 1, y + 1, w - 3, 1, tl);
-	fill(dc, x + 1, y + 1, 1, h - 3, tl);
-	fill(dc, x + 2, y + h - 2, w - 3, 1, br);
-	fill(dc, x + w - 2, y + 2, 1, h - 3, br);
+/// How a toolbar button looks.
+#[derive(Copy, Clone, PartialEq)]
+pub enum Face {
+	/// Flat: no border, the toolbar's own colour.
+	Flat,
+	/// Under the pointer: a thin raised bevel.
+	Raised,
+	/// Pressed, or switched on: a thin sunken bevel.
+	Down,
+}
+
+/// Light grey between white and the face, and the dark grey of a shadow: the Windows 95 toolbar uses these two pixels deep and no black.
+const LIGHT: u32 = 0x00DF_DFDF;
+const MID: u32 = 0x00A0_A0A0;
+
+/// Draws a button's face: flat until the pointer is over it, then a two-pixel raised bevel (white and light grey on the top and left,
+/// dark grey on the bottom and right); pressed or switched on, the same bevel sunken, with a lighter face for a switched-on toggle.
+unsafe fn button_face(dc: Handle, x: i32, y: i32, w: i32, h: i32, face: Face, lit: bool) {
+	let base = if face == Face::Down && lit { LIGHT } else { FACE };
+	fill(dc, x, y, w, h, base);
+	if face == Face::Flat {
+		return;
+	}
+	let (tl, tl2, br, br2) = if face == Face::Down {
+		(SHADOW, MID, WHITE, LIGHT)
+	} else {
+		(WHITE, LIGHT, SHADOW, MID)
+	};
+	// Outer ring.
+	fill(dc, x, y, w - 1, 1, tl);
+	fill(dc, x, y, 1, h - 1, tl);
+	fill(dc, x, y + h - 1, w, 1, br);
+	fill(dc, x + w - 1, y, 1, h, br);
+	// Inner ring.
+	fill(dc, x + 1, y + 1, w - 3, 1, tl2);
+	fill(dc, x + 1, y + 1, 1, h - 3, tl2);
+	fill(dc, x + 1, y + h - 2, w - 2, 1, br2);
+	fill(dc, x + w - 2, y + 1, 1, h - 2, br2);
 }
 
 /// Whether the toggle's property holds at the caret.
@@ -200,11 +229,19 @@ fn is_on(app: &App<GdiMeasure>, s: &HeapStore, t: Toggle) -> bool {
 	}
 }
 
-/// Paints the toolbar rows across `width` pixels at the top of the client area.
+/// Paints the toolbar rows across `width` pixels at the top of the client area. `hover` is the button the pointer is over, `pressed`
+/// the one the mouse button is down on.
 ///
 /// # Safety
 /// `dc` must be a valid device context.
-pub unsafe fn paint_toolbar(dc: Handle, width: i32, app: &App<GdiMeasure>, s: &HeapStore) {
+pub unsafe fn paint_toolbar(
+	dc: Handle,
+	width: i32,
+	app: &App<GdiMeasure>,
+	s: &HeapStore,
+	hover: Option<usize>,
+	pressed: Option<usize>,
+) {
 	let (h0, h1) = rows(app);
 	let lay = layout();
 	for (row, top, h) in [(0u8, 0, h0), (1u8, h0, h1)] {
@@ -214,10 +251,26 @@ pub unsafe fn paint_toolbar(dc: Handle, width: i32, app: &App<GdiMeasure>, s: &H
 		fill(dc, 0, top, width, TB_H, FACE);
 		fill(dc, 0, top + TB_H - 1, width, 1, SHADOW);
 		fill(dc, 0, top, width, 1, WHITE);
-		for b in lay.buttons.iter().filter(|b| b.row == row) {
-			let down = is_on(app, s, b.toggle);
-			bevel(dc, b.x, top + 2, BTN_W, BTN_H, down);
-			let off = i32::from(down);
+		let mut prev_end: Option<i32> = None;
+		for (i, b) in lay.buttons.iter().enumerate().filter(|(_, b)| b.row == row) {
+			// An etched line fills the gap between groups of buttons.
+			if let Some(e) = prev_end {
+				if b.x - e > 4 {
+					fill(dc, e + (b.x - e) / 2 - 1, top + 5, 1, TB_H - 10, SHADOW);
+					fill(dc, e + (b.x - e) / 2, top + 5, 1, TB_H - 10, WHITE);
+				}
+			}
+			prev_end = Some(b.x + BTN_W);
+			let on = is_on(app, s, b.toggle);
+			let face = if pressed == Some(i) || on {
+				Face::Down
+			} else if hover == Some(i) {
+				Face::Raised
+			} else {
+				Face::Flat
+			};
+			button_face(dc, b.x, top + 2, BTN_W, BTN_H, face, on);
+			let off = i32::from(face == Face::Down);
 			glyph(dc, b.glyph, b.x + 4 + off, top + 6 + off);
 			if b.act == Act::Colour {
 				// The colour button shows the text colour under the A.
@@ -234,6 +287,32 @@ pub unsafe fn paint_toolbar(dc: Handle, width: i32, app: &App<GdiMeasure>, s: &H
 			}
 		}
 	}
+}
+
+/// The index in the layout of the toolbar button at (`x`, `y`), and the top of its row.
+pub fn button_index(app: &App<GdiMeasure>, x: i32, y: i32) -> Option<(usize, i32)> {
+	let (b, top) = button_at(app, x, y)?;
+	layout()
+		.buttons
+		.iter()
+		.position(|c| c.row == b.row && c.x == b.x)
+		.map(|i| (i, top))
+}
+
+/// The rectangle of button `i`, in the client area, and the command it runs when it has one.
+pub fn button_rect(app: &App<GdiMeasure>, i: usize) -> Option<(Rect, Button)> {
+	let b = *layout().buttons.get(i)?;
+	let (h0, _) = rows(app);
+	let top = if b.row == 0 { 0 } else { h0 };
+	Some((
+		Rect {
+			left: b.x,
+			top: top + 2,
+			right: b.x + BTN_W,
+			bottom: top + 2 + BTN_H,
+		},
+		b,
+	))
 }
 
 /// Which toolbar button is at (`x`, `y`), and the top of its row.
@@ -408,8 +487,8 @@ impl Combos {
 	///
 	/// # Safety
 	/// The handles must be live.
-	pub unsafe fn show(&self, app: &App<GdiMeasure>) {
-		let on = app.show_format_bar();
+	pub unsafe fn show(&self, app: &App<GdiMeasure>, preview: bool) {
+		let on = app.show_format_bar() && !preview;
 		let lay = layout();
 		let top = rows(app).0 + 4;
 		for (h, x, w) in [
@@ -529,16 +608,54 @@ impl RulerState {
 	}
 }
 
-const TWIPS_PX: i32 = 15; // a pixel at 96 dots per inch is 15 twips
+/// Twips to pixels at `pct` percent, and back.
+pub fn px(twips: i32, pct: i32) -> i32 {
+	(i64::from(twips) * i64::from(pct) / 1500) as i32
+}
 
-/// The text width in pixels, and where the text's left edge is in the window.
-pub fn text_extent(app: &App<GdiMeasure>, client_w: i32) -> (i32, i32) {
+fn tw(pixels: i32, pct: i32) -> i32 {
+	(i64::from(pixels) * 1500 / i64::from(pct.max(1))) as i32
+}
+
+/// The text width in pixels, and where the text's left edge is in the window, with the page scrolled `hscroll` pixels, at `pct` percent.
+pub fn text_extent(app: &App<GdiMeasure>, client_w: i32, hscroll: i32, pct: i32) -> (i32, i32) {
+	use crate::view::{dev, page_x0, paper};
 	let page = &app.doc().page;
-	let page_w = quill_core::layout::to_units(page.paper_w, 96);
-	let x0 = ((client_w - page_w) / 2).max(8);
-	let left = x0 + quill_core::layout::to_units(page.margin_l, 96);
-	let w = quill_core::layout::to_units(page.paper_w - page.margin_l - page.margin_r, 96);
+	let x0 = page_x0(client_w, dev(paper(app).0, pct), hscroll);
+	let left = x0 + dev(quill_core::layout::to_units(page.margin_l, 96), pct);
+	let w = dev(
+		quill_core::layout::to_units(page.paper_w - page.margin_l - page.margin_r, 96),
+		pct,
+	);
 	(left, w)
+}
+
+/// A number that changes whenever anything the toolbars and the ruler show changes: the toggles, the colour, the indents and the tabs.
+/// A key press that leaves it alone needs no repaint of them.
+pub fn signature(app: &App<GdiMeasure>, s: &HeapStore) -> u64 {
+	let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+	let mut mix = |v: u64| {
+		h = (h ^ v).wrapping_mul(0x0000_0100_0000_01b3);
+	};
+	let (r0, r1) = rows(app);
+	mix(r0 as u64);
+	mix(r1 as u64);
+	mix(u64::from(app.show_ruler()));
+	for b in layout().buttons.iter() {
+		mix(u64::from(is_on(app, s, b.toggle)));
+	}
+	if let Some((r, g, b)) = app.char_state(s).colour {
+		mix(1 + u64::from(r) + (u64::from(g) << 8) + (u64::from(b) << 16));
+	}
+	let st = RulerState::of(app, s);
+	mix(st.left as u64);
+	mix(st.first as u64);
+	mix(st.right as u64);
+	for t in st.tabs.iter().take(st.ntabs) {
+		mix(t.0 as u64);
+		mix(u64::from(t.1));
+	}
+	h
 }
 
 unsafe fn triangle(dc: Handle, pts: [(i32, i32); 3], fill_colour: u32) {
@@ -588,7 +705,7 @@ unsafe fn tab_mark(dc: Handle, kind: u8, x: i32, y: i32) {
 ///
 /// # Safety
 /// `dc` must be a valid device context.
-pub unsafe fn paint_ruler(dc: Handle, top: i32, width: i32, text_left: i32, text_w: i32, st: &RulerState, kind: u8) {
+pub unsafe fn paint_ruler(dc: Handle, top: i32, width: i32, text_left: i32, text_w: i32, st: &RulerState, kind: u8, pct: i32) {
 	fill(dc, 0, top, width, RULER_H, FACE);
 	fill(dc, 0, top + RULER_H - 1, width, 1, SHADOW);
 	// The scale: white over the text width, grey in the margins.
@@ -600,8 +717,9 @@ pub unsafe fn paint_ruler(dc: Handle, top: i32, width: i32, text_left: i32, text
 	SetBkMode(dc, TRANSPARENT);
 	SetTextColor(dc, BLACK);
 	SetTextAlign(dc, 0);
-	for i in 0..=(text_w * 8 / 96) {
-		let x = text_left + i * 12;
+	// An eighth of an inch is 12 page units; the labels are inches.
+	for i in 0..=(crate::view::log(text_w, pct) * 8 / 96) {
+		let x = text_left + crate::view::dev(i * 12, pct);
 		let h = if i % 8 == 0 {
 			0
 		} else if i % 4 == 0 {
@@ -619,22 +737,22 @@ pub unsafe fn paint_ruler(dc: Handle, top: i32, width: i32, text_left: i32, text
 	SelectObject(dc, old);
 	// The tab stops, then the markers.
 	for (pos, k) in st.tabs.iter().take(st.ntabs) {
-		tab_mark(dc, *k, text_left + pos / TWIPS_PX, top + 14);
+		tab_mark(dc, *k, text_left + px(*pos, pct), top + 14);
 	}
-	let fx = text_left + st.first / TWIPS_PX;
+	let fx = text_left + px(st.first, pct);
 	triangle(dc, [(fx - 4, top + 1), (fx + 4, top + 1), (fx, top + 8)], WHITE);
-	let lx = text_left + st.left / TWIPS_PX;
+	let lx = text_left + px(st.left, pct);
 	triangle(dc, [(lx, top + 14), (lx - 4, top + 19), (lx + 4, top + 19)], WHITE);
 	fill(dc, lx - 4, top + 19, 9, 3, WHITE);
-	let rx = text_left + text_w - st.right / TWIPS_PX;
+	let rx = text_left + text_w - px(st.right, pct);
 	triangle(dc, [(rx, top + 14), (rx - 4, top + 19), (rx + 4, top + 19)], WHITE);
 	// The button that picks the kind of tab stop a click on the scale makes.
-	bevel(dc, 2, top + 2, 18, 18, false);
+	button_face(dc, 2, top + 2, 18, 18, Face::Raised, false);
 	tab_mark(dc, kind, 8 + i32::from(kind == 2) * 3, top + 14);
 }
 
 /// What is at (`x`, `y`) on the ruler whose top is at `top`.
-pub fn ruler_hit(x: i32, y: i32, top: i32, text_left: i32, text_w: i32, st: &RulerState) -> Option<Hit> {
+pub fn ruler_hit(x: i32, y: i32, top: i32, text_left: i32, text_w: i32, st: &RulerState, pct: i32) -> Option<Hit> {
 	let y = y - top;
 	if !(0..RULER_H).contains(&y) {
 		return None;
@@ -644,9 +762,9 @@ pub fn ruler_hit(x: i32, y: i32, top: i32, text_left: i32, text_w: i32, st: &Rul
 	}
 	let near = |a: i32, b: i32| (a - b).abs() <= 4;
 	let (fx, lx, rx) = (
-		text_left + st.first / TWIPS_PX,
-		text_left + st.left / TWIPS_PX,
-		text_left + text_w - st.right / TWIPS_PX,
+		text_left + px(st.first, pct),
+		text_left + px(st.left, pct),
+		text_left + text_w - px(st.right, pct),
 	);
 	if y < 9 && near(x, fx) {
 		return Some(Hit::First);
@@ -661,12 +779,12 @@ pub fn ruler_hit(x: i32, y: i32, top: i32, text_left: i32, text_w: i32, st: &Rul
 		return Some(Hit::Right);
 	}
 	for (pos, _) in st.tabs.iter().take(st.ntabs) {
-		if near(x, text_left + pos / TWIPS_PX) && y >= 8 {
+		if near(x, text_left + px(*pos, pct)) && y >= 8 {
 			return Some(Hit::Tab(*pos));
 		}
 	}
 	if x >= text_left && x <= text_left + text_w && (8..15).contains(&y) {
-		return Some(Hit::Scale((x - text_left) * TWIPS_PX));
+		return Some(Hit::Scale(tw(x - text_left, pct)));
 	}
 	None
 }
@@ -685,8 +803,9 @@ pub struct Drag {
 }
 
 /// Applies the pointer position `x` to a drag, as a preview.
-pub fn drag_to(d: &mut Drag, x: i32, text_left: i32, text_w: i32) {
-	let t = snap((x - text_left) * TWIPS_PX).clamp(0, text_w * TWIPS_PX);
+pub fn drag_to(d: &mut Drag, x: i32, text_left: i32, text_w: i32, pct: i32) {
+	let wide = tw(text_w, pct);
+	let t = snap(tw(x - text_left, pct)).clamp(0, wide);
 	match d.hit {
 		Hit::First => d.state.first = t,
 		Hit::Left => d.state.left = t,
@@ -695,7 +814,7 @@ pub fn drag_to(d: &mut Drag, x: i32, text_left: i32, text_w: i32) {
 			d.state.left = t;
 			d.state.first = (d.start.first + delta).max(0);
 		}
-		Hit::Right => d.state.right = snap(text_w * TWIPS_PX - (x - text_left) * TWIPS_PX).clamp(0, text_w * TWIPS_PX),
+		Hit::Right => d.state.right = snap(wide - tw(x - text_left, pct)).clamp(0, wide),
 		_ => {}
 	}
 }

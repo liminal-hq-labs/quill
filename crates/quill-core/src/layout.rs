@@ -404,7 +404,9 @@ where
 									pw
 								}
 								// A field is measured as two digits, so the layout does not move from page to page.
-								None => cache.width(slot, b'8') * 2,
+								None => {
+									cache.width(slot, b'8') * field_digits(text.object_at(s, p), rx)
+								}
 							}
 						} else {
 							cache.width(slot, c)
@@ -594,7 +596,10 @@ where
 				} else if c == 0x01 {
 					match picture_size(doc, s, text, p, rx, ry) {
 						Some((pw, _)) => (pw, 0),
-						None => (cache.width(slot, b'8') * 2, 0),
+						None => (
+							cache.width(slot, b'8') * field_digits(text.object_at(s, p), rx),
+							0,
+						),
 					}
 				} else {
 					(cache.width(slot, c), 0)
@@ -681,6 +686,21 @@ fn write_line<S: Store + ?Sized, W: core::fmt::Write>(
 		at += n as u32;
 	}
 	writeln!(w)
+}
+
+/// How many digits' width a field object takes in a line: two for a page number or count, so the layout does not move from page to
+/// page, and room for the longest a date, a file name or a time usually is.
+fn field_digits(object: Option<u32>, rx: u16) -> i32 {
+	// The text screen shows a field as a two-column mark.
+	if rx <= 10 {
+		return 2;
+	}
+	match object.map(|v| v >> 16) {
+		Some(3) => 10,
+		Some(4) => 12,
+		Some(5) => 8,
+		_ => 2,
+	}
 }
 
 /// The size in device units of the picture at `pos`, when the object there is one (kind 0).

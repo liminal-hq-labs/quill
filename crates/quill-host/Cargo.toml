@@ -18,5 +18,9 @@ quill-core = { path = "../quill-core" }
 quill-formats = { path = "../quill-formats" }
 quill-dict = { path = "../quill-dict" }
 
+[features]
+# Test the editor as the Win32 build is built: file names keep the case the file system returns.
+long-names = ["quill-app/long-names"]
+
 [dev-dependencies]
 proptest = { version = "1", default-features = false, features = ["std"] }

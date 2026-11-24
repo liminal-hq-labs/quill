@@ -117,12 +117,12 @@ Everything below describes the Windows builds; the DOS build follows it with the
 - The main window's title is `Quill - <FILE.EXT>`, with `(Untitled)` for a new document, in the style of Windows 3.1 Write. The Win16 build shows the file name in capitals as DOS stores it; the Win32 build shows the long name as the file system stores it.
 - Below the menu bar, top to bottom: the toolbar (a standard row), the formatting bar, the ruler, the editing view with a vertical scroll bar (and a horizontal one when the page is wider than the window), and the status bar. **View** menu items show or hide the toolbar, the formatting bar, the ruler and the status bar, each on its own, and tick when shown; the choices are remembered.
 - The editing view shows the page's text width with the left and right margins as white space. Automatic page breaks are a dotted line across the view; manual page breaks a dotted line with the words `Page break`. Headers and footers are not shown in the editing view (they are in the header view, print preview and print), as in Write.
-- The status bar shows `Page N of M`, `Ln N`, `Col N`, `OVR` in overtype mode, and the menu help line for the highlighted menu item while a menu is open.
+- The status bar shows `Page N of M`, `Ln N`, `Col N`, `OVR` in overtype mode, and the menu help line for the highlighted menu item while a menu is open. On the Windows 95 build it is the system's status bar (`msctls_statusbar32`, COMCTL32 4.00) with sunken panes and a size grip: the hint or message, the document, `Pg N Ln N Col N`, the font and size, and `OVR` and `Modified`; a pane's text is set only when it changes, and the page area ends above it (D105).
 - Only one document is open per window. Starting Quill again opens a second window with its own document (D16).
 
 ### Menus and accelerators
 
-Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis on items that open a dialog, check marks on toggles, unavailable items greyed out (Cut and Copy with no selection, Paste with nothing on the clipboard, Redo with nothing to redo).
+Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis on items that open a dialog, check marks on toggles, unavailable items greyed out (Cut and Copy with no selection, Paste with nothing on the clipboard, Redo with nothing to redo). A rule separates the groups of a menu, as in Windows 95 and Word 97: File holds New and Open, then Save and Save As, then Print, Print Preview and Print Setup, then the recent files, then Exit; Edit holds Undo and Redo, then Cut, Copy and Paste, then Select All; Character and Paragraph group their alignments, spacings and lists the same way. The DOS text menu draws the same rules (D98).
 
 | Menu | Item | Accelerator |
 |---|---|---|
@@ -145,7 +145,7 @@ Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis 
 | | Size Picture... | |
 | Insert | Page Break | Ctrl+Enter |
 | | Picture... | |
-| | Page Number, Page Count, Date, File Name | |
+| | Page Number, Page Count, Date, File Name, Time | |
 | Find | Find... | Ctrl+F |
 | | Find Next | F3 |
 | | Replace... | Ctrl+H |
@@ -176,11 +176,11 @@ Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis 
 | | How to Use Help | |
 | | About Quill... | |
 
-The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Redo Paste`. Character and Paragraph items show a check mark when the whole selection has that property. Reduce Font and Enlarge Font step through 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48 and 72 points. The Insert field items are available only in the header and footer views. F1 in a dialog opens that dialog's help topic; F1 with a menu item highlighted opens that command's topic.
+The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Redo Paste`. Character and Paragraph items show a check mark when the whole selection has that property. Reduce Font and Enlarge Font step through 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48 and 72 points. The Insert field items put a field at the caret in the body, a header or a footer: the page number and the page count show their value on the page, in print preview and in print, and `[Page]` and `[Pages]` in the header and footer views (D98). Date and Time show the system's short date and its time without seconds (D104). F1 in a dialog opens that dialog's help topic; F1 with a menu item highlighted opens that command's topic.
 
 ### Toolbar and ruler
 
-- The toolbar is two rows of 24-pixel buttons, as in Word 6, so a 640 by 480 screen keeps a usable page under them and the ruler (about 350 pixels of page with the title bar, menu bar, both rows, the ruler and the status bar showing). The **standard bar** holds, left to right: New, Open, Save, Print, Print Preview; Cut, Copy, Paste; Undo, Redo; Spelling. The **formatting bar** holds: a paragraph style drop-down, a font name drop-down and a font size drop-down; Bold, Italic, Underline; a colour button with a 16-colour drop-down; Left, Centred, Right, Justified; Bullets, Numbering. Buttons are drawn in the Windows 3.1 grey three-dimensional style; toggles show pressed when the selection has the property and show neither state when it is mixed.
+- The toolbar is two rows of 24-pixel buttons, as in Word 6, so a 640 by 480 screen keeps a usable page under them and the ruler (about 350 pixels of page with the title bar, menu bar, both rows, the ruler and the status bar showing). The **standard bar** holds, left to right: New, Open, Save, Print, Print Preview; Cut, Copy, Paste; Undo, Redo; Spelling. The **formatting bar** holds: a paragraph style drop-down, a font name drop-down and a font size drop-down; Bold, Italic, Underline; a colour button with a 16-colour drop-down; Left, Centred, Right, Justified; Bullets, Numbering. On the Windows 95 build the buttons are flat until the pointer is over them, then show a thin two-pixel raised bevel (white and light grey on the top and left, dark grey on the bottom and right, no black); a pressed button and a toggle that the selection has show the same bevel sunken, a toggle on a lighter face; groups of buttons are set apart by an etched line. Earlier builds draw the Windows 3.1 grey three-dimensional style. Toggles show neither state when the selection is mixed. **Tooltips** name each button and each drop-down box (`New`, `Open`, `Save`, `Print`, `Print Preview`, `Cut`, `Copy`, `Paste`, `Undo`, `Redo`, `Spelling`, `Style`, `Font`, `Font Size`, `Bold`, `Italic`, `Underline`, `Font Colour`, `Align Left`, `Centre`, `Align Right`, `Justify`, `Bullets`, `Numbering`), and the status line shows a sentence about it while the pointer is there; the same sentence shows for a highlighted menu item (D100).
 - The **style box** is not a style sheet. It offers eight built-in presets (Normal, Heading 1, Heading 2, Heading 3, Title, Quote, List Paragraph, Hanging Indent), each a fixed set of direct paragraph formatting (alignment, indents, space before and after) and character formatting (size, and bold, italic and underline) applied to the paragraphs the selection touches, in one undo step; tab stops, face and colour stay. The box shows a preset's name while the paragraph at the caret matches it exactly and is blank after any other change. Presets are not stored in the file: RTF carries only the resulting formatting, and `\stylesheet` stays skipped on reading and is not written (D85).
 - The font name box lists the fonts on the display and the current printer, TrueType first. A name that is not installed is kept in the document; Windows substitutes a similar font for display and printing. The size box accepts any whole number from 4 to 144.
 - The ruler shows the text width in the current units, the first-line indent (upper triangle), the left indent (lower triangle with a box that moves both), the right indent, and the paragraph's tab stops as `L`, `C`, `R` and `D` marks. Clicking the ruler's tab-kind button cycles the kind; clicking the scale adds a stop of that kind; dragging a stop moves it; dragging it off the ruler removes it. Each drag is one undo step. Default stops (every half inch, 1.25 cm in metric) show as ticks after the last set stop.
@@ -188,10 +188,10 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 ### Caret and selection
 
 - The caret sits between characters. A selection is a range of characters shown in the system highlight colours, kept unhighlighted while focus is elsewhere. A picture counts as one character.
-- **Mouse.** Click places the caret. Drag selects; dragging past the view's edge scrolls. Shift+click extends the selection. Double-click selects a word and its trailing spaces; double-click and drag extends by words. Clicking a picture selects it and shows its frame.
+- **Mouse.** Click places the caret. Drag selects; dragging past the view's edge scrolls. Shift+click extends the selection. Double-click selects a word and its trailing spaces; double-click and drag extends by words. Triple-click selects the paragraph. A click in the white space left of the text selects the line, and a double-click there the paragraph (D99). Clicking a picture selects it and shows its frame.
 - **Drag and drop.** Pressing on a selection and dragging shows a dotted insertion caret; releasing moves the selection there, or copies it with Ctrl held. Escape during the drag cancels. Dropping inside the selection does nothing. A move is one undo step.
 - **Keyboard.** Arrows move by character and line; Ctrl+Left and Ctrl+Right by word; Home and End to the line's ends; Ctrl+Up and Ctrl+Down by paragraph; Page Up and Page Down by a window; Ctrl+Home and Ctrl+End to the document's ends. Shift with any movement extends the selection. Up and Down keep the caret's horizontal position across short lines.
-- **Typing** replaces the selection. Enter ends a paragraph (and continues a list), Enter on an empty list paragraph ends the list, Shift+Enter breaks the line inside the paragraph, Tab inserts a tab (in an empty list paragraph, it increases the level), Backspace and Delete remove a character or the selection, Ctrl+Backspace and Ctrl+Delete remove a word. New text takes the format of the character before the caret, unless a format was chosen since the caret last moved.
+- **Typing** replaces the selection. Enter ends a paragraph (and continues a list), Enter on an empty list paragraph ends the list, Shift+Enter breaks the line inside the paragraph, Tab inserts a tab (in an empty list paragraph, it increases the level), Backspace and Delete remove a character or the selection; Backspace at the start of a bullet or numbered paragraph takes it out of the list (no bullet, no hanging indent) and does nothing else, and Backspace at the start of any other paragraph, or Delete at the end of one, joins it to its neighbour, which keeps the format of the paragraph that comes first unless that one is empty (D98), Ctrl+Backspace and Ctrl+Delete remove a word. New text takes the format of the character before the caret, unless a format was chosen since the caret last moved.
 - **Overtype.** The Insert key toggles overtype, shown as `OVR`. In overtype, a typed character replaces the one after the caret, except a paragraph mark, which it never replaces. Undo restores the replaced characters.
 
 ### Character formatting
@@ -234,7 +234,9 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 - Changing the printer, the paper or the margins lays the whole document out again; the caret stays on the same character.
 - **Build note (D81).** In the Windows 9x build the page view and the preview use the screen's 96 dpi layout and printing lays the document out again at the printer's resolution, so a line can break differently on paper than on screen; Print Preview is keyboard-driven with a status line (PgUp, PgDn, T for one or two pages, P to print, Esc).
 - The view scrolls to keep the caret visible after every edit and caret movement.
-- **Zoom** (stretch): **Document > Zoom...** offers 50, 75, 100, 150 and 200 percent and `Page width`; it changes only the view.
+- **Window size (Windows 9x build, D97).** The window asks for room for the 8.5 inch page at 96 dpi and opens in the middle of the work area (the screen less the taskbar); on a screen too small for that, such as 640 by 480 or 800 by 600, it opens maximised. Every part of the window is drawn off screen and copied to it in one step, and a key press repaints the page and the status line only, so typing does not flicker.
+- **Zoom** (D99). **View > Zoom** offers Page Width, 150, 100, 75 and 50 percent (25 to 200 are kept); it changes only the view and is remembered in `QUILL.INI`. The default, Page Width, is the largest zoom up to 100 percent at which the page fits the window with a little desk either side, so a normal page needs no horizontal scroll bar at 640 by 480 (about 70 percent there). The page and the ruler are centred when the page fits and otherwise sit at the left edge with a horizontal scroll bar; the ruler follows the zoom and the page.
+- **Scrolling.** The view has a vertical scroll bar. The wheel scrolls three lines a notch (`WM_MOUSEWHEEL` on Windows 98, Me and NT; on Windows 95 the registered message `MSWHEEL_ROLLMSG` that the IntelliPoint driver sends to the window with the focus). Page Up and Page Down move the caret and the view by a screenful, the view moving by a screenful when the caret cannot; Ctrl+Home and Ctrl+End go to the ends of the document; typing and movement scroll to keep the caret in view with a little room around it. The view can scroll until the bottom of the last page is in the middle of the window, so the end of the document is never against the window's edge. Each page is a sheet with an edge and a shadow, and the desk shows between sheets: the print layout view of Word, so an automatic page break is the gap between two sheets, and a manual one starts the next sheet.
 
 ### Spelling
 
@@ -260,7 +262,8 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 - **Save** writes the format the document was opened in, or `.QLD` for a new one. Saving as text asks first: `Saving in text format will remove all formatting, pictures, headers and footers. Save anyway?`.
 - Saving writes a temporary file in the same directory, then replaces the original, so a failed save leaves the original untouched and says why: `Quill cannot save LETTER.QLD: the disk is full.`.
 - Closing, New, Open, opening a recent file and Exit ask `Save changes to LETTER.QLD?` with Yes, No and Cancel when there are unsaved changes.
-- The recent-file list holds the last four files, most recent first. A missing file is removed from the list with a message when chosen.
+- The recent-file list holds the last four files, most recent first, each once; Open and Save As add to it. On the Windows 95 build it shows in the File menu between Print Setup and Exit, set off by rules, as `1 D:\LETTER.QLD` with the digit as the mnemonic and a long path shortened in the middle (`D:\...\Letters\LETTER.QLD`). Choosing one asks about unsaved changes first. A missing file is removed from the list with the message `Quill cannot find D:\LETTER.QLD.` (D101).
+- **Save As** starts with the document's own file name, in the folder of the last file dialog and the type that matches its extension; a document with no name starts empty with the default extension `QLD`. Changing `Save as type` keeps the name and swaps only the extension (`LETTER.QLD` to `LETTER.RTF`) on the Windows 95 build, whose Explorer-style dialog reports the change to a hook (D101).
 - A file Quill cannot read says why (`LETTER.RTF is not a document Quill can read.` or `...is too large for Quill.`) and leaves the current document open.
 - `QUILL.EXE LETTER.RTF` opens the file; `QUILL.EXE /P LETTER.RTF` prints it on the default printer and exits, as File Manager's Print command expects.
 
@@ -285,7 +288,7 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 - **Print...** opens the common print dialog for copies, page range (all, selection or pages) and printer. Printing shows `Printing LETTER.QLD on HP LaserJet III on LPT1:` with Cancel, which stops between pages.
 - **Print Setup...** opens the print dialog's setup page; changing the printer or paper lays the document out again.
 - **Page Layout...** sets the margins (default 1.25 inch left and right, 1 inch top and bottom), the header and footer distances (default 0.5 inch), the starting page number and the measurement units.
-- **Print Preview** replaces the view with one or two whole pages, headers and footers included, with Print, Next Page, Previous Page, One Page/Two Pages and Close. Page Up and Page Down change pages; Escape closes.
+- **Print Preview** replaces the view with one or two whole pages, headers and footers included, under a bar of push buttons, each with a tooltip and a status line sentence: Print, Next Page, Previous Page, Two Pages (One Page while two show), Zoom (the whole page, or its actual size with scroll bars) and Close. The toolbars and the drop-down boxes are hidden while it shows. Page Up and Page Down change pages; Escape and Close leave it, and the page view comes back with the scroll position and centring it had (D100).
 
 ### Help
 
@@ -473,7 +476,7 @@ Quill's help is written in `.qhm` files (Quill help markup, a small Markdown dia
 
 ### Settings file
 
-Settings live in `QUILL.INI` in the Windows directory (both Windows builds share it) or, for the DOS build, beside `QUILLDOS.EXE`. It is read at start and written when a setting changes. The Win32 build keeps its recent files in `[Recent32]`, because they may be long names the Win16 build cannot open.
+Settings live in `QUILL.INI` in the Windows directory (both Windows builds share it) or, for the DOS build, beside `QUILLDOS.EXE`. It is read at start and written when a setting changes. The Win32 build reads and writes its settings one key at a time through the profile functions, so what other builds keep in the same file is left alone, and keeps its recent files in `[Recent32]`, because they may be long names the Win16 build cannot open.
 
 ## Settings and defaults
 
@@ -487,7 +490,7 @@ Settings live in `QUILL.INI` in the Windows directory (both Windows builds share
 | `[Quill] Margins` | `1800 1800 1440 1440` | Left, right, top, bottom margins for new documents, in twips (0–14400 each, leaving at least one inch of text width) |
 | `[Quill] Backup` | `0` | When `1`, Save keeps the previous file as `<name>.BAK` |
 | `[Quill] PictureMemory` | `1024` (Win16), `16384` (Win32), `4096` (DOS) | Most memory, in KB, decoded pictures may hold at once (256–65536) |
-| `[Quill] Zoom` | `100` | Zoom percentage (stretch) |
+| `[Quill] Zoom` | `Width` | Zoom: `Width` (the page fits the window, never larger than 100 percent) or a percentage from 25 to 200 |
 | `[Spelling] Language` | `en-CA` | `en-CA`, `en-US` or `en-GB` |
 | `[Spelling] AsYouType` | `0` (Win16), `1` (others) | Check spelling as you type |
 | `[Spelling] IgnoreCaps` | `1` | Skip words in all capitals |

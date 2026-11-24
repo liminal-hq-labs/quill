@@ -29,8 +29,41 @@ pub const FW_BOLD: i32 = 700;
 pub const WM_COMMAND: u32 = 0x0111;
 pub const WM_ERASEBKGND: u32 = 0x0014;
 pub const WS_OVERLAPPEDWINDOW: u32 = 0x00CF_0000;
+pub const WS_HSCROLL: u32 = 0x0010_0000;
+pub const WS_MAXIMIZE: u32 = 0x0100_0000;
+pub const WS_CLIPCHILDREN: u32 = 0x0200_0000;
+pub const WM_SIZE: u32 = 0x0005;
+pub const WM_HSCROLL: u32 = 0x0114;
+pub const SIZE_MINIMIZED: usize = 1;
+pub const SB_HORZ: i32 = 0;
+pub const SB_VERT: i32 = 1;
+pub const SB_LINEUP: usize = 0;
+pub const SB_LINEDOWN: usize = 1;
+pub const SB_PAGEUP: usize = 2;
+pub const SB_PAGEDOWN: usize = 3;
+pub const SB_TOP: usize = 6;
+pub const SB_BOTTOM: usize = 7;
+pub const WS_VSCROLL: u32 = 0x0020_0000;
+pub const VK_MENU: i32 = 0x12;
+pub const MF_BYPOSITION: u32 = 0x400;
+pub const MF_BYCOMMAND: u32 = 0;
+pub const IDC_IBEAM: usize = 32513;
+pub const SB_LINELEFT: usize = 0;
+pub const SB_LINERIGHT: usize = 1;
+pub const SB_PAGELEFT: usize = 2;
+pub const SB_PAGERIGHT: usize = 3;
+pub const SB_THUMBPOSITION: usize = 4;
+pub const SB_THUMBTRACK: usize = 5;
+pub const SB_LEFT: usize = 6;
+pub const SB_RIGHT: usize = 7;
+pub const SIF_ALL: u32 = 0x17;
+pub const SPI_GETWORKAREA: u32 = 48;
+pub const SM_CXSCREEN: i32 = 0;
+pub const SM_CYSCREEN: i32 = 1;
+pub const SRCCOPY: u32 = 0x00CC_0020;
 pub const MF_STRING: u32 = 0;
 pub const MF_POPUP: u32 = 0x10;
+pub const MF_SEPARATOR: u32 = 0x800;
 pub const VK_SHIFT: i32 = 0x10;
 pub const VK_CONTROL: i32 = 0x11;
 pub const GENERIC_READ: u32 = 0x8000_0000;
@@ -77,6 +110,18 @@ pub struct Rect {
 	pub top: i32,
 	pub right: i32,
 	pub bottom: i32,
+}
+
+/// What `SetScrollInfo` is told about a scroll bar.
+#[repr(C)]
+pub struct ScrollInfo {
+	pub size: u32,
+	pub mask: u32,
+	pub min: i32,
+	pub max: i32,
+	pub page: u32,
+	pub pos: i32,
+	pub track_pos: i32,
 }
 
 #[repr(C)]
@@ -136,6 +181,18 @@ extern "system" {
 	pub fn ReadFile(file: Handle, buf: *mut u8, len: u32, read: *mut u32, overlapped: *mut c_void) -> i32;
 	pub fn WriteFile(file: Handle, buf: *const u8, len: u32, written: *mut u32, overlapped: *mut c_void) -> i32;
 	pub fn CloseHandle(h: Handle) -> i32;
+	pub fn GetTickCount() -> u32;
+	pub fn GetDateFormatA(locale: u32, flags: u32, time: *const u8, format: *const u8, out: *mut u8, size: i32) -> i32;
+	pub fn GetTimeFormatA(locale: u32, flags: u32, time: *const u8, format: *const u8, out: *mut u8, size: i32) -> i32;
+	pub fn GetPrivateProfileStringA(
+		section: *const u8,
+		key: *const u8,
+		default: *const u8,
+		out: *mut u8,
+		size: u32,
+		file: *const u8,
+	) -> u32;
+	pub fn WritePrivateProfileStringA(section: *const u8, key: *const u8, value: *const u8, file: *const u8) -> i32;
 }
 
 #[link(name = "user32", kind = "raw-dylib", import_name_type = "undecorated")]
@@ -208,6 +265,27 @@ extern "system" {
 	pub fn AppendMenuA(menu: Handle, flags: u32, id: usize, item: *const u8) -> i32;
 	pub fn SetWindowTextA(hwnd: Handle, text: *const u8) -> i32;
 	pub fn ReleaseDC(hwnd: Handle, dc: Handle) -> i32;
+	pub fn SystemParametersInfoA(action: u32, param: u32, data: *mut c_void, update: u32) -> i32;
+	pub fn GetSystemMetrics(index: i32) -> i32;
+	pub fn SetScrollInfo(hwnd: Handle, bar: i32, info: *const ScrollInfo, redraw: i32) -> i32;
+	pub fn GetCursorPos(p: *mut Point) -> i32;
+	pub fn KillTimer(hwnd: Handle, id: usize) -> i32;
+	pub fn GetParent(hwnd: Handle) -> Handle;
+	pub fn RegisterWindowMessageA(name: *const u8) -> u32;
+	pub fn GetSubMenu(menu: Handle, pos: i32) -> Handle;
+	pub fn GetMenuItemCount(menu: Handle) -> i32;
+	pub fn InsertMenuA(menu: Handle, pos: u32, flags: u32, id: usize, item: *const u8) -> i32;
+	pub fn DeleteMenu(menu: Handle, pos: u32, flags: u32) -> i32;
+	pub fn UpdateWindow(hwnd: Handle) -> i32;
+	pub fn SetCursor(cursor: Handle) -> Handle;
+	pub fn GetDoubleClickTime() -> u32;
+	pub fn EnableWindow(hwnd: Handle, enable: i32) -> i32;
+}
+
+#[link(name = "comctl32", kind = "raw-dylib", import_name_type = "undecorated")]
+extern "system" {
+	/// Registers the common controls' window classes; comctl32 4.00, the version Windows 95 shipped, has it.
+	pub fn InitCommonControls();
 }
 
 /// What `GlobalMemoryStatus` fills in.
@@ -259,11 +337,15 @@ extern "system" {
 		proc_: unsafe extern "system" fn(*const u8, *const u8, u32, isize) -> i32,
 		lparam: isize,
 	) -> i32;
+	pub fn CreateCompatibleDC(dc: Handle) -> Handle;
+	pub fn CreateCompatibleBitmap(dc: Handle, w: i32, h: i32) -> Handle;
+	pub fn BitBlt(dest: Handle, x: i32, y: i32, w: i32, h: i32, src: Handle, sx: i32, sy: i32, rop: u32) -> i32;
 	pub fn SaveDC(dc: Handle) -> i32;
 	pub fn RestoreDC(dc: Handle, saved: i32) -> i32;
 	pub fn SetMapMode(dc: Handle, mode: i32) -> i32;
 	pub fn SetWindowExtEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
 	pub fn SetViewportExtEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
+	pub fn SetViewportOrgEx(dc: Handle, x: i32, y: i32, old: *mut Point) -> i32;
 	pub fn GetDeviceCaps(dc: Handle, index: i32) -> i32;
 	pub fn DeleteDC(dc: Handle) -> i32;
 	pub fn StartDocA(dc: Handle, info: *const DocInfoA) -> i32;
