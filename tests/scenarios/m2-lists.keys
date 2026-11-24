@@ -5,5 +5,5 @@ pagedown
 f10 right right right right right down down down down enter   # Paragraph > Bullets
 end enter enter                                    # a new bullet, then Enter on the empty one ends the list
 x
-f10 down down down down down down down enter
+f10 down down down down down enter
 n

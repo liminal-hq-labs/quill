@@ -4,4 +4,4 @@
 @open LETTER.RTF
 f10 down down down down enter          # File > Print...
 o u t period p r n enter
-f10 down down down down down down down enter     # File > Exit
+f10 down down down down down enter     # File > Exit

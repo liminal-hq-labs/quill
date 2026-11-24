@@ -14,5 +14,5 @@ home f8 right right right right
 f10 right down down enter                                                  # Edit > Cut
 end f10 right down down down down enter                                    # Edit > Paste
 f10 right enter                                                            # Edit > Undo
-f10 down down down down down down down enter
+f10 down down down down down enter
 n
