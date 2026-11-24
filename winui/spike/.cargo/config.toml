@@ -1,0 +1,7 @@
+# Links the C runtime statically, so the zip needs no Visual C++ redistributable on the target.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
