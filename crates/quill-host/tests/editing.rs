@@ -599,14 +599,14 @@ fn menus_group_their_items_with_rules_and_never_start_or_end_with_one() {
 	}
 	let file = quill_app::menu_items(0);
 	let rules: Vec<&str> = file.iter().filter(|i| i.rule).map(|i| i.label).collect();
-	assert_eq!(rules, ["Save", "Print...", "Exit"]);
+	assert_eq!(rules, ["&Save", "&Print...", "E&xit"]);
 	let view = quill_app::menu_items(7);
 	let zoom = view
 		.iter()
-		.find(|i| i.label == "Zoom")
+		.find(|i| i.label == "&Zoom")
 		.expect("a Zoom item in View");
 	let labels: Vec<&str> = zoom.sub.iter().map(|i| i.label).collect();
-	assert_eq!(labels, ["Page Width", "150%", "100%", "75%", "50%"]);
+	assert_eq!(labels, ["&Page Width", "&150%", "1&00%", "&75%", "&50%"]);
 }
 
 #[test]

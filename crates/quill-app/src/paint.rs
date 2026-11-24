@@ -16,23 +16,56 @@ pub const TEXT_ROWS: usize = 23;
 /// Menus on the bar.
 pub const MENU_COUNT: u8 = 9;
 
-const MENU_BAR: &[u8] = b" File  Edit  Insert  Find  Character  Paragraph  Document  Help";
-const MENU_COLS: [usize; 8] = [1, 7, 13, 21, 27, 38, 49, 59];
-/// The title of menu `menu`.
+/// The column each menu's title starts at on the DOS menu bar.
+const MENU_COLS: [usize; 9] = [1, 7, 13, 21, 27, 38, 49, 59, 65];
+/// The attribute of a mnemonic letter on an unselected menu entry, and on the selected one.
+const HOT: u8 = 0x74;
+const HOT_SELECTED: u8 = 0x0E;
+
+/// The mnemonic of a label written with an `&` before the letter, as the lower-case letter or digit.
+pub fn mnemonic(label: &str) -> Option<u8> {
+	let mut it = label.bytes();
+	while let Some(b) = it.next() {
+		if b == b'&' {
+			return it.next().map(|c| c.to_ascii_lowercase());
+		}
+	}
+	None
+}
+
+/// The menu whose title has the mnemonic `c` (a lower-case letter).
+pub fn menu_for_mnemonic(c: u8) -> Option<u8> {
+	(0..MENU_COUNT).find(|m| {
+		mnemonic(core::str::from_utf8(menu_title(*m)).unwrap_or("")) == Some(c)
+			&& !menu_items(*m).is_empty()
+	})
+}
+
+/// The item of menu `menu` whose mnemonic is `c`, counting the recent files of File (1 to 4) after its own items.
+pub fn item_for_mnemonic(menu: u8, c: u8, recents: usize, text: bool) -> Option<usize> {
+	let items = menu_items_for(menu, text);
+	if let Some(i) = items.iter().position(|it| mnemonic(it.label) == Some(c)) {
+		return Some(i);
+	}
+	let n = usize::from(c.wrapping_sub(b'1'));
+	(menu == 0 && n < recents).then(|| items.len() + n)
+}
+
+/// The title of menu `menu`, with `&` before its mnemonic.
 pub fn menu_title(menu: u8) -> &'static [u8] {
 	MENU_TITLES.get(usize::from(menu)).copied().unwrap_or(b"")
 }
 
 const MENU_TITLES: [&[u8]; 9] = [
-	b"File",
-	b"Edit",
-	b"Insert",
-	b"Find",
-	b"Character",
-	b"Paragraph",
-	b"Document",
-	b"View",
-	b"Help",
+	b"&File",
+	b"&Edit",
+	b"&Insert",
+	b"Fi&nd",
+	b"&Character",
+	b"&Paragraph",
+	b"&Document",
+	b"&View",
+	b"&Help",
 ];
 const SELECTED: u8 = 0x07;
 
@@ -78,86 +111,106 @@ const fn submenu(label: &'static str, command: Command, sub: &'static [Item]) ->
 }
 
 const ZOOM: [Item; 5] = [
-	item("Page Width", "", Command::Zoom(0)),
-	item("150%", "", Command::Zoom(150)),
-	item("100%", "", Command::Zoom(100)),
-	item("75%", "", Command::Zoom(75)),
-	item("50%", "", Command::Zoom(50)),
+	item("&Page Width", "", Command::Zoom(0)),
+	item("&150%", "", Command::Zoom(150)),
+	item("1&00%", "", Command::Zoom(100)),
+	item("&75%", "", Command::Zoom(75)),
+	item("&50%", "", Command::Zoom(50)),
 ];
 const FIND: [Item; 4] = [
-	item("Find...", "Ctrl+F", Command::Find),
-	item("Find Next", "F3", Command::FindNext),
-	item("Replace...", "Ctrl+H", Command::Replace),
-	rule(item("Spelling...", "F7", Command::Spelling)),
+	item("&Find...", "Ctrl+F", Command::Find),
+	item("Find &Next", "F3", Command::FindNext),
+	item("&Replace...", "Ctrl+H", Command::Replace),
+	rule(item("&Spelling...", "F7", Command::Spelling)),
 ];
 const INSERT: [Item; 5] = [
-	item("Picture...", "", Command::Picture),
-	rule(item("Page Number", "", Command::Field(1))),
-	item("Page Count", "", Command::Field(2)),
-	item("Date", "", Command::Field(3)),
-	item("File Name", "", Command::Field(4)),
+	item("&Picture...", "", Command::Picture),
+	rule(item("Page &Number", "", Command::Field(1))),
+	item("Page &Count", "", Command::Field(2)),
+	item("&Date", "", Command::Field(3)),
+	item("&File Name", "", Command::Field(4)),
 ];
 const DOCUMENT: [Item; 6] = [
-	item("Header", "", Command::View(1)),
-	item("Footer", "", Command::View(2)),
-	item("First Page Header", "", Command::View(3)),
-	item("First Page Footer", "", Command::View(4)),
-	item("Different First Page", "", Command::FirstPage),
-	rule(item("Return to Document", "", Command::View(0))),
+	item("&Header", "", Command::View(1)),
+	item("&Footer", "", Command::View(2)),
+	item("Fir&st Page Header", "", Command::View(3)),
+	item("First &Page Footer", "", Command::View(4)),
+	item("&Different First Page", "", Command::FirstPage),
+	rule(item("&Return to Document", "", Command::View(0))),
 ];
 const VIEW: [Item; 5] = [
-	item("Toolbar", "", Command::Chrome(1)),
-	item("Formatting Bar", "", Command::Chrome(8)),
-	item("Ruler", "", Command::Chrome(2)),
-	item("Status Bar", "", Command::Chrome(4)),
-	rule(submenu("Zoom", Command::Zoom(0), &ZOOM)),
+	item("&Toolbar", "", Command::Chrome(1)),
+	item("&Formatting Bar", "", Command::Chrome(8)),
+	item("&Ruler", "", Command::Chrome(2)),
+	item("&Status Bar", "", Command::Chrome(4)),
+	rule(submenu("&Zoom", Command::Zoom(0), &ZOOM)),
 ];
 const HELP: [Item; 2] = [
-	item("Contents", "F1", Command::Help),
-	item("About Quill...", "", Command::About),
+	item("&Contents", "F1", Command::Help),
+	item("&About Quill...", "", Command::About),
 ];
 const FILE: [Item; 8] = [
-	item("New", "Ctrl+N", Command::New),
-	item("Open...", "Ctrl+O", Command::Open),
-	rule(item("Save", "Ctrl+S", Command::Save)),
-	item("Save As...", "", Command::SaveAs),
-	rule(item("Print...", "Ctrl+P", Command::Print)),
-	item("Print Preview", "", Command::Preview),
-	item("Print Setup...", "", Command::PrintSetup),
-	rule(item("Exit", "Ctrl+Q", Command::Exit)),
+	item("&New", "Ctrl+N", Command::New),
+	item("&Open...", "Ctrl+O", Command::Open),
+	rule(item("&Save", "Ctrl+S", Command::Save)),
+	item("Save &As...", "", Command::SaveAs),
+	rule(item("&Print...", "Ctrl+P", Command::Print)),
+	item("Print Pre&view", "", Command::Preview),
+	item("Print Set&up...", "", Command::PrintSetup),
+	rule(item("E&xit", "Ctrl+Q", Command::Exit)),
 ];
 const EDIT: [Item; 6] = [
-	item("Undo", "Ctrl+Z", Command::Undo),
-	item("Redo", "Ctrl+Y", Command::Redo),
-	rule(item("Cut", "Ctrl+X", Command::Cut)),
-	item("Copy", "Ctrl+C", Command::Copy),
-	item("Paste", "Ctrl+V", Command::Paste),
-	rule(item("Select All", "Ctrl+A", Command::SelectAll)),
+	item("&Undo", "Ctrl+Z", Command::Undo),
+	item("&Redo", "Ctrl+Y", Command::Redo),
+	rule(item("Cu&t", "Ctrl+X", Command::Cut)),
+	item("&Copy", "Ctrl+C", Command::Copy),
+	item("&Paste", "Ctrl+V", Command::Paste),
+	rule(item("Select A&ll", "Ctrl+A", Command::SelectAll)),
 ];
 const CHARACTER: [Item; 8] = [
-	item("Regular", "F5", Command::Regular),
-	rule(item("Bold", "Ctrl+B", Command::Bold)),
-	item("Italic", "Ctrl+I", Command::Italic),
-	item("Underline", "Ctrl+U", Command::Underline),
-	item("Strikethrough", "", Command::Strike),
-	rule(item("Superscript", "Ctrl+Shift+=", Command::Super)),
-	item("Subscript", "Ctrl+=", Command::Sub),
-	rule(item("Fonts...", "", Command::Fonts)),
+	item("&Regular", "F5", Command::Regular),
+	rule(item("&Bold", "Ctrl+B", Command::Bold)),
+	item("&Italic", "Ctrl+I", Command::Italic),
+	item("&Underline", "Ctrl+U", Command::Underline),
+	item("Stri&kethrough", "", Command::Strike),
+	rule(item("Su&perscript", "Ctrl+Shift+=", Command::Super)),
+	item("Subs&cript", "Ctrl+=", Command::Sub),
+	rule(item("&Fonts...", "", Command::Fonts)),
 ];
 const PARAGRAPH: [Item; 12] = [
-	item("Left", "Ctrl+L", Command::Align(0)),
-	item("Centred", "Ctrl+E", Command::Align(1)),
-	item("Right", "Ctrl+R", Command::Align(2)),
-	item("Justified", "Ctrl+J", Command::Align(3)),
-	rule(item("Single Space", "Ctrl+1", Command::Spacing(0))),
-	item("1\u{bd} Space", "Ctrl+5", Command::Spacing(1)),
-	item("Double Space", "Ctrl+2", Command::Spacing(2)),
-	rule(item("Bullets", "", Command::Bullets)),
-	item("Numbering", "", Command::Numbering),
-	item("Increase Level", "", Command::LevelUp),
-	item("Decrease Level", "", Command::LevelDown),
-	rule(item("Tabs...", "", Command::Tabs)),
+	item("&Left", "Ctrl+L", Command::Align(0)),
+	item("&Centred", "Ctrl+E", Command::Align(1)),
+	item("&Right", "Ctrl+R", Command::Align(2)),
+	item("&Justified", "Ctrl+J", Command::Align(3)),
+	rule(item("&Single Space", "Ctrl+1", Command::Spacing(0))),
+	item("&1\u{bd} Space", "Ctrl+5", Command::Spacing(1)),
+	item("&Double Space", "Ctrl+2", Command::Spacing(2)),
+	rule(item("&Bullets", "", Command::Bullets)),
+	item("&Numbering", "", Command::Numbering),
+	item("&Increase Level", "", Command::LevelUp),
+	item("Decrease Le&vel", "", Command::LevelDown),
+	rule(item("&Tabs...", "", Command::Tabs)),
 ];
+
+/// File as the DOS text menu has it: the SPEC leaves out Print Preview and Print Setup there.
+const FILE_TEXT: [Item; 6] = [
+	item("&New", "Ctrl+N", Command::New),
+	item("&Open...", "Ctrl+O", Command::Open),
+	rule(item("&Save", "Ctrl+S", Command::Save)),
+	item("Save &As...", "", Command::SaveAs),
+	rule(item("&Print...", "Ctrl+P", Command::Print)),
+	rule(item("E&xit", "Ctrl+Q", Command::Exit)),
+];
+
+/// The items menu `menu` shows in a shell: `text` is true for the text menu bar (DOS), which has fewer items in File than the
+/// Windows menus have; everywhere else it is [`menu_items`].
+pub fn menu_items_for(menu: u8, text: bool) -> &'static [Item] {
+	if text && menu == 0 {
+		&FILE_TEXT
+	} else {
+		menu_items(menu)
+	}
+}
 
 /// The items of menu `menu` (0 File to 7 Help); empty for a menu that has none yet.
 pub fn menu_items(menu: u8) -> &'static [Item] {
@@ -228,14 +281,30 @@ fn menu_rule<const ROWS: usize>(g: &mut Grid<ROWS>, col: usize, y: usize, w: usi
 	g.put(col + w - 1, y, 0xB4, attr::CHROME);
 }
 
-fn put_str<const ROWS: usize>(g: &mut Grid<ROWS>, x: usize, y: usize, t: &str, attr: u8) {
-	for (i, c) in t.chars().enumerate() {
+/// Writes a label, leaving out the `&` and drawing the letter after it in `hot`.
+fn put_label<const ROWS: usize>(
+	g: &mut Grid<ROWS>,
+	x: usize,
+	y: usize,
+	t: &str,
+	attr: u8,
+	hot: u8,
+) {
+	let mut col = x;
+	let mut next_hot = false;
+	for c in t.chars() {
+		if c == '&' && !next_hot {
+			next_hot = true;
+			continue;
+		}
 		let b = if (c as u32) < 0x80 {
 			c as u32 as u8
 		} else {
 			ansi_to_cp437(c as u32 as u8)
 		};
-		g.put(x + i, y, b, attr);
+		g.put(col, y, b, if next_hot { hot } else { attr });
+		next_hot = false;
+		col += 1;
 	}
 }
 
@@ -527,11 +596,15 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 
 	// The menu bar.
 	g.fill(0, 0, COLS, 1, b' ', attr::CHROME);
-	g.text(0, 0, MENU_BAR, attr::CHROME);
-	if let Mode::Menu { menu, .. } = app.mode {
-		let title = MENU_TITLES.get(usize::from(menu)).copied().unwrap_or(b"");
-		let col = MENU_COLS.get(usize::from(menu)).copied().unwrap_or(1);
-		g.text(col, 0, title, SELECTED);
+	for (m, title) in MENU_TITLES.iter().enumerate() {
+		let col = MENU_COLS.get(m).copied().unwrap_or(1);
+		let on = matches!(app.mode, Mode::Menu { menu, .. } if usize::from(menu) == m);
+		let (a, h) = if on {
+			(SELECTED, HOT_SELECTED)
+		} else {
+			(attr::CHROME, HOT)
+		};
+		put_label(g, col, 0, core::str::from_utf8(title).unwrap_or(""), a, h);
 	}
 
 	// The status line.
@@ -544,9 +617,13 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 	// Menus and prompts on top.
 	match app.mode {
 		Mode::Menu { menu, item } => {
-			let items = menu_items(menu);
+			let items = menu_items_for(menu, !app.native);
 			let col = MENU_COLS.get(usize::from(menu)).copied().unwrap_or(1) - 1;
-			let w = 26;
+			// Wide enough for the longest label and its accelerator with a gap between them (the Character menu needs more).
+			let w = items
+				.iter()
+				.map(|it| it.label.chars().filter(|c| *c != '&').count() + it.accel.len() + 6)
+				.fold(26, usize::max);
 			let recents = if menu == 0 {
 				app.recent_files().count()
 			} else {
@@ -569,7 +646,12 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 					attr::CHROME
 				};
 				g.fill(col + 1, y, w - 2, 1, b' ', a);
-				put_str(g, col + 2, y, it.label, a);
+				let h = if i == usize::from(item) {
+					HOT_SELECTED
+				} else {
+					HOT
+				};
+				put_label(g, col + 2, y, it.label, a, h);
 				if it.sub.is_empty() {
 					g.text(col + w - 2 - it.accel.len(), y, it.accel.as_bytes(), a);
 				} else {
@@ -589,7 +671,16 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 					attr::CHROME
 				};
 				g.fill(col + 1, y, w - 2, 1, b' ', a);
-				g.put(col + 2, y, b'1' + k as u8, a);
+				g.put(
+					col + 2,
+					y,
+					b'1' + k as u8,
+					if i == usize::from(item) {
+						HOT_SELECTED
+					} else {
+						HOT
+					},
+				);
 				g.text(
 					col + 4,
 					y,
@@ -976,6 +1067,29 @@ pub fn command_tip(c: Command) -> &'static str {
 		_ => "",
 	}
 }
+
+/// The tooltip of the drop-down boxes on the formatting bar: 0 the style box, 1 the font box, anything else the size box.
+pub fn combo_tip(i: u8) -> &'static str {
+	match i {
+		0 => "Style",
+		1 => "Font",
+		_ => "Font Size",
+	}
+}
+
+/// The status-line sentence for the drop-down boxes, by the same numbers as [`combo_tip`].
+pub fn combo_hint(i: u8) -> &'static str {
+	match i {
+		0 => "Choose a paragraph style",
+		1 => "Choose a font",
+		_ => "Choose a size for the text",
+	}
+}
+
+/// The tooltip and the status-line sentence of the text colour button.
+pub const COLOUR_TIP: &str = "Font Colour";
+/// The status-line sentence of the text colour button.
+pub const COLOUR_HINT: &str = "Choose a colour for the selected text";
 
 /// The sentence the status line shows while a menu item or a toolbar button is under the pointer.
 pub fn command_hint(c: Command) -> &'static str {

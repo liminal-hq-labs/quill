@@ -328,6 +328,49 @@ pub fn page_width<M: Measure + Clone>(app: &App<M>) -> i32 {
 	to_units(app.doc().page.paper_w, DPI)
 }
 
+/// A rectangle as left, top, width and height.
+pub type Box4 = (i32, i32, i32, i32);
+
+/// Where the page's scroll bars go in a client area `w` by `h`: the vertical bar takes the right edge from `top` (the bottom of the
+/// toolbars and the ruler) down to the status bar, the horizontal bar the bottom of the page area, and where they meet is the
+/// corner box. A bar never reaches up beside the toolbars or down beside the status bar.
+pub struct ScrollLayout {
+	/// The vertical bar.
+	pub vbar: Box4,
+	/// The horizontal bar, when the page is wider than the window.
+	pub hbar: Option<Box4>,
+	/// The box where the two bars meet, when both show.
+	pub corner: Option<Box4>,
+	/// The width the page has to lay out in: the window less the vertical bar.
+	pub page_w: i32,
+	/// The bottom of the page area.
+	pub page_bottom: i32,
+}
+
+/// The scroll bar layout for a client area `w` by `h` with the page area starting at `top`, a status bar `status` high (0 when it is
+/// hidden), bars `bar_w` wide and `bar_h` high, and the horizontal bar shown or not.
+pub fn scroll_layout(
+	w: i32,
+	h: i32,
+	top: i32,
+	status: i32,
+	bar_w: i32,
+	bar_h: i32,
+	show_h: bool,
+) -> ScrollLayout {
+	let bottom = (h - status).max(top);
+	let hh = if show_h { bar_h } else { 0 };
+	let page_bottom = (bottom - hh).max(top);
+	let page_w = (w - bar_w).max(0);
+	ScrollLayout {
+		vbar: (page_w, top, bar_w, page_bottom - top),
+		hbar: show_h.then_some((0, page_bottom, page_w, hh)),
+		corner: show_h.then_some((page_w, page_bottom, bar_w, hh)),
+		page_w,
+		page_bottom,
+	}
+}
+
 /// How far the page can scroll sideways in a client area `client_w` wide: zero when it fits.
 pub fn hscroll_max<M: Measure + Clone>(app: &App<M>, client_w: i32) -> i32 {
 	(page_width(app) + 2 * PAGE_PAD - client_w).max(0)

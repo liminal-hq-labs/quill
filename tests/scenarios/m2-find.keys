@@ -9,5 +9,5 @@ f10 right right right down down enter        # Find > Replace...
 tab r o w tab tab tab tab tab enter    # replace with "row", Replace All
 esc
 f10 right enter                        # Edit > Undo
-f10 down down down down down down down enter          # File > Exit
+f10 down down down down down enter          # File > Exit
 n

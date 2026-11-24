@@ -44,6 +44,12 @@ pub trait Measure {
 	fn metrics(&mut self, font: &FontRef) -> FontMetrics;
 	/// Advance widths of ANSI characters 0x20 to 0xFF, in device units.
 	fn widths(&mut self, font: &FontRef, out: &mut [u16; GLYPHS]);
+	/// How many digits wide a field of this kind (1 page number, 2 page count, 3 date, 4 file name) is laid out, so that the line does
+	/// not move from page to page. A shell that draws a field's value in the editor says how wide the longest one is; the text screen
+	/// and the printer keep two.
+	fn field_digits(&self, _kind: u8) -> u32 {
+		2
+	}
 }
 
 #[derive(Copy, Clone)]
@@ -404,7 +410,10 @@ where
 									pw
 								}
 								// A field is measured as two digits, so the layout does not move from page to page.
-								None => cache.width(slot, b'8') * 2,
+								None => {
+									cache.width(slot, b'8')
+										* m.field_digits(field_kind(text, s, p)) as i32
+								}
 							}
 						} else {
 							cache.width(slot, c)
@@ -594,7 +603,10 @@ where
 				} else if c == 0x01 {
 					match picture_size(doc, s, text, p, rx, ry) {
 						Some((pw, _)) => (pw, 0),
-						None => (cache.width(slot, b'8') * 2, 0),
+						None => (
+							cache.width(slot, b'8') * m.field_digits(field_kind(text, s, p)) as i32,
+							0,
+						),
 					}
 				} else {
 					(cache.width(slot, c), 0)
@@ -681,6 +693,11 @@ fn write_line<S: Store + ?Sized, W: core::fmt::Write>(
 		at += n as u32;
 	}
 	writeln!(w)
+}
+
+/// The kind of the field object at `p`.
+fn field_kind<S: Store + ?Sized>(text: &crate::doc::StoryText, s: &S, p: u32) -> u8 {
+	text.object_at(s, p).map_or(0, |v| (v >> 16) as u8)
 }
 
 /// The size in device units of the picture at `pos`, when the object there is one (kind 0).
