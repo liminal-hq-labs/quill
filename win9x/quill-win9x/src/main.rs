@@ -1397,6 +1397,9 @@ unsafe fn paint(hwnd: Handle) {
 
 /// Draws the window into `dc`, limited to the `damage` rectangle.
 unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
+	if !sh.grid {
+		ui::refresh_clock(sh);
+	}
 	let saved = SaveDC(dc);
 	IntersectClipRect(dc, damage.left, damage.top, damage.right, damage.bottom);
 	SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
@@ -1848,6 +1851,9 @@ pub extern "C" fn start() -> ! {
 	unsafe {
 		SHELL = alloc::boxed::Box::into_raw(sh);
 		if print_now || print_to.is_some() {
+			if let Some(s) = SHELL.as_mut() {
+				ui::refresh_clock(s);
+			}
 			// `/P FILE` prints on the default printer and exits; `/PO OUT` sends the job to a file instead of the port.
 			let ok = SHELL
 				.as_ref()

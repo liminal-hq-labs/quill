@@ -145,7 +145,7 @@ Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis 
 | | Size Picture... | |
 | Insert | Page Break | Ctrl+Enter |
 | | Picture... | |
-| | Page Number, Page Count, Date, File Name | |
+| | Page Number, Page Count, Date, File Name, Time | |
 | Find | Find... | Ctrl+F |
 | | Find Next | F3 |
 | | Replace... | Ctrl+H |
@@ -176,7 +176,7 @@ Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis 
 | | How to Use Help | |
 | | About Quill... | |
 
-The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Redo Paste`. Character and Paragraph items show a check mark when the whole selection has that property. Reduce Font and Enlarge Font step through 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48 and 72 points. The Insert field items put a field at the caret in the body, a header or a footer: the page number and the page count show their value on the page, in print preview and in print, and `[Page]` and `[Pages]` in the header and footer views (D91). F1 in a dialog opens that dialog's help topic; F1 with a menu item highlighted opens that command's topic.
+The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Redo Paste`. Character and Paragraph items show a check mark when the whole selection has that property. Reduce Font and Enlarge Font step through 8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48 and 72 points. The Insert field items put a field at the caret in the body, a header or a footer: the page number and the page count show their value on the page, in print preview and in print, and `[Page]` and `[Pages]` in the header and footer views (D91). Date and Time show the system's short date and its time without seconds (D97). F1 in a dialog opens that dialog's help topic; F1 with a menu item highlighted opens that command's topic.
 
 ### Toolbar and ruler
 

@@ -716,3 +716,52 @@ fn every_ctrl_shortcut_in_the_menus_comes_from_its_key_down_and_none_from_a_char
 		Some(Accel::Command(Command::Cut))
 	);
 }
+
+#[test]
+fn every_field_kind_inserts_in_the_body_and_shows_its_text() {
+	let (mut app, mut s, mut f) = setup();
+	app.set_print_date("2026-11-24");
+	app.set_print_time("6:45 PM");
+	for (kind, want) in [
+		(1u8, &b"3"[..]),
+		(2, b"12"),
+		(3, b"2026-11-24"),
+		(4, b"(Untitled)"),
+		(5, b"6:45 PM"),
+	] {
+		app.command(&mut s, &mut f, Command::Field(kind));
+		let at = app.caret() - 1;
+		assert_eq!(
+			app.doc().body.object_at(&s, at).map(|v| v >> 16),
+			Some(u32::from(kind)),
+			"field {kind} inserted"
+		);
+		let mut out = [0u8; 32];
+		let n = app.field_text(u32::from(kind), 3, 12, &mut out);
+		assert_eq!(&out[..n], want, "field {kind}");
+	}
+	// Several fields in a row, the same kind twice included, each its own object.
+	app.command(&mut s, &mut f, Command::Field(1));
+	app.command(&mut s, &mut f, Command::Field(1));
+	let len = app.doc().body.len();
+	assert_eq!(
+		app.doc().body.object_at(&s, len - 3).map(|v| v >> 16),
+		Some(1)
+	);
+	assert_eq!(
+		app.doc().body.object_at(&s, len - 2).map(|v| v >> 16),
+		Some(1)
+	);
+	// The Insert menu offers all five, each with a hint and a tooltip.
+	let insert = quill_app::menu_items(2);
+	for kind in 1..=5u8 {
+		let it = insert
+			.iter()
+			.find(|i| i.command == Command::Field(kind))
+			.expect("a menu item");
+		assert!(
+			!quill_app::command_hint(it.command).is_empty()
+				&& !quill_app::command_tip(it.command).is_empty()
+		);
+	}
+}

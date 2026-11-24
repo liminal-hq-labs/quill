@@ -480,7 +480,7 @@ unsafe fn draw_line(
 				}
 				return;
 			}
-			if let Some(kind) = text.object_at(s, p).map(|v| v >> 16).filter(|k| (1..=4).contains(k)) {
+			if let Some(kind) = text.object_at(s, p).map(|v| v >> 16).filter(|k| (1..=5).contains(k)) {
 				// A field shows its value where it will print (the body), and its name where it is edited (a header or footer).
 				let mut buf = [0u8; 32];
 				let n = match cx.fields {
@@ -490,6 +490,7 @@ unsafe fn draw_line(
 							1 => b"[Page]",
 							2 => b"[Pages]",
 							3 => b"[Date]",
+							5 => b"[Time]",
 							_ => b"[File]",
 						};
 						buf.get_mut(..name.len()).unwrap_or(&mut []).copy_from_slice(name);
