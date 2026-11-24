@@ -34,3 +34,11 @@ pub enum ImageError {
 	/// A side over 4,096 pixels, or no pixels at all.
 	TooLarge,
 }
+
+/// A big-endian `u32` from four bytes, built a byte at a time. `u32::from_be_bytes` becomes `bswap`, which the 386 does not have (it
+/// came in with the 486) and which LLVM emits for an i386 target all the same; the Windows 3.x build must run on a 386. Each byte goes
+/// through `black_box` so the shifts are not turned back into a `bswap`.
+pub fn be32_bytes(b: [u8; 4]) -> u32 {
+	b.iter()
+		.fold(0u32, |a, &x| (a << 8) | u32::from(core::hint::black_box(x)))
+}
