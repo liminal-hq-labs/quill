@@ -104,12 +104,19 @@ struct Built {
 	pieces: u32,
 }
 
-fn build_para(p: &Para, ctx_hash: &dyn Fn(&str) -> Result<u32, HelpError>) -> Result<Built, HelpError> {
+fn build_para(
+	p: &Para,
+	ctx_hash: &dyn Fn(&str) -> Result<u32, HelpError>,
+) -> Result<Built, HelpError> {
 	let base = match p.style {
 		Style::Heading => F_HEAD,
 		_ => F_BODY,
 	};
-	let mut b = Built { text: Vec::new(), format: Vec::new(), pieces: 0 };
+	let mut b = Built {
+		text: Vec::new(),
+		format: Vec::new(),
+		pieces: 0,
+	};
 	let mut cur: Vec<u8> = Vec::new();
 	// Every paragraph starts with a font command, as in the files the real compiler writes.
 	let mut font = u16::MAX;
@@ -146,7 +153,12 @@ fn build_para(p: &Para, ctx_hash: &dyn Fn(&str) -> Result<u32, HelpError>) -> Re
 				cur.extend(t.bytes());
 			}
 			Run::Bold(t) => {
-				set_font(&mut b, &mut cur, &mut font, if base == F_HEAD { F_HEAD } else { F_BOLD });
+				set_font(
+					&mut b,
+					&mut cur,
+					&mut font,
+					if base == F_HEAD { F_HEAD } else { F_BOLD },
+				);
 				cur.extend(t.bytes());
 			}
 			Run::Jump(t, c) | Run::Popup(t, c) => {
@@ -154,8 +166,19 @@ fn build_para(p: &Para, ctx_hash: &dyn Fn(&str) -> Result<u32, HelpError>) -> Re
 				let h = ctx_hash(c)?;
 				let code = if jump { 0xE3 } else { 0xE2 };
 				// The hotspot: the link command, the hotspot font, the words and the end of the link.
-				cmd!(code, h as u8, (h >> 8) as u8, (h >> 16) as u8, (h >> 24) as u8);
-				set_font(&mut b, &mut cur, &mut font, if jump { F_JUMP } else { F_POPUP });
+				cmd!(
+					code,
+					h as u8,
+					(h >> 8) as u8,
+					(h >> 16) as u8,
+					(h >> 24) as u8
+				);
+				set_font(
+					&mut b,
+					&mut cur,
+					&mut font,
+					if jump { F_JUMP } else { F_POPUP },
+				);
 				cur.extend(t.bytes());
 				cmd!(0x89);
 			}
@@ -197,7 +220,10 @@ const BLOCK: usize = 0x1000;
 const BLOCK_DATA: usize = 3400;
 
 /// The topic file and the topic offsets (for |CONTEXT) of each topic.
-fn topic_file(h: &Help, ctx: &dyn Fn(&str) -> Result<u32, HelpError>) -> Result<(Vec<u8>, Vec<u32>), HelpError> {
+fn topic_file(
+	h: &Help,
+	ctx: &dyn Fn(&str) -> Result<u32, HelpError>,
+) -> Result<(Vec<u8>, Vec<u32>), HelpError> {
 	// Records are numbered by position: 0x0C plus the block number times 0x4000 plus the offset in the block.
 	let mut blocks: Vec<Vec<u8>> = vec![Vec::new()];
 	let mut firsts: Vec<u32> = vec![0xFFFF_FFFF];
@@ -223,7 +249,14 @@ fn topic_file(h: &Help, ctx: &dyn Fn(&str) -> Result<u32, HelpError>) -> Result<
 	for (ti, t) in h.topics.iter().enumerate() {
 		let mut title = t.title.clone().into_bytes();
 		title.push(0);
-		recs.push(Rec { kind: 0x02, data1: Vec::new(), data2: title.clone(), text_len: title.len() as u32, topic: ti, para_len: 0 });
+		recs.push(Rec {
+			kind: 0x02,
+			data1: Vec::new(),
+			data2: title.clone(),
+			text_len: title.len() as u32,
+			topic: ti,
+			para_len: 0,
+		});
 		for p in &t.paras {
 			let b = build_para(p, ctx)?;
 			let tl = b.text.len() as u32;
@@ -260,7 +293,14 @@ fn topic_file(h: &Help, ctx: &dyn Fn(&str) -> Result<u32, HelpError>) -> Result<
 			long(&mut d1, rest.len() as i32);
 			d1.extend_from_slice(&second);
 			d1.extend_from_slice(&rest);
-			recs.push(Rec { kind: 0x20, data1: d1, data2: b.text, text_len: tl, topic: ti, para_len: tl });
+			recs.push(Rec {
+				kind: 0x20,
+				data1: d1,
+				data2: b.text,
+				text_len: tl,
+				topic: ti,
+				para_len: tl,
+			});
 		}
 	}
 	// Lay the records out in blocks and note each one's position.
@@ -274,7 +314,10 @@ fn topic_file(h: &Help, ctx: &dyn Fn(&str) -> Result<u32, HelpError>) -> Result<
 	let mut bi = 0usize;
 	for sz in &sizes {
 		if *sz > BLOCK_DATA {
-			return Err(HelpError::Source(0, "a paragraph is too long for one topic block".into()));
+			return Err(HelpError::Source(
+				0,
+				"a paragraph is too long for one topic block".into(),
+			));
 		}
 		if used + sz > BLOCK_DATA {
 			bi += 1;
@@ -300,8 +343,8 @@ fn topic_file(h: &Help, ctx: &dyn Fn(&str) -> Result<u32, HelpError>) -> Result<
 			topic_first_para[r.topic] = p;
 		}
 	}
-	for t in 0..h.topics.len().saturating_sub(1) {
-		next_hdr_pos[t] = topic_pos[t + 1];
+	for (t, next) in topic_pos.iter().skip(1).enumerate() {
+		next_hdr_pos[t] = *next;
 	}
 	let mut topic_no = 0u32;
 	let mut cur_block = usize::MAX;
@@ -316,7 +359,11 @@ fn topic_file(h: &Help, ctx: &dyn Fn(&str) -> Result<u32, HelpError>) -> Result<
 			cur_block = b;
 			offs = 0;
 		}
-		let next = if i + 1 < recs.len() { pos_of(place[i + 1].0, place[i + 1].1) } else { 0xFFFF_FFFF };
+		let next = if i + 1 < recs.len() {
+			pos_of(place[i + 1].0, place[i + 1].1)
+		} else {
+			0xFFFF_FFFF
+		};
 		let rec = if r.kind == 0x02 {
 			let mut d1 = Vec::new();
 			put32(&mut d1, blk_topic_bytes[r.topic]);
@@ -372,7 +419,12 @@ fn topic_file(h: &Help, ctx: &dyn Fn(&str) -> Result<u32, HelpError>) -> Result<
 }
 
 /// A B+ tree with `entries` (sorted key bytes, payload bytes), page size `ps` and the structure string `kind`.
-fn btree(kind: &str, ps: usize, entries: &[(Vec<u8>, Vec<u8>)], key_is_string: bool) -> Result<Vec<u8>, HelpError> {
+fn btree(
+	kind: &str,
+	ps: usize,
+	entries: &[(Vec<u8>, Vec<u8>)],
+	key_is_string: bool,
+) -> Result<Vec<u8>, HelpError> {
 	// Leaves.
 	let mut pages: Vec<Vec<u8>> = Vec::new();
 	let mut leaf_first_key: Vec<Vec<u8>> = Vec::new();
@@ -431,7 +483,14 @@ fn btree(kind: &str, ps: usize, entries: &[(Vec<u8>, Vec<u8>)], key_is_string: b
 		put16(&mut pg, (ps - 8 - p.len()) as u16);
 		put16(&mut pg, counts[i]);
 		put16(&mut pg, if i == 0 { 0xFFFF } else { (i - 1) as u16 });
-		put16(&mut pg, if i + 1 == nleaf { 0xFFFF } else { (i + 1) as u16 });
+		put16(
+			&mut pg,
+			if i + 1 == nleaf {
+				0xFFFF
+			} else {
+				(i + 1) as u16
+			},
+		);
 		pg.extend_from_slice(p);
 		pg.resize(ps, 0);
 		out_pages.push(pg);
@@ -450,7 +509,10 @@ fn btree(kind: &str, ps: usize, entries: &[(Vec<u8>, Vec<u8>)], key_is_string: b
 			put16(&mut body, i as u16);
 		}
 		if 6 + body.len() > ps {
-			return Err(HelpError::Source(0, "too many entries for a two-level tree".into()));
+			return Err(HelpError::Source(
+				0,
+				"too many entries for a two-level tree".into(),
+			));
 		}
 		put16(&mut pg, (ps - 6 - body.len()) as u16);
 		put16(&mut pg, (nleaf - 1) as u16);
@@ -545,7 +607,10 @@ pub fn build(h: &Help) -> Result<Vec<u8>, HelpError> {
 		if h.topics.iter().any(|t| t.context == name) {
 			Ok(hash(name) as u32)
 		} else {
-			Err(HelpError::Source(0, format!("a link names the context {name:?}, which no topic has")))
+			Err(HelpError::Source(
+				0,
+				format!("a link names the context {name:?}, which no topic has"),
+			))
 		}
 	};
 	let (topic, offsets) = topic_file(h, &ctx)?;
@@ -553,7 +618,12 @@ pub fn build(h: &Help) -> Result<Vec<u8>, HelpError> {
 		.topics
 		.iter()
 		.zip(&offsets)
-		.map(|(t, o)| (hash(&t.context).to_le_bytes().to_vec(), o.to_le_bytes().to_vec()))
+		.map(|(t, o)| {
+			(
+				hash(&t.context).to_le_bytes().to_vec(),
+				o.to_le_bytes().to_vec(),
+			)
+		})
 		.collect();
 	cx.sort_by_key(|(k, _)| i32::from_le_bytes([k[0], k[1], k[2], k[3]]));
 	for w in cx.windows(2) {
@@ -562,8 +632,18 @@ pub fn build(h: &Help) -> Result<Vec<u8>, HelpError> {
 		}
 	}
 	let context = btree("L4", 0x400, &cx, false)?;
-	let mut files: Vec<(&str, Vec<u8>)> = vec![("|CONTEXT", context), ("|FONT", font_file()), ("|SYSTEM", system_file(h)), ("|TOPIC", topic)];
-	let maps: Vec<(u32, u32)> = h.topics.iter().zip(&offsets).filter_map(|(t, o)| t.map.map(|m| (m, *o))).collect();
+	let mut files: Vec<(&str, Vec<u8>)> = vec![
+		("|CONTEXT", context),
+		("|FONT", font_file()),
+		("|SYSTEM", system_file(h)),
+		("|TOPIC", topic),
+	];
+	let maps: Vec<(u32, u32)> = h
+		.topics
+		.iter()
+		.zip(&offsets)
+		.filter_map(|(t, o)| t.map.map(|m| (m, *o)))
+		.collect();
 	if !maps.is_empty() {
 		let mut m = Vec::new();
 		put16(&mut m, maps.len() as u16);
@@ -578,7 +658,10 @@ pub fn build(h: &Help) -> Result<Vec<u8>, HelpError> {
 	let mut sized: Vec<(usize, &Vec<u8>)> = Vec::new();
 	// The directory's size depends on its entries only, so build it with placeholder offsets first.
 	let mut offs = Vec::new();
-	let placeholder: Vec<(Vec<u8>, Vec<u8>)> = files.iter().map(|(n, _)| (n.as_bytes().to_vec(), vec![0u8; 4])).collect();
+	let placeholder: Vec<(Vec<u8>, Vec<u8>)> = files
+		.iter()
+		.map(|(n, _)| (n.as_bytes().to_vec(), vec![0u8; 4]))
+		.collect();
 	let dir_len = 9 + btree("z4", 0x400, &placeholder, true)?.len();
 	let mut at = 16 + dir_len;
 	for (_, data) in &files {
@@ -595,7 +678,7 @@ pub fn build(h: &Help) -> Result<Vec<u8>, HelpError> {
 	put32(&mut out, 16);
 	put32(&mut out, 0xFFFF_FFFF);
 	put32(&mut out, 0);
-	let mut add = |out: &mut Vec<u8>, data: &[u8]| {
+	let add = |out: &mut Vec<u8>, data: &[u8]| {
 		put32(out, (data.len() + 9) as u32);
 		put32(out, data.len() as u32);
 		out.push(0);

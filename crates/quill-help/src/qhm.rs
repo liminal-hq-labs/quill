@@ -23,18 +23,32 @@ pub fn parse(src: &str) -> Result<Help, HelpError> {
 	let mut h = Help::default();
 	let mut para: Vec<(usize, String)> = Vec::new();
 	let mut style = Style::Body;
-	fn finish(h: &mut Help, para: &mut Vec<(usize, String)>, style: &mut Style) -> Result<(), HelpError> {
+	fn finish(
+		h: &mut Help,
+		para: &mut Vec<(usize, String)>,
+		style: &mut Style,
+	) -> Result<(), HelpError> {
 		if para.is_empty() {
 			return Ok(());
 		}
 		let line = para[0].0;
-		let text = para.iter().map(|(_, t)| t.as_str()).collect::<Vec<_>>().join(" ");
+		let text = para
+			.iter()
+			.map(|(_, t)| t.as_str())
+			.collect::<Vec<_>>()
+			.join(" ");
 		para.clear();
 		let runs = runs(&text).map_err(|m| HelpError::Source(line, m))?;
 		let Some(t) = h.topics.last_mut() else {
-			return Err(HelpError::Source(line, "text before the first topic (= context | title)".into()));
+			return Err(HelpError::Source(
+				line,
+				"text before the first topic (= context | title)".into(),
+			));
 		};
-		t.paras.push(Para { style: *style, runs });
+		t.paras.push(Para {
+			style: *style,
+			runs,
+		});
 		*style = Style::Body;
 		Ok(())
 	}
@@ -49,13 +63,23 @@ pub fn parse(src: &str) -> Result<Help, HelpError> {
 			finish(&mut h, &mut para, &mut style)?;
 			let mut parts = v.split('|');
 			let (Some(ctx), Some(title)) = (parts.next(), parts.next()) else {
-				return Err(HelpError::Source(n, "a topic line is `= context | title` or `= context | title | number`".into()));
+				return Err(HelpError::Source(
+					n,
+					"a topic line is `= context | title` or `= context | title | number`".into(),
+				));
 			};
 			let map = match parts.next() {
-				Some(m) => Some(m.trim().parse::<u32>().map_err(|_| HelpError::Source(n, "the topic number is not a number".into()))?),
+				Some(m) => Some(m.trim().parse::<u32>().map_err(|_| {
+					HelpError::Source(n, "the topic number is not a number".into())
+				})?),
 				None => None,
 			};
-			h.topics.push(Topic { context: ctx.trim().to_string(), title: title.trim().to_string(), map, paras: Vec::new() });
+			h.topics.push(Topic {
+				context: ctx.trim().to_string(),
+				title: title.trim().to_string(),
+				map,
+				paras: Vec::new(),
+			});
 		} else if line.is_empty() {
 			finish(&mut h, &mut para, &mut style)?;
 		} else if let Some(v) = line.strip_prefix("# ") {
@@ -88,16 +112,22 @@ fn runs(text: &str) -> Result<Vec<Run>, String> {
 	};
 	while i < b.len() {
 		if b[i] == '*' && b.get(i + 1) == Some(&'*') {
-			let end = (i + 2..b.len().saturating_sub(1)).find(|&j| b[j] == '*' && b[j + 1] == '*').ok_or("`**` is not closed")?;
+			let end = (i + 2..b.len().saturating_sub(1))
+				.find(|&j| b[j] == '*' && b[j + 1] == '*')
+				.ok_or("`**` is not closed")?;
 			flush(&mut plain, &mut out);
 			out.push(Run::Bold(b[i + 2..end].iter().collect()));
 			i = end + 2;
 		} else if b[i] == '[' {
-			let close = (i + 1..b.len()).find(|&j| b[j] == ']').ok_or("`[` is not closed")?;
+			let close = (i + 1..b.len())
+				.find(|&j| b[j] == ']')
+				.ok_or("`[` is not closed")?;
 			if b.get(close + 1) != Some(&'(') {
 				return Err("a link is `[words](context)`".into());
 			}
-			let end = (close + 2..b.len()).find(|&j| b[j] == ')').ok_or("`(` is not closed")?;
+			let end = (close + 2..b.len())
+				.find(|&j| b[j] == ')')
+				.ok_or("`(` is not closed")?;
 			let words: String = b[i + 1..close].iter().collect();
 			let target: String = b[close + 2..end].iter().collect();
 			flush(&mut plain, &mut out);

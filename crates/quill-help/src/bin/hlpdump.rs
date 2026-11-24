@@ -29,7 +29,10 @@ fn main() {
 		Err(e) => println!("  {e}"),
 	}
 	match h.system() {
-		Ok(s) => println!("system: version 1.{} flags {:#x} title {:?} copyright {:?} contents {:?}", s.minor, s.flags, s.title, s.copyright, s.contents),
+		Ok(s) => println!(
+			"system: version 1.{} flags {:#x} title {:?} copyright {:?} contents {:?}",
+			s.minor, s.flags, s.title, s.copyright, s.contents
+		),
 		Err(e) => println!("system: {e}"),
 	}
 	match h.contexts() {
@@ -47,10 +50,18 @@ fn main() {
 				println!("block {i}: {} bytes", b.len());
 				let mut at = 0usize;
 				while at + 0x15 <= b.len() {
-					let size = u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]]) as usize;
+					let size =
+						u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]]) as usize;
 					let end = (at + size).min(b.len());
-					let hex: Vec<String> = b[at..end.min(at + 80)].iter().map(|x| format!("{x:02x}")).collect();
-					println!("  rec at {at:#x} type {:#x} size {size}: {}", b[at + 0x14], hex.join(" "));
+					let hex: Vec<String> = b[at..end.min(at + 80)]
+						.iter()
+						.map(|x| format!("{x:02x}"))
+						.collect();
+					println!(
+						"  rec at {at:#x} type {:#x} size {size}: {}",
+						b[at + 0x14],
+						hex.join(" ")
+					);
 					let next = u32::from_le_bytes([b[at + 12], b[at + 13], b[at + 14], b[at + 15]]);
 					if next == 0xFFFF_FFFF || next < 0x0C {
 						break;

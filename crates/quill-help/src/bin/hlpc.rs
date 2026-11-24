@@ -14,10 +14,12 @@ fn main() {
 		eprintln!("hlpc: {}: {e}", args[1]);
 		std::process::exit(1);
 	});
-	let help = quill_help::qhm::parse(&src).and_then(|h| quill_help::write::build(&h)).unwrap_or_else(|e| {
-		eprintln!("hlpc: {}: {e}", args[1]);
-		std::process::exit(1);
-	});
+	let help = quill_help::qhm::parse(&src)
+		.and_then(|h| quill_help::write::build(&h))
+		.unwrap_or_else(|e| {
+			eprintln!("hlpc: {}: {e}", args[1]);
+			std::process::exit(1);
+		});
 	if let Err(e) = std::fs::write(&args[2], &help) {
 		eprintln!("hlpc: {}: {e}", args[2]);
 		std::process::exit(1);

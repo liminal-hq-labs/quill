@@ -6,7 +6,10 @@
 use crate::HelpError;
 
 fn u16at(b: &[u8], at: usize) -> u16 {
-	u16::from_le_bytes([b.get(at).copied().unwrap_or(0), b.get(at + 1).copied().unwrap_or(0)])
+	u16::from_le_bytes([
+		b.get(at).copied().unwrap_or(0),
+		b.get(at + 1).copied().unwrap_or(0),
+	])
 }
 
 fn u32at(b: &[u8], at: usize) -> u32 {
@@ -64,7 +67,10 @@ impl<'a> Hlp<'a> {
 		let mut out = Vec::new();
 		leaves(tree, |p| {
 			let n = p.iter().position(|b| *b == 0).unwrap_or(0);
-			out.push((String::from_utf8_lossy(&p[..n]).into_owned(), u32at(p, n + 1)));
+			out.push((
+				String::from_utf8_lossy(&p[..n]).into_owned(),
+				u32at(p, n + 1),
+			));
 			n + 5
 		})?;
 		Ok(out)
@@ -72,7 +78,12 @@ impl<'a> Hlp<'a> {
 
 	/// The data of the internal file `name` (`|SYSTEM`, `|TOPIC`, ...).
 	pub fn file(&self, name: &str) -> Option<&'a [u8]> {
-		let off = self.directory().ok()?.into_iter().find(|(n, _)| n == name)?.1;
+		let off = self
+			.directory()
+			.ok()?
+			.into_iter()
+			.find(|(n, _)| n == name)?
+			.1;
 		self.sub_at(off as usize).ok()
 	}
 
@@ -96,7 +107,9 @@ impl<'a> Hlp<'a> {
 		}
 		while at + 4 <= b.len() {
 			let (kind, len) = (u16at(b, at), usize::from(u16at(b, at + 2)));
-			let body = b.get(at + 4..at + 4 + len).ok_or(HelpError::Bad("a |SYSTEM record runs past its end"))?;
+			let body = b
+				.get(at + 4..at + 4 + len)
+				.ok_or(HelpError::Bad("a |SYSTEM record runs past its end"))?;
 			match kind {
 				1 => s.title = zstr(body),
 				2 => s.copyright = zstr(body),
@@ -124,7 +137,11 @@ impl<'a> Hlp<'a> {
 		let sys = self.system()?;
 		let raw = self.file("|TOPIC").ok_or(HelpError::Bad("no |TOPIC"))?;
 		let compressed = sys.minor > 16 && sys.flags != 0 && sys.flags != 2;
-		let tb = if sys.minor <= 16 || sys.flags == 2 || sys.flags == 8 { 0x800 } else { 0x1000 };
+		let tb = if sys.minor <= 16 || sys.flags == 2 || sys.flags == 8 {
+			0x800
+		} else {
+			0x1000
+		};
 		let mut blocks: Vec<Vec<u8>> = Vec::new();
 		for chunk in raw.chunks(tb) {
 			if chunk.len() < 0x0C {
@@ -163,7 +180,10 @@ impl<'a> Hlp<'a> {
 				0x02 => {
 					let datalen = u32at(rec, 0x10) as usize;
 					let tsize = u32at(rec, 4) as usize;
-					let title = rec.get(datalen..).map(|t| zstr(&t[..t.len().min(tsize)])).unwrap_or_default();
+					let title = rec
+						.get(datalen..)
+						.map(|t| zstr(&t[..t.len().min(tsize)]))
+						.unwrap_or_default();
 					topics.push(Topic {
 						offset: index as u32 * 0x8000 + offs,
 						title,
@@ -200,7 +220,9 @@ pub fn leaves(tree: &[u8], mut entry: impl FnMut(&[u8]) -> usize) -> Result<(), 
 	let levels = usize::from(u16at(tree, 32));
 	let total = usize::from(u16at(tree, 30));
 	let mut cur = usize::from(u16at(tree, 26));
-	let pages = tree.get(38..).ok_or(HelpError::Bad("a B+ tree has no pages"))?;
+	let pages = tree
+		.get(38..)
+		.ok_or(HelpError::Bad("a B+ tree has no pages"))?;
 	if levels == 0 || page == 0 {
 		return Ok(());
 	}
@@ -214,7 +236,11 @@ pub fn leaves(tree: &[u8], mut entry: impl FnMut(&[u8]) -> usize) -> Result<(), 
 		let n = usize::from(u16at(pages, base + 2));
 		let mut at = base + 8;
 		for _ in 0..n {
-			let len = entry(pages.get(at..).ok_or(HelpError::Bad("a B+ tree page is short"))?);
+			let len = entry(
+				pages
+					.get(at..)
+					.ok_or(HelpError::Bad("a B+ tree page is short"))?,
+			);
 			at += len;
 		}
 		cur = usize::from(u16at(pages, base + 6));
@@ -243,7 +269,12 @@ pub fn lz77(src: &[u8]) -> Vec<u8> {
 				i += 2;
 				let (len, off) = (3 + (code >> 12), (code & 0xFFF) + 1);
 				for _ in 0..len {
-					let b = out.len().checked_sub(off).and_then(|p| out.get(p)).copied().unwrap_or(0);
+					let b = out
+						.len()
+						.checked_sub(off)
+						.and_then(|p| out.get(p))
+						.copied()
+						.unwrap_or(0);
 					out.push(b);
 				}
 			} else {
@@ -331,7 +362,10 @@ fn paragraph(rec: &[u8]) -> String {
 	let mut t = 0;
 	let mut fi = 0;
 	while t < text.len() && fi < format.len() {
-		let n = text[t..].iter().position(|c| *c == 0).unwrap_or(text.len() - t);
+		let n = text[t..]
+			.iter()
+			.position(|c| *c == 0)
+			.unwrap_or(text.len() - t);
 		out.push_str(&String::from_utf8_lossy(&text[t..t + n]));
 		t += n + 1;
 		match format[fi] {
@@ -355,7 +389,7 @@ fn paragraph(rec: &[u8]) -> String {
 				fi += 1;
 			}
 			0x89 => {
-				out.push_str("]");
+				out.push(']');
 				fi += 1;
 			}
 			0xE0 | 0xE1 | 0xE2 | 0xE3 | 0xE6 | 0xE7 => {
@@ -366,12 +400,14 @@ fn paragraph(rec: &[u8]) -> String {
 			0xC8 | 0xCC => {
 				let l = usize::from(u16at(format, fi + 1));
 				out.push_str("[M:");
-				out.push_str(&String::from_utf8_lossy(format.get(fi + 3..fi + 3 + l).unwrap_or(&[])));
+				out.push_str(&String::from_utf8_lossy(
+					format.get(fi + 3..fi + 3 + l).unwrap_or(&[]),
+				));
 				out.push(' ');
 				fi += 3 + l;
 			}
 			0xEA | 0xEB | 0xEE | 0xEF => fi += 3 + usize::from(u16at(format, fi + 1)),
-			0x86 | 0x87 | 0x88 => {
+			0x86..=0x88 => {
 				out.push_str("[picture]");
 				fi += 2;
 				let mut q = fi;
@@ -401,11 +437,19 @@ impl Hlp<'_> {
 	pub fn topic_blocks(&self) -> Result<Vec<Vec<u8>>, HelpError> {
 		let sys = self.system()?;
 		let raw = self.file("|TOPIC").ok_or(HelpError::Bad("no |TOPIC"))?;
-		let tb = if sys.minor <= 16 || sys.flags == 2 || sys.flags == 8 { 0x800 } else { 0x1000 };
+		let tb = if sys.minor <= 16 || sys.flags == 2 || sys.flags == 8 {
+			0x800
+		} else {
+			0x1000
+		};
 		let mut out = Vec::new();
 		for chunk in raw.chunks(tb) {
 			if chunk.len() >= 0x0C {
-				out.push(if sys.minor > 16 && sys.flags != 0 && sys.flags != 2 { lz77(&chunk[0x0C..]) } else { chunk[0x0C..].to_vec() });
+				out.push(if sys.minor > 16 && sys.flags != 0 && sys.flags != 2 {
+					lz77(&chunk[0x0C..])
+				} else {
+					chunk[0x0C..].to_vec()
+				});
 			}
 		}
 		Ok(out)
