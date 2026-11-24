@@ -40,6 +40,7 @@ bash dos/build.sh                # dos/dist/QUILLDOS.EXE
 - [docs/architecture.md](docs/architecture.md) — how it is built
 - [docs/roadmap.md](docs/roadmap.md) — milestones and how each is checked
 - [docs/decisions.md](docs/decisions.md) — decisions and why
+- [docs/plans/](docs/plans/README.md) — planner write-ups kept for reference
 - [docs/toolchain-needs.md](docs/toolchain-needs.md) — what the Win16, Win32 and DOS toolchains must provide
 - [docs/testing.md](docs/testing.md) — from host tests to Windows 3.11 in DOSBox-X
 - [docs/documentation-plan.md](docs/documentation-plan.md) — screenshots, diagrams and the capstone post
