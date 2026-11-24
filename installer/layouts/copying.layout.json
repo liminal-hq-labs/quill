@@ -95,22 +95,6 @@
 							{
 								"kind": "text",
 								"props": {
-									"text": "Checked the download’s signature",
-									"role": "task",
-									"state": "done"
-								}
-							},
-							{
-								"kind": "text",
-								"props": {
-									"text": "Made room in your apps folder",
-									"role": "task",
-									"state": "done"
-								}
-							},
-							{
-								"kind": "text",
-								"props": {
 									"text": "Copying files",
 									"role": "task",
 									"state": "current"
