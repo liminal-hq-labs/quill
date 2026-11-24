@@ -679,7 +679,7 @@ fn mouse_move(hwnd: u32, x: i32, y: i32) {
 	}
 	let y = y.clamp(top, bottom - 1);
 	if let Some((line, tx)) = gdi::hit(app, s, area, sh().hscroll, x, y) {
-		app.drag_select(s, line, tx);
+		app.drag_select_line(s, line, tx);
 		update_scroll(hwnd);
 		invalidate_page(hwnd);
 	}
@@ -1215,7 +1215,7 @@ fn init_app(measure: Gdi16) {
 /// The stack and local heap sizes `build.sh` gives the packer (it reads these two lines). The stack, the shadow return stack, the data
 /// and the heap must fit one 64 KB segment, and a play-back reports how much of the stack it used (`STACK.LOG`): running past the
 /// bottom overwrites the program's statics, which showed up as four zero bytes in the screen dump.
-const STACK_SIZE: u32 = 0x7800;
+const STACK_SIZE: u32 = 0x7400;
 const HEAP_SIZE: u32 = 0x1000;
 
 /// Where the window goes and how big it is: the preferred size, centred, or maximised when the screen is smaller (Windows 3.1 has no

@@ -16,7 +16,7 @@ name = "quill32"
 path = "src/main.rs"
 
 [dependencies]
-quill-app = { path = "../../crates/quill-app" }
+quill-app = { path = "../../crates/quill-app", features = ["long-names"] }
 quill-core = { path = "../../crates/quill-core" }
 quill-formats = { path = "../../crates/quill-formats" }
 quill-grid = { path = "../../crates/quill-grid" }

@@ -129,7 +129,7 @@ A session on Windows for Workgroups 3.11 found four faults in `QUILL.EXE` from `
 3. **The GDI page.** A Win16 `Measure` from `GetCharWidth` and `GetTextMetrics` on a memory DC; the page drawn with TrueType fonts into an off-screen bitmap and copied with one `BitBlt`; narrow invalidation; a vertical scroll bar; the window placed and sized for a 640 by 480 screen; a status bar; the mouse places the caret and selects. The text view stays only for `/PLAY`, so the golden runs still compare Windows 3.11 with the host.
 4. **Chrome.** The two toolbar rows (glyphs from `assets/toolbar/toolbar.bmp` as a bitmap resource), the style, face and size combo boxes, and the ruler.
 5. **Dialogs.** About, Find and Replace, Fonts, Tabs and Spelling from `assets/dialogs/dialogs.json` through `DialogBox`; the unsaved-changes question as a message box; Open, Save As and Insert Picture through `COMMDLG.DLL`, and Print Setup through `PrintDlg`.
-6. **Stack and size.** Every step keeps the stack guard (`check_stack_log.py`) and the segment budgets; the data segment holds the data, a 30 KB stack and the local heap in 64 KB.
+6. **Stack and size.** Every step keeps the stack guard (`check_stack_log.py`) and the segment budgets; the data segment holds the data, a 29 KB stack and the local heap in 64 KB.
 
 ### The Win16 native interface: where it stands
 

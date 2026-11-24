@@ -40,22 +40,47 @@ fn main() {
 			.map(|b| char::from(*b))
 			.collect();
 		let _ = writeln!(out, "\t\t{{ \"title\": {}, \"items\": [", json_str(&title));
-		for (i, it) in items.iter().enumerate() {
-			let label: String = it.label.chars().collect();
-			let text = if it.accel.is_empty() {
-				label
+		// One line per entry, in the order the shell numbers its commands: a rule above an item is an entry of its own with no id, an
+		// item with a submenu is a popup whose entries take the ids, and any other item takes the next id.
+		let mut lines: Vec<String> = Vec::new();
+		for it in items {
+			if it.rule {
+				lines.push("\t\t\t{ \"separator\": true }".to_string());
+			}
+			if it.sub.is_empty() {
+				let label: String = it.label.chars().collect();
+				let text = if it.accel.is_empty() {
+					label
+				} else {
+					format!("{label}\t{}", it.accel)
+				};
+				lines.push(format!(
+					"\t\t\t{{ \"text\": {}, \"id\": {} }}",
+					json_str(&text),
+					id
+				));
+				id += 1;
 			} else {
-				format!("{label}\t{}", it.accel)
-			};
-			let _ = writeln!(
-				out,
-				"\t\t\t{{ \"text\": {}, \"id\": {} }}{}",
-				json_str(&text),
-				id,
-				if i + 1 < items.len() { "," } else { "" }
-			);
-			id += 1;
+				let mut sub = String::new();
+				for (k, e) in it.sub.iter().enumerate() {
+					let _ = write!(
+						sub,
+						"{}{{ \"text\": {}, \"id\": {} }}",
+						if k == 0 { "" } else { ", " },
+						json_str(e.label),
+						id
+					);
+					id += 1;
+				}
+				lines.push(format!(
+					"\t\t\t{{ \"text\": {}, \"items\": [ {} ] }}",
+					json_str(it.label),
+					sub
+				));
+			}
 		}
+		out.push_str(&lines.join(",\n"));
+		out.push('\n');
 		out.push_str("\t\t] }");
 	}
 	out.push_str("\n\t]\n}\n");

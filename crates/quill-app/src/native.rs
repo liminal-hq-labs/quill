@@ -75,7 +75,7 @@ impl<M: Measure + Clone> App<M> {
 			return None;
 		}
 		Some(match c {
-			Command::New | Command::Open | Command::Exit
+			Command::New | Command::Open | Command::Exit | Command::Recent(_)
 				if self.modified && self.pending != Some(c) =>
 			{
 				Dialog::ConfirmSave(c)

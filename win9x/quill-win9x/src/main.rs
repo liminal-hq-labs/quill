@@ -396,6 +396,34 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 	}
 }
 
+/// Numbers the commands of `items` in the order the resource writer numbers them (an item with a submenu numbers its entries, not
+/// itself), and adds them to the pop-up `pop` when there is one (the menu is not from the resource).
+unsafe fn add_items(sh: &mut Shell, pop: Handle, items: &[quill_app::Item]) {
+	for it in items {
+		if it.rule && !pop.is_null() {
+			AppendMenuA(pop, MF_SEPARATOR, 0, null());
+		}
+		let mut text: Vec<u8> = it.label.chars().map(|c| c as u32 as u8).collect();
+		if !it.accel.is_empty() {
+			text.push(b'\t');
+			text.extend_from_slice(it.accel.as_bytes());
+		}
+		text.push(0);
+		if it.sub.is_empty() {
+			sh.cmds.push(it.command);
+			if !pop.is_null() {
+				AppendMenuA(pop, MF_STRING, 99 + sh.cmds.len(), text.as_ptr());
+			}
+		} else {
+			let sub = if pop.is_null() { null_mut() } else { CreatePopupMenu() };
+			add_items(sh, sub, it.sub);
+			if !pop.is_null() {
+				AppendMenuA(pop, MF_POPUP, sub as usize, text.as_ptr());
+			}
+		}
+	}
+}
+
 /// Builds the native menu bar from the app's own menu tree: one definition for every build.
 unsafe fn build_menu(sh: &mut Shell, instance: Handle) -> Handle {
 	// The menu bar normally comes from the resource (win9x/resources/quill.json, written from the same tree), with the same ids.
@@ -407,18 +435,7 @@ unsafe fn build_menu(sh: &mut Shell, instance: Handle) -> Handle {
 			continue;
 		}
 		let pop = if from_res.is_null() { CreatePopupMenu() } else { null_mut() };
-		for it in items {
-			let mut text: Vec<u8> = it.label.chars().map(|c| c as u32 as u8).collect();
-			if !it.accel.is_empty() {
-				text.push(b'\t');
-				text.extend_from_slice(it.accel.as_bytes());
-			}
-			text.push(0);
-			sh.cmds.push(it.command);
-			if !pop.is_null() {
-				AppendMenuA(pop, MF_STRING, 99 + sh.cmds.len(), text.as_ptr());
-			}
-		}
+		add_items(sh, pop, items);
 		if !pop.is_null() {
 			let mut title = quill_app::menu_title(m).to_vec();
 			title.push(0);

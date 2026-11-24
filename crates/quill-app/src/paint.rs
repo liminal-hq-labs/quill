@@ -42,8 +42,13 @@ pub struct Item {
 	pub label: &'static str,
 	/// The accelerator shown at the right.
 	pub accel: &'static str,
-	/// The command it runs.
+	/// The command it runs; for an item with a submenu, the command its first entry runs, so a menu that cannot open submenus (the
+	/// DOS text menu) still has something sensible to do.
 	pub command: Command,
+	/// True when a separator rule is drawn above this item, which starts a new group.
+	pub rule: bool,
+	/// The entries of a submenu that opens from this item; empty for an ordinary item.
+	pub sub: &'static [Item],
 }
 
 const fn item(label: &'static str, accel: &'static str, command: Command) -> Item {
@@ -51,18 +56,43 @@ const fn item(label: &'static str, accel: &'static str, command: Command) -> Ite
 		label,
 		accel,
 		command,
+		rule: false,
+		sub: &[],
 	}
 }
 
+/// The same item, with a separator rule above it.
+const fn rule(i: Item) -> Item {
+	Item { rule: true, ..i }
+}
+
+/// An item that opens a submenu.
+const fn submenu(label: &'static str, command: Command, sub: &'static [Item]) -> Item {
+	Item {
+		label,
+		accel: "",
+		command,
+		rule: false,
+		sub,
+	}
+}
+
+const ZOOM: [Item; 5] = [
+	item("Page Width", "", Command::Zoom(0)),
+	item("150%", "", Command::Zoom(150)),
+	item("100%", "", Command::Zoom(100)),
+	item("75%", "", Command::Zoom(75)),
+	item("50%", "", Command::Zoom(50)),
+];
 const FIND: [Item; 4] = [
 	item("Find...", "Ctrl+F", Command::Find),
 	item("Find Next", "F3", Command::FindNext),
 	item("Replace...", "Ctrl+H", Command::Replace),
-	item("Spelling...", "F7", Command::Spelling),
+	rule(item("Spelling...", "F7", Command::Spelling)),
 ];
 const INSERT: [Item; 5] = [
 	item("Picture...", "", Command::Picture),
-	item("Page Number", "", Command::Field(1)),
+	rule(item("Page Number", "", Command::Field(1))),
 	item("Page Count", "", Command::Field(2)),
 	item("Date", "", Command::Field(3)),
 	item("File Name", "", Command::Field(4)),
@@ -73,13 +103,14 @@ const DOCUMENT: [Item; 6] = [
 	item("First Page Header", "", Command::View(3)),
 	item("First Page Footer", "", Command::View(4)),
 	item("Different First Page", "", Command::FirstPage),
-	item("Return to Document", "", Command::View(0)),
+	rule(item("Return to Document", "", Command::View(0))),
 ];
-const VIEW: [Item; 4] = [
+const VIEW: [Item; 5] = [
 	item("Toolbar", "", Command::Chrome(1)),
 	item("Formatting Bar", "", Command::Chrome(8)),
 	item("Ruler", "", Command::Chrome(2)),
 	item("Status Bar", "", Command::Chrome(4)),
+	rule(submenu("Zoom", Command::Zoom(0), &ZOOM)),
 ];
 const HELP: [Item; 2] = [
 	item("Contents", "F1", Command::Help),
@@ -88,40 +119,44 @@ const HELP: [Item; 2] = [
 const FILE: [Item; 8] = [
 	item("New", "Ctrl+N", Command::New),
 	item("Open...", "Ctrl+O", Command::Open),
-	item("Save", "Ctrl+S", Command::Save),
+	rule(item("Save", "Ctrl+S", Command::Save)),
 	item("Save As...", "", Command::SaveAs),
-	item("Print...", "Ctrl+P", Command::Print),
+	rule(item("Print...", "Ctrl+P", Command::Print)),
 	item("Print Preview", "", Command::Preview),
 	item("Print Setup...", "", Command::PrintSetup),
-	item("Exit", "Ctrl+Q", Command::Exit),
+	rule(item("Exit", "Ctrl+Q", Command::Exit)),
 ];
-const EDIT: [Item; 2] = [
+const EDIT: [Item; 6] = [
 	item("Undo", "Ctrl+Z", Command::Undo),
 	item("Redo", "Ctrl+Y", Command::Redo),
+	rule(item("Cut", "Ctrl+X", Command::Cut)),
+	item("Copy", "Ctrl+C", Command::Copy),
+	item("Paste", "Ctrl+V", Command::Paste),
+	rule(item("Select All", "Ctrl+A", Command::SelectAll)),
 ];
 const CHARACTER: [Item; 8] = [
 	item("Regular", "F5", Command::Regular),
-	item("Bold", "Ctrl+B", Command::Bold),
+	rule(item("Bold", "Ctrl+B", Command::Bold)),
 	item("Italic", "Ctrl+I", Command::Italic),
 	item("Underline", "Ctrl+U", Command::Underline),
 	item("Strikethrough", "", Command::Strike),
-	item("Superscript", "", Command::Super),
-	item("Subscript", "", Command::Sub),
-	item("Fonts...", "", Command::Fonts),
+	rule(item("Superscript", "Ctrl+Shift+=", Command::Super)),
+	item("Subscript", "Ctrl+=", Command::Sub),
+	rule(item("Fonts...", "", Command::Fonts)),
 ];
 const PARAGRAPH: [Item; 12] = [
 	item("Left", "Ctrl+L", Command::Align(0)),
 	item("Centred", "Ctrl+E", Command::Align(1)),
 	item("Right", "Ctrl+R", Command::Align(2)),
 	item("Justified", "Ctrl+J", Command::Align(3)),
-	item("Bullets", "", Command::Bullets),
+	rule(item("Single Space", "Ctrl+1", Command::Spacing(0))),
+	item("1\u{bd} Space", "Ctrl+5", Command::Spacing(1)),
+	item("Double Space", "Ctrl+2", Command::Spacing(2)),
+	rule(item("Bullets", "", Command::Bullets)),
 	item("Numbering", "", Command::Numbering),
 	item("Increase Level", "", Command::LevelUp),
 	item("Decrease Level", "", Command::LevelDown),
-	item("Tabs...", "", Command::Tabs),
-	item("Single Space", "", Command::Spacing(0)),
-	item("1\u{bd} Space", "", Command::Spacing(1)),
-	item("Double Space", "", Command::Spacing(2)),
+	rule(item("Tabs...", "", Command::Tabs)),
 ];
 
 /// The items of menu `menu` (0 File to 7 Help); empty for a menu that has none yet.
@@ -182,6 +217,15 @@ fn text_attr(scheme: Scheme, flags: u16, vpos: u8, selected: bool) -> u8 {
 			(false, true, true) => 0x71,
 		},
 	}
+}
+
+/// A separator rule across a menu box that starts at column `col`, row `y`: the box's own edges joined to a line.
+fn menu_rule<const ROWS: usize>(g: &mut Grid<ROWS>, col: usize, y: usize, w: usize) {
+	g.put(col, y, 0xC3, attr::CHROME);
+	for x in col + 1..col + w - 1 {
+		g.put(x, y, 0xC4, attr::CHROME);
+	}
+	g.put(col + w - 1, y, 0xB4, attr::CHROME);
 }
 
 fn put_str<const ROWS: usize>(g: &mut Grid<ROWS>, x: usize, y: usize, t: &str, attr: u8) {
@@ -508,9 +552,35 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 			} else {
 				0
 			};
-			let rows = items.len() + recents;
+			// A rule above an item takes a row of its own, and so does the one above the recent files.
+			let rules = items.iter().filter(|it| it.rule).count() + usize::from(recents > 0);
+			let rows = items.len() + recents + rules;
 			g.fill(col, 1, w, rows + 2, b' ', attr::CHROME);
 			g.frame(col, 1, w, rows + 2, attr::CHROME);
+			let mut y = 2;
+			for (i, it) in items.iter().enumerate() {
+				if it.rule {
+					menu_rule(g, col, y, w);
+					y += 1;
+				}
+				let a = if i == usize::from(item) {
+					SELECTED
+				} else {
+					attr::CHROME
+				};
+				g.fill(col + 1, y, w - 2, 1, b' ', a);
+				put_str(g, col + 2, y, it.label, a);
+				if it.sub.is_empty() {
+					g.text(col + w - 2 - it.accel.len(), y, it.accel.as_bytes(), a);
+				} else {
+					g.put(col + w - 3, y, 0x10, a);
+				}
+				y += 1;
+			}
+			if recents > 0 {
+				menu_rule(g, col, y, w);
+				y += 1;
+			}
 			for (k, name) in app.recent_files().enumerate() {
 				let i = items.len() + k;
 				let a = if i == usize::from(item) {
@@ -518,24 +588,15 @@ pub fn draw<M: Measure + Clone, S: Store + ?Sized, const ROWS: usize>(
 				} else {
 					attr::CHROME
 				};
-				g.fill(col + 1, 2 + i, w - 2, 1, b' ', a);
-				g.put(col + 2, 2 + i, b'1' + k as u8, a);
+				g.fill(col + 1, y, w - 2, 1, b' ', a);
+				g.put(col + 2, y, b'1' + k as u8, a);
 				g.text(
 					col + 4,
-					2 + i,
+					y,
 					name.get(..name.len().min(w - 6)).unwrap_or(&[]),
 					a,
 				);
-			}
-			for (i, it) in items.iter().enumerate() {
-				let a = if i == usize::from(item) {
-					SELECTED
-				} else {
-					attr::CHROME
-				};
-				g.fill(col + 1, 2 + i, w - 2, 1, b' ', a);
-				put_str(g, col + 2, 2 + i, it.label, a);
-				g.text(col + w - 2 - it.accel.len(), 2 + i, it.accel.as_bytes(), a);
+				y += 1;
 			}
 			shadow(g, col, 1, w, rows + 2);
 			cursor = None;
@@ -862,4 +923,117 @@ pub fn line_label<M: Measure + Clone, S: Store + ?Sized>(
 	}
 	let first = quill_core::layout::to_units(pf.left + pf.first, rx).max(0) as usize;
 	Some((label, n, first))
+}
+
+/// The short name of a command, as a tooltip on its toolbar button shows it.
+pub fn command_tip(c: Command) -> &'static str {
+	match c {
+		Command::New => "New",
+		Command::Open => "Open",
+		Command::Save => "Save",
+		Command::SaveAs => "Save As",
+		Command::Print => "Print",
+		Command::Preview => "Print Preview",
+		Command::PrintSetup => "Print Setup",
+		Command::Exit => "Exit",
+		Command::Cut => "Cut",
+		Command::Copy => "Copy",
+		Command::Paste => "Paste",
+		Command::Undo => "Undo",
+		Command::Redo => "Redo",
+		Command::SelectAll => "Select All",
+		Command::Spelling => "Spelling",
+		Command::Find => "Find",
+		Command::FindNext => "Find Next",
+		Command::Replace => "Replace",
+		Command::Bold => "Bold",
+		Command::Italic => "Italic",
+		Command::Underline => "Underline",
+		Command::Strike => "Strikethrough",
+		Command::Super => "Superscript",
+		Command::Sub => "Subscript",
+		Command::Regular => "Regular",
+		Command::Fonts => "Fonts",
+		Command::Align(0) => "Align Left",
+		Command::Align(1) => "Centre",
+		Command::Align(2) => "Align Right",
+		Command::Align(_) => "Justify",
+		Command::Spacing(0) => "Single Space",
+		Command::Spacing(1) => "1\u{bd} Space",
+		Command::Spacing(_) => "Double Space",
+		Command::Bullets => "Bullets",
+		Command::Numbering => "Numbering",
+		Command::LevelUp => "Increase Level",
+		Command::LevelDown => "Decrease Level",
+		Command::Tabs => "Tabs",
+		Command::Picture => "Picture",
+		Command::Field(1) => "Page Number",
+		Command::Field(2) => "Page Count",
+		Command::Field(3) => "Date",
+		Command::Field(_) => "File Name",
+		Command::Help => "Help Contents",
+		Command::About => "About Quill",
+		_ => "",
+	}
+}
+
+/// The sentence the status line shows while a menu item or a toolbar button is under the pointer.
+pub fn command_hint(c: Command) -> &'static str {
+	match c {
+		Command::New => "Start a new, empty document",
+		Command::Open => "Open an existing document",
+		Command::Save => "Save the document under its own name",
+		Command::SaveAs => "Save the document under a new name",
+		Command::Print => "Print the document",
+		Command::Preview => "Show the pages as they will print",
+		Command::PrintSetup => "Choose the printer and the paper",
+		Command::Exit => "Quit Quill",
+		Command::Recent(_) => "Open this document",
+		Command::Cut => "Move the selection to the clipboard",
+		Command::Copy => "Copy the selection to the clipboard",
+		Command::Paste => "Insert the clipboard's contents at the caret",
+		Command::Undo => "Undo the last change",
+		Command::Redo => "Redo the change that was undone",
+		Command::SelectAll => "Select the whole document",
+		Command::Spelling => "Check the spelling of the document",
+		Command::Find => "Find text in the document",
+		Command::FindNext => "Find the next match",
+		Command::Replace => "Find text and replace it",
+		Command::Bold => "Make the selection bold",
+		Command::Italic => "Make the selection italic",
+		Command::Underline => "Underline the selection",
+		Command::Strike => "Strike through the selection",
+		Command::Super => "Raise the selection above the line",
+		Command::Sub => "Lower the selection below the line",
+		Command::Regular => "Remove bold, italic, underline and the other effects",
+		Command::Fonts => "Choose the font, style and size",
+		Command::Align(0) => "Align the paragraph with the left margin",
+		Command::Align(1) => "Centre the paragraph between the margins",
+		Command::Align(2) => "Align the paragraph with the right margin",
+		Command::Align(_) => "Spread the paragraph between both margins",
+		Command::Spacing(0) => "Single-space the paragraph",
+		Command::Spacing(1) => "Space the paragraph at one and a half lines",
+		Command::Spacing(_) => "Double-space the paragraph",
+		Command::Bullets => "Start or stop a bulleted list",
+		Command::Numbering => "Start or stop a numbered list",
+		Command::LevelUp => "Move the list item in a level",
+		Command::LevelDown => "Move the list item out a level",
+		Command::Tabs => "Set the tab stops",
+		Command::Picture => "Insert a picture from a file",
+		Command::Field(1) => "Insert the number of the page",
+		Command::Field(2) => "Insert the number of pages",
+		Command::Field(3) => "Insert today's date",
+		Command::Field(_) => "Insert the name of the file",
+		Command::View(0) => "Go back to the body of the document",
+		Command::View(_) => "Edit the text that repeats on every page",
+		Command::FirstPage => "Give the first page its own header and footer",
+		Command::Chrome(1) => "Show or hide the toolbar",
+		Command::Chrome(2) => "Show or hide the ruler",
+		Command::Chrome(4) => "Show or hide the status bar",
+		Command::Chrome(_) => "Show or hide the formatting bar",
+		Command::Zoom(0) => "Fit the page to the width of the window",
+		Command::Zoom(_) => "Show the page larger or smaller",
+		Command::Help => "Open the help contents",
+		Command::About => "Show the version and the licence",
+	}
 }
