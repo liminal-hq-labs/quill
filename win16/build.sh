@@ -34,7 +34,12 @@ for prog in probe icontest segtest quill stackprobe helptest; do
 	[ -f "examples/$prog/resources.json" ] && RES_ARGS=(--resources "examples/$prog/resources.json")
 	[ -f "examples/$prog/segments.json" ] && RES_ARGS+=(--segments "examples/$prog/segments.json")
 	PACK_ARGS=()
-	[ "$prog" = quill ] && PACK_ARGS=(--stack 0x7800 --heap 0x1000)
+	if [ "$prog" = quill ]; then
+		# The sizes are constants in the program, which reports its stack use against the first.
+		stack="$(sed -n 's/^const STACK_SIZE: u32 = \(0x[0-9A-Fa-f]*\);.*/\1/p' examples/quill/main.rs)"
+		heap="$(sed -n 's/^const HEAP_SIZE: u32 = \(0x[0-9A-Fa-f]*\);.*/\1/p' examples/quill/main.rs)"
+		PACK_ARGS=(--stack "$stack" --heap "$heap")
+	fi
 	upper="$(echo "$prog" | tr '[:lower:]' '[:upper:]')"
 	python3 tools/ne_pack.py --module "$upper" --description "Quill Win16 $prog" --map "$out/$upper.MAP" \
 		${PACK_ARGS[@]+"${PACK_ARGS[@]}"} ${RES_ARGS[@]+"${RES_ARGS[@]}"} "$elf_dir/$prog" "$out/$upper.EXE"

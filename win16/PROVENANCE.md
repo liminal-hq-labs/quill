@@ -8,7 +8,8 @@ The Win16 runtime and packer in this folder are copied from the `rust-win16` rep
 
 | Here | From | Changes |
 |---|---|---|
-| `win16.json`, `link.ld`, `.cargo/config.toml`, `rustfmt.toml` | `rust-win16` | None |
+| `win16.json`, `.cargo/config.toml`, `rustfmt.toml` | `rust-win16` | None |
+| `link.ld` | `rust-win16` | Defines `__w16_data_end` (the end of the data, 4-aligned) so Quill can tell how far its stack is from the data |
 | `src/lib.rs` | `rust-win16` | Saves the command line `InitTask` returns (`W16_CMD`, `command_line`); adds `far_read` and `far_write` (copies to and from a far pointer); adds `W16_NOALIAS` and a test in `_start` (the `noalias` cargo feature keeps Rust on the real 16-bit stack, for experiments only) |
 | `src/imports.rs`, `tools/gen_imports.py`, `tools/imports.tbl` | `rust-win16` | The `imports.tbl` gains rows for menus, GDI text and drawing, `GetCurrentTask` and the ToolHelp `InterruptRegister` pair, and the Windows calls Quill's earlier examples used (`WinExec`, `SetTimer`, `KillTimer`, `GetTickCount`, `FindWindow`, `DrawIcon`, `GetDeviceCaps`); `src/imports.rs` is regenerated |
 | `tools/ne_pack.py`, `ne_check.py`, `ne_dump.py`, `ne_addr2sym.py`, `rust_demangle.py` | `rust-win16` | None |

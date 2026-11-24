@@ -17,6 +17,8 @@ SECTIONS {
     *(.data .data.*)
     *(.bss .bss.*)
     *(COMMON)
+    . = ALIGN(4);
+    __w16_data_end = .;
   }
   /* Code is linked well above the data, so that a code address can never be mistaken for a data offset. */
   .text.start 0x100000 : { *(.text.start) }

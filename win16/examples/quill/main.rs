@@ -243,34 +243,26 @@ struct Play {
 	at: usize,
 	frames: u32,
 	out: u32,
+	stage: [u8; 512],
 	staged: usize,
 }
 
 static mut PLAY: Option<Play> = None;
 
-const STAGE_LEN: usize = 512;
-static mut STAGE: [u8; STAGE_LEN] = [0; STAGE_LEN];
-
 impl Play {
 	fn put(&mut self, data: &[u8]) {
 		for &b in data {
-			if self.staged == STAGE_LEN {
+			if self.staged == self.stage.len() {
 				self.flush();
 			}
-			unsafe { STAGE[self.staged] = b };
+			self.stage[self.staged] = b;
 			self.staged += 1;
 		}
 	}
 
 	fn flush(&mut self) {
 		if self.staged > 0 {
-			unsafe {
-				_lwrite(
-					self.out,
-					core::ptr::addr_of!(STAGE) as u32,
-					self.staged as u32,
-				)
-			};
+			unsafe { _lwrite(self.out, self.stage.as_ptr() as u32, self.staged as u32) };
 			self.staged = 0;
 		}
 	}
@@ -430,12 +422,35 @@ fn play(hwnd: u32) {
 		}
 	}
 	app().save_settings(&mut Win16Files);
+	write_stack_log();
 	pl.put(b"=== end ===\n");
 	pl.flush();
 	unsafe { _lclose(pl.out) };
 	unsafe { PLAY = None };
 	after(hwnd);
 	unsafe { DestroyWindow(hwnd) };
+}
+
+/// Writes STACK.LOG: how much of the stack the run used and how much it had.
+fn write_stack_log() {
+	let (top, low) = unsafe { (store::TOP_SP, store::MIN_SP) };
+	let used = u32::from(top.saturating_sub(low));
+	let log = w16::log();
+	let margin = u32::from(low.saturating_sub(store::stack_floor()));
+	log.s("stack used ")
+		.dec(used)
+		.s(" of ")
+		.dec(STACK_SIZE)
+		.s(" margin ")
+		.dec(margin)
+		.s(" top ")
+		.hex(u32::from(top), 4)
+		.s(" low ")
+		.hex(u32::from(low), 4)
+		.nl();
+	let mut buf = [0u8; 128];
+	c_name(b"STACK.LOG", &mut buf);
+	write_file(buf.as_ptr(), log.bytes());
 }
 
 /// Reads the script `name` into a block of global memory. Applies `@mono`, and returns the block, its length and the file `@open` names.
@@ -463,6 +478,7 @@ fn load_script(name: &[u8]) -> Option<(u32, usize, [u8; 32], usize)> {
 		at: 0,
 		frames: 0,
 		out: 0,
+		stage: [0; 512],
 		staged: 0,
 	};
 	let mut opened = ([0u8; 32], 0usize);
@@ -579,14 +595,28 @@ fn build_menu() -> u32 {
 	}
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
-	// `/FAULT` installs the ToolHelp handler that logs the registers of a fault to FAULT.LOG.
+/// Builds the editor into its static. Apart from `w16_main`, so that `App::new()`'s 13 KB temporary is gone from the stack before the
+/// message loop runs (it was live for the whole run, and with it the stack ran past its bottom into the program's statics).
+#[inline(never)]
+fn init_app() {
 	unsafe {
 		let a = &mut *core::ptr::addr_of_mut!(APP);
 		a.write(App::new());
 		let _ = app().reset(store());
 	}
+}
+
+/// The stack and local heap sizes `build.sh` gives the packer (it reads these two lines). The stack, the shadow return stack, the data
+/// and the heap must fit one 64 KB segment, and a play-back reports how much of the stack it used (`STACK.LOG`): running past the
+/// bottom overwrites the program's statics, which showed up as four zero bytes in the screen dump.
+const STACK_SIZE: u32 = 0x7800;
+const HEAP_SIZE: u32 = 0x1000;
+
+#[unsafe(no_mangle)]
+pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
+	store::note_top();
+	// `/FAULT` installs the ToolHelp handler that logs the registers of a fault to FAULT.LOG.
+	init_app();
 	// The command line: `[FILE] [/PLAY KEYS] [/DUMP OUT]`.
 	let mut cmd = [0u8; 128];
 	let mut n = command_line(&mut cmd);
@@ -668,6 +698,7 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 					at: 0,
 					frames: 0,
 					out,
+					stage: [0; 512],
 					staged: 0,
 				});
 			}

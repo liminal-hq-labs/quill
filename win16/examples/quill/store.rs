@@ -14,7 +14,29 @@ const GMEM_MOVEABLE_ZEROINIT: u32 = 0x0042;
 /// For tracing: the last place ES was found different from DS, and the two selectors.
 pub static mut BAD: [u16; 4] = [0; 4];
 
+/// The stack pointer when the program started and the lowest one seen since (sampled at every store call, which are deep in the
+/// drawing and layout code).
+pub static mut TOP_SP: u16 = 0;
 pub static mut MIN_SP: u16 = 0xFFFF;
+
+unsafe extern "C" {
+	/// The end of the program's data (`link.ld`); the packer puts the shadow return stack right after it, then the stack.
+	static __w16_data_end: u8;
+}
+
+/// The lowest address the stack may use: the data's end, the packer's shadow return stack (a 6-byte header and 256 four-byte
+/// entries), and nothing else.
+pub fn stack_floor() -> u16 {
+	(core::ptr::addr_of!(__w16_data_end) as usize + 6 + 4 * 256) as u16
+}
+
+pub fn note_top() {
+	let sp: u16;
+	unsafe {
+		core::arch::asm!("mov {0:x}, sp", out(reg) sp, options(nomem, nostack));
+		TOP_SP = sp;
+	}
+}
 
 fn check(tag: u16) {
 	let sp: u16;
