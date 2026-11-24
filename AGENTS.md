@@ -102,6 +102,7 @@ Use `#` comments for shell, YAML, TOML and Dockerfiles, and an XML comment for S
 - `bash scripts/check-headers.sh` — SPDX headers
 - `python3 -I tools/test_icons.py` — structure, depths, palettes and masks of the committed icons (needs Pillow and numpy); `bash tools/make-icons.sh` regenerates them, in Docker if the host lacks `rsvg-convert`, Pillow or numpy
 - `bash scripts/check-banner.sh` — hero banner rules and text fit (needs `xmllint`, `rsvg-convert`, `python3` and Chromium; `--shots DIR` writes frames to look at)
+- `python3 -I scripts/check-site.py` — every link, image, script and stylesheet in the product site (`site/`) resolves, with alt text, titles and heading order; `--external` fetches the outside links too
 - `docker run --rm -v "$PWD:/workdir" davidanson/markdownlint-cli2:v0.17.2 "**/*.md"` — markdown
 - `docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable scripts/*.sh` — shell scripts
 - `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint` — workflows
@@ -121,9 +122,10 @@ README.md SPEC.md AGENTS.md CLAUDE.md LICENSE-APACHE LICENSE-MIT
 .editorconfig .markdownlint.jsonc .gitignore rustfmt.toml
 assets/        hero banner, the app icon (`assets/icon`: SVG masters, PNGs, `QUILL.ICO`, the Windows 3.x icons)
 docs/          architecture, decisions, roadmap, toolchain needs, testing, documentation plan, hero brief
-scripts/       header check, banner check and its Chromium text-fit harness
-tools/         the icon generator (`make_icons.py`, `make-icons.sh` for Docker) and its checks
-.github/       CI workflow, issue and pull request templates, release notes configuration
+scripts/       header check, banner check and its Chromium text-fit harness, site link check
+tools/         the icon generator (`make_icons.py`, `make-icons.sh` for Docker) and its checks, and the site's link-preview card (`make_social_card.py`)
+site/          the product page published to GitHub Pages (see `site/README.md`)
+.github/       CI and Pages workflows, issue and pull request templates, release notes configuration
 ```
 
 `crates/` holds the portable crates and host tools, and `tests/` the test documents and goldens. Planned, as the roadmap adds them: `win16/`, `win9x/` and `dos/` (one workspace per platform), `help/`, `dict/`, `fuzz/` and `installer/`. See [docs/architecture.md](docs/architecture.md#crates-and-workspaces).
