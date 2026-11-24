@@ -544,6 +544,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-strike"
+version = "0.0.0"
+dependencies = [
+ "proptest",
+ "quill-core",
+ "quill-strike",
+]
+
+[[package]]
 name = "quill-tty"
 version = "0.0.0"
 dependencies = [
