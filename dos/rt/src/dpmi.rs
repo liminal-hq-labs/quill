@@ -292,3 +292,26 @@ pub fn map_physical(phys: u32, size: u32) -> Result<u32, Error> {
 pub fn unmap_physical(linear: u32) -> Result<(), Error> {
 	call(0x0801, linear >> 16, linear & 0xFFFF, 0, 0, 0).map(|_| ())
 }
+
+/// What DPMI 0500h reports about memory, in bytes and pages (4 KiB).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FreeMemory {
+	/// The largest block that can be allocated, in bytes
+	pub largest_block: u32,
+	/// Free pages of the whole address space, or `u32::MAX` when the host does not say
+	pub free_pages: u32,
+	/// Pages of linear address space that are free, or `u32::MAX`
+	pub free_linear_pages: u32,
+}
+
+/// DPMI 0500h: free memory information. Values the host cannot give come back as `u32::MAX`.
+pub fn free_memory() -> Result<FreeMemory, Error> {
+	let mut info = [0xFFFF_FFFFu32; 12];
+	// ES:EDI is the 48-byte buffer; ES is the flat data selector, so the pointer is the offset.
+	call(0x0500, 0, 0, 0, 0, info.as_mut_ptr() as usize as u32)?;
+	Ok(FreeMemory {
+		largest_block: info[0],
+		free_pages: info[5],
+		free_linear_pages: info[7],
+	})
+}

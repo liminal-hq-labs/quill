@@ -1,0 +1,19 @@
+# RTTEST.EXE: exercises the runtime's directory, drive, rename and critical-error calls under headless DOSBox.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "rt-test"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "A test program for the DOS runtime's directory calls"
+license = "Apache-2.0 OR MIT"
+
+[[bin]]
+name = "rt-test"
+path = "src/main.rs"
+
+[dependencies]
+rt = { path = "../rt" }
