@@ -191,6 +191,77 @@ pub fn font_handle(fr: &FontRef, extra: u8) -> u32 {
 	}
 }
 
+/// The widths and metrics of the screen's fonts, in a block of far memory of eight entries (the plan's 4 KB): one `GetCharWidth` and one
+/// `GetTextMetrics` per font for the life of the program, where every layout walk and every drawn line used to ask again. The only near
+/// data is the block's far pointer (0 until the first use, `u32::MAX` when Windows would not give the block) and the entry to replace
+/// next. Only the screen measure uses it: the printer's DC measures a printer's fonts and keeps asking.
+static mut MEASURES: u32 = 0;
+static mut MEASURE_NEXT: u8 = 0;
+const MEASURE_SLOTS: u32 = 8;
+const MEASURE_STRIDE: u32 = 512;
+/// An entry: the font's 37 key bytes, a flags byte (1 widths are set, 2 metrics are set), the three metrics as words, the 224 widths.
+const KEY_LEN: usize = 37;
+const FLAGS_AT: u32 = 37;
+const METRICS_AT: u32 = 38;
+const WIDTHS_AT: u32 = 64;
+
+fn key_bytes(f: &FontRef) -> [u8; KEY_LEN] {
+	let mut k = [0u8; KEY_LEN];
+	k[..31].copy_from_slice(&f.face);
+	k[31] = f.face_len;
+	k[32] = f.family;
+	k[33..35].copy_from_slice(&f.size.to_le_bytes());
+	k[35..37].copy_from_slice(&f.flags.to_le_bytes());
+	k
+}
+
+/// The far block, made on first use; `None` when Windows would not give it.
+fn measures() -> Option<u32> {
+	unsafe {
+		if MEASURES == 0 {
+			MEASURES = u32::MAX;
+			if let Some(b) = crate::far::FarBlock::alloc(MEASURE_SLOTS * MEASURE_STRIDE, true) {
+				MEASURES = b.ptr_at(0);
+				// Held for the life of the program, so the block is never freed.
+				core::mem::forget(b);
+			}
+		}
+		(MEASURES != u32::MAX).then_some(MEASURES)
+	}
+}
+
+/// The far address of the entry for `font`, made (and given the oldest slot) when it is not there yet.
+fn measure_entry(base: u32, font: &FontRef) -> u32 {
+	let key = key_bytes(font);
+	let at = |i: u32| base + i * MEASURE_STRIDE;
+	let mut got = [0u8; KEY_LEN + 1];
+	for i in 0..MEASURE_SLOTS {
+		unsafe { far_read(at(i), got.as_mut_ptr(), KEY_LEN + 1) };
+		if got[KEY_LEN] != 0 && got[..KEY_LEN] == key {
+			return at(i);
+		}
+	}
+	let e = unsafe {
+		let n = MEASURE_NEXT;
+		MEASURE_NEXT = (n + 1) % MEASURE_SLOTS as u8;
+		at(u32::from(n))
+	};
+	got[..KEY_LEN].copy_from_slice(&key);
+	got[KEY_LEN] = 0;
+	unsafe { far_write(e, got.as_ptr(), KEY_LEN + 1) };
+	e
+}
+
+/// Sets bit `bit` of the entry's flags.
+fn measure_flag(e: u32, bit: u8) {
+	let mut f = 0u8;
+	unsafe {
+		far_read(e + FLAGS_AT, &mut f, 1);
+		f |= bit;
+		far_write(e + FLAGS_AT, &f, 1);
+	}
+}
+
 impl Measure for Gdi16 {
 	fn resolution(&self) -> (u16, u16) {
 		if self.grid {
@@ -208,19 +279,39 @@ impl Measure for Gdi16 {
 				leading: 0,
 			};
 		}
-		let mut tm = [0u8; 32];
 		#[cfg(feature = "bench")]
 		crate::bench::add(crate::bench::METRICS, 1);
+		let cached = self.dc == app_measure_dc();
+		let entry = if cached { measures() } else { None }.map(|base| measure_entry(base, font));
+		let mut m = [0i16; 3];
+		if let Some(e) = entry {
+			let mut f = 0u8;
+			unsafe { far_read(e + FLAGS_AT, &mut f, 1) };
+			if f & 2 != 0 {
+				unsafe { far_read(e + METRICS_AT, m.as_mut_ptr().cast::<u8>(), 6) };
+				return FontMetrics {
+					ascent: i32::from(m[0]),
+					descent: i32::from(m[1]),
+					leading: i32::from(m[2]),
+				};
+			}
+		}
+		let mut tm = [0u8; 32];
 		unsafe {
 			let old = SelectObject(self.dc, font_handle(font, 0));
 			GetTextMetrics(self.dc, np(tm.as_mut_ptr()));
 			SelectObject(self.dc, old);
 		}
-		let word = |at: usize| i32::from(i16::from_le_bytes([tm[at], tm[at + 1]]));
+		let word = |at: usize| i16::from_le_bytes([tm[at], tm[at + 1]]);
+		m = [word(2), word(4), word(8)];
+		if let Some(e) = entry {
+			unsafe { far_write(e + METRICS_AT, m.as_ptr().cast::<u8>(), 6) };
+			measure_flag(e, 2);
+		}
 		FontMetrics {
-			ascent: word(2),
-			descent: word(4),
-			leading: word(8),
+			ascent: i32::from(m[0]),
+			descent: i32::from(m[1]),
+			leading: i32::from(m[2]),
 		}
 	}
 
@@ -229,9 +320,19 @@ impl Measure for Gdi16 {
 			out.fill(1);
 			return;
 		}
-		let mut w = [0i16; GLYPHS];
 		#[cfg(feature = "bench")]
 		crate::bench::add(crate::bench::CACHES, 1);
+		let cached = self.dc == app_measure_dc();
+		let entry = if cached { measures() } else { None }.map(|base| measure_entry(base, font));
+		if let Some(e) = entry {
+			let mut f = 0u8;
+			unsafe { far_read(e + FLAGS_AT, &mut f, 1) };
+			if f & 1 != 0 {
+				unsafe { far_read(e + WIDTHS_AT, out.as_mut_ptr().cast::<u8>(), GLYPHS * 2) };
+				return;
+			}
+		}
+		let mut w = [0i16; GLYPHS];
 		unsafe {
 			let old = SelectObject(self.dc, font_handle(font, 0));
 			GetCharWidth(self.dc, 32, 255, np(w.as_mut_ptr()));
@@ -239,6 +340,10 @@ impl Measure for Gdi16 {
 		}
 		for (o, v) in out.iter_mut().zip(w.iter()) {
 			*o = (*v).clamp(0, 4000) as u16;
+		}
+		if let Some(e) = entry {
+			unsafe { far_write(e + WIDTHS_AT, out.as_ptr().cast::<u8>(), GLYPHS * 2) };
+			measure_flag(e, 1);
 		}
 	}
 }

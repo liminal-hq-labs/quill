@@ -10,8 +10,9 @@
 # the milliseconds, the time since the start, then the shell counters) and `F` lines holding, for each phase and for the key (0) and
 # its paint (1), how many times each import was called, by its row in tools/imports.tbl (the program holds no names). Per phase this
 # prints the median, 95th percentile and maximum of each number and the calls by function. A budget names, for each phase, the most
-# a number may be; call counts, window-manager calls and the work counters are the gate and times are only reported, because the
-# counts are the same on every machine. Exits 1 when a limit is passed.
+# a number may be (`NAME_median` and `NAME_max` over the keys of the phase, for the metrics `calls`, `wm` and the shell counters),
+# and under `functions` the most calls of one import per key; call counts, window-manager calls and the work counters are the gate
+# and times are only reported, because the counts are the same on every machine. Exits 1 when a limit is passed.
 #
 # `--compare OTHER.LOG` checks the call counts of the two logs are exactly equal (the same run on another host, such as ReactOS under
 # WineVDM): any difference is printed and exits 1.
@@ -123,7 +124,7 @@ def render(log, imports, top):
 	return "\n".join(out)
 
 
-def check(log, budget):
+def check(log, budget, imports):
 	bad = []
 	for name, limits in budget.get("phases", {}).items():
 		if name not in log["phases"]:
@@ -141,6 +142,17 @@ def check(log, budget):
 			got = median(xs) if m.group(2) == "median" else max(xs)
 			if got > limit:
 				bad.append(f"{name}: {key} is {got}, the limit is {limit}")
+	# `functions`: per phase, the most calls of a function per key (the key and its paint, the mean over the phase).
+	for name, limits in budget.get("functions", {}).items():
+		if name not in log["phases"]:
+			continue
+		p = log["phases"].index(name)
+		n = len([k for k in log["keys"] if k["phase"] == p])
+		for fn, limit in limits.items():
+			i = imports.index(fn)
+			total = sum(log["func"].get((p, kind), {}).get(i, 0) for kind in (0, 1))
+			if n and total / n > limit:
+				bad.append(f"{name}: {fn} is {total / n:.2f} calls per key, the limit is {limit}")
 	return bad
 
 
@@ -176,7 +188,7 @@ def main():
 		else:
 			print("\nCOMPARE: the counts equal " + a.compare)
 	if a.budget and os.path.exists(a.budget):
-		bad = check(log, json.load(open(a.budget)))
+		bad = check(log, json.load(open(a.budget)), imports)
 		print()
 		if bad:
 			print("BUDGET: FAIL")
