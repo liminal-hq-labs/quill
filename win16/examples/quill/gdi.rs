@@ -81,6 +81,22 @@ pub const SHADOW: u32 = 0x0080_8080;
 pub const BLACK: u32 = 0;
 const SELECTED_BG: u32 = 0x0080_0000;
 
+/// The brushes of the five colours the chrome and the page are drawn in (black, white, the desk's grey, the face grey and the
+/// selection), made on first use and kept for the life of the program: a fill is one `FillRect` where it was a brush made, used and
+/// deleted. Any other colour (a document's colour, the toolbar's colour swatch) still makes its own.
+static mut BRUSHES: [u16; 5] = [0; 5];
+
+fn brush_slot(colour: u32) -> Option<usize> {
+	match colour {
+		BLACK => Some(0),
+		WHITE => Some(1),
+		SHADOW => Some(2),
+		FACE => Some(3),
+		SELECTED_BG => Some(4),
+		_ => None,
+	}
+}
+
 /// Fills a rectangle with one solid colour.
 pub fn fill(dc: u32, x: i32, y: i32, w: i32, h: i32, colour: u32) {
 	if w <= 0 || h <= 0 {
@@ -90,6 +106,14 @@ pub fn fill(dc: u32, x: i32, y: i32, w: i32, h: i32, colour: u32) {
 	#[cfg(feature = "bench")]
 	crate::bench::filled(w, h);
 	unsafe {
+		if let Some(i) = brush_slot(colour) {
+			let kept = &mut (*core::ptr::addr_of_mut!(BRUSHES))[i];
+			if *kept == 0 {
+				*kept = CreateSolidBrush(colour) as u16;
+			}
+			FillRect(dc, np(&r), u32::from(*kept));
+			return;
+		}
 		let b = CreateSolidBrush(colour);
 		FillRect(dc, np(&r), b);
 		DeleteObject(b);
@@ -151,17 +175,22 @@ pub fn make_font(
 static mut FONTS: [(Option<(FontRef, u8)>, u32); 10] = [(None, 0); 10];
 static mut NEXT_FONT: usize = 0;
 
+/// The font handle `font_handle` already holds for `fr` and `extra`, if any.
+fn font_cached(fr: &FontRef, extra: u8) -> Option<u32> {
+	unsafe {
+		(*core::ptr::addr_of!(FONTS))
+			.iter()
+			.find_map(|(k, h)| k.filter(|(f, e)| f == fr && *e == extra).map(|_| *h))
+	}
+}
+
 /// The GDI font for `fr` at 96 dots per inch with the extra underline (1) and strikeout (2) bits.
 pub fn font_handle(fr: &FontRef, extra: u8) -> u32 {
+	if let Some(h) = font_cached(fr, extra) {
+		return h;
+	}
 	unsafe {
 		let cache = &mut *core::ptr::addr_of_mut!(FONTS);
-		for (k, h) in cache.iter() {
-			if let Some((f, e)) = k {
-				if f == fr && *e == extra {
-					return *h;
-				}
-			}
-		}
 		let height = -((i32::from(fr.size) * 96 + 72) / 144);
 		let pitch_family = match fr.family {
 			1 => 0x10 | 2,
@@ -348,6 +377,82 @@ impl Measure for Gdi16 {
 	}
 }
 
+/// What a page paint has told the device context about text, so a run changes only what differs from the one before it (a run used
+/// to select its font, set the background mode and the colour, draw, and select the old font back: five calls). The font that was in
+/// the context first is selected back once, by `done`, and before a font is made that could take the ring's place of one still
+/// selected.
+pub struct TextState {
+	old: u32,
+	font: u32,
+	mode: u32,
+	colour: u32,
+	back: u32,
+}
+
+/// A value no font handle, mode or colour has.
+const UNSET: u32 = u32::MAX;
+
+impl TextState {
+	pub const fn new() -> Self {
+		TextState {
+			old: 0,
+			font: UNSET,
+			mode: UNSET,
+			colour: UNSET,
+			back: UNSET,
+		}
+	}
+
+	/// Selects the font for `fr` and `extra`.
+	fn font(&mut self, dc: u32, fr: &FontRef, extra: u8) {
+		let h = match font_cached(fr, extra) {
+			Some(h) => h,
+			None => {
+				// A new font may take the place of the one selected, which must not be deleted while it is.
+				self.done(dc);
+				font_handle(fr, extra)
+			}
+		};
+		if h != self.font {
+			let old = unsafe { SelectObject(dc, h) };
+			if self.old == 0 {
+				self.old = old;
+			}
+			self.font = h;
+		}
+	}
+
+	fn mode(&mut self, dc: u32, mode: u32) {
+		if mode != self.mode {
+			self.mode = mode;
+			unsafe { SetBkMode(dc, mode) };
+		}
+	}
+
+	fn colour(&mut self, dc: u32, colour: u32) {
+		if colour != self.colour {
+			self.colour = colour;
+			unsafe { SetTextColor(dc, colour) };
+		}
+	}
+
+	fn back(&mut self, dc: u32, colour: u32) {
+		if colour != self.back {
+			self.back = colour;
+			unsafe { SetBkColor(dc, colour) };
+		}
+	}
+
+	/// Puts the font the context had back.
+	pub fn done(&mut self, dc: u32) {
+		if self.old != 0 {
+			unsafe { SelectObject(dc, self.old) };
+			self.old = 0;
+		}
+		self.font = UNSET;
+	}
+}
+
 fn colour_of(app: &QApp, s: &FarStore, cf: &CFmt) -> u32 {
 	if cf.colour == 0 {
 		return 0;
@@ -370,6 +475,7 @@ fn draw_line(
 	tx: i32,
 	y_top: i32,
 	pages: u32,
+	ts: &mut TextState,
 ) {
 	let doc = app.doc();
 	let text = doc.story(StoryKind::Body);
@@ -384,9 +490,9 @@ fn draw_line(
 			}
 			let cf = text.cfmt_at(s, l.start).unwrap_or(0);
 			let (fr, _, cfmt) = font_ref(doc, s, cf);
-			let old = SelectObject(dc, font_handle(&fr, 0));
-			SetBkMode(dc, TRANSPARENT);
-			SetTextColor(dc, colour_of(app, s, &cfmt));
+			ts.font(dc, &fr, 0);
+			ts.mode(dc, TRANSPARENT);
+			ts.colour(dc, colour_of(app, s, &cfmt));
 			TextOut(
 				dc,
 				(tx + first as i32) as u32,
@@ -394,7 +500,6 @@ fn draw_line(
 				np(lab.as_ptr()),
 				n as u32,
 			);
-			SelectObject(dc, old);
 		}
 	}
 	// Runs of one format and selection state, split at tabs and objects.
@@ -403,44 +508,44 @@ fn draw_line(
 	let mut run_x = 0;
 	let mut run_cf = 0u16;
 	let mut run_sel = false;
-	let flush = |n: &mut usize, run: &[u8; 160], x: i32, cf: u16, selected: bool| {
-		if *n == 0 {
-			return;
-		}
-		let (fr, vpos, cfmt) = font_ref(doc, s, cf);
-		let extra = u8::from(cfmt.flags & cflag::UNDERLINE != 0)
-			| (u8::from(cfmt.flags & cflag::STRIKE != 0) << 1);
-		let shift = match vpos {
-			1 => -(l.ascent / 3),
-			2 => l.ascent / 4,
-			_ => 0,
-		};
-		crate::store::sample();
-		#[cfg(feature = "bench")]
-		crate::bench::add(crate::bench::RUNS, 1);
-		#[cfg(feature = "bench")]
-		crate::bench::add(crate::bench::CHARS, *n as u32);
-		unsafe {
-			let old = SelectObject(dc, font_handle(&fr, extra));
-			if selected {
-				SetBkMode(dc, OPAQUE);
-				SetBkColor(dc, SELECTED_BG);
-				SetTextColor(dc, WHITE);
-			} else {
-				SetBkMode(dc, TRANSPARENT);
-				SetTextColor(dc, colour_of(app, s, &cfmt));
+	let flush =
+		|n: &mut usize, run: &[u8; 160], x: i32, cf: u16, selected: bool, ts: &mut TextState| {
+			if *n == 0 {
+				return;
 			}
-			TextOut(
-				dc,
-				(tx + x) as u32,
-				(base + shift) as u32,
-				np(run.as_ptr()),
-				*n as u32,
-			);
-			SelectObject(dc, old);
-		}
-		*n = 0;
-	};
+			let (fr, vpos, cfmt) = font_ref(doc, s, cf);
+			let extra = u8::from(cfmt.flags & cflag::UNDERLINE != 0)
+				| (u8::from(cfmt.flags & cflag::STRIKE != 0) << 1);
+			let shift = match vpos {
+				1 => -(l.ascent / 3),
+				2 => l.ascent / 4,
+				_ => 0,
+			};
+			crate::store::sample();
+			#[cfg(feature = "bench")]
+			crate::bench::add(crate::bench::RUNS, 1);
+			#[cfg(feature = "bench")]
+			crate::bench::add(crate::bench::CHARS, *n as u32);
+			unsafe {
+				ts.font(dc, &fr, extra);
+				if selected {
+					ts.mode(dc, OPAQUE);
+					ts.back(dc, SELECTED_BG);
+					ts.colour(dc, WHITE);
+				} else {
+					ts.mode(dc, TRANSPARENT);
+					ts.colour(dc, colour_of(app, s, &cfmt));
+				}
+				TextOut(
+					dc,
+					(tx + x) as u32,
+					(base + shift) as u32,
+					np(run.as_ptr()),
+					*n as u32,
+				);
+			}
+			*n = 0;
+		};
 	let mut m = Gdi16 {
 		dc: app_measure_dc(),
 		grid: false,
@@ -454,7 +559,7 @@ fn draw_line(
 		|p, c, x, w, leader, cf| {
 			let selected = sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
 			if c == 0x01 {
-				flush(&mut n, &run, run_x, run_cf, run_sel);
+				flush(&mut n, &run, run_x, run_cf, run_sel, ts);
 				if let Some((pw, ph)) = quill_core::layout::picture_size(doc, s, text, p, 96, 96) {
 					let idx = text.object_at(s, p).map_or(0, |v| v & 0xFFFF) as u16;
 					// The picture, or a grey box with a dark edge the size it prints when it is not drawn (see `picture.rs`).
@@ -471,22 +576,21 @@ fn draw_line(
 						k => app.field_text(k, l.page, pages, &mut buf),
 					};
 					let (fr, _, cfmt) = font_ref(doc, s, cf);
+					ts.font(dc, &fr, 0);
+					ts.mode(dc, TRANSPARENT);
+					ts.colour(dc, colour_of(app, s, &cfmt));
 					unsafe {
-						let old = SelectObject(dc, font_handle(&fr, 0));
-						SetBkMode(dc, TRANSPARENT);
-						SetTextColor(dc, colour_of(app, s, &cfmt));
-						TextOut(dc, (tx + x) as u32, base as u32, np(buf.as_ptr()), n as u32);
-						SelectObject(dc, old);
-					}
+						TextOut(dc, (tx + x) as u32, base as u32, np(buf.as_ptr()), n as u32)
+					};
 				}
 				return;
 			}
 			if c == 0x09 {
-				flush(&mut n, &run, run_x, run_cf, run_sel);
+				flush(&mut n, &run, run_x, run_cf, run_sel, ts);
 				if w > 0 {
 					let (fr, _, cfmt) = font_ref(doc, s, cf);
+					ts.font(dc, &fr, 0);
 					unsafe {
-						let old = SelectObject(dc, font_handle(&fr, 0));
 						if selected {
 							fill(dc, tx + x, y_top, w, l.ascent + l.descent, SELECTED_BG);
 						}
@@ -504,8 +608,8 @@ fn draw_line(
 								np(cw.as_mut_ptr()),
 							);
 							let step = i32::from(cw[0]).max(1);
-							SetBkMode(dc, TRANSPARENT);
-							SetTextColor(
+							ts.mode(dc, TRANSPARENT);
+							ts.colour(
 								dc,
 								if selected {
 									WHITE
@@ -519,13 +623,12 @@ fn draw_line(
 								dx += step;
 							}
 						}
-						SelectObject(dc, old);
 					}
 				}
 				return;
 			}
 			if n > 0 && (cf != run_cf || selected != run_sel || n == run.len()) {
-				flush(&mut n, &run, run_x, run_cf, run_sel);
+				flush(&mut n, &run, run_x, run_cf, run_sel, ts);
 			}
 			if n == 0 {
 				run_x = x;
@@ -538,7 +641,7 @@ fn draw_line(
 			}
 		},
 	);
-	flush(&mut n, &run, run_x, run_cf, run_sel);
+	flush(&mut n, &run, run_x, run_cf, run_sel, ts);
 }
 
 /// The memory DC the editor measures with.
@@ -635,6 +738,7 @@ pub fn paint_page(dc: u32, area: Rect16, hscroll: i32, app: &QApp, s: &FarStore)
 		});
 		let tx = x0 + margin_l;
 		SetTextAlign(dc, TA_BASELINE);
+		let mut ts = TextState::new();
 		for sh in shown.iter().take(count) {
 			draw_line(
 				dc,
@@ -645,8 +749,10 @@ pub fn paint_page(dc: u32, area: Rect16, hscroll: i32, app: &QApp, s: &FarStore)
 				tx,
 				g.line_y(&sh.line, top),
 				pages,
+				&mut ts,
 			);
 		}
+		ts.done(dc);
 		SetTextAlign(dc, 0);
 		// The caret: a two-pixel bar the height of its line.
 		if app.editing() {
