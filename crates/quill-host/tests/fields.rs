@@ -3,8 +3,10 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use quill_app::datefmt::format;
+use quill_app::datefmt::{dos_pattern, format, format_time};
 use quill_app::{App, Command, Key};
+use quill_core::doc::StoryKind;
+use quill_core::layout::{walk_line, FontMetrics, FontRef, Measure, GLYPHS};
 use quill_host::script::MemFiles;
 use quill_host::HostStore;
 
@@ -85,4 +87,109 @@ fn the_dos_about_text_names_the_system_and_the_memory() {
 		quill_app::platform::dos_about(&mut tiny, (6, 22), (0, 9), 1, None),
 		8
 	);
+}
+
+fn time(h: u32, m: u32, h24: bool) -> String {
+	let mut out = [0u8; 24];
+	let n = format_time(h, m, h24, b"", b"", b"", &mut out);
+	String::from_utf8(out[..n].to_vec()).unwrap()
+}
+
+#[test]
+fn the_time_follows_the_twelve_or_twenty_four_hour_clock() {
+	assert_eq!(time(0, 5, false), "12:05 AM");
+	assert_eq!(time(9, 30, false), "9:30 AM");
+	assert_eq!(time(12, 0, false), "12:00 PM");
+	assert_eq!(time(18, 45, false), "6:45 PM");
+	assert_eq!(time(9, 3, true), "09:03");
+	assert_eq!(time(18, 45, true), "18:45");
+	let mut out = [0u8; 24];
+	let n = format_time(18, 45, false, b".", b"a.m.", b"p.m.", &mut out);
+	assert_eq!(&out[..n], b"6.45 p.m.");
+}
+
+#[test]
+fn a_dos_country_gives_a_date_pattern() {
+	let mut p = [0u8; 10];
+	let mut d = [0u8; 24];
+	for (order, sep, want) in [
+		(0u16, b'/', "11/24/2026"),
+		(1, b'.', "24.11.2026"),
+		(2, b'-', "2026-11-24"),
+	] {
+		let k = dos_pattern(order, sep, &mut p);
+		let n = format(&p[..k], 2026, 11, 24, &mut d);
+		assert_eq!(std::str::from_utf8(&d[..n]).unwrap(), want);
+	}
+}
+
+/// A screen at 96 dots per inch where every character is 8 pixels wide.
+#[derive(Clone)]
+struct Fixed;
+
+impl Measure for Fixed {
+	fn resolution(&self) -> (u16, u16) {
+		(96, 96)
+	}
+	fn metrics(&mut self, _: &FontRef) -> FontMetrics {
+		FontMetrics {
+			ascent: 12,
+			descent: 4,
+			leading: 0,
+		}
+	}
+	fn widths(&mut self, _: &FontRef, out: &mut [u16; GLYPHS]) {
+		out.fill(8);
+	}
+}
+
+#[test]
+fn a_time_field_shows_its_text_and_the_caret_lands_after_the_room_made_for_it() {
+	let mut s = HostStore::new();
+	let mut f = MemFiles::default();
+	let mut app = App::with_measure(Fixed);
+	app.reset(&mut s).unwrap();
+	app.key(&mut s, &mut f, Key::Char(b'a'));
+	app.set_print_date("11/24/2026");
+	app.set_print_time("6:45 PM");
+	let mut field_width = [0i32; 6];
+	for k in [3u8, 5, 4] {
+		app.command(&mut s, &mut f, Command::Field(k));
+		let mut out = [0u8; 32];
+		let n = app.field_text(u32::from(k), 1, 1, &mut out);
+		assert!(n > 0, "field {k} has text once the shell sets it");
+		app.key(&mut s, &mut f, Key::Char(b'b'));
+		let mut seen = None;
+		app.for_each_line(&s, |_, line| {
+			walk_line(
+				app.doc(),
+				&s,
+				&mut Fixed,
+				StoryKind::Body,
+				line,
+				|p, c, x, w, _, _| {
+					if c == 0x01
+						&& app.doc().body.object_at(&s, p).map(|v| v >> 16) == Some(u32::from(k))
+					{
+						seen = Some((x, w));
+					}
+				},
+			);
+		});
+		let (_, w) = seen.expect("the field is on a line");
+		field_width[k as usize] = w;
+		// The room the layout makes is at least the width the painter needs for the text it draws.
+		assert!(w >= 8 * n as i32, "field {k}: room {w} for {n} characters");
+	}
+	// The Time field reserves eight digits, and "6:45 PM" is seven characters.
+	assert_eq!(field_width[5], 64);
+}
+
+#[test]
+fn a_time_field_without_the_clock_has_no_text() {
+	let (mut app, mut s, mut f) = (App::new(), HostStore::new(), MemFiles::default());
+	app.reset(&mut s).unwrap();
+	app.command(&mut s, &mut f, Command::Field(5));
+	let mut out = [0u8; 32];
+	assert_eq!(app.field_text(5, 1, 1, &mut out), 0);
 }
