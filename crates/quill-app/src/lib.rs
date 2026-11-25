@@ -338,7 +338,8 @@ pub(crate) enum Mode {
 		buf: [u8; NAME_MAX],
 		len: usize,
 	},
-	Confirm(Command),
+	/// The Save changes question: the command waiting, and the focused button (0 Yes, 1 No, 2 Cancel).
+	Confirm(Command, u8),
 	About,
 	Find(find::FindState),
 	Form(form::Form),
@@ -1287,7 +1288,7 @@ impl<M: Measure + Clone> App<M> {
 			Command::New | Command::Open | Command::Exit | Command::Recent(_)
 				if self.modified && self.pending != Some(c) =>
 			{
-				self.mode = Mode::Confirm(c);
+				self.mode = Mode::Confirm(c, 0);
 			}
 			Command::New => {
 				self.pending = None;
@@ -1729,30 +1730,47 @@ impl<M: Measure + Clone> App<M> {
 			Mode::Find(st) => self.key_find(s, k, st),
 			Mode::Form(fm) => self.key_form(s, k, fm),
 			Mode::Spell(d) => self.key_spell(s, f, k, d),
-			Mode::Confirm(c) => match k {
-				Key::Char(b'y' | b'Y') => {
-					self.mode = Mode::Edit;
-					self.pending = Some(c);
-					if self.name_len == 0 {
-						self.mode = Mode::Prompt {
-							kind: Prompt::SaveAs,
-							buf: [0; NAME_MAX],
-							len: 0,
-						};
-					} else {
-						self.do_save(s, f);
+			Mode::Confirm(c, focus) => {
+				let answer = match k {
+					Key::Char(b'y' | b'Y') => Some(0),
+					Key::Char(b'n' | b'N') => Some(1),
+					Key::Esc => Some(2),
+					Key::Enter => Some(focus),
+					Key::Tab | Key::Right => {
+						self.mode = Mode::Confirm(c, (focus + 1) % 3);
+						None
 					}
+					Key::Left => {
+						self.mode = Mode::Confirm(c, (focus + 2) % 3);
+						None
+					}
+					_ => None,
+				};
+				match answer {
+					Some(0) => {
+						self.mode = Mode::Edit;
+						self.pending = Some(c);
+						if self.name_len == 0 {
+							self.mode = Mode::Prompt {
+								kind: Prompt::SaveAs,
+								buf: [0; NAME_MAX],
+								len: 0,
+							};
+						} else {
+							self.do_save(s, f);
+						}
+					}
+					Some(1) => {
+						// The changes go only when `c` completes: a cancelled Open leaves them unsaved.
+						self.mode = Mode::Edit;
+						self.pending = Some(c);
+						self.run(s, f, c);
+						self.pending = None;
+					}
+					Some(_) => self.mode = Mode::Edit,
+					None => {}
 				}
-				Key::Char(b'n' | b'N') => {
-					// The changes go only when `c` completes: a cancelled Open leaves them unsaved.
-					self.mode = Mode::Edit;
-					self.pending = Some(c);
-					self.run(s, f, c);
-					self.pending = None;
-				}
-				Key::Esc => self.mode = Mode::Edit,
-				_ => {}
-			},
+			}
 		}
 		self.sync_layout(s);
 		self.scroll(s);

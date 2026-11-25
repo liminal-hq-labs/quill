@@ -258,6 +258,14 @@ fn m11_recent_script_matches_its_golden_screens() {
 }
 
 #[test]
+fn m12_confirm_scripts_match_their_golden_screens() {
+	for name in ["m12-confirm", "m12-confirm-mono", "m12-confirm-50"] {
+		let (_, frames) = scenario(name);
+		compare(&format!("tests/golden/screens/{name}.frames.txt"), &frames);
+	}
+}
+
+#[test]
 fn m2_lists_script_matches_its_golden_screens() {
 	let (_, frames) = scenario("m2-lists");
 	compare("tests/golden/screens/m2-lists.frames.txt", &frames);

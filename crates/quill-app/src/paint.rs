@@ -745,9 +745,16 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 				g.text(24, 11, st.with.get(..st.wlen).unwrap_or(&[]), 0x07);
 				y = 12;
 			}
-			g.text(10, y, bx(st.case), attr::CHROME);
+			let box_attr = |f: crate::find::Focus| {
+				if st.focus == f {
+					SELECTED
+				} else {
+					attr::CHROME
+				}
+			};
+			g.text(10, y, bx(st.case), box_attr(crate::find::Focus::Case));
 			g.text(14, y, b"Match case", attr::CHROME);
-			g.text(30, y, bx(st.word), attr::CHROME);
+			g.text(30, y, bx(st.word), box_attr(crate::find::Focus::Word));
 			g.text(34, y, b"Match whole word only", attr::CHROME);
 			let by = y + 2;
 			let mut x = 10;
@@ -878,7 +885,7 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 			}
 			cursor = None;
 		}
-		Mode::Confirm(_) => {
+		Mode::Confirm(_, focus) => {
 			dialog(g, 8, 62, 7, b" Quill ");
 			let mut r = Row::new();
 			r.s("Save changes to ");
@@ -889,9 +896,21 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 			}
 			r.s("?");
 			g.text(10, 10, r.buf.get(..r.n).unwrap_or(&[]), attr::CHROME);
-			g.text(16, 12, b"< Yes >", attr::CHROME);
-			g.text(30, 12, b"< No >", attr::CHROME);
-			g.text(43, 12, b"< Cancel >", attr::CHROME);
+			for (i, (x, t)) in [
+				(16, &b"< Yes >"[..]),
+				(30, &b"< No >"[..]),
+				(43, &b"< Cancel >"[..]),
+			]
+			.iter()
+			.enumerate()
+			{
+				let a = if usize::from(focus) == i {
+					SELECTED
+				} else {
+					attr::CHROME
+				};
+				g.text(*x, 12, t, a);
+			}
 			cursor = None;
 		}
 		Mode::Edit => {}

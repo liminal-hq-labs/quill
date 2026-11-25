@@ -1,0 +1,13 @@
+# M12: the Save changes question shows which button has the focus: Yes first, then Tab and the arrows move it, Enter presses it.
+@copy plain.qld
+@open PLAIN.QLD
+x                                 # the document is modified
+f10 end enter                     # File > Exit asks to save: Yes has the focus
+tab                               # No
+tab                               # Cancel
+tab                               # round to Yes
+left                              # Cancel
+enter                             # Cancel presses: back to the document
+f10 end enter                     # ask again
+right                             # No
+enter                             # No: exit without saving

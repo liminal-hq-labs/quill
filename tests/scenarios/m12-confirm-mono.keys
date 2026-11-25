@@ -1,0 +1,11 @@
+# M12: the Save changes question in the mono scheme: the focused button is the one in normal video.
+@mono
+@copy plain.qld
+@open PLAIN.QLD
+x
+f10 end enter                     # File > Exit asks to save
+left                              # Cancel (the focus wraps)
+left                              # No
+esc                               # back to the document
+f10 end enter
+y                                 # Yes: save and exit
