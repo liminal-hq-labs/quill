@@ -12,4 +12,6 @@ reg query "HKLM\SYSTEM\CurrentControlSet\Services\bochsmp\Device0" >> %LOG%
 reg query "HKCU\Control Panel\Desktop" /v Wallpaper >> %LOG%
 reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" >> %LOG%
 echo apply: done >> %LOG%
+rem polish (guest/polish): extra registry files, applied last
+if exist %~dp0POLISH.CMD call %~dp0POLISH.CMD
 shutdown -s -t 0
