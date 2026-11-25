@@ -30,12 +30,12 @@ cleanup() {
 trap cleanup EXIT
 sleep 1
 
-# shot NAME "STEPS" ARGS...: starts the client, plays the steps (c:X,Y a click, k:KEYS a key chord), then captures the window.
+# shot NAME "STEPS" ARGS...: starts the client, plays the steps (c:X,Y a click, d: a double click, T: a triple click, s: a Shift click, g:X1,Y1,X2,Y2 a drag, k:KEYS a key chord, t:TEXT typed text), then captures the window.
 shot() {
 	local name="$1" steps="$2" t xy
 	shift 2
 	[ -z "${ONLY:-}" ] || [[ "$name" =~ $ONLY ]] || return 0
-	local env=(-u DBUS_SESSION_BUS_ADDRESS "DISPLAY=:$n" GDK_BACKEND=x11 GSK_RENDERER=cairo "XDG_CONFIG_HOME=$work/config")
+	local env=(-u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS QUILL_NO_BLINK=1 GTK_USE_PORTAL=0 "DISPLAY=:$n" GDK_BACKEND=x11 GSK_RENDERER=cairo "XDG_CONFIG_HOME=$work/config")
 	[ -n "${SPELL_DICT_DIR:-}" ] && env+=("XDG_DATA_HOME=$SPELL_DICT_DIR")
 	env "${env[@]}" "$bin" --new-instance --vendored-fonts --no-settings --zoom 100 --size 1000x700 --quit-after 25000 "$@" \
 		>"$out/$name.log" 2>&1 &
@@ -48,6 +48,23 @@ shot() {
 			DISPLAY=":$n" xdotool mousemove "${xy%,*}" "${xy#*,}" click 1
 			;;
 		k:*) DISPLAY=":$n" xdotool key "${t#k:}" ;;
+		t:*) DISPLAY=":$n" xdotool type --delay 80 "${t#t:}" ;;
+		d:*)
+			xy="${t#d:}"
+			DISPLAY=":$n" xdotool mousemove "${xy%,*}" "${xy#*,}" click --repeat 2 --delay 80 1
+			;;
+		T:*)
+			xy="${t#T:}"
+			DISPLAY=":$n" xdotool mousemove "${xy%,*}" "${xy#*,}" click --repeat 3 --delay 80 1
+			;;
+		s:*)
+			xy="${t#s:}"
+			DISPLAY=":$n" xdotool mousemove "${xy%,*}" "${xy#*,}" keydown shift click 1 keyup shift
+			;;
+		g:*)
+			IFS=, read -r x1 y1 x2 y2 <<<"${t#g:}"
+			DISPLAY=":$n" xdotool mousemove "$x1" "$y1" mousedown 1 mousemove $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) mousemove "$x2" "$y2" mouseup 1
+			;;
 		esac
 		sleep 0.8
 	done
@@ -81,4 +98,16 @@ if [ -n "${SPELL_DICT_DIR:-}" ]; then
 	printf '%s' '{\rtf1\ansi\deff0{\fonttbl{\f0 Times New Roman;}}\f0\fs24 Hello wrold, this is a tset of the speling checker.\par}' >"$work/typos.rtf"
 	shot chrome-dialog-spelling-light "" --light --dialog spelling "$work/typos.rtf"
 fi
+# Editing: typing, a selection, the caret and the title mark, the format bar following the caret, composing text, the refusal toast.
+shot editor-typing-light "c:500,330 k:ctrl+End k:Return t:Hello,Quill." --light "$doc"
+shot editor-typing-dark "c:500,330 k:ctrl+End k:Return t:Hello,Quill." --dark "$doc"
+shot editor-selection-light "d:250,357 s:560,440" --light "$doc"
+shot editor-drag-select-dark "g:215,332,290,332" --dark "$doc"
+shot editor-triple-click-light "T:300,499" --light "$doc"
+shot editor-format-bar-bold-light "c:318,357" --light "$doc"
+shot editor-format-bar-heading-light "c:500,295" --light "$doc"
+shot editor-format-after-ctrl-b-light "c:250,357 k:ctrl+a k:ctrl+i" --light "$doc"
+shot editor-preedit-light "c:260,423" --light --preedit "tsuk" "$doc"
+shot editor-refused-character-light "c:260,423" --light --commit "$(printf 'caf\xc3\xa9 \xe4\xb8\xad')" "$doc"
+shot editor-unsaved-alert-dark "c:500,330 k:ctrl+End t:Edited c:971,28" --dark "$doc"
 echo "chrome shots: ok ($out)"

@@ -452,6 +452,19 @@ pub fn paint_page<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 /// How many header or footer lines a sheet draws.
 const STORY_LINES: usize = 16;
 
+/// What an editing window adds to a sheet: the selection, the caret and the text an input method is composing.
+#[derive(Copy, Clone, Debug, Default)]
+pub struct Editing<'a> {
+	/// Draw the selection and the caret of the body. Off, a sheet is the print preview's.
+	pub active: bool,
+	/// The caret's on phase: false while it blinks off.
+	pub caret: bool,
+	/// Text being composed, in Windows-1252, drawn under the caret with an underline.
+	pub preedit: &'a [u8],
+	/// Where the composing text's own cursor is: a byte offset into `preedit`.
+	pub preedit_cursor: usize,
+}
+
 /// Paints one whole sheet as the print preview shows it: the paper with its top left corner at (`left`, `top`), the header and
 /// footer, and the lines of the body that fall on page `page` of `pages`. `m` is the measure the app was built with (layout of a
 /// header needs it; the body reuses the app's own).
@@ -468,6 +481,38 @@ pub fn paint_sheet<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	area: Rect,
 	window: &mut [u8; WINDOW],
 ) {
+	paint_sheet_editing(
+		sf,
+		app,
+		m,
+		s,
+		left,
+		top,
+		page,
+		pages,
+		area,
+		window,
+		&Editing::default(),
+	);
+}
+
+/// [`paint_sheet`] with the selection highlighted and the caret drawn on the body, as an editing window shows a sheet. The body is
+/// the story being edited only while the app is on the body (not a header or footer), so nothing is drawn otherwise.
+#[allow(clippy::too_many_arguments)]
+pub fn paint_sheet_editing<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
+	sf: &mut Sf,
+	app: &App<M>,
+	m: &mut M,
+	s: &St,
+	left: i32,
+	top: i32,
+	page: u32,
+	pages: u32,
+	area: Rect,
+	window: &mut [u8; WINDOW],
+	edit: &Editing,
+) {
+	let on_body = edit.active && app.story_view() == 0;
 	sf.clip(Some(area));
 	let doc = app.doc();
 	let setup = doc.page;
@@ -542,7 +587,7 @@ pub fn paint_sheet<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 		s,
 		app,
 		kind: StoryKind::Body,
-		sel: None,
+		sel: if on_body { app.selection() } else { None },
 		page,
 		fields: Some(pages),
 		area,
@@ -564,5 +609,75 @@ pub fn paint_sheet<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 		lp.finish(sf);
 		true
 	});
+	if on_body && app.editing() {
+		draw_caret(
+			sf,
+			app,
+			s,
+			left + u(setup.margin_l),
+			top + u(setup.margin_t),
+			page,
+			edit,
+		);
+	}
 	sf.clip(None);
+}
+
+/// Draws the caret as two document pixels of black, with the composing text before it: over the text that follows, on white, with
+/// an underline.
+fn draw_caret<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
+	sf: &mut Sf,
+	app: &App<M>,
+	s: &St,
+	tx: i32,
+	ty: i32,
+	page: u32,
+	edit: &Editing,
+) {
+	let Some((_, l, x)) = app.caret_xy(s) else {
+		return;
+	};
+	if l.page != page {
+		return;
+	}
+	let y = ty + l.y;
+	let h = l.ascent + l.descent;
+	let mut cx = tx + x;
+	if !edit.preedit.is_empty() {
+		let cf = app
+			.doc()
+			.body
+			.cfmt_at(s, app.caret().saturating_sub(1))
+			.unwrap_or(0);
+		let (fr, _, cfmt) = font_ref(app.doc(), s, cf);
+		let font = sf.font(&fr);
+		let mut at = cx;
+		let mut glyphs: [(u8, i32); 64] = [(0, 0); 64];
+		let mut n = 0;
+		let mut to_cursor = cx;
+		for (i, c) in edit.preedit.iter().enumerate() {
+			if i == edit.preedit_cursor {
+				to_cursor = at;
+			}
+			if let Some(g) = glyphs.get_mut(n) {
+				*g = (*c, at);
+				n += 1;
+			}
+			at += sf.advance(font, *c);
+		}
+		if edit.preedit_cursor >= edit.preedit.len() {
+			to_cursor = at;
+		}
+		sf.fill_rect(Rect::new(cx, y, at, y + h), Rgb::WHITE);
+		let base = y + l.ascent;
+		let fg = colour_of(app.doc(), s, &cfmt);
+		if let Some(g) = glyphs.get(..n) {
+			sf.glyph_run(font, base, g, fg, true);
+		}
+		sf.hline(cx, at, base + 1, Rgb::BLACK);
+		cx = to_cursor;
+	}
+	if edit.caret {
+		sf.fill_rect(Rect::new(cx, y, cx + 2, y + h), Rgb::BLACK);
+	}
 }

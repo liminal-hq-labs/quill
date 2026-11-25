@@ -51,6 +51,7 @@ impl StatusInfo {
 				quill_tty::cp1252::ansi_to_string(app.message()),
 			)
 		});
+		let message = doc.notice().map_or(message, str::to_string);
 		StatusInfo {
 			message,
 			page: page_label(page, view.geometry().pages),

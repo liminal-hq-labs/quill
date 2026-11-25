@@ -13,13 +13,16 @@ use std::rc::Rc;
 
 use adw::prelude::*;
 use gtk::{gdk, gio, glib};
+use quill_app::mouse::{Ev, DOUBLE_TICKS};
 use quill_app::session::{end_session_allowed, ANSWER_DISCARD, ANSWER_SAVE};
 use quill_app::{Command, Dialog, CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR};
 
 use quill_gtk::actions::{action_name, is_stateful, is_text_key};
+use quill_gtk::blink::Blink;
 use quill_gtk::dialogs::{self, DialogView, Env};
-use quill_gtk::doc::Document;
+use quill_gtk::doc::{Document, Overlay};
 use quill_gtk::format_bar::{apply as apply_format, FormatBar, FormatEdit, FormatState};
+use quill_gtk::keys::{map_key, Mapped};
 use quill_gtk::menu::{self, MENU_BAR_ACTION};
 use quill_gtk::ruler::{apply as apply_ruler, QuillRuler, RulerEdit, RulerGeometry, KINDS};
 use quill_gtk::settings::WindowSettings;
@@ -61,6 +64,10 @@ pub struct Opts {
 	pub dark: Option<bool>,
 	/// Do not read or write the window settings.
 	pub no_settings: bool,
+	/// Test hook: commit this text through the input method's `commit` signal once the window is up.
+	pub commit: Option<String>,
+	/// Test hook: show this text as being composed, as an input method's preedit.
+	pub preedit: Option<String>,
 }
 
 /// The dialogs a test hook can show by name.
@@ -114,6 +121,11 @@ pub struct Ui {
 	status: Status,
 	actions: RefCell<Vec<(Command, gio::SimpleAction)>>,
 	last_dialog: RefCell<Option<Rc<DialogView>>>,
+	im: gtk::IMMulticontext,
+	overlay: RefCell<Overlay>,
+	blink: Cell<Blink>,
+	clock: std::time::Instant,
+	dragging: Cell<bool>,
 	pointer: Cell<(f64, f64)>,
 	zoom_acc: Cell<f64>,
 	syncing: Cell<bool>,
@@ -130,6 +142,14 @@ type Saved = Box<dyn FnOnce(&Rc<Ui>, bool)>;
 
 /// What an action does.
 type Handler = Box<dyn Fn(&Rc<Ui>)>;
+
+/// The system's blink: `gtk-cursor-blink` and its time, with `QUILL_NO_BLINK` for tests.
+fn system_blink() -> Blink {
+	let (on, time) = gtk::Settings::default()
+		.map(|s| (s.is_gtk_cursor_blink(), s.gtk_cursor_blink_time()))
+		.unwrap_or((true, 1200));
+	Blink::from_settings(on, time, std::env::var("QUILL_NO_BLINK").ok().as_deref())
+}
 
 /// The primary menu: what the buttons do not show.
 fn primary_menu() -> gio::Menu {
@@ -316,6 +336,15 @@ impl Ui {
 			status,
 			actions: RefCell::new(Vec::new()),
 			last_dialog: RefCell::new(None),
+			im: gtk::IMMulticontext::new(),
+			overlay: RefCell::new(Overlay {
+				active: true,
+				caret: true,
+				..Overlay::default()
+			}),
+			blink: Cell::new(system_blink()),
+			clock: std::time::Instant::now(),
+			dragging: Cell::new(false),
 			pointer: Cell::new((0.0, 0.0)),
 			zoom_acc: Cell::new(0.0),
 			syncing: Cell::new(false),
@@ -415,56 +444,7 @@ impl Ui {
 			glib::Propagation::Stop
 		});
 		ui.page.add_controller(scroll);
-		let motion = gtk::EventControllerMotion::new();
-		let weak = Rc::downgrade(ui);
-		motion.connect_motion(move |_, x, y| {
-			if let Some(u) = weak.upgrade() {
-				u.pointer.set((x, y));
-			}
-		});
-		ui.page.add_controller(motion);
-		let click = gtk::GestureClick::new();
-		let weak = Rc::downgrade(ui);
-		click.connect_pressed(move |_, _, _, _| {
-			if let Some(u) = weak.upgrade() {
-				u.page.grab_focus();
-			}
-		});
-		ui.page.add_controller(click);
-
-		// Keys: scrolling. The shortcuts are accelerators of the actions below.
-		let keys = gtk::EventControllerKey::new();
-		let weak = Rc::downgrade(ui);
-		keys.connect_key_pressed(move |_, key, _, state| {
-			let Some(u) = weak.upgrade() else {
-				return glib::Propagation::Proceed;
-			};
-			if state.intersects(gdk::ModifierType::ALT_MASK) || !u.page_has_focus() {
-				return glib::Propagation::Proceed;
-			}
-			let shift = state.contains(gdk::ModifierType::SHIFT_MASK);
-			let step = LINE_STEP;
-			let mut v = u.view.borrow_mut();
-			let moved = match key {
-				gdk::Key::Up => v.scroll_by(0, -step),
-				gdk::Key::Down => v.scroll_by(0, step),
-				gdk::Key::Left => v.scroll_by(-step, 0),
-				gdk::Key::Right => v.scroll_by(step, 0),
-				gdk::Key::Page_Up => v.page_by(-1),
-				gdk::Key::Page_Down => v.page_by(1),
-				gdk::Key::space if shift => v.page_by(-1),
-				gdk::Key::space => v.page_by(1),
-				gdk::Key::Home => v.to_edge(false),
-				gdk::Key::End => v.to_edge(true),
-				_ => return glib::Propagation::Proceed,
-			};
-			drop(v);
-			if moved {
-				u.changed();
-			}
-			glib::Propagation::Stop
-		});
-		ui.window.add_controller(keys);
+		ui.wire_editing();
 
 		// One action for every command of the Windows menu tree, the toolbar and the formatting bar.
 		let tree = menu::tree(&[]);
@@ -634,6 +614,19 @@ impl Ui {
 				ui.self_test_dialogs();
 			});
 		}
+		if let Some(text) = self.opts.commit.clone() {
+			let ui = self.clone();
+			glib::timeout_add_local_once(std::time::Duration::from_millis(600), move || {
+				ui.im.emit_by_name::<()>("commit", &[&text]);
+			});
+		}
+		if let Some(text) = self.opts.preedit.clone() {
+			let ui = self.clone();
+			glib::timeout_add_local_once(std::time::Duration::from_millis(900), move || {
+				let n = text.len();
+				ui.set_preedit(&text, n);
+			});
+		}
 		if let Some(ms) = self.opts.quit_after {
 			let w = self.window.clone();
 			glib::timeout_add_local_once(
@@ -657,6 +650,285 @@ impl Ui {
 				ui.dump(&out);
 			});
 		}
+	}
+
+	/// The milliseconds since the window was made: the clock the blink and the double click run on.
+	fn now_ms(&self) -> u64 {
+		self.clock.elapsed().as_millis() as u64
+	}
+
+	/// The keyboard, the input method, the pointer and the caret's blink.
+	fn wire_editing(self: &Rc<Self>) {
+		let ui = self;
+		let page = &ui.page;
+		let im = &ui.im;
+		im.set_client_widget(Some(page));
+		im.set_use_preedit(true);
+
+		// Keys go to the input method first (a printable key is committed as text), then to the editor.
+		let keys = gtk::EventControllerKey::new();
+		keys.set_im_context(Some(im));
+		let weak = Rc::downgrade(ui);
+		keys.connect_key_pressed(move |_, key, _, state| match weak.upgrade() {
+			Some(u) if u.on_key(key, state) => glib::Propagation::Stop,
+			_ => glib::Propagation::Proceed,
+		});
+		page.add_controller(keys);
+
+		let focus = gtk::EventControllerFocus::new();
+		let i = im.clone();
+		focus.connect_enter(move |_| i.focus_in());
+		let i = im.clone();
+		focus.connect_leave(move |_| i.focus_out());
+		page.add_controller(focus);
+
+		let weak = Rc::downgrade(ui);
+		im.connect_commit(move |_, text| {
+			if let Some(u) = weak.upgrade() {
+				u.commit(text);
+			}
+		});
+		let weak = Rc::downgrade(ui);
+		im.connect_preedit_changed(move |im| {
+			if let Some(u) = weak.upgrade() {
+				let (text, _, cursor) = im.preedit_string();
+				u.set_preedit(&text, cursor.max(0) as usize);
+			}
+		});
+		let weak = Rc::downgrade(ui);
+		im.connect_preedit_end(move |_| {
+			if let Some(u) = weak.upgrade() {
+				u.set_preedit("", 0);
+			}
+		});
+		let weak = Rc::downgrade(ui);
+		im.connect_retrieve_surrounding(move |im| {
+			let Some(u) = weak.upgrade() else {
+				return false;
+			};
+			let (text, cursor) = u.doc.borrow().surrounding();
+			im.set_surrounding_with_selection(&text, cursor as i32, cursor as i32);
+			true
+		});
+		let weak = Rc::downgrade(ui);
+		im.connect_delete_surrounding(move |_, offset, n| {
+			let Some(u) = weak.upgrade() else {
+				return false;
+			};
+			let ok = u
+				.doc
+				.borrow_mut()
+				.delete_surrounding(offset, n.max(0) as u32);
+			u.after_edit();
+			ok
+		});
+
+		// The pointer: a click places the caret, a drag selects, Shift extends, a double and a triple click take a word and a
+		// paragraph. The editor's own pointer layer decides; this turns GTK's events into its `Ev`s in device pixels.
+		let click = gtk::GestureClick::builder().button(1).build();
+		let weak = Rc::downgrade(ui);
+		click.connect_pressed(move |g, _, x, y| {
+			if let Some(u) = weak.upgrade() {
+				u.page.grab_focus();
+				u.dragging.set(true);
+				u.pointer_event(g.current_event_state(), g.current_event_time(), x, y, 0);
+				u.start_autoscroll();
+			}
+		});
+		let weak = Rc::downgrade(ui);
+		click.connect_released(move |g, _, x, y| {
+			if let Some(u) = weak.upgrade() {
+				u.pointer_event(g.current_event_state(), g.current_event_time(), x, y, 2);
+				u.dragging.set(false);
+			}
+		});
+		page.add_controller(click);
+		let motion = gtk::EventControllerMotion::new();
+		let weak = Rc::downgrade(ui);
+		motion.connect_motion(move |c, x, y| {
+			let Some(u) = weak.upgrade() else {
+				return;
+			};
+			u.pointer.set((x, y));
+			if u.dragging.get() {
+				u.pointer_event(c.current_event_state(), c.current_event_time(), x, y, 1);
+			} else {
+				u.update_cursor(x, y);
+			}
+		});
+		page.add_controller(motion);
+
+		// The caret blinks, solid while typing and while the window is inactive.
+		let weak = Rc::downgrade(ui);
+		ui.window.connect_is_active_notify(move |w| {
+			if let Some(u) = weak.upgrade() {
+				let now = u.now_ms();
+				let mut b = u.blink.get();
+				b.set_active(w.is_active(), now);
+				u.blink.set(b);
+				u.sync_overlay();
+			}
+		});
+		let step = ui.blink.get().step_ms().max(100);
+		let weak = Rc::downgrade(ui);
+		glib::timeout_add_local(std::time::Duration::from_millis(step), move || {
+			match weak.upgrade() {
+				Some(u) => {
+					u.sync_overlay();
+					glib::ControlFlow::Continue
+				}
+				None => glib::ControlFlow::Break,
+			}
+		});
+	}
+
+	/// A key the page was given and the input method did not take. True when it was used.
+	fn on_key(self: &Rc<Self>, key: gdk::Key, state: gdk::ModifierType) -> bool {
+		let mapped = map_key(key, state);
+		if mapped == Mapped::Ignore {
+			return false;
+		}
+		let out = self.doc.borrow_mut().apply(mapped);
+		if let Some(c) = out.typed.refused.last() {
+			self.toast(&quill_gtk::doc::refusal(*c));
+		}
+		if let Some(d) = out.dialog {
+			self.handle_dialog(d);
+		}
+		if self.doc.borrow_mut().with(|app, _, _| app.take_help()) {
+			self.toast("Help is not in the Linux client yet.");
+		}
+		self.after_edit();
+		true
+	}
+
+	/// Text the input method committed: typed into the document, refusing what Windows-1252 cannot hold.
+	fn commit(self: &Rc<Self>, text: &str) {
+		let typed = self.doc.borrow_mut().type_text(text);
+		if let Some(c) = typed.refused.last() {
+			self.toast(&quill_gtk::doc::refusal(*c));
+		}
+		self.set_preedit("", 0);
+		self.after_edit();
+	}
+
+	/// Shows (or clears) the text an input method is composing, under the caret.
+	fn set_preedit(&self, text: &str, cursor_byte: usize) {
+		{
+			let mut o = self.overlay.borrow_mut();
+			o.preedit = quill_gtk::names::lossy_ansi(text, 63);
+			let before = text.get(..cursor_byte.min(text.len())).unwrap_or(text);
+			o.preedit_cursor = before.chars().count().min(o.preedit.len());
+		}
+		self.sync_overlay();
+	}
+
+	/// Puts the overlay (the caret's phase, the composing text) on the page.
+	fn sync_overlay(&self) {
+		let now = self.now_ms();
+		{
+			let mut o = self.overlay.borrow_mut();
+			o.active = true;
+			o.caret = self.blink.get().on(now);
+		}
+		self.page.set_overlay(self.overlay.borrow().clone());
+	}
+
+	/// After an edit or a caret move: the caret shows and stays solid, the view follows it, and the bars follow the format.
+	fn after_edit(self: &Rc<Self>) {
+		let now = self.now_ms();
+		let mut b = self.blink.get();
+		b.input(now);
+		self.blink.set(b);
+		self.doc.borrow().reveal_caret(&mut self.view.borrow_mut());
+		self.changed();
+	}
+
+	/// Tells the input method where the caret is, in the page's own coordinates, so its candidate window sits beside it.
+	fn update_im(&self) {
+		let (doc, view) = (self.doc.borrow(), self.view.borrow());
+		let Some(r) = doc.caret_rect() else {
+			return;
+		};
+		let zoom = f64::from(view.effective_zoom()) / 100.0;
+		let x = f64::from(view.page_left() + r.view_x) * zoom;
+		let y = f64::from(r.content_y - view.scroll().1) * zoom;
+		self.im.set_cursor_location(&gdk::Rectangle::new(
+			x.round() as i32,
+			y.round() as i32,
+			2,
+			(f64::from(r.h) * zoom).round().max(1.0) as i32,
+		));
+	}
+
+	/// One pointer event from the page, in its logical pixels. `kind` is 0 for the button going down, 1 for a move and 2 for it
+	/// going up. While the button is down a point outside the page is brought to its edge, and the page scrolls.
+	fn pointer_event(
+		self: &Rc<Self>,
+		state: gdk::ModifierType,
+		time_ms: u32,
+		x: f64,
+		y: f64,
+		kind: u8,
+	) {
+		let scale = f64::from(self.page.scale_120()) / 120.0;
+		let (dw, dh) = self.view.borrow().device();
+		let (mut dx, mut dy) = ((x * scale).round() as i32, (y * scale).round() as i32);
+		if kind != 0 {
+			if dy < 0 {
+				self.view.borrow_mut().scroll_by(0, -LINE_STEP / 2);
+			} else if dy >= dh as i32 {
+				self.view.borrow_mut().scroll_by(0, LINE_STEP / 2);
+			}
+			dx = dx.clamp(0, dw as i32 - 1);
+			dy = dy.clamp(0, dh as i32 - 1);
+		}
+		let ev = match kind {
+			0 => Ev::Down { x: dx, y: dy },
+			1 => Ev::Move { x: dx, y: dy },
+			_ => Ev::Up { x: dx, y: dy },
+		};
+		let shift = state.contains(gdk::ModifierType::SHIFT_MASK);
+		let click_ms = gtk::Settings::default()
+			.map_or(400, |s| s.gtk_double_click_time())
+			.max(100) as u64;
+		let tick = (u64::from(time_ms) * u64::from(DOUBLE_TICKS) / click_ms) as u32;
+		self.doc
+			.borrow_mut()
+			.pointer(&self.view.borrow(), ev, shift, tick);
+		self.after_edit();
+	}
+
+	/// While the button is down the page scrolls a little on a timer when the pointer is past its edge, so a drag can go on.
+	fn start_autoscroll(self: &Rc<Self>) {
+		let weak = Rc::downgrade(self);
+		glib::timeout_add_local(std::time::Duration::from_millis(60), move || {
+			let Some(u) = weak.upgrade() else {
+				return glib::ControlFlow::Break;
+			};
+			if !u.dragging.get() {
+				return glib::ControlFlow::Break;
+			}
+			let (x, y) = u.pointer.get();
+			let (_, dh) = u.view.borrow().device();
+			let scale = f64::from(u.page.scale_120()) / 120.0;
+			if y < 0.0 || y * scale >= f64::from(dh) {
+				u.pointer_event(gdk::ModifierType::empty(), 0, x, y, 1);
+			}
+			glib::ControlFlow::Continue
+		});
+	}
+
+	/// The I-beam over a sheet and the arrow elsewhere.
+	fn update_cursor(&self, x: f64, y: f64) {
+		let scale = f64::from(self.page.scale_120()) / 120.0;
+		let over = self.doc.borrow().over_sheet(
+			&self.view.borrow(),
+			(x * scale).round() as i32,
+			(y * scale).round() as i32,
+		);
+		self.page
+			.set_cursor_from_name(Some(if over { "text" } else { "default" }));
 	}
 
 	fn page_has_focus(&self) -> bool {
@@ -1161,6 +1433,8 @@ impl Ui {
 			self.view.borrow_mut().update_geometry(g);
 		}
 		self.refresh();
+		self.update_im();
+		self.sync_overlay();
 		self.page.queue_draw();
 	}
 

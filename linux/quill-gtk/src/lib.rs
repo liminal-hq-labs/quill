@@ -15,13 +15,19 @@
 //!   menus, toolbar, formatting bar, ruler, status bar and dialogs as GTK4 and libadwaita widgets over Gio actions that run the
 //!   shared `Command`s. Each has a plain-data part (the tree, the specs, the layout) that is tested without a display.
 //!
+//! - [`keys`] turns GTK key events into the editor's `Key`; [`command`] does what a key, a committed string or a movement means to
+//!   the editor (generic over its measure, so a replay test can use the host's text grid); [`blink`] is the caret's blink.
+//!
 //! The window and the page widget are in the `quill` binary (`window`, `page`).
 
 pub mod actions;
+pub mod blink;
+pub mod command;
 pub mod dialogs;
 pub mod doc;
 pub mod files;
 pub mod format_bar;
+pub mod keys;
 pub mod menu;
 pub mod names;
 pub mod ruler;
