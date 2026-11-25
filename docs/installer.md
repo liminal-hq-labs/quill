@@ -1,0 +1,98 @@
+# The installer, installed
+
+What `installer/` makes and how each disk is checked in an emulator. The project is described by [INS-1 to INS-3](decisions.md); this page is the evidence and the commands. The disks are built with `installer/tools/build-disks.sh` and checked with `installer/tools/verify-disks.sh`; the tests below install from those images.
+
+Optional components are not yet optional: RTF and TXT start ticked, because the installer has no unticked-component field yet (INS-2). The wizard shows them ticked in every screenshot below.
+
+## DOS
+
+`installer/tools/e2e-dos.sh` copies the floppy's files to a folder DOSBox Staging mounts as `C:`, runs `SETUP.EXE` with keys typed through the emulated keyboard, checks every installed file against `installer/dist/`, runs Quill on a sample, then removes it with `SETUP /U`. The text of each screen the installer drew is also read back (`LI_DUMP`).
+
+The screenshots come from `SHOTS=docs/media installer/tools/e2e-dos.sh`. The script starts its own virtual X server and DOSBox is a window on it, so it never reads or types into the desktop. It saves every distinct frame of a run and picks the pages by their order, which the keys fix.
+
+| | |
+|---|---|
+| ![Welcome](media/install-dos-welcome.png) | ![Licence](media/install-dos-licence.png) |
+| ![Licence accepted](media/install-dos-licence-accepted.png) | ![Folder](media/install-dos-folder.png) |
+| ![Components](media/install-dos-components.png) | ![Ready](media/install-dos-ready.png) |
+| ![Copying](media/install-dos-copying.png) | ![Done](media/install-dos-done.png) |
+| ![Quill running](media/install-dos-quill.png) | ![Quill's File menu](media/install-dos-quill-menu.png) |
+| ![Uninstall: confirm](media/install-dos-uninstall-confirm.png) | ![Uninstall: done](media/install-dos-uninstall-done.png) |
+
+The uninstall's last page is the install's "done" page with its wording, because the retro runtimes share one done layout. The copy itself takes under a second and is not on a frame.
+
+To run it again:
+
+```sh
+bash dos/tools/fetch-tools.sh        # once
+bash installer/tools/stage.sh --build && bash installer/tools/build-disks.sh
+SHOTS=docs/media bash installer/tools/e2e-dos.sh    # leave SHOTS out to run without screenshots
+```
+
+## Windows 3.x
+
+`installer/tools/e2e-w31.sh` installs from `QUILL-W31.IMG` onto Windows for Workgroups 3.11 in DOSBox-X, starts Quill from Program Manager and removes it again. It needs the owner's Windows 3.11 tree (never committed): `W31_TREE`, by default the play harness's `~/.cache/quill16-play/w31-base`, which is only read, because the script copies it first. DOSBox-X runs in a container of its own on a private virtual X server, so the desktop is never read or typed into. The disk's files are on `D:`, and two Windows sessions run over the same `C:`:
+
+1. `SETUP.EXE /PLAY ... /PAUSE=2500` steps through the wizard (each page is held for 2.5 s and the script takes its picture then), then Program Manager is brought up from its icon with Ctrl+Esc and Return, with the new group open. Return on the group's "Quill" item starts Quill.
+2. `SETUP.EXE /U C:\QUILL` steps through the uninstall, and Program Manager is shown again.
+
+The host checks every installed file against `installer/dist/` and the receipt, `QUILL.GRP` and `PROGMAN.INI`, the `qld=C:\QUILL\QUILL.EXE ^.qld` line in WIN.INI's `[Extensions]`, and after the uninstall that the files, the group, `QUILL.GRP` and the `qld=` association are gone and every other `[Extensions]` line is as it was.
+
+| | |
+|---|---|
+| ![Welcome](media/install-w31-wizard-welcome.png) | ![Licence](media/install-w31-wizard-licence.png) |
+| ![Folder](media/install-w31-wizard-folder.png) | ![Components](media/install-w31-wizard-components.png) |
+| ![Ready](media/install-w31-wizard-ready.png) | ![Done](media/install-w31-wizard-done.png) |
+| ![The Quill group in Program Manager](media/install-w31-group.png) | ![Quill selected in the group](media/install-w31-group-quill-selected.png) |
+| ![Quill started from the group](media/install-w31-quill-running.png) | ![Uninstall: confirm](media/install-w31-uninstall-confirm.png) |
+| ![Uninstall: done](media/install-w31-uninstall-done.png) | ![Program Manager after the uninstall](media/install-w31-removed.png) |
+
+What the run showed, beyond passing:
+
+- The group holds three items: Quill, Quill Help and Uninstall Quill (the install keeps `UNINST.EXE`).
+- The optional components (`.RTF` and `.TXT` files with Quill) start ticked, so WIN.INI also gives `rtf=` and `txt=` to Quill, and the uninstall gives `txt=notepad.exe ^.txt` back. When the optional-components field lands, the ticked state in the screenshot changes and the script's note goes quiet.
+- The uninstall leaves empty `qld=` and `rtf=` lines in `[Extensions]` for the types that had no owner. Windows reads an empty value as no association, so the check accepts them and the script says so. Removing the key is the installer's to fix.
+- `C:\QUILL` is not removed when Quill has run from it: this Win16 build writes `QUILL.INI`, `STACK.LOG` and `PICS.LOG` beside the program, and the uninstall removes only what the receipt lists (INS-2). The script allows exactly those names and says so.
+- The Win16 `QUILL.EXE` built from this branch opens its window and closes it about a second later when started under `win /3`, from `D:` as well as from `C:\QUILL`; the screenshot catches the window while it is up on most runs (on one run in five it came and went between two pictures, and the script then falls back on `STACK.LOG`, which Quill writes as it ends). The earlier Win16 build the play harness staged (349,072 bytes) stays open. This is for Quill, not the installer.
+- The uninstall's last page repeats the install's wording ("Setup has finished installing Quill"), because the Windows 3.x runtime shares one done layout.
+
+To run it again:
+
+```sh
+bash installer/tools/stage.sh --build && bash installer/tools/build-disks.sh
+SHOTS=docs/media bash installer/tools/e2e-w31.sh    # leave SHOTS out to run without screenshots
+```
+
+## Windows 95
+
+`installer/tools/e2e-w95.sh` installs from `QUILL-W95.IMG` onto Windows 95 OSR2.5 in DOSBox-X, using Liminal Installer's Windows 95 test bed scripts (`scripts/win95/lib.sh` and `mouse.sh`, from the checkout `installer/liminst.rev` pins, or `LIMINAL_INSTALLER`). The base image comes from the owner's CD, is only read (it is linked from `W95_BASE_DIR`, default `/mnt/games/media/win95-testbed`), and each run boots a sparse copy. The test bed folder (`~/.cache/quill16-w95`), the Xvfb display and the container (`quill16-install-w95`) are the script's own, so the play harness is never touched. `W95_BASE_KIND=ie4` boots the Internet Explorer 4 base instead (not run here).
+
+It is one boot. WIN.INI's `run=` line starts `D:\SETUP.EXE`; Return is Next on every page, and one mouse click accepts the licence, because the wizard's radio buttons take no keys. The same boot then copies the install to `D:` and checks it against `installer/dist/`, opens Start > Programs > Quill and Add/Remove Programs (`control appwiz.cpl`), writes the registry keys out with `regedit /e` and reads them back, starts Quill from the Start menu, and runs `UNINST.EXE /U` as Add/Remove Programs would. After that the keys, the Start menu folder and the files are checked again, and `.txt` and `.rtf` must be as they were before the install.
+
+| | |
+|---|---|
+| ![Welcome](media/install-w95-wizard-welcome.png) | ![Licence](media/install-w95-wizard-licence.png) |
+| ![Licence accepted](media/install-w95-wizard-licence-accepted.png) | ![Folder](media/install-w95-wizard-folder.png) |
+| ![Components](media/install-w95-wizard-components.png) | ![Ready](media/install-w95-wizard-ready.png) |
+| ![Copying](media/install-w95-wizard-copying.png) | ![Done](media/install-w95-wizard-done.png) |
+| ![Start, Programs, Quill](media/install-w95-start-programs-quill.png) | ![Add/Remove Programs with Quill](media/install-w95-add-remove-programs.png) |
+| ![Quill started from the Start menu](media/install-w95-quill-running.png) | ![Quill closed](media/install-w95-quill-closed.png) |
+| ![Uninstall](media/install-w95-uninstall-confirm.png) | ![Uninstall: done](media/install-w95-uninstall-done.png) |
+| ![Start menu without Quill](media/install-w95-start-programs-after.png) | ![Add/Remove Programs without Quill](media/install-w95-add-remove-after.png) |
+
+What the registry holds after the install (read back from `regedit /e`): `HKCR\.qld` is `hq.liminal.quill.qld`, whose value is "Quill document", with `DefaultIcon` `C:\Program Files\Quill\QUILL32.EXE,0` and `shell\open\command` `"C:\Program Files\Quill\QUILL32.EXE" "%1"`; `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\hq.liminal.quill` has `DisplayName`, `DisplayVersion`, `Publisher`, `InstallLocation` and `UninstallString`.
+
+What the run showed, beyond passing:
+
+- The optional components start ticked, so `.txt` and `.rtf` are given to Quill (`hq.liminal.quill.txt` and `.rtf`) and the uninstall gives `txtfile` and `rtffile` back.
+- The uninstall leaves the empty folder `C:\Program Files\Quill`. The script says so and does not fail on it.
+- The welcome page draws only its heading: its body text is missing in the Windows 95 wizard (the Windows 3.x one shows it). The done page of the uninstall shows the install's wording and "Launch Quill".
+- The Start menu has "Quill" and "Quill Help" only; the Read Me item the plan listed is not made.
+- The mouse is the unreliable part (the guest lags the host's clicks on a busy machine), so the script waits for the pointer, checks that Next became enabled and tries three times. Without that, one run in three stayed on the licence page.
+
+To run it again:
+
+```sh
+bash installer/tools/stage.sh --build && bash installer/tools/build-disks.sh
+SHOTS=docs/media bash installer/tools/e2e-w95.sh    # leave SHOTS out to run without screenshots
+```

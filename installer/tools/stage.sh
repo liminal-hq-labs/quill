@@ -38,7 +38,9 @@ mkdir -p "$DIST/dos-x86" "$DIST/win16-x86" "$DIST/windows-x86" "$DIST/help" "$DI
 # DOS programs read text with CR LF line ends.
 crlf() { sed 's/$/\r/' "$1" >"$2"; }
 crlf "$HERE/README.TXT" "$DIST/common/README.TXT"
-crlf "$HERE/LICENCE.TXT" "$DIST/common/LICENCE.TXT"
+# The licence page shows the short notice (installer/LICENCE.TXT): the Windows 3.x runtime holds the page text in a 40 KB heap, and the
+# whole 13 KB of both licences does not fit. The installed LICENCE.TXT is the full text.
+crlf "$HERE/LICENCE-FULL.TXT" "$DIST/common/LICENCE.TXT"
 
 # The samples are the documents the tests already use, under 8.3 names.
 cp "$ROOT/tests/docs/letter.qld" "$DIST/samples/LETTER.QLD"
