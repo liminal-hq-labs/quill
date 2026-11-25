@@ -3,6 +3,7 @@
 
 # Rust build output
 /target/
+/linux/quill-gtk/target/
 
 # JavaScript dependencies and build output
 node_modules/

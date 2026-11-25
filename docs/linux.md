@@ -9,6 +9,7 @@ What exists for Linux, what is planned, and why. The behaviour of each client is
 - [The command line](#the-command-line)
 - [Fonts and measuring](#fonts-and-measuring)
 - [The GTK4 client](#the-gtk4-client)
+- [The GTK4 viewer (G1)](#the-gtk4-viewer-g1)
 - [Desktop integration and packaging](#desktop-integration-and-packaging)
 - [Wine as a stopgap](#wine-as-a-stopgap)
 - [Work list](#work-list)
@@ -22,9 +23,9 @@ What exists for Linux, what is planned, and why. The behaviour of each client is
 |---|---|---|
 | Terminal client | `linux/quill-tty` | Built. Edits, saves and prints through the same `App` as DOS |
 | Command line (`quill cat`, `convert`, `info`) | `crates/quill-cli` | Built |
-| Outline-font measure and test fonts | `crates/quill-fonts` | Built. Nothing draws with it yet |
+| Outline-font measure, glyph source and test fonts | `crates/quill-fonts` | Built. The GTK4 viewer draws with it through `quill_paint::pixel` |
 | Page renderer, thumbnailer, PDF | `crates/quill-raster`, `quill-thumbnailer` | Planned |
-| GTK4 client | `linux/quill-gtk` | Planned; the toolkit is chosen (D181) |
+| GTK4 client | `linux/quill-gtk` | G1 built: a read-only viewer with scrolling, zoom, drag and drop, settings and a dark desk. Editing is G2 (D181, LNX-1 to LNX-6) |
 
 The editor core needs nothing Linux-specific. Every client links the same `quill-core`, `quill-formats` and `quill-app`, so a `.QLD` or RTF file written on Linux is byte for byte what the other builds write.
 
@@ -123,7 +124,7 @@ The client is GTK4 with libadwaita, in its own workspace under `linux/quill-gtk`
 | Crate | Holds |
 |---|---|
 | `crates/quill-fonts` | Built. Font loading, `OutlineMeasure`, the fallback table. Later: glyph rasterizing (skrifa outlines into tiny-skia paths, cached by font, size and quarter-pixel offset) |
-| `crates/quill-raster` | `Mapping` (layout units to device pixels) and `render_page(app, store, mapping, rect) -> Pixmap`, following `gdi.rs::draw_line`: runs, bold, italic, underline, strikethrough, super and subscript, colours, tab leaders, `line_label`, selection, caret, sheets, pictures, headers and footers in preview. It becomes the shared `Surface` painter |
+| `crates/quill-raster` | Superseded for drawing by `quill_paint::pixel` (LNX-1). `Mapping` (layout units to device pixels) and `render_page(app, store, mapping, rect) -> Pixmap`, following `gdi.rs::draw_line`: runs, bold, italic, underline, strikethrough, super and subscript, colours, tab leaders, `line_label`, selection, caret, sheets, pictures, headers and footers in preview. It becomes the shared `Surface` painter |
 | `crates/quill-cli` | Built, plus the `quill-thumbnailer` binary (no GTK, so it starts fast in the thumbnailer sandbox) |
 | `linux/quill-gtk` | gtk4-rs and libadwaita: window, the `QuillPage` widget, menus, dialogs, IME, clipboard, printing |
 | `linux/data` | `.desktop`, `.thumbnailer`, AppStream metainfo, icon install map, Flatpak manifest, PKGBUILD |
@@ -150,6 +151,61 @@ The client is GTK4 with libadwaita, in its own workspace under `linux/quill-gtk`
 ### Spike G0
 
 The first GTK work is a spike that answers what is not known: whether GTK4 shows a texture of exactly device size one to one at a scale of 1.5 without resampling; whether a cairo drawing area is sharp at fractional scales; whether IBus compose and preedit work in a custom widget; and whether `GtkFileDialog` uses the portal outside Flatpak. The result is written back into this file.
+
+## The GTK4 viewer (G1)
+
+`linux/quill-gtk` builds `quill`, a read-only viewer, in its own Cargo workspace (it needs the GTK4 development files; `make gtk` runs its format check, clippy and tests). The app id is `io.github.liminal_hq_labs.Quill`, and the application handles files itself (`HANDLES_OPEN`), so a second `quill FILE` is meant to open the file in the first window.
+
+![The viewer at a scale of 1](media/gtk-viewer-1x.png)
+
+![The Open dialog (GtkFileDialog)](media/gtk-viewer-open-dialog.png)
+
+![The viewer on a dark system theme, with the paper still white](media/gtk-viewer-dark.png)
+
+![Drawn at a scale of 1.5 by GTK's own renderer](media/gtk-viewer-1.5x.png)
+
+### What it does
+
+- **Open.** From the command line (`quill letter.rtf`), from Ctrl+O or the Open button (`GtkFileDialog`, filters for `.qld`, `.rtf` and `.txt` matched without regard to case), from the Recent button (the editor's own four-name list), and by dropping a file on the window. A file that will not open leaves the open document alone and says why in an alert.
+- **Scrolling.** The wheel (48 document pixels a notch, Shift for sideways), the arrow keys, Page Up and Page Down (a view less a few lines), Space and Shift+Space, Home and End, and two scroll bars. The bars follow the view in both directions.
+- **Zoom.** Ctrl+wheel, Ctrl+plus, Ctrl+minus and Ctrl+0 (100 %), and Ctrl+9 for page width, over the editor's own range of 25 to 200 % (page width never goes above 100 %). The point under the pointer stays under it. The status line shows `Page X of N` and the zoom.
+- **Title.** `Name – Quill`, and `*Name – Quill` when there are unsaved changes (D194). The viewer never has any, but the title function is `quill_gtk::names::title` and is tested.
+- **Names.** The editor names a file by Windows-1252 bytes. A build with long names (the same `long-names` feature the Windows 95 build uses) keeps an absolute path up to 260 bytes, so the recent list opens it again next session. A path with a character Windows-1252 lacks gets a stand-in name for the session; it opens, but it cannot be reopened from the recent list in a later session. The title and the recent menu show the long UTF-8 name.
+- **Settings.** The window's size and whether it was maximized are in `$XDG_CONFIG_HOME/quill/gtk.ini`. The recent files (`[Recent32]`) and the zoom (`Zoom=`, `Width` for page width, which is the default) are in the editor's own `QUILL.INI` in the same folder, written through `App::save_settings`, so every client reads them.
+- **Full screen** with F11, and **Quit** with Ctrl+Q.
+- **Dark mode.** The desk follows GTK's colour scheme (`gtk-interface-color-scheme`, else the older dark-theme setting) and changes when it does. The paper is white in both. libadwaita arrives at G7.
+
+### How it is built
+
+- **`quill_gtk` (the library, no display needed).** `view` is the view model: `Mapping { zoom_pct, scale_120 }`, the page `Geometry`, scroll, zoom, the visible sheets, the current page and the scroll bar ranges. `doc` holds the shared `App`, its store and files and draws the visible sheets. `files` is `quill-tty`'s `LinuxFiles` plus the stand-in names. `names` and `settings` are small and tested.
+- **`QuillPage` (the widget).** On a snapshot it asks the view for the sheets on screen, has the document paint them into an RGBA buffer of (widget size × display scale) device pixels, and appends it as a `gdk::MemoryTexture` after the spike's pixel-grid shift. The texture is kept until the document, the scroll, the zoom, the size, the scale or the theme changes, so a repaint with nothing new does no layout and no drawing. The scale is `gdk::Surface::scale()` in 1/120 and is re-read on `notify::scale`.
+- **Layout and drawing.** The layout is the app's own at 96 pixels to the inch, laid out into checkpoints when a file opens (`App::open`), so a paint walks only the lines of the sheets on screen through `quill_paint::page::paint_sheet`, the print-preview painter, which also draws headers, footers and page-number fields. `Mapping::scale()` is `zoom × scale_120 ÷ 12000` as a `quill_paint::pixel::Scale` (1/256), so each edge is rounded once whatever the zoom and the display (LNX-1).
+- **The window** (`window.rs`) only connects GTK's events to those parts.
+
+### Command line
+
+`quill [FILE]`, `--help` and `--version`. For tests and screenshots: `--scale-120 N` draws at N/120 whatever the display says, `--zoom`, `--scroll`, `--size WxH`, `--dark` and `--light`, `--vendored-fonts` (the test fonts only, so a render is the same on every machine), `--no-settings`, `--open-dialog`, `--dump FILE` (write the page texture and say where it sits), `--screenshot FILE` (render the window's content with GTK's own renderer, then quit) and `--new-instance`.
+
+### What was proved
+
+- **Opens every document.** `tests/viewer.rs` opens every `.rtf` and `.qld` in `tests/docs`, checks the title, draws it at scales of 1.0, 1.25 and 1.5, and checks the buffer's size, the white sheet and the ink on it.
+- **The layout equals the goldens.** `Document::dump_layout` lays the open document out again at 1440 units to the inch with the vendored fonts and writes `dump_story`'s text; for `letter`, `lists`, `headers`, `pictures` and `plain` it equals `tests/golden/layout/*.outline-1440.txt` byte for byte. What the window shows is the same document laid out at 96, as the Windows and DOS graphics builds do; the 1440 dump proves the viewer reads the same document through the same code, not that the screen's line breaks are the dump's.
+- **Pixel goldens.** `tests/golden/gtk/letter.1.00.png`, `letter.1.50.png` and `lists.1.25.zoom125.dark.png` are the viewer's buffers at a display scale of 1.0, 1.5 and 1.25 with a zoom of 100, 100 and 125 %, compared byte for byte (the surface is deterministic software drawing, so no tolerance is needed; `QUILL_UPDATE_GOLDEN=1` rewrites them). `docs/media` shows what GTK does with them.
+- **The view model.** 23 unit tests cover the mapping, the device size, scroll limits, centring, sideways scroll, visible sheets, the status page, page keys, the zoom steps and limits, zooming around a point, page-width zoom, scroll bar ranges, the title, names, the stand-in names and settings. Two more tests check that recent files and zoom come back in the next session.
+- **The page is pixel-exact in a real frame.** `linux/quill-gtk/tools/frames.sh` (its own Xvfb; stops only that process) compares each frame with the texture the client says it drew, pixel for pixel: an X capture at scale 1 (876 × 619 pixels, 6,213 dark text pixels), an X capture at `GDK_SCALE=2` (1,752 × 1,238), and a capture from a headless Weston at scale 2 (3,576 × 2,350, run by hand). Every one is 100.000 % equal with a largest channel difference of 0.
+- **And at fractional scales,** from GTK's own renderer drawing the window's content at 1.25, 1.5 and 1.75 (and 1.0 and 2.0): 100.000 % equal in each, text included. This is what the spike measured on GNOME, now with the real page.
+- **Input.** Under Xvfb with `xdotool` (no window manager): Ctrl+plus, Ctrl+minus (100 % to 90 % to 75 %), Ctrl+0 (100 %), Ctrl+9 (81 % in a 700-pixel window), Page Down, End, the wheel and Ctrl+Q act as described, and a Ctrl+Q after zooming leaves `Zoom=125`, the window size and the recent file in the settings. The Open dialog opens, lists the folder of the open file and filters by type (`docs/media/gtk-viewer-open-dialog.png`).
+
+### Not proved
+
+- **Fractional scales on a real compositor.** Weston has no fractional-scale protocol, and X11 has only whole scales, so 1.25, 1.5 and 1.75 are shown through GTK's offscreen renderer, not a compositor's output. The spike did show a 1.5 compositor frame on GNOME, with the same shift.
+- **A choice in the Open dialog.** The dialog was shown and the file filters checked, but picking a file in it was not driven (the portal and a window manager were absent, so it ran in GTK's own dialog under Weston and a private session bus).
+- **Drag and drop** from a file manager, **the recent menu**, **F11** (there was no window manager to honour it) and **the hand-off to a running window** (the tests ran with `--new-instance`) were not driven. Drop, recent and the command line share `Ui::open_path`.
+- **Moving the window between monitors of different scales,** maximize and full screen at a fractional scale.
+- **IME and Orca** are later steps (G2 and G7). Nothing here takes text input.
+- **Smooth scrolling is in whole document pixels,** so at 200 % on a 2× display a notch of the wheel moves 4 device pixels at least.
+- **A page-width zoom while the window is resized** redraws on each size change; its cost on a very long document was not measured.
+- **Pictures are scaled by repetition** (D213), so a picture at 1.5 is blocky when it has hard edges.
 
 ## Desktop integration and packaging
 
@@ -180,8 +236,8 @@ Items marked *new files* touch only new files and one line of the root `Cargo.to
 | P6 | `quill-thumbnailer` and `linux/data` | `desktop-file-validate` and `appstreamcli validate`; Nautilus shows a page-1 thumbnail | P5 and the magic branch |
 | P7a | HTML writer in `quill-formats` and `quill to-html` | Golden HTML; LibreOffice opens it with the same counts | New code in `quill-formats` |
 | P7b | `quill to-pdf` with `pdf-writer` and subset fonts | `pdftotext` gives the text; the page count matches | P5 |
-| G0 | The GTK4 spike | A 1.5× screenshot shows a one-pixel checkerboard with no blur | P5 |
-| G1 | Read-only viewer | Opens every file in `tests/docs`; layout equals the goldens | G0 |
+| G0 | The GTK4 spike | A 1.5× screenshot shows a one-pixel checkerboard with no blur | P5. **Built**, see [linux-spike.md](linux-spike.md) |
+| G1 | Read-only viewer | Opens every file in `tests/docs`; layout equals the goldens | G0. **Built**, see [The GTK4 viewer (G1)](#the-gtk4-viewer-g1) |
 | G2 | Editing: keys, IME, caret, mouse | The host's editing scenarios replayed through the GTK command layer save identical bytes | G1 and the pointer work |
 | G3 | Menus and native dialogs | Every `Dialog` variant is shown and answered | G2 |
 | G4 | Toolbar, formatting bar, ruler, status bar | The same commands as the host chrome tests | G3 and the shared view |
@@ -220,6 +276,8 @@ Ideas that apply to every build, with what each costs on old hardware, in priori
 
 ## Decisions
 
+Decisions made since the work moved to the area numbering are `LNX-1` and up in [decisions.md](decisions.md); G1 made LNX-1 to LNX-6 (the pixel surface in place of `quill-raster`, scrolling and the texture, zoom, settings and names, the dark desk, the binary name and the test hooks).
+
 Numbers D180 to D199 are reserved for the Linux work, so they cannot collide with the other numbering blocks (D100 to D105 are the Windows 9x decisions). **Assumed** means chosen without the owner's confirmation and standing until confirmed.
 
 | # | Decision | Choice | Why |
@@ -246,11 +304,11 @@ Numbers D180 to D199 are reserved for the Linux work, so they cannot collide wit
 
 ## Risks and what is not proven
 
-- **GTK4 may resample the texture at 1.5×.** Spike G0 tests this first; the fallback is cairo, then egui.
+- **GTK4 resampling at a fractional scale** is settled for the page: the texture path is exact with the pixel-grid shift (spike G0 and G1). A compositor's own output at 1.25 and 1.75 was not seen.
 - **Layout at 1440 is not yet exercised by the editor.** `view.rs` and parts of the painter assume 96, so 1440 may expose integer assumptions in `quill-app`. C2 and the property tests cover it.
 - **Two painters until C3.** The GDI painter and `quill-raster` will drift until `Surface` merges them.
 - **Font metric policy.** If the `OS/2` and `hhea` handling differs from GDI, line heights will not match Windows. The report above is the measure of that.
-- **IME preedit** in a custom GTK4 widget is untested.
+- **IME preedit** in a custom GTK4 widget is untested (G2).
 - **Terminal keys.** The kitty protocol was checked in two ways: against a pseudo-terminal that answers the query and sends Ctrl+I as `CSI 105;5u` (Italic is applied, the document is not modified), and in tmux 3.8, a legacy terminal, where Ctrl+I is Tab (the status line shows `Mod` and the cursor moves a tab). It was not run in kitty, foot, WezTerm or a VTE terminal, so whether each of them answers the query is unproven; VTE's support in particular is unknown.
 - **Inside Flatpak,** recent files depend on the document portal keeping access across restarts.
 - **CI** needs an image with GTK4 development files; whether `tauri-ci-desktop` has them is not known.

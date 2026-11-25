@@ -128,6 +128,8 @@ The probe (`--ime`) attaches a `GtkIMMulticontext` to a focusable area through a
 
 ## Reproducing it
 
+The spike program (`quill-gtk-spike`, with its patterns and probes) was replaced by the viewer in step G1 (see [linux.md](linux.md#the-gtk4-viewer-g1)); its source is in the history of `linux/quill-gtk` before that change, and `tools/capture.py`, `analyse.py`, `sheet.py` and `type-keys.py` stayed. To run the measurements again, build the spike from that history:
+
 ```sh
 cd linux/quill-gtk
 CARGO_TARGET_DIR=/path/outside/the/repo cargo build
@@ -137,4 +139,4 @@ python3 -I tools/analyse.py DIR/frame.png DIR/log.txt DIR/source.png DIR/crop
 python3 -I tools/sheet.py DIR/crop DIR/source.png sheet.png texture aligned nearest-aligned
 ```
 
-Extra flags: `--ime` for the input-method probe, `--file-dialog` to open and cancel the file dialog, `--offsets` for a grid of textures at different logical margins. The window prints the scale, the monitor, the renderer and every panel's bounds on start. It needs `gtk4` and `libadwaita` with their development files; the root workspace never builds it.
+Extra flags: `--ime` for the input-method probe, `--file-dialog` to open and cancel the file dialog, `--offsets` for a grid of textures at different logical margins. The window prints the scale, the monitor, the renderer and every panel's bounds on start. It needs `gtk4` and `libadwaita` with their development files; the root workspace never builds it. The viewer's own check, which needs no desktop session, is `linux/quill-gtk/tools/frames.sh`.

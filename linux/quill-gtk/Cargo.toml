@@ -8,19 +8,30 @@ members = ["."]
 resolver = "2"
 
 [package]
-name = "quill-gtk-spike"
+name = "quill-gtk"
 version = "0.0.0"
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 publish = false
-description = "Spike G0: can a custom GTK4 widget show device-pixel-exact images at a fractional scale"
+description = "Quill's GTK4 client: a read-only page viewer over the shared editor core, drawn by Quill's own renderer"
+
+[lib]
+name = "quill_gtk"
+path = "src/lib.rs"
 
 [[bin]]
-name = "quill-gtk-spike"
+name = "quill"
 path = "src/main.rs"
 
 [dependencies]
 gtk = { package = "gtk4", version = "0.11", features = ["v4_20"] }
-adw = { package = "libadwaita", version = "0.9", features = ["v1_6"] }
-skrifa = "0.50"
-tiny-skia = "0.12"
+quill-app = { path = "../../crates/quill-app", features = ["long-names"] }
+quill-core = { path = "../../crates/quill-core" }
+quill-formats = { path = "../../crates/quill-formats" }
+quill-fonts = { path = "../../crates/quill-fonts" }
+quill-host = { path = "../../crates/quill-host" }
+quill-paint = { path = "../../crates/quill-paint", features = ["pixel"] }
+quill-tty = { path = "../quill-tty" }
+
+[dev-dependencies]
+tempfile = "3"
