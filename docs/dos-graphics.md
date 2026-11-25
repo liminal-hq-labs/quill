@@ -28,7 +28,8 @@ The design for a graphics mode beside text mode in `QUILLDOS.EXE`: video modes, 
 | Font generator, proof sheets, the Windows comparison | `crates/quill-fntgen` | First wave (G1), with the format page [dos-fnt-format.md](dos-fnt-format.md) |
 | Hardware layer copied from Desk | `dos/hal` | First wave (G4) |
 | The graphics shell: start-up, the page, ruler, menu bar and status line, the presenters for mode 12h and VBE | `crates/quill-paint` (`shell`, `damage`), `dos/quill-dos` (`gfx`, `measure`) | First slice built (G5, and the plain part of G6): see [the first slice](#the-first-slice-a-page-in-graphics-mode) |
-| Menu drawing, toolbar, scroll bars, dialogs, mouse, pictures, 800 × 600 | | Not started |
+| The mouse: INT 33h, the arrow, clicks, drags, the wheel, menus and dialogs by cell | `crates/quill-mouse`, `quill-app::mouse`, `quill-paint::cursor`, `dos/quill-dos` (`mouse`) | Built (G8, DOS-13 to DOS-15) |
+| Menu drawing, toolbar, scroll bars, dialogs, pictures, 800 × 600 | | Not started |
 
 What the code on `main` already gives this work:
 
@@ -145,7 +146,7 @@ The painter is written from `gdi.rs` `draw_line`, `paint_page` and `paper_sheet`
 
 ## Input, preview and printing
 
-**Mouse.** INT 33h function 0 (present), 7 and 8 (range set to the mode's size, because drivers do not know VBE modes), 3 (position and buttons), 5 and 6 (press and release counters, so short clicks are not lost) and 2 (hide the driver's cursor). The arrow is a software cursor composited at present time. Double-click timing comes from the BIOS tick at 0040:046C. The same module gives text mode its missing mouse. The host scenario format gains `@click x y` and `@drag …` lines, and DOS reads them from a `QUILL_MOUSE` file in place of INT 33h, because AUTOTYPE cannot drive a mouse.
+**Mouse** (DOS-13 to DOS-15). INT 33h function 0 (present), 0011h (the CuteMouse wheel, counted in BH of function 3), 7 and 8 (range set to the mode's size, because drivers do not know VBE modes; eight driver units to a cell in text mode), 4 (centre), 3 (position and buttons), 5 and 6 (press and release counters, so short clicks are not lost) and 2 (hide the driver's cursor). The arrow is a software cursor composited at present time by `quill_paint::cursor` from the shadow's own bytes, never in the shadow; on the text screen the pointer is the cell under it with its colours swapped. Double-click timing comes from the BIOS tick at 0040:046C. The same module gives text mode its missing mouse, including its menu bar and dialogs by cell. The host scenario format gains `@click`, `@shiftclick`, `@dclick`, `@tclick`, `@drag` and `@wheel` lines, and DOS reads them from a `QUILL_MOUSE` file in place of INT 33h, because AUTOTYPE cannot drive a mouse (`tests/scenarios/g8-mouse.keys` in cells, `g8-mouse-gfx.keys` in pixels). `dos/tools/mouse-x11.sh` also moves a pointer through DOSBox's real driver. Not proven: the wheel through DOSBox (the guest saw no wheel counts under Xvfb), and a double click through the real driver, because the second press is seen only after the first one's frame is drawn.
 
 **Print preview** fits one or two sheets to the screen, greeks text as grey bars per run below 50 %, and scales pictures, using the painter's page walk. Printing stays plain text (SPEC).
 
@@ -195,7 +196,7 @@ The screens are 1:1 captures of the DOSBox window in a private Xvfb (the typing 
 ### What does not work yet
 
 - **Menus and dialogs are not drawn.** F10 and the menu keys still drive the app's menu, and the file, Save As, Find and other dialogs still open, but nothing shows them (G7 draws them); while one is open the status line says so and Esc closes it. The menu bar's titles are only titles.
-- **No toolbar, no scroll bars, no mouse** (G6 and G8). The ruler is a picture and cannot be dragged.
+- **No toolbar and no scroll bars** (G6). The ruler is a picture and cannot be dragged. The mouse (G8) takes the page only: a click, Shift+click, a drag, a double and a triple click and the wheel work, but the menu bar's titles are only titles until the menus are drawn, because `quill_paint::shell::Pixels` has no hit tests for them yet.
 - **Pictures** are painted by the painter's dithering code but were not exercised on DOS (G9). 800 × 600, graphics print preview and `/MONO` in graphics are not done.
 - **The caret does not blink** and is part of the shadow, because nothing in the loop waits on a timer yet.
 - **Speed** (below): every key redraws the whole page, and the laid-out document is rebuilt several times for each redraw. That is slow on anything but a fast machine; line damage and a layout cache belong to G10.
@@ -230,7 +231,7 @@ All measured on this slice, with the 730,135-byte `QUILL.FNT` the generator writ
 | G5 | `feat/dos-gfx-boot` | `dos/quill-gfx`; `/G`, `/G16`, `Graphics=`; `App<ScreenMeasure>`; page-only screen in 12h; row-hash presenter | DOSBox frame CRCs equal the host's sums |
 | G6 | `feat/dos-gfx-chrome` | Menus, toolbar, ruler, scroll bars, status bar | Host goldens per open menu; DOSBox sums equal |
 | G7 | `feat/dos-gfx-overlay` | `draw_overlay`, the ROM font; every text dialog and the help viewer | `m2-dialogs` and `m8-spelling` sums equal; text goldens unchanged |
-| G8 | `feat/dos-mouse` | INT 33h, cursor, click, drag, double-click; text-mode mouse | Host tests on a driver model; scripted sums equal |
+| G8 | `feat/dos-mouse` | INT 33h, cursor, click, drag, double-click; text-mode mouse | Host tests on a driver model; scripted sums equal; the real driver ends on the host's frame |
 | G9 | `feat/dos-vbe` | VBE 640 × 480 and 800 × 600 × 256, the cube, pictures dithered with a cache budget | Sums equal on `svga_s3`; fallbacks on `vesa_nolfb` and `vgaonly` |
 | G10 | `perf/dos-gfx` | Stopwatch, frame-time log, line damage if needed, the 4 MB run | Times logged; a 3 MB picture document opens in 4 MB |
 | G11 | `feat/dos-preview` | Graphical print preview | Goldens; DOSBox sums |
