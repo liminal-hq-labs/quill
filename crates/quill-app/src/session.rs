@@ -48,11 +48,8 @@ impl<M: Measure + Clone> App<M> {
 		if !self.modified {
 			return false;
 		}
-		let Some(mut w) = f.create(name) else {
-			return false;
-		};
-		let ok = qld::write(&self.doc, s, &mut w).is_ok();
-		f.close(w) && ok
+		let doc = &self.doc;
+		crate::safe::write_replace(f, name, |w| qld::write(doc, s, w)) == crate::safe::Saved::Done
 	}
 }
 

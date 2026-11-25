@@ -12,6 +12,7 @@ What fills the 64 KB automatic data segment of `QUILL.EXE`, what happens when it
 - [Pictures](#pictures)
 - [Recommendations](#recommendations)
 - [The spelling lists in far memory (CORE-8)](#the-spelling-lists-in-far-memory-core-8)
+- [Safe save (CORE-9)](#safe-save-core-9)
 
 ## Why one segment
 
@@ -165,3 +166,17 @@ The user dictionary (2,048 bytes) and the table of words ignored for the session
 | Windowed launch and File > Exit (`e2e-launch-w31.sh`), before and after | 19,850 | 9,350 |
 
 The margin is unchanged because the stack's use is: the lists are read in 64-byte blocks, so no frame grew by more than about 100 bytes and none is on the deepest path. `check_stack_log.py` wants 2,048. The painted-stack `top` value moves up by the 2,840 bytes (0xED6E to 0xE256), as the stack starts where the data ends. The benchmark (`bench-w31.sh`, 241 typed keys) gives the same calls per phase before and after (`type` median 99), and the `m1-edit` and `m8-spelling` frames and `QUILL.UDC` equal the host's goldens.
+
+## Safe save (CORE-9)
+
+Saving writes a temporary file beside the target and replaces the target with it (CORE-9). The Win16 shell deletes, renames and commits with INT 21h (`w16::dos_delete`, `dos_rename`, `dos_commit`), so no import was added. Measured with `win16/build.sh` on the same source before and after:
+
+| Bytes | Before | After | Change |
+|---|---:|---:|---:|
+| Data (`.rodata`, `.data`, `.bss`, shadow stack) | 28,740 | 28,772 | +32 |
+| Stack (`STACK_SIZE` 0x7400) | 29,696 | 29,696 | 0 |
+| Heap (`HEAP_SIZE`) | 4,096 | 4,096 | 0 |
+| **Total of 65,536** | **62,532** | **62,564** | **+32** |
+| **Free** | **3,004** | **2,972** | **-32** |
+
+The 32 bytes are the status line's two sentences (`Quill cannot save; the disk may be full.` and `Work kept in`) and the temporary name's literals (`~QTMP`, `.TMP`). The writer's 1 KB buffer (`quill_formats::io::Buffered`) is on the stack. Windows 3.11, stack 0x7400: the windowed launch and the save-and-close run (`e2e-launch-w31.sh`, `e2e-saveclose-w31.sh`) used 19,850 bytes with a margin of 9,350, as before. The plan's later PRs start from 2,972 bytes free.

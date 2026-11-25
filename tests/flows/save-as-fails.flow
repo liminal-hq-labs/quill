@@ -9,12 +9,12 @@ type "!"
 cmd SaveAs
 expect file SaveAs name="OLD.QLD" type=0
 choose "LOCKED.RTF"
-expect notice "Quill cannot save the file." Status
+expect notice "Quill cannot save; the disk may be full." Status
 dump
 cmd SaveAs
 expect file SaveAs name="OLD.QLD"
 choose "FULL.TXT"
-expect notice "Quill cannot save the file." Status
+expect notice "Quill cannot save; the disk may be full." Status
 dump
 cmd Save
 dump

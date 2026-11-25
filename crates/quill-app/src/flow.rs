@@ -144,7 +144,9 @@ pub mod words {
 	/// Open failed.
 	pub const CANNOT_OPEN: &str = "Quill cannot open that file.";
 	/// Save failed.
-	pub const CANNOT_SAVE: &str = "Quill cannot save the file.";
+	pub const CANNOT_SAVE: &str = "Quill cannot save; the disk may be full.";
+	/// The new document is whole in a temporary file because the old one could not be replaced; the file name follows, then a full stop.
+	pub const KEPT_NEW_COPY: &str = "Work kept in ";
 	/// Insert Picture failed.
 	pub const CANNOT_USE_PICTURE: &str = "Quill cannot use that picture.";
 	/// Print failed.
@@ -340,7 +342,11 @@ impl<M: quill_core::layout::Measure + Clone> App<M> {
 		if self.save_as(s, f, path) {
 			Ok(())
 		} else {
-			Err(Notice::of(NoticeKind::Status, words::CANNOT_SAVE))
+			// The status line holds the words that say what happened to the file.
+			Err(Notice {
+				text: Text::from_parts(&[self.msg.bytes()]),
+				kind: NoticeKind::Status,
+			})
 		}
 	}
 

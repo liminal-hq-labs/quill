@@ -32,6 +32,7 @@ mod pointer;
 mod print;
 pub mod recent;
 mod reflow;
+pub mod safe;
 pub mod savename;
 pub mod script;
 pub mod session;
@@ -139,6 +140,28 @@ pub enum Scheme {
 	Mono,
 }
 
+/// How a shell's `create` and `close` treat a file that already exists, which decides how a save reaches the disk.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum SaveMode {
+	/// `create` writes over the file: the shell has no way to rename or delete. A failed save can truncate the original.
+	InPlace,
+	/// `create` writes to a temporary file of its own and `close` replaces the original with it, or takes it away (the Linux shells).
+	Atomic,
+	/// The save writes a temporary file beside the target and replaces the target with `replace` once the new file is whole.
+	TempRename,
+}
+
+/// What `Files::replace` did.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Replaced {
+	/// The target is now the new file.
+	Done,
+	/// Nothing changed: the target is as it was and the temporary file is still there.
+	Refused,
+	/// The target was removed and the new file could not take its place: the temporary file holds the whole new document.
+	Lost,
+}
+
 /// Where files come from and go to.
 pub trait Files {
 	/// What reads a file.
@@ -149,8 +172,50 @@ pub trait Files {
 	fn open(&mut self, name: &[u8]) -> Option<Self::R>;
 	/// Creates or replaces a file for writing.
 	fn create(&mut self, name: &[u8]) -> Option<Self::W>;
-	/// Finishes a file started with `create`; false when the disk refused it.
+	/// Finishes a file started with `create`; false when the disk refused it (a full disk shows up here on a floppy).
 	fn close(&mut self, w: Self::W) -> bool;
+	/// How a save reaches the disk. A shell that can remove and rename says `TempRename`.
+	fn save_mode(&self) -> SaveMode {
+		SaveMode::InPlace
+	}
+	/// Deletes a file; false when it could not be (missing, read-only, in use).
+	fn remove(&mut self, _name: &[u8]) -> bool {
+		false
+	}
+	/// Renames `from` to `to`, replacing `to` where the system allows that; false when it could not be done.
+	fn rename(&mut self, _from: &[u8], _to: &[u8]) -> bool {
+		false
+	}
+	/// Whether a file can be opened.
+	fn exists(&mut self, name: &[u8]) -> bool {
+		self.open(name).is_some()
+	}
+	/// The size of a file, or `None` when the shell cannot tell (the save then goes without its size check).
+	fn len(&mut self, _name: &[u8]) -> Option<u32> {
+		None
+	}
+	/// Puts the finished file `temp` in the place of `target`: a rename that replaces where the system can, otherwise the target is
+	/// removed and then the new file renamed, which is done only once the new file is whole.
+	fn replace(&mut self, temp: &[u8], target: &[u8]) -> Replaced {
+		if self.rename(temp, target) {
+			Replaced::Done
+		} else if !self.exists(target) || !self.remove(target) {
+			Replaced::Refused
+		} else if self.rename(temp, target) {
+			Replaced::Done
+		} else {
+			Replaced::Lost
+		}
+	}
+}
+
+/// Why a save did not finish.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum SaveError {
+	/// The disk refused the write, the file is locked or read-only, or the folder is gone. The file that was there is as it was.
+	Failed,
+	/// The old file was removed and the new one could not take its place. The new document is whole in a temporary file beside it.
+	Kept,
 }
 
 /// A command from a menu or a key.
@@ -912,6 +977,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 		self.doc.reset(s);
 		core::mem::swap(&mut self.doc, &mut fresh);
+		safe::clean_leftover(f, name);
 		self.reflow.invalidate();
 		self.spell_forget();
 		self.caret = 0;
@@ -935,10 +1001,9 @@ impl<M: Measure + Clone> App<M> {
 		&mut self,
 		s: &mut S,
 		f: &mut F,
-	) -> Result<(), FormatError> {
+	) -> Result<(), SaveError> {
 		let name = self.name;
 		let name = name.get(..self.name_len).unwrap_or(&[]);
-		let mut w = f.create(name).ok_or(FormatError::Write)?;
 		let ext = name.len().checked_sub(4).and_then(|i| name.get(i..));
 		let is = |e: &[u8]| ext.is_some_and(|x| x.eq_ignore_ascii_case(e));
 		let kind = if is(b".QLD") {
@@ -950,13 +1015,15 @@ impl<M: Measure + Clone> App<M> {
 		} else {
 			self.fmt
 		};
-		match kind {
-			1 => rtf::write(&self.doc, s, &mut w)?,
-			2 => text::write(&self.doc, s, &mut w)?,
-			_ => qld::write(&self.doc, s, &mut w)?,
-		}
-		if !f.close(w) {
-			return Err(FormatError::Write);
+		let doc = &self.doc;
+		match safe::write_replace(f, name, |w| match kind {
+			1 => rtf::write(doc, s, w),
+			2 => text::write(doc, s, w),
+			_ => qld::write(doc, s, w),
+		}) {
+			safe::Saved::Done => {}
+			safe::Saved::Failed => return Err(SaveError::Failed),
+			safe::Saved::Kept => return Err(SaveError::Kept),
 		}
 		self.fmt = kind;
 		self.push_recent();
@@ -1713,8 +1780,15 @@ impl<M: Measure + Clone> App<M> {
 				}
 				true
 			}
-			Err(_) => {
-				self.msg.set("Quill cannot save the file.");
+			Err(e) => {
+				if e == SaveError::Kept {
+					let name = self.name;
+					let temp = safe::TempName::of(name.get(..self.name_len).unwrap_or(&[]));
+					self.msg
+						.set_quoted(flow::words::KEPT_NEW_COPY, temp.file(), ".");
+				} else {
+					self.msg.set(flow::words::CANNOT_SAVE);
+				}
 				self.pending = None;
 				false
 			}

@@ -71,6 +71,32 @@ impl Files for MemFiles {
 		self.files.insert(w.0, w.1);
 		true
 	}
+
+	fn save_mode(&self) -> quill_app::SaveMode {
+		quill_app::SaveMode::TempRename
+	}
+
+	fn remove(&mut self, name: &[u8]) -> bool {
+		self.files.remove(&key_name(name)).is_some()
+	}
+
+	/// Renames as DOS does: a name that is taken is an error.
+	fn rename(&mut self, from: &[u8], to: &[u8]) -> bool {
+		if self.files.contains_key(&key_name(to)) {
+			return false;
+		}
+		match self.files.remove(&key_name(from)) {
+			Some(b) => {
+				self.files.insert(key_name(to), b);
+				true
+			}
+			None => false,
+		}
+	}
+
+	fn len(&mut self, name: &[u8]) -> Option<u32> {
+		self.files.get(&key_name(name)).map(|b| b.len() as u32)
+	}
 }
 
 /// Turns one AUTOTYPE-style token into a key (see `quill_app::script`).
