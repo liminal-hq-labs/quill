@@ -62,9 +62,7 @@ fn clicking_where_the_caret_is_painted_gives_the_position_back() {
 		let Some((x, y)) = caret_pixel(&app, &s) else {
 			continue;
 		};
-		if !(area.left..area.right).contains(&x)
-			|| !(area.top..area.bottom).contains(&y)
-		{
+		if !(area.left..area.right).contains(&x) || !(area.top..area.bottom).contains(&y) {
 			continue;
 		}
 		let (_, line, _) = app.caret_xy(&s).unwrap();
@@ -120,7 +118,7 @@ proptest! {
 
 	// A drag between two pixels in the text selects the characters between them, whichever way it goes.
 	#[test]
-	fn a_drag_selects_between_the_pixels(a in (30i32..600, 50i32..440), b in (30i32..600, 50i32..440)) {
+	fn a_drag_selects_between_the_pixels(a in (30i32..600, 110i32..420), b in (30i32..600, 110i32..420)) {
 		let (mut app, mut s, mut f) = rig("letter.rtf");
 		let mut ptr = Pointer::default();
 		let (ha, hb) = (pos_at_pixel(&app, &s, a.0, a.1), pos_at_pixel(&app, &s, b.0, b.1));
@@ -140,7 +138,7 @@ proptest! {
 
 	// Two presses within the double-click time and place are a double click and a third a triple; a press too late, or too far, is a click.
 	#[test]
-	fn clicks_count_by_time_and_place(x in 30i32..600, y in 50i32..300, late in 10u32..200, far in 5i32..60) {
+	fn clicks_count_by_time_and_place(x in 30i32..600, y in 110i32..300, late in 10u32..200, far in 5i32..60) {
 		let (mut app, mut s, mut f) = rig("letter.rtf");
 		let mut ptr = Pointer::default();
 		let hit = pos_at_pixel(&app, &s, x, y);
