@@ -71,6 +71,9 @@ dependencies = [
 [[package]]
 name = "quill-core"
 version = "0.0.0"
+dependencies = [
+ "quill-text",
+]
 
 [[package]]
 name = "quill-dlg"
@@ -103,6 +106,7 @@ name = "quill-formats"
 version = "0.0.0"
 dependencies = [
  "quill-core",
+ "quill-text",
 ]
 
 [[package]]
@@ -159,6 +163,10 @@ version = "0.0.0"
 dependencies = [
  "quill-core",
 ]
+
+[[package]]
+name = "quill-text"
+version = "0.0.0"
 
 [[package]]
 name = "rt"

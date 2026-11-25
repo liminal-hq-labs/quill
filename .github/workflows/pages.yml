@@ -5,10 +5,11 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-# One file is built here rather than committed: the Try Quill page's disk bundle, site/try/quill.jsdos, which holds FreeDOS and
-# QUILLDOS.EXE. No release builds exist to fetch it from, so the job builds the DOS program from source (the pinned Rust toolchain
-# and CWSDPMI's stub; no DOSBox, no Docker) and packs the disk with scripts/build-try.sh. That is a few minutes more than the
-# static upload alone, and it keeps the demo on the code in main.
+# Two files are built here rather than committed: the Try Quill page's disk bundle, site/try/quill.<hash>.jsdos, which holds FreeDOS
+# and QUILLDOS.EXE, and the manifest that names it, site/try/try-manifest.json (the page's cache busting, SITE-4). No release builds
+# exist to fetch the bundle from, so the job builds the DOS program from source (the pinned Rust toolchain and CWSDPMI's stub; no
+# DOSBox, no Docker) and packs the disk with scripts/build-try.sh. That is a few minutes more than the static upload alone, and it
+# keeps the demo on the code in main.
 #
 name: Pages
 
@@ -21,6 +22,7 @@ on:
       - '.github/workflows/pages.yml'
       # What the Try Quill disk is built from.
       - 'scripts/build-try.sh'
+      - 'scripts/stamp-try.py'
       - 'scripts/make-freedos-image.py'
       - 'scripts/try-disk/**'
       - 'scripts/try-dosbox.conf'
@@ -61,7 +63,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends mtools
 
       # Builds QUILLDOS.EXE, the graphics-mode fonts and the dictionary, fetches FreeDOS 1.3 (checked against a pinned SHA-256 sum)
-      # and writes site/try/quill.jsdos.
+      # and writes the hashed bundle and the manifest. The folder is built from scratch, so it holds only what the manifest names.
       - name: Build the Try Quill disk
         run: bash scripts/build-try.sh --build
 

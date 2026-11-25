@@ -5,9 +5,10 @@
 //
 // The dictionary (`EN_CA.DIC` and its siblings) is read into `Store` chunks the first time it is needed. The user dictionary is a
 // plain text file, `QUILL.UDC`, one word a line, shared by every language. Words in all capitals, words with digits, words in the
-// user dictionary and words ignored for this session are skipped.
+// user dictionary and words ignored for this session are skipped. Both lists live in one `Store` chunk, so the editor keeps only its
+// handle: the Windows 3.x build has no room for 2.8 KB of arrays in its data segment.
 use quill_core::layout::Measure;
-use quill_core::store::{ReadStore, Store};
+use quill_core::store::{ChunkId, ReadStore, Store};
 use quill_spell::{is_letter, lower, upper, Dict, Suggestions, MAX_WORD};
 
 use crate::find::FindState;
@@ -19,6 +20,14 @@ use quill_formats::io::{Sink, Source};
 const IGNORE: usize = 24;
 /// Bytes of user dictionary kept in memory.
 const USER: usize = 2048;
+/// Where each part starts in the lists' chunk: one length byte for each ignored word, then the words (`MAX_WORD` bytes each), then the
+/// user dictionary's bytes.
+const IGNORE_AT: u16 = IGNORE as u16;
+const USER_AT: u16 = IGNORE_AT + (IGNORE * MAX_WORD) as u16;
+/// The chunk's size.
+const LISTS: u16 = USER_AT + USER as u16;
+/// The bytes moved between the chunk and a file or a scan at a time, on the stack.
+const BLOCK: usize = 64;
 /// The nodes the suggestion search may visit.
 const BUDGET: u32 = 40_000;
 
@@ -27,11 +36,10 @@ pub(crate) struct SpellData {
 	pub dict: Option<Dict>,
 	/// 0 Canadian, 1 American, 2 British.
 	pub lang: u8,
-	ignore: [[u8; MAX_WORD]; IGNORE],
-	ignore_len: [u8; IGNORE],
-	ignore_n: usize,
-	user: [u8; USER],
-	user_len: usize,
+	/// The chunk holding the ignored words and the user dictionary, allocated when the first of either is kept.
+	lists: Option<ChunkId>,
+	ignore_n: u8,
+	user_len: u16,
 	/// The word under the dialog: where it starts, how long it is and its text.
 	pub word: [u8; MAX_WORD],
 	pub wlen: usize,
@@ -47,10 +55,8 @@ impl SpellData {
 		SpellData {
 			dict: None,
 			lang: 0,
-			ignore: [[0; MAX_WORD]; IGNORE],
-			ignore_len: [0; IGNORE],
+			lists: None,
 			ignore_n: 0,
-			user: [0; USER],
 			user_len: 0,
 			word: [0; MAX_WORD],
 			wlen: 0,
@@ -134,31 +140,94 @@ impl<M: Measure + Clone> App<M> {
 			}
 			if self.spell.user_len == 0 {
 				if let Some(mut r) = f.open(b"QUILL.UDC") {
-					let n = r.read(&mut self.spell.user);
-					self.spell.user_len = n;
+					self.user_read(s, &mut r);
 				}
 			}
 		}
 		true
 	}
 
-	pub(crate) fn user_has(&self, w: &[u8]) -> bool {
-		self.spell
-			.user
-			.get(..self.spell.user_len)
-			.unwrap_or(&[])
-			.split(|b| *b == b'\n')
-			.any(|l| same_word(l.strip_suffix(b"\r").unwrap_or(l), w))
+	/// The lists' chunk, allocated on first use. `None` when memory is short; the lists then stay empty.
+	fn lists<S: Store + ?Sized>(&mut self, s: &mut S) -> Option<ChunkId> {
+		if self.spell.lists.is_none() {
+			self.spell.lists = s.alloc(LISTS);
+		}
+		self.spell.lists
 	}
 
-	pub(crate) fn ignored(&self, w: &[u8]) -> bool {
-		(0..self.spell.ignore_n).any(|i| {
-			let n = usize::from(self.spell.ignore_len.get(i).copied().unwrap_or(0));
-			self.spell
-				.ignore
-				.get(i)
-				.and_then(|b| b.get(..n))
-				.is_some_and(|b| same_word(b, w))
+	/// Reads the user dictionary file into the chunk, up to the room there is.
+	fn user_read<S: Store + ?Sized, R: Source>(&mut self, s: &mut S, r: &mut R) {
+		let Some(c) = self.lists(s) else {
+			return;
+		};
+		let mut at = 0usize;
+		let mut b = [0u8; BLOCK];
+		while at < USER {
+			let want = (USER - at).min(BLOCK);
+			let n = r.read(b.get_mut(..want).unwrap_or(&mut []));
+			if let Some(d) = b.get(..n) {
+				s.write(c, USER_AT + at as u16, d);
+			}
+			at += n;
+			if n < want {
+				break;
+			}
+		}
+		self.spell.user_len = at as u16;
+	}
+
+	/// True when `w` is a line of the user dictionary, ignoring case. The chunk is read a block at a time, so the whole list is never on
+	/// the stack; a line longer than any word cannot match and is skipped.
+	pub(crate) fn user_has<S: ReadStore + ?Sized>(&self, s: &S, w: &[u8]) -> bool {
+		let Some(c) = self.spell.lists else {
+			return false;
+		};
+		let total = usize::from(self.spell.user_len);
+		let mut line = [0u8; MAX_WORD + 1];
+		let (mut n, mut over) = (0usize, false);
+		let is = |l: &[u8], over: bool| !over && same_word(l.strip_suffix(b"\r").unwrap_or(l), w);
+		let mut b = [0u8; BLOCK];
+		let mut at = 0usize;
+		while at < total {
+			let want = (total - at).min(BLOCK);
+			let Some(blk) = b.get_mut(..want) else {
+				break;
+			};
+			s.read(c, USER_AT + at as u16, blk);
+			for &x in blk.iter() {
+				if x == b'\n' {
+					if is(line.get(..n).unwrap_or(&[]), over) {
+						return true;
+					}
+					n = 0;
+					over = false;
+				} else if let Some(d) = line.get_mut(n) {
+					*d = x;
+					n += 1;
+				} else {
+					over = true;
+				}
+			}
+			at += want;
+		}
+		is(line.get(..n).unwrap_or(&[]), over)
+	}
+
+	/// True when `w` was ignored for this session.
+	pub(crate) fn ignored<S: ReadStore + ?Sized>(&self, s: &S, w: &[u8]) -> bool {
+		let Some(c) = self.spell.lists else {
+			return false;
+		};
+		let mut lens = [0u8; IGNORE];
+		s.read(c, 0, &mut lens);
+		(0..usize::from(self.spell.ignore_n)).any(|i| {
+			let n = usize::from(lens.get(i).copied().unwrap_or(0));
+			if n != w.len() {
+				return false;
+			}
+			let mut b = [0u8; MAX_WORD];
+			s.read(c, IGNORE_AT + (i * MAX_WORD) as u16, &mut b);
+			b.get(..n).is_some_and(|b| same_word(b, w))
 		})
 	}
 
@@ -246,7 +315,7 @@ impl<M: Measure + Clone> App<M> {
 				};
 				let word = w.get(..n).unwrap_or(&[]);
 				let known = self.spell.dict.as_ref().is_some_and(|d| d.known(s, word));
-				if known || self.user_has(word) || self.ignored(word) {
+				if known || self.user_has(s, word) || self.ignored(s, word) {
 					continue;
 				}
 				self.spell.word = w;
@@ -317,27 +386,26 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Remembers `w` as a word to leave alone for this session.
-	pub(crate) fn ignore_word(&mut self, w: &[u8]) {
+	pub(crate) fn ignore_word<S: Store + ?Sized>(&mut self, s: &mut S, w: &[u8]) {
+		let Some(c) = self.lists(s) else {
+			return;
+		};
 		let n = w.len().min(MAX_WORD);
-		let i = self.spell.ignore_n % IGNORE;
-		if let (Some(d), Some(l)) = (
-			self.spell.ignore.get_mut(i),
-			self.spell.ignore_len.get_mut(i),
-		) {
-			*d = [0; MAX_WORD];
-			if let (Some(dst), Some(src)) = (d.get_mut(..n), w.get(..n)) {
-				dst.copy_from_slice(src);
-			}
-			*l = n as u8;
-		}
-		self.spell.ignore_n = (self.spell.ignore_n + 1).min(IGNORE);
+		let i = usize::from(self.spell.ignore_n) % IGNORE;
+		s.write(c, i as u16, &[n as u8]);
+		s.write(
+			c,
+			IGNORE_AT + (i * MAX_WORD) as u16,
+			w.get(..n).unwrap_or(&[]),
+		);
+		self.spell.ignore_n = (usize::from(self.spell.ignore_n) + 1).min(IGNORE) as u8;
 	}
 
 	/// Leaves the word as it is for this one occurrence and goes on.
 	pub fn spell_ignore<S: Store + ?Sized>(&mut self, s: &mut S, all: bool) -> bool {
 		if all {
 			let w = self.spell.word;
-			self.ignore_word(w.get(..self.spell.wlen).unwrap_or(&[]));
+			self.ignore_word(s, w.get(..self.spell.wlen).unwrap_or(&[]));
 			self.spell_recheck();
 		}
 		self.anchor = None;
@@ -367,22 +435,42 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Adds `w` to the user dictionary and writes the file. False when the dictionary is full.
-	pub(crate) fn user_add<F: Files>(&mut self, f: &mut F, w: &[u8]) -> bool {
+	pub(crate) fn user_add<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		w: &[u8],
+	) -> bool {
 		let n = w.len();
-		if self.spell.user_len + n + 2 > USER {
+		let at = usize::from(self.spell.user_len);
+		let c = if at + n + 2 > USER {
+			None
+		} else {
+			self.lists(s)
+		};
+		let Some(c) = c else {
 			self.msg.set("The user dictionary is full.");
 			return false;
-		}
-		let at = self.spell.user_len;
-		if let Some(d) = self.spell.user.get_mut(at..at + n) {
-			d.copy_from_slice(w);
-		}
-		if let Some(d) = self.spell.user.get_mut(at + n..at + n + 2) {
-			d.copy_from_slice(b"\r\n");
-		}
-		self.spell.user_len = at + n + 2;
+		};
+		let at16 = USER_AT + at as u16;
+		s.write(c, at16, w);
+		s.write(c, at16 + n as u16, b"\r\n");
+		self.spell.user_len = (at + n + 2) as u16;
 		if let Some(mut out) = f.create(b"QUILL.UDC") {
-			let _ = out.write(self.spell.user.get(..self.spell.user_len).unwrap_or(&[]));
+			let mut b = [0u8; BLOCK];
+			let mut done = 0usize;
+			let total = usize::from(self.spell.user_len);
+			while done < total {
+				let want = (total - done).min(BLOCK);
+				let Some(blk) = b.get_mut(..want) else {
+					break;
+				};
+				s.read(c, USER_AT + done as u16, blk);
+				if !out.write(blk) {
+					break;
+				}
+				done += want;
+			}
 			f.close(out);
 		}
 		true
@@ -391,7 +479,7 @@ impl<M: Measure + Clone> App<M> {
 	/// Adds the word to the user dictionary file and goes on.
 	pub fn spell_add<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F) -> bool {
 		let w = self.spell.word;
-		self.user_add(f, w.get(..self.spell.wlen).unwrap_or(&[]));
+		self.user_add(s, f, w.get(..self.spell.wlen).unwrap_or(&[]));
 		self.spell_recheck();
 		self.anchor = None;
 		self.spell_next(s)

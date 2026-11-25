@@ -14,6 +14,12 @@ pub struct ChunkId(pub u16);
 pub trait ReadStore {
 	/// Copies bytes out of a chunk. Bytes past the chunk read as zero.
 	fn read(&self, id: ChunkId, offset: u16, out: &mut [u8]);
+
+	/// The Unicode character for `byte` of a Windows code page, for the RTF reader (CORE-61). The default is `quill-text`'s
+	/// table; a build that cannot keep the tables in its data segment (Win16) serves them from a resource instead.
+	fn to_unicode(&self, cp: quill_text::codepage::CodePage, byte: u8) -> char {
+		quill_text::codepage::to_unicode(cp, byte)
+	}
 }
 
 /// Chunked document memory. The core never holds a reference into it: it copies.

@@ -452,6 +452,7 @@ version = "0.0.0"
 dependencies = [
  "proptest",
  "quill-host",
+ "quill-text",
 ]
 
 [[package]]
@@ -506,6 +507,7 @@ dependencies = [
  "proptest",
  "quill-core",
  "quill-host",
+ "quill-text",
 ]
 
 [[package]]
@@ -538,6 +540,7 @@ dependencies = [
  "quill-grid",
  "quill-heap",
  "quill-mouse",
+ "quill-text",
 ]
 
 [[package]]

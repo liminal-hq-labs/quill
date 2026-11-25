@@ -3,6 +3,7 @@
 
 # Rust build output
 /target/
+/linux/quill-gtk/target/
 
 # JavaScript dependencies and build output
 node_modules/
@@ -21,4 +22,6 @@ __pycache__/
 .idea/
 
 # The browser demo's disk bundle, built by scripts/build-try.sh
+/site/try/quill.*.jsdos
 /site/try/quill.jsdos
+/site/try/try-manifest.json

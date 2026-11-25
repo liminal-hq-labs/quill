@@ -31,6 +31,7 @@ Quill is the companion application to the Liminal HQ blog series *Cross-compilin
 | DOS | `QUILLDOS.EXE` (go32 with a built-in DPMI host) | MS-DOS 5 or later on a 486 or later with a VGA | Text mode (80 × 25 or 80 × 50) first; a graphics mode with real fonts (`/G`) second |
 | Linux terminal | `quill-tty` | Linux, in a terminal of at least 80 × 25 | The DOS text screen on crossterm, with the same editor; see [docs/linux.md](docs/linux.md) |
 | Linux command line | `quill` | Linux | `cat`, `convert` and `info` for documents, with no screen |
+| Linux desktop | `quill` (`linux/quill-gtk`) | Linux with GTK 4.20 or later, on Wayland or X11 | A libadwaita window with the Windows menu bar, toolbar, formatting bar, ruler, status bar and dialogs over an editable page (keys, input method, caret, selection, pointer, Save), drawn by Quill's own renderer at the exact device scale. Built in its own workspace; see [docs/linux.md](docs/linux.md) |
 
 - Every build reads and writes byte-identical `.QLD` and RTF files and has the same document limits, so a document moves between them unchanged. A build that cannot show a property keeps it (see [Build differences](#build-differences)).
 - Windows 95 on a 486 uses the Win16 build: the Win32 build's floor is a Pentium (D33).
@@ -99,6 +100,7 @@ Everything in this table is v1 unless the last column says otherwise. When time 
 - **Quill for Windows 95** (`QUILL32.EXE`, crate `quill-win9x`): the Win32 application.
 - **Quill for DOS** (`QUILLDOS.EXE`, crate `quill-dos`): the DOS application, text mode and graphics mode in one executable.
 - **Quill for Linux terminals** (`quill-tty`): the Linux terminal application, drawing `quill-grid`'s screen with crossterm.
+- **Quill for Linux desktops** (`quill-gtk`, binary `quill`): the GTK4 application. It shows a document's sheets through `quill-paint`'s pixel surface into a texture of exactly device size, with scrolling, zoom, the Open dialog, drag and drop and the recent files, over the same `App`; its libadwaita chrome (menu bar, toolbar, formatting bar, ruler, status bar, dialogs) runs the shared commands, and the page edits: keys, an input method with preedit, a caret that blinks, selection by keys and pointer, and Save, with the clipboard still the editor's own.
 - **Quill command** (`quill`, crate `quill-cli`): `quill cat`, `quill convert` and `quill info`.
 - **Quill core** (`quill-core`): the document model, editing, undo and layout. Portable `no_std` Rust with no Windows or DOS dependency.
 - **Quill formats** (`quill-formats`): the native, RTF and plain text readers and writers.
@@ -433,7 +435,7 @@ Quill reads RTF 1.x as written by Word 2 to Word 2003, WordPad and LibreOffice, 
 
 | Area | Read | Written |
 |---|---|---|
-| Header | `\rtf1`, `\ansi`, `\ansicpg1252`, `\deff`, `\fonttbl`, `\colortbl`, `\stylesheet` (skipped), `\info` (`\title`, `\author`, `\doccomm` kept) | `\rtf1\ansi\ansicpg1252\deff0`, font table, colour table, `\info` when set |
+| Header | `\rtf1`, `\ansi`, `\ansicpgN` (1250, 1251, 1252, 1253, 1254 and 1257; the double-byte pages 932, 936, 949, 950 and 1361 read as `?`), `\deff`, `\fonttbl` (with `\fcharsetN` per font),  `\colortbl`, `\stylesheet` (skipped), `\info` (`\title`, `\author`, `\doccomm` kept) | `\rtf1\ansi\ansicpg1252\deff0`, font table, colour table, `\info` when set |
 | Document | `\paperw`, `\paperh`, `\margl`, `\margr`, `\margt`, `\margb`, `\headery`, `\footery`, `\titlepg`, `\pgnstart` | The same |
 | Characters | `\plain`, `\f`, `\fs`, `\b`, `\i`, `\ul` (and other underline kinds as `\ul`), `\ulnone`, `\strike`, `\super`, `\sub`, `\nosupersub`, `\up` and `\dn` (as super and sub), `\cf`, with their `0` forms | `\plain`, `\f`, `\fs`, `\b`, `\i`, `\ul`, `\strike`, `\super`, `\sub`, `\cf` |
 | Paragraphs | `\pard`, `\par`, `\ql`, `\qc`, `\qr`, `\qj`, `\li`, `\ri`, `\fi`, `\sb`, `\sa`, `\sl` with `\slmult` (to the nearest spacing), `\pagebb`, `\page` | `\pard`, `\par`, alignment, indents, spacing, `\pagebb` |
@@ -442,8 +444,10 @@ Quill reads RTF 1.x as written by Word 2 to Word 2003, WordPad and LibreOffice, 
 | Headers and footers | `{\header ...}`, `{\footer ...}`, `{\headerf ...}`, `{\footerf ...}`, `{\headerr ...}` and `{\footerr ...}` (as the plain ones); `\headerl` and `\footerl` skipped | `{\header}`, `{\footer}`, and `{\headerf}` and `{\footerf}` with `\titlepg` |
 | Fields | `{\field{\*\fldinst PAGE}...}`, `NUMPAGES`, `DATE`, `FILENAME` become Quill fields; `\chpgn` becomes Page Number; other fields keep their result text | `{\field{\*\fldinst PAGE}{\fldrslt 1}}` and the like |
 | Pictures | `{\pict ...}` with `\dibitmap`, `\wbitmap` (with `\wbmbitspixel`, `\wbmplanes`, `\wbmwidthbytes`), `\pngblip`; `\picw`, `\pich`, `\picwgoal`, `\pichgoal`, `\picscalex`, `\picscaley`; hex or `\bin` data; inside `{\*\shppict ...}` preferred to `{\nonshppict ...}`. `\wmetafile`, `\emfblip`, `\jpegblip` and others become a `Picture could not be read` placeholder that is kept as an empty box | PNG pictures as `{\*\shppict{\pict\pngblip ...}}` with a `{\nonshppict{\pict\dibitmap0 ...}}` copy for older readers; BMP pictures as `\dibitmap0` |
-| Special characters | `\line`, `\tab`, `\~`, `\-`, `\_`, `\emdash`, `\endash`, `\lquote`, `\rquote`, `\ldblquote`, `\rdblquote`, `\bullet`, `\'hh`, `\uN` with `\ucN` (to ANSI where it exists, `?` otherwise) | `\line`, `\tab`, `\'hh` above 0x7F, `\{`, `\}`, `\\` |
+| Special characters | `\line`, `\tab`, `\~`, `\-`, `\_`, `\emdash`, `\endash`, `\lquote`, `\rquote`, `\ldblquote`, `\rdblquote`, `\bullet`, `\'hh` (in the font's code page, else the document's), `\uN` with `\ucN` (to Windows-1252 where it has the character, `?` otherwise) | `\line`, `\tab`, `\'hh` above 0x7F, `\{`, `\}`, `\\` |
 | Skipped safely | Every other `{\* ...}` destination, `\object`, footnotes, annotations, tables (each cell becomes text followed by a tab, each row a paragraph) | — |
+
+Text codes in RTF: a `\'hh` escape, and a byte of 8 bits written as it is, mean a character of the font's code page when the font table gives the font a `\fcharsetN` (0 is 1252, 238 is 1250, 204 is 1251, 161 is 1253, 162 is 1254, 186 is 1257), and of the document's `\ansicpgN` otherwise (1252 when it is absent or not one of those). The fonts with a double-byte charset (128, 129, 130, 134, 136) give one `?` for each two-byte character. The document holds Windows-1252 bytes, so a character that page has no form for becomes `?`; `\uN` is the same: a signed 16-bit value, a surrogate pair is one character, and all 27 characters Windows-1252 has in 0x80 to 0x9F are kept. Each replacement is counted (`rtf::read_counted`), so a shell can say how many characters were lost. A byte a code page leaves undefined keeps its number, as Windows-1252's five do (CORE-61). Characters are read as Unicode first and narrowed to Windows-1252 in a step of their own, which the UTF-8 model replaces (CORE-63).
 
 Limits while reading: groups nest at most 64 deep (deeper groups are skipped), the font and colour tables hold 64 and 256 entries, and a control word longer than 32 characters or a number outside `i32` ends the read with `...is not a document Quill can read.`.
 
@@ -493,7 +497,7 @@ Quill's help is written in `.qhm` files (Quill help markup, a small Markdown dia
 
 ### Settings file
 
-Settings live in `QUILL.INI` in the Windows directory (both Windows builds share it) or, for the DOS build, beside `QUILLDOS.EXE`. It is read at start and written when a setting changes. The Win32 build reads and writes its settings one key at a time through the profile functions, so what other builds keep in the same file is left alone, and keeps its recent files in `[Recent32]`, because they may be long names the Win16 build cannot open.
+Settings live in `QUILL.INI` in the Windows directory (both Windows builds share it) or, for the DOS build, beside `QUILLDOS.EXE`. It is read at start and written when a setting changes. The Win32 build reads and writes its settings one key at a time through the profile functions, so what other builds keep in the same file is left alone, and keeps its recent files in `[Recent32]`, because they may be long names the Win16 build cannot open. The Linux builds keep `QUILL.INI` in `$XDG_CONFIG_HOME/quill` (`~/.config/quill`), and the GTK client also keeps its window's size in `gtk.ini` beside it.
 
 ## Settings and defaults
 
@@ -512,7 +516,8 @@ Settings live in `QUILL.INI` in the Windows directory (both Windows builds share
 | `[Quill] AsYouType` | `0` (Win16 and DOS, not built yet), `1` (Windows 95) | Check spelling as you type |
 | `[Spelling] IgnoreCaps` | `1` | Skip words in all capitals |
 | `[Recent] File1`–`File4` | Empty | Recent files, most recent first (Win16 and DOS) |
-| `[Recent32] File1`–`File4` | Empty | Recent files for the Win32 build |
+| `[Recent32] File1`–`File4` | Empty | Recent files for the Win32 build and the GTK client |
+| `gtk.ini` `[Window] Width`, `Height`, `Maximized` | `900`, `700`, `0` | The GTK client's window size in logical pixels (320 to 16384) and whether it was maximized |
 | `[Quill] Rows` | `25` | DOS text mode rows: `25` or `50`; the same as `/50`, and kept when Quill saves its settings (D124) |
 | `[Quill] Graphics` | `0` | DOS: `0` text mode, `1` graphics (the best 640 × 480 the card gives), `16` graphics in mode 12h only; kept when Quill saves its settings (DOS-3) |
 | `[Quill] Scheme` | `colour` | DOS text mode attributes: `colour` or `mono` |

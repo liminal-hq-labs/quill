@@ -64,6 +64,7 @@ path = "examples/helptest/main.rs"
 [dependencies]
 quill-core = { path = "../crates/quill-core" }
 quill-formats = { path = "../crates/quill-formats" }
+quill-text = { path = "../crates/quill-text" }
 quill-grid = { path = "../crates/quill-grid" }
 quill-image = { path = "../crates/quill-image" }
 quill-app = { path = "../crates/quill-app" }

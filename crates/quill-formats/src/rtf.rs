@@ -12,6 +12,8 @@ use quill_core::doc::{
 };
 use quill_core::store::{ReadStore, Store};
 use quill_core::text::MAX_TEXT;
+use quill_text::codepage::CodePage;
+use quill_text::utf8::Refused;
 
 use crate::io::{Sink, Source};
 use crate::{FormatError, Result};
@@ -502,6 +504,36 @@ enum Dest {
 	Pict,
 }
 
+/// How the reader turns the bytes of `\'hh` (and of 8-bit text) into characters.
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum Enc {
+	/// One byte a character, in this code page.
+	Single(CodePage),
+	/// A double-byte code page (Japanese, Chinese, Korean): Quill cannot show it, so each character is a `?`.
+	Double,
+	/// The font names no code page, so the document's applies.
+	Unset,
+}
+
+impl Enc {
+	/// What a font's `\fcharsetN` means.
+	fn from_charset(n: i64) -> Enc {
+		match n {
+			// Shift-JIS, Hangul, Johab, GB 2312 and Big 5.
+			128 | 129 | 130 | 134 | 136 => Enc::Double,
+			_ => CodePage::from_charset(n).map_or(Enc::Unset, Enc::Single),
+		}
+	}
+
+	/// What `\ansicpgN` means, or `None` for a page the reader leaves at the default.
+	fn from_ansicpg(n: i64) -> Option<Enc> {
+		match n {
+			932 | 936 | 949 | 950 | 1361 => Some(Enc::Double),
+			_ => CodePage::from_number(n).map(Enc::Single),
+		}
+	}
+}
+
 #[derive(Copy, Clone)]
 struct Group {
 	chars: CharState,
@@ -551,6 +583,15 @@ struct State<'a, S: Store + ?Sized> {
 	colour_count: usize,
 	deff: u16,
 	font_cur: Option<(usize, u8, u8, [u8; 31])>,
+	/// The document's code page (`\ansicpg`), and each font's own (`\fcharset`), by RTF font number.
+	doc_enc: Enc,
+	font_enc: [Enc; MAX_FONTS as usize],
+	/// A high surrogate from `\uN` waiting for its low half (0 when none).
+	hi: u16,
+	/// The second byte of a double-byte character is still to come, and is dropped.
+	trail: bool,
+	/// Characters the document cannot hold, each replaced by `?`.
+	refused: usize,
 	colour_cur: (u8, u8, u8, bool),
 	pending: [u8; 128],
 	pending_len: usize,
@@ -725,6 +766,7 @@ impl<S: Store + ?Sized> State<'_, S> {
 	}
 
 	fn flush(&mut self) -> Result<()> {
+		self.flush_hi()?;
 		if self.pending_len > 0 {
 			let n = self.pending_len;
 			self.pending_len = 0;
@@ -740,7 +782,83 @@ impl<S: Store + ?Sized> State<'_, S> {
 		Ok(())
 	}
 
+	/// A high surrogate with no low half after it is a character that cannot be read.
+	fn flush_hi(&mut self) -> Result<()> {
+		if self.hi != 0 {
+			self.hi = 0;
+			self.character('\u{FFFD}')?;
+		}
+		Ok(())
+	}
+
+	/// One character of text, as the document holds it today: a Windows-1252 byte, or `?` (counted) when there is none.
+	/// This is the one step CORE-63 replaces when the document holds the character itself.
+	fn character(&mut self, c: char) -> Result<()> {
+		match narrow(self.s, c) {
+			Some(b) => self.text(b),
+			None => {
+				self.refused = self.refused.saturating_add(1);
+				self.text(b'?')
+			}
+		}
+	}
+
+	/// A byte of the file's text (`\'hh`, or a byte of 8 bits written as it is), read in the font's code page.
+	fn byte(&mut self, b: u8) -> Result<()> {
+		let enc = match self.font_enc.get(usize::from(self.chars.font)) {
+			Some(&e) if e != Enc::Unset => e,
+			_ => self.doc_enc,
+		};
+		if enc == Enc::Double && self.trail {
+			self.trail = false;
+			return Ok(());
+		}
+		if b < 0x80 {
+			return self.text(b);
+		}
+		match enc {
+			Enc::Single(cp) => {
+				let c = self.s.to_unicode(cp, b);
+				self.character(c)
+			}
+			_ => {
+				self.refused = self.refused.saturating_add(1);
+				self.text(b'?')?;
+				self.trail = true;
+				Ok(())
+			}
+		}
+	}
+
+	/// `\uN`: the character with that signed 16-bit value; a surrogate pair is one character from two escapes.
+	fn unicode(&mut self, v: i32) -> Result<()> {
+		let u = if (-0x8000..0x1_0000).contains(&v) {
+			(v & 0xFFFF) as u32
+		} else {
+			0xFFFD
+		};
+		match u {
+			0xD800..=0xDBFF => {
+				self.flush_hi()?;
+				self.hi = u as u16;
+				Ok(())
+			}
+			0xDC00..=0xDFFF if self.hi != 0 => {
+				let high = u32::from(self.hi) - 0xD800;
+				self.hi = 0;
+				let c = char::from_u32(0x1_0000 + (high << 10) + (u - 0xDC00));
+				self.character(c.unwrap_or('\u{FFFD}'))
+			}
+			_ => {
+				self.flush_hi()?;
+				self.character(char::from_u32(u).unwrap_or('\u{FFFD}'))
+			}
+		}
+	}
+
 	fn text(&mut self, b: u8) -> Result<()> {
+		self.trail = false;
+		self.flush_hi()?;
 		self.text_total += 1;
 		if self.text_total > MAX_TEXT {
 			return Err(FormatError::TooLarge);
@@ -834,25 +952,36 @@ fn ansi_for(word: &str) -> Option<u8> {
 	})
 }
 
-fn unicode_to_ansi(u: i32) -> u8 {
-	let c = if u < 0 { u + 65536 } else { u };
-	match c {
-		0x20..=0x7E | 0xA0..=0xFF => c as u8,
-		0x2013 => 0x96,
-		0x2014 => 0x97,
-		0x2018 => 0x91,
-		0x2019 => 0x92,
-		0x201C => 0x93,
-		0x201D => 0x94,
-		0x2022 => 0x95,
-		0x2026 => 0x85,
-		0x20AC => 0x80,
-		_ => b'?',
+/// The Windows-1252 byte the document holds for `c`, when there is one. Control characters have none.
+///
+/// The 27 characters 1252 has in 0x80 to 0x9F are asked of the store (so Win16 serves them from its resource and not its data
+/// segment), after a test that keeps the rest of Unicode from asking.
+fn narrow<S: ReadStore + ?Sized>(s: &S, c: char) -> Option<u8> {
+	let u = u32::from(c);
+	match u {
+		0x20..=0x7E | 0xA0..=0xFF => u8::try_from(u).ok(),
+		0x80..=0x9F | 0x152..=0x192 | 0x2C6 | 0x2DC | 0x2013..=0x2122 => {
+			(0x80..=0x9Fu8).find(|&b| s.to_unicode(CodePage::Cp1252, b) == c)
+		}
+		_ => None,
 	}
 }
 
 /// Reads RTF into `doc` (replacing it). Unknown destinations and control words are skipped.
+///
+/// `\'hh` and 8-bit text are read in the code page of the font (`\fcharset`) or else of the document (`\ansicpg`), then kept as
+/// Windows-1252. What 1252 lacks is `?`; use [`read_counted`] to learn how many.
 pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -> Result<()> {
+	read_counted(doc, s, r).map(|_| ())
+}
+
+/// [`read`], and how many characters the document could not hold and replaced by `?` (CORE-61): those of a code page or `\uN`
+/// that Windows-1252 has no form for, and each character that could not be read at all (a lone surrogate, a double-byte pair).
+pub fn read_counted<S: Store + ?Sized, R: Source>(
+	doc: &mut Doc,
+	s: &mut S,
+	r: &mut R,
+) -> Result<Refused> {
 	// The tables come from the file; only Automatic, colour 0, is ours.
 	doc.reset(s);
 	doc.colours.intern(s, Colour { r: 0, g: 0, b: 0 })?;
@@ -874,6 +1003,11 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 		colour_count: 0,
 		deff: 0,
 		font_cur: None,
+		doc_enc: Enc::Single(CodePage::Cp1252),
+		font_enc: [Enc::Unset; MAX_FONTS as usize],
+		hi: 0,
+		trail: false,
+		refused: 0,
 		colour_cur: (0, 0, 0, false),
 		pending: [0; 128],
 		pending_len: 0,
@@ -992,16 +1126,21 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 						}
 					}
 					b'\'' => {
-						let h = rd.next().unwrap_or(b'0');
-						let l = rd.next().unwrap_or(b'0');
-						let v = (unhex(h) << 4) | unhex(l);
+						// Two hexadecimal digits; a damaged escape ends where the digits do and costs nothing else.
+						let Some(h) = hex_digit(&mut rd) else {
+							continue;
+						};
+						let Some(l) = hex_digit(&mut rd) else {
+							continue;
+						};
+						let v = (h << 4) | l;
 						if cur.dest == Dest::Body {
 							if skip_chars > 0 {
 								skip_chars -= 1;
 							} else {
 								st.chars = cur.chars;
 								st.target = cur.story;
-								st.text(v)?;
+								st.byte(v)?;
 							}
 						} else if cur.dest == Dest::FontTable {
 							font_char(&mut st, v);
@@ -1104,7 +1243,7 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 						}
 						st.chars = cur.chars;
 						st.target = cur.story;
-						st.text(if b < 0x20 && b != 0x09 { b' ' } else { b })?;
+						st.byte(if b < 0x20 && b != 0x09 { b' ' } else { b })?;
 					}
 					Dest::FontTable => font_char(&mut st, b),
 					Dest::ColourTable => {
@@ -1130,6 +1269,7 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 		return Err(FormatError::BadFile);
 	}
 	st.flush()?;
+	let refused = Refused { count: st.refused };
 	if st.doc.fonts.is_empty() {
 		st.doc
 			.fonts
@@ -1154,16 +1294,22 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 	for k in StoryKind::ALL {
 		st.doc.story_mut(k).forget_history(st.s);
 	}
-	Ok(())
+	Ok(refused)
 }
 
-fn unhex(b: u8) -> u8 {
-	match b {
+/// The next byte as a hexadecimal digit. Anything else is not consumed, so a damaged `\'` cannot eat a brace.
+fn hex_digit<R: Source>(rd: &mut Reader<'_, R>) -> Option<u8> {
+	let b = rd.next()?;
+	let v = match b {
 		b'0'..=b'9' => b - b'0',
 		b'a'..=b'f' => b - b'a' + 10,
 		b'A'..=b'F' => b - b'A' + 10,
-		_ => 0,
-	}
+		_ => {
+			rd.unread(b);
+			return None;
+		}
+	};
+	Some(v)
 }
 
 fn font_char<S: Store + ?Sized>(st: &mut State<'_, S>, b: u8) {
@@ -1327,7 +1473,18 @@ fn control<S: Store + ?Sized>(
 		Dest::FontTable => {
 			match w {
 				"f" => {
-					st.font_cur = Some((v.max(0) as usize % MAX_FONTS as usize, 0, 0, [0; 31]));
+					let num = v.max(0) as usize % MAX_FONTS as usize;
+					st.font_cur = Some((num, 0, 0, [0; 31]));
+					if let Some(e) = st.font_enc.get_mut(num) {
+						*e = Enc::Unset;
+					}
+				}
+				"fcharset" => {
+					if let Some((num, _, _, _)) = st.font_cur {
+						if let Some(e) = st.font_enc.get_mut(num) {
+							*e = Enc::from_charset(i64::from(v));
+						}
+					}
 				}
 				"froman" | "fswiss" | "fmodern" | "fscript" | "fdecor" | "fnil" | "ftech"
 				| "fbidi" => {
@@ -1393,6 +1550,11 @@ fn control<S: Store + ?Sized>(
 	}
 	match w {
 		"deff" => st.deff = v.max(0) as u16,
+		"ansicpg" => {
+			if let Some(e) = Enc::from_ansicpg(i64::from(v)) {
+				st.doc_enc = e;
+			}
+		}
 		"paperw" => st.doc.page.paper_w = v.clamp(1, PAGE_LIMIT),
 		"paperh" => st.doc.page.paper_h = v.clamp(1, PAGE_LIMIT),
 		"margl" => st.doc.page.margin_l = v.clamp(0, PAGE_LIMIT),
@@ -1484,7 +1646,7 @@ fn control<S: Store + ?Sized>(
 		"u" => {
 			st.chars = cur.chars;
 			st.target = cur.story;
-			st.text(unicode_to_ansi(v))?;
+			st.unicode(v)?;
 			*skip = cur.uc_skip;
 		}
 		"uc" => cur.uc_skip = v.max(0) as u32,

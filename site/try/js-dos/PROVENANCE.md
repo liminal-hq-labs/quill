@@ -22,6 +22,10 @@ Left out: the source maps and `.symbols` files, the DOSBox-X builds (about 8 MB 
 
 The player's own code names a few outside addresses: the js-dos CDN (the default `pathPrefix`, which `try.js` overrides), `net.dos.zone` (the IPX network, which `noNetworking` turns off), the cloud save services (`noCloud`) and a Dhrystone benchmark that posts its result, which is a window only the player's sidebar opens and `kiosk` hides. With those options set the page makes no request outside this site. Check it again after any update of the player: load the page with the browser's network panel open and select Start.
 
+## Caching
+
+js-dos 8.5.3 keeps each bundle it fetches in the browser's origin-private file system (not IndexedDB), in the folder named by its `opfsRoot` option (default `jsdos`), under `caches/bundles/` and a name made from the bundle's URL; saved changes go under `saves/`. It fetches the bundle itself with `cache: 'no-store'`, and appends the `pathSuffix` option to the emulator files. `try.js` sets `opfsRoot` to `quill-try-<hash of the bundle>`, turns `fsChanges.local` off, passes the manifest's versions as `?v=` on the player files and as `pathSuffix`, and deletes other builds' folders (SITE-4). After an update of the player, check that the option names above still exist in `js-dos.js` (search for `opfsRoot`, `fsChanges` and `pathSuffix`) and that `scripts/check-try.sh` passes; the update changes the manifest's `assets` versions, which is what makes visitors fetch the new player.
+
 ## Updating
 
 Pick a version at least two weeks old, run `npm pack js-dos@VERSION`, copy the same files, update the version in this file, `try/index.html` and `try/licences.html`, and run the page in a browser, with the network panel open, before publishing.

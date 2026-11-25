@@ -1,5 +1,6 @@
 {
 	"icons": [{ "id": 1, "file": "../../../assets/icon/QUILL31.ICO" }],
 	"bitmaps": [{ "id": 2, "file": "../../../assets/toolbar/toolbar.bmp" }],
+	"rcdata": [{ "id": 100, "file": "../../../assets/codepages/CPAGES.BIN" }],
 	"dialog_files": ["../../../assets/dialogs/dialogs.json"]
 }

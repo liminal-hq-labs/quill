@@ -49,6 +49,41 @@
 	margin-bottom: 1rem;
 }
 
+.modes {
+	margin: 0 0 1rem;
+	padding: 0.6rem 1rem 0.8rem;
+	border: 1px solid var(--rule);
+	border-radius: 0.5rem;
+	background: var(--surface);
+	max-width: 60rem;
+}
+
+.modes legend {
+	font-weight: 700;
+	color: var(--heading);
+	padding: 0 0.4rem;
+}
+
+.modes label {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.6rem;
+	padding: 0.45rem 0;
+	min-height: 2.75rem;
+	cursor: pointer;
+}
+
+.modes input {
+	margin-top: 0.3rem;
+	width: 1.2rem;
+	height: 1.2rem;
+	flex: none;
+}
+
+.modes input:disabled + span {
+	opacity: 0.6;
+}
+
 .player-controls .button[hidden] {
 	display: none;
 }
@@ -108,6 +143,75 @@
 /* js-dos draws its own chrome inside the stage; the page keeps only the screen. */
 .stage-dos .jsdos-rso {
 	height: 100%;
+	width: 100%;
+}
+
+/* js-dos's own sensitivity slider is a thin strip over the left edge of the screen, and its "click to capture" cover dims the picture and
+   points at that slider; the page has a labelled control and a line of its own (.mouse-hint) instead. */
+.stage-dos.jsdos-rso .sidebar-slider,
+.stage-dos.jsdos-rso .bg-black\/70,
+.stage-dos.jsdos-rso .w-2.flex-shrink-0 {
+	display: none;
+}
+
+.mouse-hint {
+	margin: 0.5rem 0 0;
+	color: var(--text-muted);
+	min-height: 1.5em;
+}
+
+.speed {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 0.75rem 0 0;
+}
+
+.speed input {
+	flex: 1 1 8rem;
+	max-width: 16rem;
+	min-height: 2.75rem;
+}
+
+/* A phone has no keyboard for the emulated PC: a row of the keys Quill's menus and dialogs need. */
+.keybar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin: 0.75rem 0 0;
+	max-width: 60rem;
+}
+
+.keybar[hidden] {
+	display: none;
+}
+
+.keybar .button {
+	flex: 1 1 4rem;
+	min-height: 2.75rem;
+	padding-left: 0.5rem;
+	padding-right: 0.5rem;
+	touch-action: manipulation;
+}
+
+.stage {
+	touch-action: none;
+}
+
+/* The full-screen stage is the whole display; it keeps the 4 by 3 picture inside it. */
+.stage:fullscreen {
+	max-width: none;
+	width: 100vw;
+	height: 100vh;
+	aspect-ratio: auto;
+	border: 0;
+	border-radius: 0;
+}
+
+.build {
+	font-family: var(--font-mono);
+	font-size: 0.85rem;
+	color: var(--text-muted);
 }
 
 .keys {
