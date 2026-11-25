@@ -1,0 +1,12 @@
+W32SPIKE doc=1048576 keys=10 keyms=7000 cycles=200 stressdoc=65536 freq=1193180
+ORACLE serialize on the main thread, no write: us=13648334 out_bytes=1157322 crc=2335229655
+BEGIN base
+PHASE base keys=10 coalesced=0 lat_min_us=1869348 lat_med_us=1874996 lat_p95_us=1881478 lat_max_us=1881478
+BEGIN worker
+PHASE worker keys=11 coalesced=0 lat_min_us=3891478 lat_med_us=4001651 lat_p95_us=4468302 lat_max_us=4468302 jobs=4 bytes=4194304 job_ms_mean=19531 serialize_ms_mean=18534 write_ms_mean=798 copy_us_mean=770116 kb_per_s=52
+BEGIN low
+PHASE low keys=11 coalesced=0 lat_min_us=2151625 lat_med_us=2185831 lat_p95_us=2227731 lat_max_us=2227731 jobs=4 bytes=4194304 job_ms_mean=19656 serialize_ms_mean=18718 write_ms_mean=736 copy_us_mean=784860 kb_per_s=52
+BEGIN coop
+PHASE coop keys=12 coalesced=0 lat_min_us=1998609 lat_med_us=2037987 lat_p95_us=2064613 lat_max_us=2064613 jobs=4 bytes=4194304 job_ms_mean=20172 serialize_ms_mean=13295 write_ms_mean=605 copy_us_mean=789854 kb_per_s=50
+SUMMARY jobs_total=8 max_job_ms=20149 post_fails=0 freq=1193180
+RESULT PASS

@@ -1,0 +1,14 @@
+# What the spike imports beyond Quill32's win9x/tools/imports.allow. The first six are what J13 proposes to add; the rest measure the spike.
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+kernel32.dll!CreateEventA
+kernel32.dll!CreateThread
+kernel32.dll!SetEvent
+kernel32.dll!WaitForSingleObject
+user32.dll!PostMessageA
+kernel32.dll!Sleep
+kernel32.dll!SetThreadPriority
+kernel32.dll!QueryPerformanceCounter
+kernel32.dll!QueryPerformanceFrequency
+kernel32.dll!GetLastError
+user32.dll!PeekMessageA

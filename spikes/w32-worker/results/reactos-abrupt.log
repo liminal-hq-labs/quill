@@ -1,0 +1,8 @@
+W32SPIKE doc=1048576 keys=6 keyms=1000 cycles=200 stressdoc=65536 freq=1193182
+ORACLE serialize on the main thread, no write: us=5203 out_bytes=1157322 crc=2335229655
+BEGIN base
+PHASE base keys=6 coalesced=0 lat_min_us=76429 lat_med_us=79401 lat_p95_us=86048 lat_max_us=86048
+BEGIN exit
+EXIT abrupt: ExitProcess with the worker running
+SUMMARY jobs_total=0 max_job_ms=0 post_fails=0 freq=1193182
+RESULT PASS
