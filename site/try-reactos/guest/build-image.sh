@@ -20,6 +20,7 @@ export VMDIR=${VMDIR:-$HOME/.cache/reactos/web/p2}
 export MTOOLS_SKIP_CHECK=1
 if [ -z "${BOOT_WAIT:-}" ]; then if [ -w /dev/kvm ] && [ "${ACCEL:-kvm}" = kvm ]; then BOOT_WAIT=60; else BOOT_WAIT=400; fi; fi
 mkdir -p "$VMDIR/stage" "$VMDIR/cd" "$VMDIR/lnk"
+rm -f "$VMDIR/stage/QUILLDOS.EXE" "$VMDIR/stage/QUILL.HLP"
 D="$OUT@@1048576"
 
 echo "1. copy the golden disk (sparse)"
@@ -33,14 +34,17 @@ for n in 1 2 3; do "$HERE/trim.sh" "$OUT" "$HERE/trim-list-$n.txt" "$VMDIR/trim$
 echo "3. put Quill, the demo documents and the wallpaper on the disk, and the two desktop shortcuts"
 if [ -d "$QISO" ]; then
 	cp "$QISO/QUILL.EXE" "$QISO/QUILL32.EXE" "$VMDIR/stage/"
+	for opt in QUILLDOS.EXE QUILL.HLP; do [ ! -f "$QISO/$opt" ] || cp "$QISO/$opt" "$VMDIR/stage/"; done
 else
 	xorriso -osirrox on -indev "$QISO" -extract /QUILL.EXE "$VMDIR/stage/QUILL.EXE" -extract /QUILL32.EXE "$VMDIR/stage/QUILL32.EXE" >/dev/null 2>&1
 fi
 chmod u+w "$VMDIR/stage/QUILL.EXE" "$VMDIR/stage/QUILL32.EXE"
 mmd -i "$D" ::/Quill
-for f in "$VMDIR/stage/QUILL.EXE" "$VMDIR/stage/QUILL32.EXE" "$DEMO/DEMO.QLD" "$DEMO/DEMO.RTF" "$DEMO/DEMO16.QLD" "$DEMO/DEMO16.RTF" "$HERE/../demo/QUILL.HLP"; do
-	[ -f "$f" ] && mcopy -i "$D" "$f" "::/Quill/$(basename "$f")"
+for f in "$VMDIR/stage/QUILL.EXE" "$VMDIR/stage/QUILL32.EXE" "$DEMO/DEMO.QLD" "$DEMO/DEMO.RTF" "$DEMO/DEMO16.QLD" "$DEMO/DEMO16.RTF" "$VMDIR/stage/QUILLDOS.EXE" "$HERE/../demo/QUILL.HLP"; do
+	[ -f "$f" ] && mcopy -o -i "$D" "$f" "::/Quill/$(basename "$f")"
 done
+# A QUILL.HLP built with the executables replaces the committed demo copy.
+[ ! -f "$VMDIR/stage/QUILL.HLP" ] || mcopy -o -i "$D" "$VMDIR/stage/QUILL.HLP" ::/Quill/QUILL.HLP
 # With the Afterglow theme (below) the wallpaper is the Quillified one it ships with, not WALLPAPER_BMP.
 [ -n "${AFTERGLOW_DIR:-}" ] && [ -f "$AFTERGLOW_DIR/afterglow.msstyles" ] && [ -f "$AFTERGLOW_DIR/quill-wallpaper.bmp" ] && WALL=$AFTERGLOW_DIR/quill-wallpaper.bmp
 mcopy -i "$D" "$WALL" ::/ReactOS/Web/Wallpaper/Quill.bmp
@@ -65,6 +69,18 @@ if [ -n "${AFTERGLOW_DIR:-}" ] && [ -f "$AFTERGLOW_DIR/afterglow.msstyles" ]; th
 	echo "   Afterglow theme from $AFTERGLOW_DIR"
 	mmd -i "$D" ::/ReactOS/Resources/Themes/Afterglow 2>/dev/null || true
 	mcopy -o -i "$D" "$AFTERGLOW_DIR/afterglow.msstyles" ::/ReactOS/Resources/Themes/Afterglow/afterglow.msstyles
+	# The pointers (prepare-afterglow.sh writes cursors/ and pointers.reg; prepare-pointers.sh writes the patched user32.dll): ReactOS
+	# ignores pointer schemes and loads the system pointers from user32.dll, so the patched copy replaces it on this disk only.
+	if [ -d "$AFTERGLOW_DIR/cursors" ]; then
+		mmd -i "$D" ::/ReactOS/Cursors 2>/dev/null || true
+		mmd -i "$D" ::/ReactOS/Cursors/Afterglow 2>/dev/null || true
+		for f in "$AFTERGLOW_DIR"/cursors/*; do mcopy -o -i "$D" "$f" "::/ReactOS/Cursors/Afterglow/$(basename "$f")"; done
+		echo "   Afterglow pointers: $(find "$AFTERGLOW_DIR/cursors" -type f | wc -l) files"
+	fi
+	if [ -f "$AFTERGLOW_DIR/user32-afterglow.dll" ]; then
+		mcopy -o -i "$D" "$AFTERGLOW_DIR/user32-afterglow.dll" ::/ReactOS/system32/user32.dll
+		echo "   patched user32.dll installed (this disk only)"
+	fi
 	for f in "$AFTERGLOW_DIR"/*.reg; do
 		[ -f "$f" ] && cp "$f" "$VMDIR/cd/PL_AG_$(basename "$f" .reg | tr a-z A-Z).REG"
 	done

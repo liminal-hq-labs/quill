@@ -98,6 +98,14 @@ else
 fi
 stage_end install-golden "$S"
 
+# 1b. The Afterglow pointers: patch a copy of the golden disk's user32.dll (the demo disk only; never published).
+if [ -n "$AGDIR" ] && [ -d "$AGDIR/cursors" ] && [ ! -f "$AGDIR/user32-afterglow.dll" ]; then
+	S=$(date +%s)
+	bash "$HERE/prepare-pointers.sh" "$GOLDEN" "$AGDIR"
+	stage_end pointers "$S"
+fi
+[ -z "$AGDIR" ] || [ ! -f "$AGDIR/user32-afterglow.dll" ] || HASHES="$HASHES,afterglow-user32.dll=$(sha256sum "$AGDIR/user32-afterglow.dll" | cut -d' ' -f1)"
+
 # 2. Trim, put Quill and the settings on it, in a build VM.
 S=$(date +%s)
 IMG=$WORK/images/reactos16-trim.img

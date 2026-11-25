@@ -10,7 +10,8 @@
 # OUT_DIR/quill-wallpaper.bmp (1024 x 768, 24-bit, from quillify.py). The default build is used: classic scroll bars.
 # Needs curl, tar, python3 with numpy (the style generator), llvm-rc and lld-link (LLVM), rsvg-convert and ImageMagick 7.
 # AFTERGLOW_SRC=DIR uses an already fetched and checked tree instead of fetching (fetch-afterglow.sh does the check).
-# The pointer set and the user32.dll patch are not in the pinned source, so they are not applied.
+# Also builds the 16 pointers with desktop/pointers/gen-cursors.py (python3 with numpy and Pillow) into OUT_DIR/cursors and copies
+# afterglow-pointers.reg to OUT_DIR/pointers.reg. The user32.dll patch needs the demo disk's file: see prepare-pointers.sh.
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 PIN=${AFTERGLOW_PIN:-$HERE/afterglow.pin}
@@ -20,7 +21,7 @@ OUT=${1:?usage: prepare-afterglow.sh OUT_DIR}
 for t in python3 llvm-rc lld-link rsvg-convert magick; do
 	command -v "$t" >/dev/null || { echo "prepare-afterglow: $t is needed (see the header of this script)" >&2; exit 2; }
 done
-python3 -c 'import numpy' 2>/dev/null || { echo "prepare-afterglow: python3 needs numpy" >&2; exit 2; }
+python3 -c 'import numpy, PIL' 2>/dev/null || { echo "prepare-afterglow: python3 needs numpy and Pillow" >&2; exit 2; }
 SRC=${AFTERGLOW_SRC:-$(bash "$HERE/fetch-afterglow.sh")}
 rm -rf "$OUT"
 mkdir -p "$OUT"
@@ -35,4 +36,8 @@ fi
 cp "$BUILD/style/afterglow.msstyles" "$OUT/afterglow.msstyles"
 cp "$SRC/$AFTERGLOW_APPLY_REG" "$OUT/afterglow.reg"
 python3 -I "$HERE/quillify.py" "$SRC/$AFTERGLOW_WALLPAPER" "$OUT/quill-wallpaper.bmp"
-echo "prepare-afterglow: wrote afterglow.msstyles, afterglow.reg and quill-wallpaper.bmp to $OUT"
+mkdir -p "$OUT/cursors"
+python3 -I "$SRC/desktop/pointers/gen-cursors.py" "$OUT/cursors" >&2
+[ "$(find "$OUT/cursors" -type f | wc -l)" -eq 16 ] || { echo "prepare-afterglow: gen-cursors.py did not write 16 pointer files" >&2; exit 1; }
+cp "$SRC/desktop/pointers/afterglow-pointers.reg" "$OUT/pointers.reg"
+echo "prepare-afterglow: wrote afterglow.msstyles, afterglow.reg, pointers.reg, cursors/ (16 files) and quill-wallpaper.bmp to $OUT"

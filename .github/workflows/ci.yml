@@ -109,7 +109,7 @@ jobs:
         run: python3 -I -m unittest discover -s site/try-reactos/guest -p 'test_afterglow.py'
 
       - name: Check the guest scripts
-        run: shellcheck site/try-reactos/guest/fetch-afterglow.sh site/try-reactos/guest/prepare-afterglow.sh
+        run: shellcheck site/try-reactos/guest/fetch-afterglow.sh site/try-reactos/guest/prepare-afterglow.sh site/try-reactos/guest/prepare-pointers.sh
 
   layers:
     name: Layers

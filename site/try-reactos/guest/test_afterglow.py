@@ -154,5 +154,67 @@ class QuillifyTest(unittest.TestCase):
 		self.assertEqual(px(20, 20), (0, 0))
 
 
+@unittest.skipUnless(shutil.which('mcopy') and shutil.which('mformat') and shutil.which('mmd'), 'needs mtools')
+class PointersTest(unittest.TestCase):
+	"""prepare-pointers.sh on a tiny FAT disk and a fake Afterglow tree whose patch tool just writes known bytes."""
+
+	PATCHED = b'patched-user32'
+
+	def setUp(self):
+		self.tmp = tempfile.mkdtemp()
+		self.addCleanup(shutil.rmtree, self.tmp)
+		self.env = dict(os.environ, MTOOLS_SKIP_CHECK='1')
+		self.img = os.path.join(self.tmp, 'd.img')
+		with open(self.img, 'wb') as f:
+			f.truncate(8 * 1024 * 1024)
+		d = self.img + '@@1048576'
+		subprocess.run(['mformat', '-i', d, '-T', '14336', '-h', '1', '-s', '1', '::'], check=True, env=self.env, capture_output=True)
+		subprocess.run(['mmd', '-i', d, '::/ReactOS', '::/ReactOS/system32'], check=True, env=self.env)
+		dll = os.path.join(self.tmp, 'user32.dll')
+		with open(dll, 'wb') as f:
+			f.write(b'original-user32')
+		subprocess.run(['mcopy', '-i', d, dll, '::/ReactOS/system32/user32.dll'], check=True, env=self.env)
+		self.src = os.path.join(self.tmp, 'src')
+		os.makedirs(os.path.join(self.src, 'desktop/pointers'))
+		with open(os.path.join(self.src, 'desktop/pointers/patch-user32.py'), 'w') as f:
+			f.write('import sys\nassert open(sys.argv[1], "rb").read() == b"original-user32"\nopen(sys.argv[3], "wb").write(%r)\n' % self.PATCHED)
+		self.out = os.path.join(self.tmp, 'out')
+		os.makedirs(os.path.join(self.out, 'cursors'))
+
+	def sums(self, sha):
+		with open(os.path.join(self.src, 'desktop/pointers/SHA256SUMS.user32'), 'w') as f:
+			f.write('%s  user32-afterglow.dll\n' % sha)
+
+	def run_script(self):
+		env = dict(self.env, AFTERGLOW_SRC=self.src)
+		return subprocess.run(['bash', os.path.join(HERE, 'prepare-pointers.sh'), self.img, self.out], env=env, capture_output=True, text=True)
+
+	def test_patched_copy_is_written_when_the_sum_matches(self):
+		self.sums(hashlib.sha256(self.PATCHED).hexdigest())
+		r = self.run_script()
+		self.assertEqual(r.returncode, 0, r.stderr)
+		with open(os.path.join(self.out, 'user32-afterglow.dll'), 'rb') as f:
+			self.assertEqual(f.read(), self.PATCHED)
+
+	def test_wrong_sum_is_refused_and_writes_nothing(self):
+		self.sums('0' * 64)
+		r = self.run_script()
+		self.assertNotEqual(r.returncode, 0)
+		self.assertIn('expected', r.stderr)
+		self.assertFalse(os.path.exists(os.path.join(self.out, 'user32-afterglow.dll')))
+
+	def test_missing_cursors_is_a_usage_error(self):
+		os.rmdir(os.path.join(self.out, 'cursors'))
+		self.sums('0' * 64)
+		r = self.run_script()
+		self.assertEqual(r.returncode, 2)
+
+	def test_the_disk_is_not_changed(self):
+		self.sums(hashlib.sha256(self.PATCHED).hexdigest())
+		before = hashlib.sha256(open(self.img, 'rb').read()).hexdigest()
+		self.run_script()
+		self.assertEqual(before, hashlib.sha256(open(self.img, 'rb').read()).hexdigest())
+
+
 if __name__ == '__main__':
 	unittest.main()

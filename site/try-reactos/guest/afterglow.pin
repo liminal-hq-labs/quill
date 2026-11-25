@@ -6,9 +6,9 @@
 
 AFTERGLOW_REPO=liminal-hq/afterglow-themes
 # The commit that holds desktop/ (the ReactOS style, eight colour schemes) and the wallpapers. Not yet in a tag or release.
-AFTERGLOW_COMMIT=f861434dddc28f6cd55f76dcc7214f7c9ce50404
+AFTERGLOW_COMMIT=af5639304ea6e0ef59db48e67b1ac3d128966b30
 # SHA-256 of the uncompressed tar that GitHub serves for that commit (not of the .tar.gz: GitHub may recompress an archive).
-AFTERGLOW_TAR_SHA256=cabb91173570d94f24629bce835ebecc93b1e856b260c69bcfbde5dcd1cbb539
+AFTERGLOW_TAR_SHA256=c595c68029e8ae48d3515a87b73e916cb15179101272b39a9c1ad64327c261bd
 # SHA-256 of the default build of desktop/style/build.sh (classic scroll bars), as recorded in desktop/SHA256SUMS at that commit.
 AFTERGLOW_MSSTYLES_SHA256=2a40fecc9ccaa054f6725d3626cd37e513f2413f9d385c9702dc3b0b9a03902d
 # The wallpaper the Quill overlay goes on, and the colour scheme the apply file selects.
