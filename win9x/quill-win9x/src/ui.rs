@@ -115,14 +115,23 @@ pub unsafe fn create_bars(hwnd: Handle, instance: Handle) -> (Handle, Handle) {
 	(make(1), make(0))
 }
 
-/// Puts the scroll bars along the right and bottom edges of the page area, and shows the ones that are needed.
-unsafe fn place_bars(hwnd: Handle, sh: &Shell) {
+/// Puts the scroll bars along the right and bottom edges of the page area, and shows the ones that are needed. A bar that is where it
+/// was and shows what it showed is left alone.
+unsafe fn place_bars(hwnd: Handle, sh: &mut Shell) {
 	let area = page_area(hwnd, sh);
 	let (vw, hh) = bar_sizes();
-	MoveWindow(sh.vbar, area.right, area.top, vw, area.bottom - area.top, 1);
-	ShowWindow(sh.vbar, if sh.vbar_on { 5 } else { 0 });
-	MoveWindow(sh.hbar, area.left, area.bottom, area.right - area.left, hh, 1);
-	ShowWindow(sh.hbar, if sh.hbar_on { 5 } else { 0 });
+	let v = (area.right, area.top, vw, area.bottom - area.top, sh.vbar_on);
+	if sh.bar_placed[0] != Some(v) {
+		MoveWindow(sh.vbar, v.0, v.1, v.2, v.3, 1);
+		ShowWindow(sh.vbar, if v.4 { 5 } else { 0 });
+		sh.bar_placed[0] = Some(v);
+	}
+	let h = (area.left, area.bottom, area.right - area.left, hh, sh.hbar_on);
+	if sh.bar_placed[1] != Some(h) {
+		MoveWindow(sh.hbar, h.0, h.1, h.2, h.3, 1);
+		ShowWindow(sh.hbar, if h.4 { 5 } else { 0 });
+		sh.bar_placed[1] = Some(h);
+	}
 }
 
 /// How many sheets of paper the body takes, as the last paint or scroll update found it.
@@ -135,10 +144,37 @@ pub fn pct(sh: &Shell, client_w: i32) -> i32 {
 	view::zoom_pct(&sh.app, client_w)
 }
 
+/// Where a scroll bar was put: its left, top, width and height, and whether it shows.
+pub type Placed = (i32, i32, i32, i32, bool);
+
+/// What a scroll bar is to show: its range, the thumb's size and place, and the number the three are divided by to fit 16 bits.
+#[derive(Copy, Clone)]
+pub struct BarInfo {
+	max: i32,
+	page: i32,
+	pos: i32,
+	k: i32,
+}
+
 /// Keeps both scroll bars and both scroll positions inside what the window and the document allow.
 pub unsafe fn update_scroll(hwnd: Handle, sh: &mut Shell) {
+	if let Some(bars) = settle_scroll(hwnd, sh) {
+		apply_scroll(hwnd, sh, &bars);
+	}
+}
+
+/// Tells the scroll bars what `settle_scroll` found: the horizontal bar's and the vertical one's.
+unsafe fn apply_scroll(hwnd: Handle, sh: &mut Shell, bars: &[BarInfo; 2]) {
+	place_bars(hwnd, sh);
+	set_bar(sh, 1, bars[0]);
+	set_bar(sh, 0, bars[1]);
+}
+
+/// Works out which scroll bars show, and keeps both scroll positions (and the preview's) inside what the window and the document
+/// allow, without touching a window. Returns what the bars are to show, or None when there are none (the text grid).
+pub unsafe fn settle_scroll(hwnd: Handle, sh: &mut Shell) -> Option<[BarInfo; 2]> {
 	if sh.grid {
-		return;
+		return None;
 	}
 	// Which bars show decides the page area and the page area decides which bars show: settle it in two passes.
 	let preview = sh.preview;
@@ -164,7 +200,6 @@ pub unsafe fn update_scroll(hwnd: Handle, sh: &mut Shell) {
 			sh.vbar_on = preview.is_some_and(|pv| pv.actual) && vmax > 0;
 		}
 	}
-	place_bars(hwnd, sh);
 	let area = page_area(hwnd, sh);
 	let (aw, ah) = (area.right - area.left, area.bottom - area.top);
 	if let Some(mut pv) = sh.preview {
@@ -179,9 +214,20 @@ pub unsafe fn update_scroll(hwnd: Handle, sh: &mut Shell) {
 		pv.hscroll = pv.hscroll.clamp(0, hmax);
 		pv.vscroll = pv.vscroll.clamp(0, vmax);
 		sh.preview = Some(pv);
-		set_bar(sh.hbar, hmax, aw, pv.hscroll, 1);
-		set_bar(sh.vbar, vmax, ah, pv.vscroll, 1);
-		return;
+		return Some([
+			BarInfo {
+				max: hmax,
+				page: aw,
+				pos: pv.hscroll,
+				k: 1,
+			},
+			BarInfo {
+				max: vmax,
+				page: ah,
+				pos: pv.vscroll,
+				k: 1,
+			},
+		]);
 	}
 	sh.pages = gdi::body_pages(&sh.app, &sh.store);
 	let p = pct(sh, aw);
@@ -190,24 +236,42 @@ pub unsafe fn update_scroll(hwnd: Handle, sh: &mut Shell) {
 	sh.vpos = sh.vpos.clamp(0, vmax);
 	let hmax = view::hscroll_max(&sh.app, aw);
 	sh.hscroll = sh.hscroll.clamp(0, hmax);
-	set_bar(sh.hbar, hmax, aw, sh.hscroll, 1);
 	let k = view::bar_scale(vmax + view_h);
-	set_bar(sh.vbar, vmax, view_h, sh.vpos, k);
+	Some([
+		BarInfo {
+			max: hmax,
+			page: aw,
+			pos: sh.hscroll,
+			k: 1,
+		},
+		BarInfo {
+			max: vmax,
+			page: view_h,
+			pos: sh.vpos,
+			k,
+		},
+	])
 }
 
-/// Sets a scroll bar for positions 0 to `max` with a thumb of `page`, everything divided by `k` to fit 16 bits.
-unsafe fn set_bar(bar: Handle, max: i32, page: i32, pos: i32, k: i32) {
+/// Sets a scroll bar (0 the vertical one, 1 the horizontal one) for positions 0 to `max` with a thumb of `page`, everything divided by `k`
+/// to fit 16 bits. A bar that already shows it is left alone.
+unsafe fn set_bar(sh: &mut Shell, which: usize, b: BarInfo) {
 	let info = ScrollInfo {
 		size: core::mem::size_of::<ScrollInfo>() as u32,
 		mask: SIF_ALL,
 		min: 0,
-		max: (max + page) / k - 1,
-		page: (page / k).max(1) as u32,
-		pos: pos / k,
+		max: (b.max + b.page) / b.k - 1,
+		page: (b.page / b.k).max(1) as u32,
+		pos: b.pos / b.k,
 		track_pos: 0,
 	};
+	let shown = (info.max, info.page, info.pos);
+	if sh.bar_info[which] == Some(shown) {
+		return;
+	}
+	sh.bar_info[which] = Some(shown);
 	// SB_CTL: the bar is a control of its own.
-	SetScrollInfo(bar, 2, &info, 1);
+	SetScrollInfo(if which == 0 { sh.vbar } else { sh.hbar }, 2, &info, 1);
 }
 
 /// The window changed size: lays the page, the ruler, the preview's bar and the scroll bars out again.
@@ -273,6 +337,8 @@ fn bar_target(code: usize, now: i32, line: i32, page: i32, thumb: i32, max: i32)
 
 /// A `WM_VSCROLL`: `code` is what the user did and `thumb` is where the box is.
 pub unsafe fn vscroll_by(hwnd: Handle, sh: &mut Shell, code: usize, thumb: i32) {
+	// The bar moved its own thumb, so what it shows is no longer what it was last told.
+	sh.bar_info = [None; 2];
 	let area = page_area(hwnd, sh);
 	let (aw, ah) = (area.right - area.left, area.bottom - area.top);
 	if let Some(pv) = sh.preview {
@@ -294,6 +360,7 @@ pub unsafe fn vscroll_by(hwnd: Handle, sh: &mut Shell, code: usize, thumb: i32) 
 
 /// A `WM_HSCROLL`.
 pub unsafe fn hscroll_by(hwnd: Handle, sh: &mut Shell, code: usize, thumb: i32) {
+	sh.bar_info = [None; 2];
 	let area = page_area(hwnd, sh);
 	let w = area.right - area.left;
 	let now = match sh.preview {
@@ -326,6 +393,11 @@ pub unsafe fn wheel(hwnd: Handle, sh: &mut Shell, delta: i32) {
 
 /// Scrolls so the caret is in view, with a little room above and below it, and sideways when the page is wider than the window.
 pub unsafe fn ensure_visible(hwnd: Handle, sh: &mut Shell) {
+	ensure_visible_with(hwnd, sh, true);
+}
+
+/// `ensure_visible`; with `apply` false the scroll bars are not told (the caller does it once, with `update_scroll`).
+pub unsafe fn ensure_visible_with(hwnd: Handle, sh: &mut Shell, apply: bool) {
 	if sh.grid || sh.preview.is_some() || !sh.app.editing() {
 		return;
 	}
@@ -358,9 +430,16 @@ pub unsafe fn ensure_visible(hwnd: Handle, sh: &mut Shell) {
 	let (before_v, before_h) = (sh.vpos, sh.hscroll);
 	sh.vpos = to;
 	sh.hscroll = hs;
-	update_scroll(hwnd, sh);
+	if apply {
+		update_scroll(hwnd, sh);
+	} else {
+		settle_scroll(hwnd, sh);
+	}
 	if (before_v, before_h) != (sh.vpos, sh.hscroll) {
-		crate::invalidate_ruler(hwnd, sh);
+		// The ruler follows the sideways scroll only.
+		if before_h != sh.hscroll {
+			crate::invalidate_ruler(hwnd, sh);
+		}
 		crate::invalidate_page(hwnd, sh);
 	}
 }
@@ -504,12 +583,46 @@ pub unsafe fn spell_tick(hwnd: Handle, sh: &mut Shell) {
 	if core::mem::take(&mut sh.spell_view) {
 		let (lo, hi) = visible_span(hwnd, sh);
 		sh.app.spell_set_view(lo, hi);
+		#[cfg(feature = "bench")]
+		if crate::bench::B_T0 == 0 {
+			crate::bench::B_WORDS = crate::bench::count_words(sh, lo, hi);
+		}
 	}
+	#[cfg(feature = "bench")]
+	let t_load = crate::bench::qpc();
 	if !sh.app.spell_live_ready(&mut sh.store, &mut sh.files) {
 		KillTimer(hwnd, TIMER_SPELL);
 		return;
 	}
+	#[cfg(feature = "bench")]
+	{
+		use crate::bench::*;
+		if B_LOAD == 0 {
+			B_LOAD = qpc() - t_load;
+		}
+		if B_T0 == 0 {
+			B_T0 = qpc();
+		}
+	}
+	#[cfg(feature = "bench")]
+	let t_idle = crate::bench::qpc();
 	let more = sh.app.spell_idle(&mut sh.store, SPELL_WORDS);
+	#[cfg(feature = "bench")]
+	{
+		use crate::bench::*;
+		let spent = qpc() - t_idle;
+		B_CPU += spent;
+		B_MAXTICK = B_MAXTICK.max(spent);
+		B_TICKS += 1;
+		if !more {
+			B_SCANS.push((B_WORDS, qpc() - B_T0, B_TICKS, B_CPU, B_MAXTICK));
+			B_T0 = 0;
+			B_TICKS = 0;
+			B_CPU = 0;
+			B_MAXTICK = 0;
+			write_log(sh);
+		}
+	}
 	// Painting costs far more than checking, so the lines whose marks changed are painted once for a few batches, and at the end.
 	if let Some((lo, hi)) = sh.app.spell_take_changed() {
 		let (a, b) = sh.spell_chg;
@@ -936,6 +1049,7 @@ pub unsafe fn preview_command(hwnd: Handle, sh: &mut Shell, id: usize) {
 	};
 	match id {
 		ID_PV_PRINT => {
+			refresh_clock(sh);
 			if !crate::print_job(hwnd, sh, true, None) {
 				sh.app.set_message("Quill could not print.");
 			}
@@ -1085,8 +1199,26 @@ pub unsafe fn ini_save(sh: &Shell) {
 	}
 }
 
-/// Gives the editor the date and the time as the system shows them, for the Date and Time fields: the short date and the time without
-/// seconds in the user's own formats (`GetDateFormatA` and `GetTimeFormatA` with no time given mean now).
+/// The text a Date field (3) or a Time field (5) shows on the screen: the system's clock as it is now, read when the field is drawn
+/// and for no other paint. Returns how many bytes of `out` it filled.
+pub unsafe fn clock_text(kind: u32, out: &mut [u8; 32]) -> usize {
+	let mut buf = [0u8; 64];
+	// LOCALE_USER_DEFAULT, then DATE_SHORTDATE or TIME_NOSECONDS.
+	let n = if kind == 3 {
+		GetDateFormatA(0x0400, 1, null(), null(), buf.as_mut_ptr(), 64)
+	} else {
+		GetTimeFormatA(0x0400, 2, null(), null(), buf.as_mut_ptr(), 64)
+	};
+	let n = (n.max(1) as usize - 1).min(out.len());
+	out.get_mut(..n)
+		.unwrap_or(&mut [])
+		.copy_from_slice(buf.get(..n).unwrap_or(&[]));
+	n
+}
+
+/// Gives the editor the date and the time as the system shows them, for the Date and Time fields of a printed page (the screen reads
+/// the clock itself, see `clock_text`): the short date and the time without seconds in the user's own formats (`GetDateFormatA` and
+/// `GetTimeFormatA` with no time given mean now).
 pub unsafe fn refresh_clock(sh: &mut Shell) {
 	// LOCALE_USER_DEFAULT, DATE_SHORTDATE and TIME_NOSECONDS.
 	let mut buf = [0u8; 64];
