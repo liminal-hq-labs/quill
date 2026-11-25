@@ -26,7 +26,7 @@ use gdi::{Gdi16, QApp, Rect16, np};
 use quill_app::accel::{self, Accel};
 use quill_app::cmdline;
 use quill_app::view::{self, Act, Hit};
-use quill_app::{Command, Dir, Files, Key, Scheme};
+use quill_app::{Command, Dir, Files, Key, SaveMode, Scheme};
 use quill_formats::io::{Sink, Source};
 use quill_grid::Grid;
 use store::FarStore;
@@ -258,8 +258,38 @@ impl Files for Win16Files {
 	}
 
 	fn close(&mut self, w: FileSink) -> bool {
-		unsafe { _lclose(w.0) };
-		true
+		// DOS commits the buffers, then closes: a full floppy shows itself in either.
+		unsafe { dos_commit(w.0) == 0 && _lclose(w.0) != HFILE_ERROR }
+	}
+
+	fn save_mode(&self) -> SaveMode {
+		SaveMode::TempRename
+	}
+
+	fn remove(&mut self, name: &[u8]) -> bool {
+		let mut buf = [0u8; 128];
+		c_name(name, &mut buf);
+		dos_delete(buf.as_ptr()) == 0
+	}
+
+	// DOS refuses a name that is taken, so a replace falls to `remove` and then `rename` (the provided `replace`).
+	fn rename(&mut self, from: &[u8], to: &[u8]) -> bool {
+		let (mut a, mut b) = ([0u8; 128], [0u8; 128]);
+		c_name(from, &mut a);
+		c_name(to, &mut b);
+		dos_rename(a.as_ptr(), b.as_ptr()) == 0
+	}
+
+	fn len(&mut self, name: &[u8]) -> Option<u32> {
+		let mut buf = [0u8; 128];
+		c_name(name, &mut buf);
+		let h = unsafe { _lopen(buf.as_ptr() as u32, 0) };
+		if h == HFILE_ERROR {
+			return None;
+		}
+		let n = unsafe { _llseek(h, 0, 2) };
+		unsafe { _lclose(h) };
+		(n != u32::MAX).then_some(n)
 	}
 }
 

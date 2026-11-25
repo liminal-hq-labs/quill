@@ -6,14 +6,14 @@
 > cmd SaveAs
 < file SaveAs folder="" name="OLD.QLD" type="0"
 > choose "LOCKED.RTF"
-< notice Status "Quill cannot save the file."
+< notice Status "Quill cannot save; the disk may be full."
 > dump
 = state
 text: "words!"
 caret: 6  selection: none
 name: "OLD.QLD"
 modified: true
-status: "Quill cannot save the file."
+status: "Quill cannot save; the disk may be full."
 recent: ["OLD.QLD"]
 folder: ""
 font: "Times New Roman" size=24 flags=0
@@ -23,14 +23,14 @@ file OLD.QLD: 272 bytes fnv1a=29257409bd3df190
 > cmd SaveAs
 < file SaveAs folder="" name="OLD.QLD" type="0"
 > choose "FULL.TXT"
-< notice Status "Quill cannot save the file."
+< notice Status "Quill cannot save; the disk may be full."
 > dump
 = state
 text: "words!"
 caret: 6  selection: none
 name: "OLD.QLD"
 modified: true
-status: "Quill cannot save the file."
+status: "Quill cannot save; the disk may be full."
 recent: ["OLD.QLD"]
 folder: ""
 font: "Times New Roman" size=24 flags=0

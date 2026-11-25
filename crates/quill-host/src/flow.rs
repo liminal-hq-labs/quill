@@ -215,10 +215,34 @@ impl Files for Disk {
 	}
 
 	fn close(&mut self, w: NamedSink) -> bool {
-		if self.full.contains(&w.name().to_string()) {
+		// A full disk refuses the file being written: the target itself, or the temporary file a save to it writes first.
+		let name = w.name().to_string();
+		let full = self.full.iter().any(|t| {
+			*t == name || quill_app::safe::TempName::of(t.as_bytes()).bytes() == name.as_bytes()
+		});
+		if full {
 			return false;
 		}
 		self.inner.close(w)
+	}
+
+	fn save_mode(&self) -> quill_app::SaveMode {
+		self.inner.save_mode()
+	}
+
+	fn remove(&mut self, name: &[u8]) -> bool {
+		let n = String::from_utf8_lossy(name).to_ascii_uppercase();
+		!self.locked.contains(&n) && self.inner.remove(name)
+	}
+
+	fn rename(&mut self, from: &[u8], to: &[u8]) -> bool {
+		// A read-only file cannot be replaced.
+		let n = String::from_utf8_lossy(to).to_ascii_uppercase();
+		!self.locked.contains(&n) && self.inner.rename(from, to)
+	}
+
+	fn len(&mut self, name: &[u8]) -> Option<u32> {
+		self.inner.len(name)
 	}
 }
 

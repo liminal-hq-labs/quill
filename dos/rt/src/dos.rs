@@ -250,6 +250,25 @@ impl File {
 	pub fn handle(&self) -> u16 {
 		self.handle
 	}
+
+	/// Finishes a file that was written: AH=68h commits the buffers (DOS 3.3 and later; older DOS answers with an error that does not
+	/// matter), then AH=3Eh closes it and reports what the close says. A full disk shows itself here when DOS held the last sector back.
+	pub fn finish(self) -> Result<(), DosError> {
+		let handle = self.handle;
+		core::mem::forget(self);
+		let mut r = RealRegs {
+			eax: 0x6800,
+			ebx: handle as u32,
+			..RealRegs::default()
+		};
+		let _ = rm21(&mut r);
+		let mut r = RealRegs {
+			eax: 0x3E00,
+			ebx: handle as u32,
+			..RealRegs::default()
+		};
+		rm21(&mut r)
+	}
 }
 
 impl Drop for File {

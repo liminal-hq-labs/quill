@@ -46,7 +46,7 @@ use core::mem::MaybeUninit;
 use core::ptr::{null, null_mut};
 
 use gdi::GdiMeasure;
-use quill_app::{App, Command, Dir, Files, Key, Scheme};
+use quill_app::{App, Command, Dir, Files, Key, SaveMode, Scheme};
 use quill_formats::io::{Sink, Source};
 use quill_grid::Grid;
 use quill_heap::HeapStore;
@@ -178,9 +178,67 @@ impl Files for Win32Files {
 	}
 
 	fn close(&mut self, w: Win32Sink) -> bool {
+		// SAFETY: the handle is ours. The buffers go to the disk before the handle is closed, and either step can say the disk is full.
+		unsafe {
+			let flushed = FlushFileBuffers(w.0) != 0;
+			CloseHandle(w.0) != 0 && flushed
+		}
+	}
+
+	fn save_mode(&self) -> SaveMode {
+		SaveMode::TempRename
+	}
+
+	fn remove(&mut self, name: &[u8]) -> bool {
+		// SAFETY: `c_name` ends in a NUL.
+		unsafe { DeleteFileA(c_name(name).as_ptr()) != 0 }
+	}
+
+	/// Windows NT and later replace the new name in one step (`MoveFileExA`, looked up at run time because Windows 95, 98 and Me
+	/// only stub it); the older systems refuse a name that is taken, and the provided `replace` removes the old file and tries again.
+	fn rename(&mut self, from: &[u8], to: &[u8]) -> bool {
+		let (a, b) = (c_name(from), c_name(to));
+		// SAFETY: both names end in a NUL; the function found has the signature `MoveFileExA` documents.
+		unsafe {
+			let kernel = GetModuleHandleA(b"kernel32.dll\0".as_ptr());
+			if !kernel.is_null() {
+				let p = GetProcAddress(kernel, b"MoveFileExA\0".as_ptr());
+				if !p.is_null() {
+					let ex: unsafe extern "system" fn(*const u8, *const u8, u32) -> i32 = core::mem::transmute(p);
+					// MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH
+					if ex(a.as_ptr(), b.as_ptr(), 9) != 0 {
+						return true;
+					}
+				}
+			}
+			MoveFileA(a.as_ptr(), b.as_ptr()) != 0
+		}
+	}
+
+	fn len(&mut self, name: &[u8]) -> Option<u32> {
+		let n = c_name(name);
+		// SAFETY: `n` is NUL-terminated.
+		let h = unsafe {
+			CreateFileA(
+				n.as_ptr(),
+				GENERIC_READ,
+				FILE_SHARE_READ,
+				null(),
+				OPEN_EXISTING,
+				0,
+				null_mut(),
+			)
+		};
+		if h == INVALID_HANDLE_VALUE {
+			return None;
+		}
 		// SAFETY: the handle is ours.
-		unsafe { CloseHandle(w.0) };
-		true
+		let size = unsafe {
+			let size = GetFileSize(h, null_mut());
+			CloseHandle(h);
+			size
+		};
+		(size != u32::MAX).then_some(size)
 	}
 }
 
