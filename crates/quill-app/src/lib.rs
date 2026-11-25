@@ -684,13 +684,7 @@ impl<M: Measure + Clone> App<M> {
 		let idx = self
 			.doc
 			.add_picture(s, kind, w as u16, h as u16, text_w, |b| src.read(b))?;
-		let t = &self.doc.body;
-		let cf = if self.caret > 0 {
-			t.cfmt_at(s, self.caret - 1)
-		} else {
-			t.cfmt_at(s, 0)
-		}
-		.unwrap_or(0);
+		let cf = self.typing_cfmt_at(s, self.caret);
 		let pfi = self
 			.para_mark(s, self.caret)
 			.and_then(|m| self.doc.body.pfmt_at(s, m))
@@ -1087,6 +1081,12 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	fn insert<S: Store + ?Sized>(&mut self, s: &mut S, c: u8) {
+		self.insert_next(s, c, None);
+	}
+
+	/// Inserts `c` at the caret. After a paragraph mark, `next` is the preset the new paragraph (the one the caret is in) takes, in the
+	/// same undo step as the mark.
+	fn insert_next<S: Store + ?Sized>(&mut self, s: &mut S, c: u8, next: Option<usize>) {
 		if self.selection().is_some() {
 			self.end_typing();
 			self.doc.body.begin_group(label::TYPING);
@@ -1095,13 +1095,9 @@ impl<M: Measure + Clone> App<M> {
 		}
 		self.anchor = None;
 		let t = &self.doc.body;
-		let prev = if self.caret > 0 {
-			t.cfmt_at(s, self.caret - 1)
-		} else {
-			t.cfmt_at(s, 0)
-		}
-		.unwrap_or(0);
-		let cfmt = self.typing_fmt.unwrap_or(prev);
+		let cfmt = self
+			.typing_fmt
+			.unwrap_or_else(|| self.typing_cfmt_at(s, self.caret));
 		let pfmt = self
 			.para_mark(s, self.caret)
 			.and_then(|m| t.pfmt_at(s, m))
@@ -1140,9 +1136,24 @@ impl<M: Measure + Clone> App<M> {
 			Err(_) => self.msg.set("The document is too large for Quill."),
 		}
 		if c == 0x0D {
+			if let Some(n) = next {
+				let at = self.caret;
+				self.apply_preset(s, n, at, at);
+			}
 			self.end_typing();
 			self.typing_fmt = None;
 		}
+	}
+
+	/// The character format text typed at `pos` takes (CORE-40): the format of the character before it, except at a paragraph's start,
+	/// where it is the format of the character at the caret (the paragraph's own mark when it is empty), never the previous paragraph's.
+	pub(crate) fn typing_cfmt_at<S: ReadStore + ?Sized>(&self, s: &S, pos: u32) -> u16 {
+		let t = &self.doc.body;
+		let at_start = pos == 0 || t.read_byte(s, pos - 1) == Some(0x0D);
+		let from = if at_start { pos } else { pos - 1 };
+		t.cfmt_at(s, from)
+			.or_else(|| t.cfmt_at(s, pos.saturating_sub(1)))
+			.unwrap_or(0)
 	}
 
 	fn delete<S: Store + ?Sized>(&mut self, s: &mut S, pos: u32) {
@@ -1205,11 +1216,18 @@ impl<M: Measure + Clone> App<M> {
 		let keep = (first < mark)
 			.then(|| self.doc.body.pfmt_at(s, mark))
 			.flatten();
+		// An empty paragraph joined to the one above leaves the upper paragraph's mark as it was, so Enter then Backspace is a round trip.
+		let mark_cf = (first < mark && self.doc.body.read_byte(s, mark + 1) == Some(0x0D))
+			.then(|| self.doc.body.cfmt_at(s, mark))
+			.flatten();
 		self.doc.body.begin_group(label::DELETE);
 		if self.doc.body.delete(s, mark, 1, label::DELETE).is_ok() {
 			self.spell_note_edit(s, mark, 1, 0);
 			self.caret = mark;
 			self.modified = true;
+			if let Some(cf) = mark_cf {
+				let _ = self.doc.body.set_cfmt(s, mark, 1, cf, label::PARA_FORMAT);
+			}
 			if let (Some(pf), Some(end)) = (keep, self.para_mark(s, first)) {
 				let _ = self
 					.doc
@@ -1462,13 +1480,7 @@ impl<M: Measure + Clone> App<M> {
 					self.doc.body.end_group();
 				}
 				self.anchor = None;
-				let t = &self.doc.body;
-				let cf = if self.caret > 0 {
-					t.cfmt_at(s, self.caret - 1)
-				} else {
-					t.cfmt_at(s, 0)
-				}
-				.unwrap_or(0);
+				let cf = self.typing_cfmt_at(s, self.caret);
 				let pfi = self
 					.para_mark(s, self.caret)
 					.and_then(|m| self.doc.body.pfmt_at(s, m))
@@ -1584,9 +1596,9 @@ impl<M: Measure + Clone> App<M> {
 		flag: Option<u16>,
 	) {
 		let Some((lo, hi)) = self.selection() else {
-			let t = &self.doc.body;
-			let at = if self.caret > 0 { self.caret - 1 } else { 0 };
-			let cur = self.typing_fmt.or_else(|| t.cfmt_at(s, at)).unwrap_or(0);
+			let cur = self
+				.typing_fmt
+				.unwrap_or_else(|| self.typing_cfmt_at(s, self.caret));
 			if let Some(c) = self.doc.cfmts.get(s, cur) {
 				self.typing_fmt = self.doc.cfmts.intern(s, f(c)).ok();
 			}
@@ -1851,13 +1863,23 @@ impl<M: Measure + Clone> App<M> {
 			Key::Tab => self.insert(s, 0x09),
 			Key::Enter => {
 				let pf = self.para_pfmt(s, self.caret);
-				let empty = self.doc.body.read_byte(s, self.caret) == Some(0x0D)
+				let at_end = self.doc.body.read_byte(s, self.caret) == Some(0x0D);
+				let empty = at_end
 					&& (self.caret == 0
 						|| self.doc.body.read_byte(s, self.caret - 1) == Some(0x0D));
 				if pf.flags & 5 != 0 && empty && self.selection().is_none() {
 					self.end_list(s);
 				} else {
-					self.insert(s, 0x0D);
+					// At the end of a paragraph that is exactly a preset, the new paragraph takes that preset's next one.
+					let next = if at_end && self.selection().is_none() {
+						self.style_of(s)
+							.map(|n| (n, chrome::next_preset(n)))
+							.filter(|(n, next)| n != next)
+							.map(|(_, next)| next)
+					} else {
+						None
+					};
+					self.insert_next(s, 0x0D, next);
 				}
 			}
 			Key::Backspace if self.selection().is_some() => self.delete(s, self.caret),

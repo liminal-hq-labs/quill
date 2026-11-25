@@ -1,0 +1,13 @@
+# M14: Enter at the end of a heading starts a Normal paragraph (the status line shows 12 where the heading shows 16), Undo takes it back,
+# Enter in the middle keeps both halves a heading, and Enter at the start leaves an empty heading above with the caret below.
+@copy heading.rtf
+@open HEADING.RTF
+end                             # the end of the heading: Times New Roman 16
+enter t y p e                   # a Normal paragraph: 12, typed in Normal
+f10 right enter                 # Edit > Undo takes the typing back
+f10 right enter                 # and again, the Enter and its next preset together: the heading is back alone
+up home right right right      # into the middle of the heading (Undo leaves the caret in the next paragraph)
+enter                           # both halves are headings
+bspace                          # and join again
+home enter                      # at the start: an empty heading above, the caret on the heading below
+bspace                          # the empty heading goes
