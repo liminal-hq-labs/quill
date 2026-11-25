@@ -1,0 +1,22 @@
+# quill-mouse: the pointer events every shell hands the editor, and the INT 33h mouse driver model for DOS.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-mouse"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "Pointer events and the INT 33h mouse driver model: absolute positions, click counters and the wheel, with a fake driver for host tests"
+
+[features]
+# The fake INT 33h driver, for tests in other crates.
+fake = []
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = false
+float = false

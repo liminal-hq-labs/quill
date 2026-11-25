@@ -35,3 +35,145 @@ pub fn parse_token(t: &str) -> Option<Key> {
 		}
 	})
 }
+
+/// One step of a scenario that has a pointer: a key, or a pointer action at a place. The place is a cell on the text screen and a
+/// pixel in graphics. `@click x y`, `@shiftclick x y`, `@dclick x y`, `@tclick x y`, `@drag x1 y1 x2 y2` and `@wheel n` are the
+/// directives that spell them.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Step {
+	/// A typed key.
+	Key(Key),
+	/// A click, with Shift held when the flag is set.
+	Click { x: i32, y: i32, shift: bool },
+	/// Two clicks in a row.
+	DClick { x: i32, y: i32 },
+	/// Three clicks in a row.
+	TClick { x: i32, y: i32 },
+	/// Press at the first place, move to the second, release.
+	Drag { x1: i32, y1: i32, x2: i32, y2: i32 },
+	/// Turn the wheel; positive is towards the user.
+	Wheel(i32),
+}
+
+/// Reads the pointer directive `name` and its numbers from `rest`. `None` when `name` is not one; a missing or bad number is `Err`.
+pub fn parse_pointer<'a>(
+	name: &str,
+	rest: &mut impl Iterator<Item = &'a str>,
+) -> Option<Result<Step, &'static str>> {
+	let mut num = || {
+		rest.next()
+			.and_then(|t| t.parse::<i32>().ok())
+			.ok_or("a number is missing")
+	};
+	let two = |n: &mut dyn FnMut() -> Result<i32, &'static str>| Ok((n()?, n()?));
+	Some((|| {
+		Ok(match name {
+			"@click" | "@shiftclick" => {
+				let (x, y) = two(&mut num)?;
+				Step::Click {
+					x,
+					y,
+					shift: name == "@shiftclick",
+				}
+			}
+			"@dclick" => {
+				let (x, y) = two(&mut num)?;
+				Step::DClick { x, y }
+			}
+			"@tclick" => {
+				let (x, y) = two(&mut num)?;
+				Step::TClick { x, y }
+			}
+			"@drag" => {
+				let (x1, y1) = two(&mut num)?;
+				let (x2, y2) = two(&mut num)?;
+				Step::Drag { x1, y1, x2, y2 }
+			}
+			"@wheel" => Step::Wheel(num()?),
+			_ => return Err(""),
+		})
+	})())
+	.filter(|r| !matches!(r, Err("")))
+}
+
+/// The steps of a script text, in order: pointer directives and key tokens, `#` starting a comment. Directives that are not the
+/// pointer's (`@copy FILE`, `@open FILE`, `@rows N`, `@mono`, `@live`) and tokens that are not keys are skipped, which is how the
+/// DOS shell reads the `QUILL_MOUSE` file the test harness writes.
+pub fn steps(text: &str) -> impl Iterator<Item = Step> + '_ {
+	let mut tokens = text
+		.lines()
+		.map(|l| l.split('#').next().unwrap_or(""))
+		.flat_map(str::split_whitespace);
+	core::iter::from_fn(move || loop {
+		let t = tokens.next()?;
+		if t.starts_with('@') {
+			match parse_pointer(t, &mut tokens) {
+				Some(Ok(s)) => return Some(s),
+				Some(Err(_)) => return None,
+				None if matches!(t, "@rows" | "@open" | "@copy") => {
+					tokens.next();
+				}
+				None => {}
+			}
+		} else if let Some(k) = parse_token(t) {
+			return Some(Step::Key(k));
+		}
+	})
+}
+
+impl Step {
+	/// Plays the step through `f` as the pointer events and the context each is made in. `tick` is the clock the clicks are stamped
+	/// with; it moves on past the step, so two steps are never one double click.
+	pub fn play(&self, tick: &mut u32, mut f: impl FnMut(quill_mouse::Ev, crate::mouse::Ctx)) {
+		use quill_mouse::Ev;
+		let at = *tick;
+		let click =
+			|x: i32, y: i32, shift: bool, n: u32, f: &mut dyn FnMut(Ev, crate::mouse::Ctx)| {
+				let ctx = crate::mouse::Ctx {
+					shift,
+					tick: at + n,
+				};
+				f(Ev::Move { x, y }, ctx);
+				f(Ev::Down { x, y }, ctx);
+				f(Ev::Up { x, y }, ctx);
+			};
+		match *self {
+			Step::Key(_) => {}
+			Step::Click { x, y, shift } => click(x, y, shift, 0, &mut f),
+			Step::DClick { x, y } => {
+				click(x, y, false, 0, &mut f);
+				click(x, y, false, 2, &mut f);
+			}
+			Step::TClick { x, y } => {
+				click(x, y, false, 0, &mut f);
+				click(x, y, false, 2, &mut f);
+				click(x, y, false, 4, &mut f);
+			}
+			Step::Drag { x1, y1, x2, y2 } => {
+				let ctx = crate::mouse::Ctx {
+					shift: false,
+					tick: at,
+				};
+				f(Ev::Move { x: x1, y: y1 }, ctx);
+				f(Ev::Down { x: x1, y: y1 }, ctx);
+				f(
+					Ev::Move {
+						x: (x1 + x2) / 2,
+						y: (y1 + y2) / 2,
+					},
+					ctx,
+				);
+				f(Ev::Move { x: x2, y: y2 }, ctx);
+				f(Ev::Up { x: x2, y: y2 }, ctx);
+			}
+			Step::Wheel(n) => f(
+				Ev::Wheel(n),
+				crate::mouse::Ctx {
+					shift: false,
+					tick: at,
+				},
+			),
+		}
+		*tick = at.wrapping_add(100);
+	}
+}

@@ -27,6 +27,7 @@ quill-host = { path = "../quill-host" }
 quill-heap = { path = "../quill-heap" }
 quill-formats = { path = "../quill-formats" }
 proptest = { version = "1", default-features = false, features = ["std"] }
+quill-mouse = { path = "../quill-mouse" }
 
 [package.metadata.quill]
 layer = "kit"

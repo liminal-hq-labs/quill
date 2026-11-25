@@ -1,0 +1,23 @@
+# G8: the mouse on the text screen. Click, double click, triple click, shift-click and drag in the letter, the wheel, then the menu
+# bar and a dialog by mouse. Played on the host through quill-app's pointer, and into QUILLDOS.EXE from a QUILL_MOUSE file (AUTOTYPE
+# cannot drive a mouse). Places are cells: column, then row, row 1 being the first under the menu bar.
+@copy letter.rtf
+@open LETTER.RTF
+@click 12 3
+@dclick 12 3
+@click 30 5
+@shiftclick 40 7
+@drag 10 9 35 11
+@tclick 20 12
+@wheel 3
+@wheel -1
+@click 3 8
+@click 3 0
+@click 5 3
+@click 41 12                  # Open dialog: Cancel
+@click 22 0                   # Find menu
+@click 24 2                   # Find...
+t h i s
+@click 11 11                  # Match case
+@click 12 13                  # Find Next
+@click 27 13                  # Close

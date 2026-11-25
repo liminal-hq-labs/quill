@@ -39,7 +39,7 @@ RANK = {"base": 0, "editor": 1, "kit": 2, "shell": 3}
 # Sideways order inside a layer: a crate may use the crates to its left. Crates not listed are not
 # ordered, so a new crate does not need an edit here to land.
 ORDER = {
-	"base": ["quill-base", "quill-heap", "quill-text", "quill-inflate", "quill-image", "quill-settings", "quill-menu", "quill-input", "quill-dlg", "quill-spell", "quill-sysfmt"],
+	"base": ["quill-base", "quill-heap", "quill-text", "quill-inflate", "quill-image", "quill-settings", "quill-menu", "quill-input", "quill-mouse", "quill-dlg", "quill-spell", "quill-sysfmt"],
 	"editor": ["quill-core", "quill-formats", "quill-clip", "quill-app", "quill-flow"],
 	"kit": ["quill-dialogs", "quill-strike", "quill-paint", "quill-fonts", "quill-picture", "quill-chrome", "quill-grid", "quill-raster", "quill-tui"],
 }

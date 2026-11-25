@@ -21,6 +21,7 @@ pub mod datefmt;
 mod find;
 pub mod flow;
 mod form;
+pub mod mouse;
 mod native;
 mod paint;
 pub mod picture;
