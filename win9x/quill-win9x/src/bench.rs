@@ -117,6 +117,8 @@ struct Bucket {
 	lines: u32,
 	fill_px: u64,
 	blit_bytes: u64,
+	/// How many times the toolbars or the ruler were painted.
+	chrome: u32,
 }
 
 const EMPTY: Bucket = Bucket {
@@ -127,6 +129,7 @@ const EMPTY: Bucket = Bucket {
 	lines: 0,
 	fill_px: 0,
 	blit_bytes: 0,
+	chrome: 0,
 };
 
 static mut BUCKETS: [Bucket; NB] = [EMPTY; NB];
@@ -191,6 +194,11 @@ pub unsafe fn hit(id: *mut u16, name: &'static str) {
 /// Counts the characters one text call draws.
 pub unsafe fn text(len: u32) {
 	BUCKETS[CUR].chars += len;
+}
+
+/// Counts a paint of the toolbars or of the ruler.
+pub unsafe fn chrome() {
+	BUCKETS[CUR].chrome += 1;
 }
 
 /// Counts one line of the page drawn.
@@ -273,6 +281,7 @@ fn add(dst: &mut Bucket, src: &Bucket) {
 	dst.lines += src.lines;
 	dst.fill_px += src.fill_px;
 	dst.blit_bytes += src.blit_bytes;
+	dst.chrome += src.chrome;
 }
 
 /// A paint ends (after `EndPaint`); `t_paint` is what `paint_begin` returned.
@@ -297,7 +306,7 @@ pub unsafe fn paint_end(sh: &mut Shell, t_paint: i64) {
 		if B_NLAT < 64 {
 			B_LAT[B_NLAT] = d;
 			B_NLAT += 1;
-			if B_NLAT % 2 == 0 {
+			if B_NLAT % 2 == 0 || LOG_EACH {
 				write_log(sh);
 			}
 		}
@@ -374,8 +383,8 @@ fn calls_line(s: &mut String, b: &Bucket) {
 
 fn bucket_lines(s: &mut String, title: &str, b: &Bucket) {
 	s.push_str(&format!(
-		"{title}: n={} chars={} lines={} fill_px={} blit_bytes={}\r\n",
-		b.n, b.chars, b.lines, b.fill_px, b.blit_bytes
+		"{title}: n={} chars={} lines={} fill_px={} blit_bytes={} chrome={}\r\n",
+		b.n, b.chars, b.lines, b.fill_px, b.blit_bytes, b.chrome
 	));
 	calls_line(s, b);
 	s.push_str("  phases_us:");

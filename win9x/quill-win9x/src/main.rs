@@ -1637,6 +1637,8 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 						ui::Hover::Button(i) => Some(i),
 						_ => None,
 					};
+					#[cfg(feature = "bench")]
+					bench::chrome();
 					chrome::paint_toolbar(dc, r.right, &sh.app, &sh.store, hover, sh.pressed);
 				}
 			}
@@ -1645,6 +1647,8 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 				let st = sh
 					.drag
 					.map_or_else(|| chrome::RulerState::of(&sh.app, &sh.store), |d| d.state);
+				#[cfg(feature = "bench")]
+				bench::chrome();
 				chrome::paint_ruler(dc, tb, r.right, left, w, &st, sh.ruler_kind, pct);
 			}
 		}
