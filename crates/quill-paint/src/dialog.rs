@@ -114,6 +114,48 @@ fn button<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid
 	}
 }
 
+/// The left edge of a field's text and the width it has, for the field whose frame is `r`.
+pub fn field_text_box(r: Rect) -> (i32, i32) {
+	(r.left + 5, r.width() - 4 - 6)
+}
+
+/// How many leading characters of `text` a field of text room `room` pixels scrolls off so the caret at `caret` shows: none when
+/// the text up to the caret fits, else as many as it takes. `width` measures a piece of text. With the caret at the end this shows the
+/// end of a text that is too long, as a field always did.
+pub fn field_skip(
+	text: &[u8],
+	caret: usize,
+	room: i32,
+	width: &mut dyn FnMut(&[u8]) -> i32,
+) -> usize {
+	let c = caret.min(text.len());
+	let mut skip = 0;
+	while skip < c && width(text.get(skip..c).unwrap_or(&[])) > room {
+		skip += 1;
+	}
+	skip
+}
+
+/// The character offset a press at `dx` pixels from the field's text origin lands on when `skip` characters are scrolled off: the
+/// nearest gap between two characters.
+pub fn field_pos(text: &[u8], skip: usize, dx: i32, width: &mut dyn FnMut(&[u8]) -> i32) -> usize {
+	let skip = skip.min(text.len());
+	let mut best = skip;
+	let mut best_d = i32::MAX;
+	for i in skip..=text.len() {
+		let x = width(text.get(skip..i).unwrap_or(&[]));
+		let d = (x - dx).abs();
+		if d < best_d {
+			best = i;
+			best_d = d;
+		}
+		if x > dx {
+			break;
+		}
+	}
+	best
+}
+
 fn edit<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
 	sf.fill_rect(r, LIGHT);
 	bevel(sf, r, false);
@@ -121,20 +163,30 @@ fn edit<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) 
 	sf.vline(r.left + 1, r.top + 1, r.bottom - 1, INK);
 	let inner = Rect::new(r.left + 2, r.top + 2, r.right - 2, r.bottom - 2);
 	let text = w.bytes();
-	// A field narrower than its text shows the end of it, where the caret is.
-	let room = inner.width() - 6;
-	let mut skip = 0;
-	while skip < text.len() && ui.width(sf, text.get(skip..).unwrap_or(&[])) > room {
-		skip += 1;
-	}
+	let (x0, room) = field_text_box(r);
+	let caret = usize::from(w.caret).min(text.len());
+	let skip = field_skip(text, caret, room, &mut |t| ui.width(sf, t));
 	let shown = text.get(skip..).unwrap_or(&[]);
 	let y = r.top + (r.height() - ui.height) / 2;
 	sf.clip(Some(inner));
-	let end = ui.text(sf, inner.left + 3, y, shown, INK);
+	let (s, e) = if w.focus && w.anchor != w.caret {
+		let a = usize::from(w.anchor).min(text.len());
+		(a.min(caret).max(skip), a.max(caret).max(skip))
+	} else {
+		(0, 0)
+	};
+	if s < e {
+		let at = |sf: &mut Sf, n: usize| x0 + ui.width(sf, text.get(skip..n).unwrap_or(&[]));
+		let (xs, xe) = (at(sf, s), at(sf, e));
+		ui.text(sf, x0, y, text.get(skip..s).unwrap_or(&[]), INK);
+		sf.fill_rect(Rect::new(xs, y, xe, y + ui.height), SELECT);
+		ui.text(sf, xs, y, text.get(s..e).unwrap_or(&[]), LIGHT);
+		ui.text(sf, xe, y, text.get(e..).unwrap_or(&[]), INK);
+	} else {
+		ui.text(sf, x0, y, shown, INK);
+	}
 	if w.focus {
-		let at = usize::from(w.caret).min(text.len()).saturating_sub(skip);
-		let x = inner.left + 3 + ui.width(sf, shown.get(..at).unwrap_or(&[]));
-		let _ = end;
+		let x = x0 + ui.width(sf, text.get(skip..caret).unwrap_or(&[]));
 		sf.vline(x, y, y + ui.height, INK);
 	}
 	sf.clip(None);

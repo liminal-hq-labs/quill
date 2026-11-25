@@ -17,7 +17,7 @@ use quill_paint::shell::{self, hscroll, pos_at_pixel, Pixels};
 
 fn rig(name: &str) -> (TApp, quill_host::HostStore, quill_host::script::MemFiles) {
 	let (mut app, s, f) = open_doc(name);
-	shell::sync_view(&mut app);
+	shell::sync_view(&mut app, &s);
 	(app, s, f)
 }
 

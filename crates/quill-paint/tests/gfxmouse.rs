@@ -20,7 +20,7 @@ use quill_host::HostStore;
 use quill_paint::drop::{self, Pop};
 use quill_paint::layout::Layout;
 use quill_paint::menu::{geom_of, title_rects};
-use quill_paint::pointer::Gfx;
+use quill_paint::pointer::{Gfx, REPEAT_DELAY, REPEAT_STEP};
 use quill_paint::shell::{self, hscroll};
 use quill_paint::tip::{self, Target, TIP_TICKS};
 use quill_paint::toolbar::{box_rect, button_rect, Box3};
@@ -39,7 +39,7 @@ struct Rig {
 impl Rig {
 	fn of(app: TApp, s: HostStore, f: MemFiles) -> Rig {
 		let mut app = app;
-		shell::sync_view(&mut app);
+		shell::sync_view(&mut app, &s);
 		Rig {
 			app,
 			s,
@@ -102,7 +102,8 @@ impl Rig {
 		if !self.g.key(&mut self.app, &mut self.s, k) {
 			self.app.key(&mut self.s, &mut self.f, k);
 		}
-		shell::sync_view(&mut self.app);
+		shell::sync_view(&mut self.app, &self.s);
+		shell::follow_caret(&mut self.app, &self.s);
 	}
 
 	fn lay(&self) -> Layout {
@@ -803,6 +804,480 @@ fn the_ruler_shows_a_drag_before_the_app_has_it_and_the_markers_set_the_indents(
 	assert_eq!(r.app.para_state(&r.s).left, 450);
 }
 
+// ---- the horizontal bar, auto-repeat, the fields and the ruler's kind button ----------------------------------------------------
+
+/// A document of one line of words, on a Letter sheet with margins of `margin` twips: a text column of 8.5 inches less both of them.
+fn margined(margin: i32, body: &str) -> Rig {
+	let rtf = format!(
+		"{{\\rtf1\\ansi\\paperw12240\\paperh15840\\margl{margin}\\margr{margin}\\margt1440\\margb1440 {body}\\par}}"
+	);
+	let (app, s, f) = app_with("wide.rtf", rtf.as_bytes()).unwrap();
+	Rig::of(app, s, f)
+}
+
+fn words(n: usize) -> String {
+	"word ".repeat(n)
+}
+
+fn hparts(r: &Rig) -> scroll::Parts {
+	let w = r.lay().page.width();
+	let range = shell::hrange(&r.app, &r.s, w);
+	scroll::parts(
+		r.lay().hbar.unwrap(),
+		false,
+		r.app.hscroll_pos(),
+		range + w,
+		w,
+	)
+}
+
+#[test]
+fn a_page_whose_text_fits_has_a_disabled_horizontal_bar_that_does_nothing() {
+	let mut r = Rig::doc("letter.rtf");
+	let w = r.lay().page.width();
+	assert_eq!(shell::hrange(&r.app, &r.s, w), 0);
+	let base = hscroll(&r.app, w);
+	let p = hparts(&r);
+	for at in [
+		centre(p.up),
+		centre(p.down),
+		(p.track.left + 3, p.track.top + 3),
+	] {
+		r.click(at);
+		r.down(at.0, at.1);
+		r.wait(60);
+		r.up(at.0, at.1);
+	}
+	r.ev(Ev::Wheel(0));
+	assert_eq!(r.app.hscroll_pos(), 0);
+	assert_eq!(
+		hscroll(&r.app, w),
+		base,
+		"the text column stays at the left edge"
+	);
+	assert!(!r.g.holding());
+}
+
+#[test]
+fn narrow_margins_make_the_text_wider_than_the_view_and_the_bar_scrolls_it() {
+	// A half-inch margin gives a column 7.5 inches (720 pixels) wide in a view 624 wide.
+	let mut r = margined(720, &words(200));
+	let w = r.lay().page.width();
+	assert_eq!(
+		shell::hrange(&r.app, &r.s, w),
+		720 - w + (to_px(720) + 8 - hbase(&r))
+	);
+	let range = shell::hrange(&r.app, &r.s, w);
+	assert!(range > 0 && range < 140, "{range}");
+	let p = hparts(&r);
+	assert!(
+		p.thumb.width() < p.track.width(),
+		"a thumb that is a part of the track"
+	);
+	assert_eq!(p.thumb.left, p.track.left);
+	let (left0, _) = text_extent(&r.app, w, hscroll(&r.app, w));
+	r.click(centre(p.down));
+	assert_eq!(r.app.hscroll_pos(), 16, "the right arrow is sixteen pixels");
+	let (left1, _) = text_extent(&r.app, w, hscroll(&r.app, w));
+	assert_eq!(left1, left0 - 16, "the ruler and the page move with it");
+	r.click(centre(hparts(&r).up));
+	assert_eq!(r.app.hscroll_pos(), 0);
+	r.click(centre(hparts(&r).up));
+	assert_eq!(
+		r.app.hscroll_pos(),
+		0,
+		"never past the text column's left edge"
+	);
+	// The track right of the thumb is a page.
+	let p = hparts(&r);
+	r.click((p.thumb.right + 4, p.thumb.top + 4));
+	assert_eq!(r.app.hscroll_pos(), range.min(w - 32));
+	// The thumb dragged to the end, and back.
+	let p = hparts(&r);
+	let grab = (p.thumb.left + 3, p.thumb.top + 3);
+	r.drag(grab, (p.track.right + 50, grab.1));
+	assert_eq!(r.app.hscroll_pos(), range);
+	let p = hparts(&r);
+	assert_eq!(
+		p.thumb.right, p.track.right,
+		"the thumb is at the end of its track"
+	);
+	r.drag((p.thumb.left + 3, p.thumb.top + 3), (0, p.thumb.top + 3));
+	assert_eq!(r.app.hscroll_pos(), 0);
+}
+
+fn to_px(twips: i32) -> i32 {
+	quill_core::layout::to_units(twips, 96)
+}
+
+fn hbase(r: &Rig) -> i32 {
+	hscroll(&r.app, r.lay().page.width()) - r.app.hscroll_pos()
+}
+
+#[test]
+fn shift_and_the_wheel_scroll_sideways_and_the_plain_wheel_does_not() {
+	let mut r = margined(720, &words(300));
+	let range = shell::hrange(&r.app, &r.s, r.lay().page.width());
+	let ctx = |shift| Ctx { shift, tick: 0 };
+	r.g.handle(&mut r.app, &mut r.s, &mut r.f, Ev::Wheel(1), ctx(true));
+	assert_eq!(r.app.hscroll_pos(), 48, "three arrow steps a notch");
+	r.g.handle(&mut r.app, &mut r.s, &mut r.f, Ev::Wheel(1), ctx(true));
+	assert_eq!(r.app.hscroll_pos(), range, "stops at the end");
+	r.g.handle(&mut r.app, &mut r.s, &mut r.f, Ev::Wheel(-100), ctx(true));
+	assert_eq!(r.app.hscroll_pos(), 0);
+	let top = r.app.top_line();
+	r.g.handle(&mut r.app, &mut r.s, &mut r.f, Ev::Wheel(2), ctx(false));
+	assert_eq!(r.app.hscroll_pos(), 0, "the wheel alone is the page's");
+	assert!(r.app.top_line() >= top);
+}
+
+#[test]
+fn the_caret_scrolls_into_view_sideways_and_a_bar_that_moved_away_stays_away() {
+	let mut r = margined(720, &words(120));
+	r.key(Key::Home);
+	assert_eq!(r.app.hscroll_pos(), 0);
+	r.key(Key::End);
+	r.key(Key::Left);
+	let w = r.lay().page.width();
+	let range = shell::hrange(&r.app, &r.s, w);
+	assert!(
+		r.app.hscroll_pos() > 0,
+		"the end of a wide line is off the right edge"
+	);
+	let (_, _, x) = r.app.caret_xy(&r.s).unwrap();
+	let at = 8 + to_px(720) + x - hscroll(&r.app, w);
+	assert!((0..=w).contains(&at), "the caret is in the area at {at}");
+	r.key(Key::Home);
+	assert_eq!(r.app.hscroll_pos(), 0, "and Home brings it back");
+	// The bar scrolls the view away from the caret, and a click elsewhere does not bring it back.
+	r.click(centre(hparts(&r).down));
+	let moved = r.app.hscroll_pos();
+	assert!(moved > 0 && moved <= range);
+	r.click((300, 470));
+	assert_eq!(r.app.hscroll_pos(), moved);
+}
+
+#[test]
+fn a_tab_stop_or_a_picture_wider_than_the_column_widens_the_content() {
+	// A tab stop at 7.5 inches on a column of 6.5: the line runs to the stop and past the column.
+	let r = margined(1440, "a\\tab b");
+	let w = r.lay().page.width();
+	assert_eq!(shell::hrange(&r.app, &r.s, w), 0, "no tab stop yet");
+	let rtf = "{\\rtf1\\ansi\\paperw12240\\paperh15840\\margl1440\\margr1440\\margt1440\\margb1440 \\tx10800 a\\tab b\\par}";
+	let (app, s, f) = app_with("tab.rtf", rtf.as_bytes()).unwrap();
+	let r = Rig::of(app, s, f);
+	assert!(
+		shell::hrange(&r.app, &r.s, w) > 0,
+		"the line reaches past the column"
+	);
+	// The sideways scroll is what the lines shown need, so the shell never leaves it past the range.
+	let mut r = r;
+	r.app.set_hscroll_pos(5000);
+	shell::sync_view(&mut r.app, &r.s);
+	assert_eq!(r.app.hscroll_pos(), shell::hrange(&r.app, &r.s, w));
+}
+
+fn hold_at(r: &mut Rig, at: (i32, i32)) -> u32 {
+	r.down(at.0, at.1);
+	r.tick
+}
+
+#[test]
+fn a_held_arrow_repeats_after_a_delay_and_stops_on_release() {
+	let mut r = long_doc();
+	let p = bar(&r);
+	let at = centre(p.down);
+	let t0 = hold_at(&mut r, at);
+	assert_eq!(r.app.top_line(), 1, "the press is one line at once");
+	r.wait(REPEAT_DELAY - 1);
+	assert_eq!(r.app.top_line(), 1, "nothing before the delay");
+	r.wait(1);
+	assert_eq!(r.app.top_line(), 2, "the first repeat comes at the delay");
+	r.wait(5);
+	assert_eq!(r.app.top_line(), 2 + 5 / REPEAT_STEP, "then one a step");
+	r.up(at.0, at.1);
+	let after = r.app.top_line();
+	r.wait(200);
+	assert_eq!(r.app.top_line(), after, "released: no more");
+	assert!(r.tick > t0);
+	assert!(!r.g.holding());
+}
+
+#[test]
+fn a_held_arrow_pauses_off_the_arrow_and_goes_on_when_the_pointer_returns() {
+	let mut r = long_doc();
+	let at = centre(bar(&r).down);
+	hold_at(&mut r, at);
+	r.wait(REPEAT_DELAY);
+	let on = r.app.top_line();
+	r.mv(300, 300);
+	r.wait(20);
+	assert_eq!(r.app.top_line(), on, "the pointer left the arrow");
+	r.mv(at.0, at.1);
+	r.wait(3);
+	assert!(r.app.top_line() > on, "back on it, it goes on");
+	r.up(at.0, at.1);
+}
+
+#[test]
+fn a_held_track_repeats_pages_and_stops_where_the_thumb_reaches_the_pointer() {
+	let mut r = long_doc();
+	let p = bar(&r);
+	let at = (p.thumb.left + 4, p.thumb.bottom + 20);
+	hold_at(&mut r, at);
+	let first = r.app.top_line();
+	assert!(first > 1, "a page");
+	r.wait(REPEAT_DELAY + 400);
+	let top = r.app.top_line();
+	let p = bar(&r);
+	assert!(
+		p.thumb.top <= at.1 && at.1 < p.thumb.bottom + 1 + 20,
+		"the thumb has come to the pointer"
+	);
+	r.wait(100);
+	assert_eq!(r.app.top_line(), top, "and the track stops there");
+	r.up(at.0, at.1);
+	assert!(
+		(top as i32) < r.app.line_total(&r.s) as i32,
+		"short of the end"
+	);
+}
+
+#[test]
+fn the_horizontal_bar_repeats_too_and_never_runs_past_its_end() {
+	let mut r = margined(720, &words(200));
+	let range = shell::hrange(&r.app, &r.s, r.lay().page.width());
+	let at = centre(hparts(&r).down);
+	hold_at(&mut r, at);
+	assert_eq!(r.app.hscroll_pos(), 16);
+	r.wait(REPEAT_DELAY);
+	assert_eq!(r.app.hscroll_pos(), 32);
+	r.wait(500);
+	assert_eq!(r.app.hscroll_pos(), range);
+	r.up(at.0, at.1);
+}
+
+#[test]
+fn a_clock_that_jumps_runs_a_bounded_number_of_repeats() {
+	let mut r = long_doc();
+	let at = centre(bar(&r).down);
+	hold_at(&mut r, at);
+	r.wait(1_000_000);
+	assert!(r.app.top_line() <= 1 + 64 + 1, "{}", r.app.top_line());
+	r.up(at.0, at.1);
+}
+
+#[test]
+fn the_ruler_button_cycles_the_kind_and_the_scale_sets_a_tab_of_that_kind() {
+	let mut r = Rig::doc("plain.qld");
+	let (ruler, left, _) = ruler_geometry(&r);
+	let kind = r.lay().ruler.unwrap();
+	assert_eq!(r.g.view().kind, 0);
+	let button = (4, ruler.top + 10);
+	for want in [1, 2, 3, 0, 1] {
+		r.click(button);
+		assert_eq!(r.g.view().kind, want);
+	}
+	// A click on the scale makes a tab of the kind the button shows (1, centre).
+	r.click((left + 200, kind.top + 12));
+	let st = RulerState::of(&r.app, &r.s);
+	assert_eq!(st.stops().iter().map(|t| t.1).collect::<Vec<_>>(), vec![1]);
+	r.click(button);
+	r.click(button);
+	assert_eq!(r.g.view().kind, 3);
+	r.click((left + 300, kind.top + 12));
+	let st = RulerState::of(&r.app, &r.s);
+	let kinds: Vec<u8> = st.stops().iter().map(|t| t.1).collect();
+	assert!(kinds.contains(&1) && kinds.contains(&3), "{kinds:?}");
+	// The markers and stops come first where they overlap the button: the first-line marker at the left edge is still grabbed.
+	let st = RulerState::of(&r.app, &r.s);
+	let (fx, _, _) = ruler_marks(&st, left, 624);
+	r.down(fx, ruler.top + 3);
+	assert!(r.g.holding());
+	r.up(fx, ruler.top + 3);
+	assert_eq!(
+		r.g.view().kind,
+		3,
+		"that press was the marker's, not the button's"
+	);
+}
+
+fn edit_of(r: &Rig, which: usize) -> (usize, Rect) {
+	let o = r.overlay();
+	let i = (0..o.widgets().len())
+		.filter(|i| o.widgets()[*i].kind == Wk::Edit)
+		.nth(which)
+		.unwrap();
+	(i, dialog::widget_rect(&o, &o.widgets()[i]))
+}
+
+/// The x of the gap before character `n` of the text of edit field `which`, as the painter lays the field out.
+fn gap_x(r: &Rig, which: usize, n: usize) -> i32 {
+	let (i, rect) = edit_of(r, which);
+	let o = r.overlay();
+	let w = &o.widgets()[i];
+	let wd = widths();
+	let a = adv(&wd);
+	let (x0, _) = dialog::field_text_box(rect);
+	x0 + w.bytes()[..n].iter().map(|c| a(*c)).sum::<i32>()
+}
+
+fn caret_of(r: &Rig, which: usize) -> (usize, usize) {
+	let (i, _) = edit_of(r, which);
+	let w = r.overlay().widgets()[i];
+	(usize::from(w.caret), usize::from(w.anchor))
+}
+
+fn type_into(r: &mut Rig, text: &[u8]) {
+	for c in text {
+		r.key(Key::Char(*c));
+	}
+}
+
+#[test]
+fn a_click_in_a_field_puts_the_caret_between_the_characters_and_the_keys_edit_there() {
+	let mut r = Rig::doc("letter.rtf");
+	r.app.command(&mut r.s, &mut r.f, Command::Find);
+	let (_, rect) = edit_of(&r, 0);
+	r.click(centre(rect));
+	type_into(&mut r, b"hello world");
+	assert_eq!(caret_of(&r, 0), (11, 11));
+	// A press before the 'w' (character 6).
+	let y = centre(rect).1;
+	r.click((gap_x(&r, 0, 6), y));
+	assert_eq!(caret_of(&r, 0), (6, 6));
+	// Between two characters it takes the nearer gap.
+	r.click((gap_x(&r, 0, 3) + 1, y));
+	assert_eq!(caret_of(&r, 0).0, 3);
+	r.click((gap_x(&r, 0, 3) - 1, y));
+	assert_eq!(caret_of(&r, 0).0, 3);
+	// Past the end of the text, the end; before the start, the start.
+	r.click((rect.right - 3, y));
+	assert_eq!(caret_of(&r, 0).0, 11);
+	r.click((rect.left + 1, y));
+	assert_eq!(caret_of(&r, 0).0, 0);
+	// The keys act at the caret.
+	r.key(Key::Char(b'>'));
+	r.key(Key::Right);
+	r.key(Key::Right);
+	r.key(Key::Delete);
+	let o = r.overlay();
+	assert_eq!(o.widgets()[edit_of(&r, 0).0].bytes(), b">helo world");
+	assert_eq!(caret_of(&r, 0), (3, 3));
+	r.key(Key::Backspace);
+	assert_eq!(
+		r.overlay().widgets()[edit_of(&r, 0).0].bytes(),
+		b">hlo world"
+	);
+	r.key(Key::Home);
+	assert_eq!(caret_of(&r, 0), (0, 0));
+	r.key(Key::End);
+	assert_eq!(caret_of(&r, 0), (10, 10));
+}
+
+#[test]
+fn a_drag_selects_text_and_typing_replaces_it_and_a_double_click_selects_a_word() {
+	let mut r = Rig::doc("letter.rtf");
+	r.app.command(&mut r.s, &mut r.f, Command::Find);
+	let (_, rect) = edit_of(&r, 0);
+	let y = centre(rect).1;
+	r.click(centre(rect));
+	type_into(&mut r, b"alpha beta gamma");
+	r.drag((gap_x(&r, 0, 2), y), (gap_x(&r, 0, 8), y));
+	assert_eq!(
+		caret_of(&r, 0),
+		(8, 2),
+		"caret where the drag ended, anchor where it began"
+	);
+	r.key(Key::Char(b'-'));
+	assert_eq!(
+		r.overlay().widgets()[edit_of(&r, 0).0].bytes(),
+		b"al-ta gamma"
+	);
+	// A drag to the left of where it began selects backwards.
+	r.drag((gap_x(&r, 0, 6), y), (gap_x(&r, 0, 1), y));
+	assert_eq!(caret_of(&r, 0), (1, 6));
+	// A double click on a word selects it: the 'gamma' (characters 6 to 11).
+	let mid = (gap_x(&r, 0, 8) + gap_x(&r, 0, 9)) / 2;
+	r.down(mid, y);
+	r.up(mid, y);
+	r.down(mid, y);
+	r.up(mid, y);
+	assert_eq!(caret_of(&r, 0), (11, 6));
+	// Shift with the arrows extends it from the caret.
+	r.key(Key::Home);
+	r.key(Key::Select(quill_app::Dir::Right));
+	r.key(Key::Select(quill_app::Dir::Right));
+	assert_eq!(caret_of(&r, 0), (2, 0));
+	r.key(Key::Backspace);
+	assert_eq!(
+		r.overlay().widgets()[edit_of(&r, 0).0].bytes(),
+		b"-ta gamma"
+	);
+}
+
+#[test]
+fn a_long_text_scrolls_in_its_field_to_keep_the_caret_in_view_and_a_click_lands_on_what_shows() {
+	let mut r = Rig::doc("letter.rtf");
+	r.app.command(&mut r.s, &mut r.f, Command::Open);
+	let (_, rect) = edit_of(&r, 0);
+	let y = centre(rect).1;
+	type_into(&mut r, &[b'W'; 60]);
+	let wd = widths();
+	let a = adv(&wd);
+	let room = dialog::field_text_box(rect).1;
+	assert!(60 * a(b'W') > room, "the text is wider than the field");
+	// The caret at the end: the field has scrolled so the caret shows, and a click at its right edge lands at the end.
+	r.click((rect.right - 4, y));
+	assert_eq!(caret_of(&r, 0).0, 60);
+	// Home: the field shows the start, and a click at the right edge lands inside the text, not at its end.
+	r.key(Key::Home);
+	r.click((rect.right - 4, y));
+	let (at, _) = caret_of(&r, 0);
+	assert!(at > 20 && at < 60, "{at}");
+	// The caret is never out of the field: the skip puts it in the room whatever the text and the caret.
+	for caret in 0..=60 {
+		let text = [b'W'; 60];
+		let skip = dialog::field_skip(&text, caret, room, &mut |t| t.iter().map(|c| a(*c)).sum());
+		let shown: i32 = text[skip..caret].iter().map(|c| a(*c)).sum();
+		assert!(shown <= room, "caret {caret} skip {skip}");
+	}
+}
+
+#[test]
+fn the_form_and_file_name_fields_take_the_caret_too() {
+	let mut r = Rig::doc("letter.rtf");
+	r.app.command(&mut r.s, &mut r.f, Command::Open);
+	let (_, rect) = edit_of(&r, 0);
+	let y = centre(rect).1;
+	type_into(&mut r, b"letter.rtf");
+	r.click((gap_x(&r, 0, 6), y));
+	assert_eq!(caret_of(&r, 0), (6, 6));
+	r.key(Key::Char(b'X'));
+	assert_eq!(
+		r.overlay().widgets()[edit_of(&r, 0).0].bytes(),
+		b"LETTERX.RTF"
+	);
+	r.key(Key::Esc);
+	r.app.command(&mut r.s, &mut r.f, Command::Fonts);
+	let (_, rect) = edit_of(&r, 0);
+	let y = centre(rect).1;
+	r.click(centre(rect));
+	r.key(Key::End);
+	for _ in 0..4 {
+		r.key(Key::Backspace);
+	}
+	type_into(&mut r, b"1234");
+	r.click((gap_x(&r, 0, 2), y));
+	r.key(Key::Char(b'.'));
+	r.key(Key::Char(b'x'));
+	assert_eq!(
+		r.overlay().widgets()[edit_of(&r, 0).0].bytes(),
+		b"12.34",
+		"only digits and a point go in"
+	);
+}
+
 // ---- the scroll bars --------------------------------------------------------------------------------------------------------------
 
 fn long_doc() -> Rig {
@@ -817,7 +1292,7 @@ fn long_doc() -> Rig {
 
 fn bar(r: &Rig) -> scroll::Parts {
 	let total = r.app.line_total(&r.s) as i32;
-	let view = (r.app.page_rows() as i32).min(total);
+	let view = (r.app.lines_in_view(&r.s) as i32).min(total);
 	scroll::parts(r.lay().vbar, true, r.app.top_line() as i32, total, view)
 }
 
@@ -826,7 +1301,7 @@ fn the_vertical_bar_scrolls_by_arrows_pages_and_thumb() {
 	let mut r = long_doc();
 	assert_eq!(r.app.top_line(), 0);
 	let total = r.app.line_total(&r.s) as i32;
-	let view = (r.app.page_rows() as i32).min(total);
+	let view = (r.app.lines_in_view(&r.s) as i32).min(total);
 	assert!(total > 2 * view);
 	let p = bar(&r);
 	r.click(centre(p.down));
@@ -866,10 +1341,48 @@ fn the_vertical_bar_scrolls_by_arrows_pages_and_thumb() {
 }
 
 #[test]
+fn a_few_tall_lines_still_have_a_vertical_bar_with_a_thumb_that_scrolls() {
+	// Twelve lines of 36 point type: fewer than the screen has text rows, but taller than the page area, as the sample's heading and
+	// picture are. A bar that counted rows would call this nothing to scroll.
+	let mut body = String::new();
+	for i in 1..=12 {
+		body.push_str(&format!("\\pard\\f0\\fs72 Tall line {i}\\par "));
+	}
+	let rtf = format!("{{\\rtf1\\ansi{{\\fonttbl{{\\f0\\froman Times New Roman;}}}}\\paperw12240\\paperh15840\\margl1440\\margr1440\\margt1440\\margb1440 {body}}}");
+	let (app, s, f) = app_with("tall.rtf", rtf.as_bytes()).unwrap();
+	let mut r = Rig::of(app, s, f);
+	let total = r.app.line_total(&r.s) as i32;
+	let view = r.app.lines_in_view(&r.s) as i32;
+	assert!(
+		total <= r.app.page_rows() as i32,
+		"fewer lines than rows: {total}"
+	);
+	assert!(view < total, "but not all of them fit: {view} of {total}");
+	let p = bar(&r);
+	assert!(
+		p.thumb.height() < p.track.height(),
+		"so the bar has a thumb"
+	);
+	r.click(centre(p.down));
+	assert_eq!(r.app.top_line(), 1, "and the arrow scrolls a line");
+	let p = bar(&r);
+	r.click((p.thumb.left + 4, p.thumb.bottom + 6));
+	assert!(r.app.top_line() > 1, "and the track a page");
+	let p = bar(&r);
+	let grab = (p.thumb.left + 4, p.thumb.top + 3);
+	r.drag(grab, (grab.0, p.track.bottom + 30));
+	assert_eq!(
+		r.app.top_line() as i32,
+		total - r.app.lines_in_view(&r.s) as i32,
+		"the thumb drags to the end"
+	);
+}
+
+#[test]
 fn the_thumb_drag_uses_the_shared_position_arithmetic() {
 	let mut r = long_doc();
 	let total = r.app.line_total(&r.s) as i32;
-	let view = (r.app.page_rows() as i32).min(total);
+	let view = (r.app.lines_in_view(&r.s) as i32).min(total);
 	let range = total - view;
 	for want in [0, 1, range / 3, range / 2, range - 1, range] {
 		r.app.scroll_to(&r.s, 0);
@@ -888,7 +1401,7 @@ fn the_thumb_drag_uses_the_shared_position_arithmetic() {
 }
 
 #[test]
-fn the_horizontal_bar_and_the_status_line_take_a_click_and_do_nothing() {
+fn the_status_line_takes_a_click_and_does_nothing_and_a_bar_with_nothing_to_scroll_does_too() {
 	let mut r = Rig::doc("letter.rtf");
 	let before = (r.app.caret(), r.app.top_line());
 	if let Some(h) = r.lay().hbar {

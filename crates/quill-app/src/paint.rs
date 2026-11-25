@@ -710,7 +710,12 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 			shadow(g, col, 1, w, rows);
 			cursor = None;
 		}
-		Mode::Prompt { kind, buf, len } => {
+		Mode::Prompt {
+			kind,
+			buf,
+			len,
+			caret,
+		} => {
 			let title: &[u8] = match kind {
 				Prompt::Open => b" Open ",
 				Prompt::SaveAs => b" Save As ",
@@ -720,10 +725,10 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 			dialog(g, 8, 62, 7, title);
 			g.text(10, 10, b"File name:", attr::CHROME);
 			g.fill(21, 10, 47, 1, b' ', 0x07);
-			g.text(21, 10, buf.get(..len).unwrap_or(&[]), 0x07);
+			field_text(g, 21, 10, buf.get(..len).unwrap_or(&[]), &caret);
 			g.text(24, 12, b"< OK >", attr::CHROME);
 			g.text(40, 12, b"< Cancel >", attr::CHROME);
-			cursor = Some((21 + len, 10));
+			cursor = Some((21 + caret.at().min(len), 10));
 		}
 		Mode::Find(st) => {
 			let h = if st.replace { 11 } else { 9 };
@@ -737,12 +742,12 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 			let bx = |on: bool| if on { b"[x]" } else { b"[ ]" };
 			g.text(10, 10, b"Find what:", attr::CHROME);
 			g.fill(24, 10, 34, 1, b' ', 0x07);
-			g.text(24, 10, st.find.get(..st.flen).unwrap_or(&[]), 0x07);
+			field_text(g, 24, 10, st.find.get(..st.flen).unwrap_or(&[]), &st.fcaret);
 			let mut y = 11;
 			if st.replace {
 				g.text(10, 11, b"Replace with:", attr::CHROME);
 				g.fill(24, 11, 34, 1, b' ', 0x07);
-				g.text(24, 11, st.with.get(..st.wlen).unwrap_or(&[]), 0x07);
+				field_text(g, 24, 11, st.with.get(..st.wlen).unwrap_or(&[]), &st.wcaret);
 				y = 12;
 			}
 			let box_attr = |f: crate::find::Focus| {
@@ -781,8 +786,8 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 				x += t.len() + 2;
 			}
 			cursor = match st.focus {
-				crate::find::Focus::Find => Some((24 + st.flen, 10)),
-				crate::find::Focus::Replace => Some((24 + st.wlen, 11)),
+				crate::find::Focus::Find => Some((24 + st.fcaret.at().min(st.flen), 10)),
+				crate::find::Focus::Replace => Some((24 + st.wcaret.at().min(st.wlen), 11)),
 				_ => None,
 			};
 		}
@@ -807,9 +812,9 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 					0 => {
 						g.text(10, y, r.label.as_bytes(), attr::CHROME);
 						g.fill(30, y, 14, 1, b' ', 0x07);
-						g.text(30, y, r.text.get(..r.len).unwrap_or(&[]), 0x07);
+						field_text(g, 30, y, r.text.get(..r.len).unwrap_or(&[]), &r.caret);
 						if i == f.focus {
-							cur = Some((30 + r.len, y));
+							cur = Some((30 + r.caret.at().min(r.len), y));
 						}
 					}
 					1 => {
@@ -916,6 +921,21 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 		Mode::Edit => {}
 	}
 	cursor
+}
+
+/// Draws a field's text in normal video, with the selected part reversed.
+fn field_text<const R: usize>(
+	g: &mut Grid<R>,
+	col: usize,
+	row: usize,
+	text: &[u8],
+	caret: &quill_dlg::widgets::Caret,
+) {
+	g.text(col, row, text, 0x07);
+	let (s, e) = caret.selection();
+	if let Some(sel) = text.get(s..e.min(text.len())).filter(|t| !t.is_empty()) {
+		g.text(col + s, row, sel, 0x70);
+	}
 }
 
 fn dialog<const ROWS: usize>(g: &mut Grid<ROWS>, x: usize, w: usize, h: usize, title: &[u8]) {

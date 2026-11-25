@@ -17,13 +17,238 @@ pub enum FieldKind {
 	Text,
 }
 
+/// A caret and the other end of the selection, for a text held somewhere else (a `[u8; N]` and a length): the editing rules of
+/// [`Field`] on any buffer, so the app's own fields (Find, the forms, the file name prompts) edit the same way. Both ends are offsets
+/// from the start of the text and never past its length; every method takes the length it is working with and keeps them there.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct Caret {
+	at: u16,
+	anchor: u16,
+}
+
+/// True for the characters a word is made of.
+fn word_char(c: u8) -> bool {
+	c.is_ascii_alphanumeric() || c == b'_' || c >= 0x80
+}
+
+impl Caret {
+	/// A caret at the start with nothing selected.
+	pub const fn new() -> Self {
+		Caret { at: 0, anchor: 0 }
+	}
+
+	/// A caret at the end of `len` bytes with nothing selected: where a field starts when it is filled in for the user.
+	pub const fn at_end(len: usize) -> Self {
+		let e = if len > 65535 { 65535 } else { len as u16 };
+		Caret { at: e, anchor: e }
+	}
+
+	/// The caret, from 0 to the length.
+	pub fn at(&self) -> usize {
+		usize::from(self.at)
+	}
+
+	/// The selected range, start before end; empty when nothing is selected.
+	pub fn selection(&self) -> (usize, usize) {
+		let (a, c) = (usize::from(self.anchor), usize::from(self.at));
+		(a.min(c), a.max(c))
+	}
+
+	pub fn has_selection(&self) -> bool {
+		self.anchor != self.at
+	}
+
+	/// Brings both ends back inside a text of `len` bytes.
+	pub fn clamp(&mut self, len: usize) {
+		let m = len.min(65535) as u16;
+		self.at = self.at.min(m);
+		self.anchor = self.anchor.min(m);
+	}
+
+	/// Selects all of `len` bytes, caret at the end.
+	pub fn select_all(&mut self, len: usize) {
+		self.anchor = 0;
+		self.at = len.min(65535) as u16;
+	}
+
+	/// Puts the caret at the end of `len` bytes with nothing selected.
+	pub fn end(&mut self, len: usize) {
+		*self = Caret::at_end(len);
+	}
+
+	/// A press or a drag at character offset `pos`: the caret goes there, and the selection is dropped unless `extend` keeps its
+	/// other end (a drag, or a click with Shift).
+	pub fn place(&mut self, pos: usize, len: usize, extend: bool) {
+		let p = pos.min(len).min(65535) as u16;
+		self.at = p;
+		if !extend {
+			self.anchor = p;
+		}
+	}
+
+	/// A double click at `pos`: selects the word there, or the run of spaces or punctuation if it is not on a word. At the end of
+	/// the text it takes the last run.
+	pub fn select_word(&mut self, text: &[u8], pos: usize) {
+		let len = text.len();
+		if len == 0 {
+			*self = Caret::new();
+			return;
+		}
+		let i = pos.min(len - 1);
+		let class = |k: usize| -> u8 {
+			match text.get(k) {
+				Some(c) if word_char(*c) => 0,
+				Some(b' ') => 1,
+				_ => 2,
+			}
+		};
+		let c = class(i);
+		let mut s = i;
+		while s > 0 && class(s - 1) == c {
+			s -= 1;
+		}
+		let mut e = i + 1;
+		while e < len && class(e) == c {
+			e += 1;
+		}
+		self.anchor = s.min(65535) as u16;
+		self.at = e.min(65535) as u16;
+	}
+
+	fn remove(&mut self, buf: &mut [u8], len: &mut usize, start: usize, end: usize) {
+		let l = (*len).min(buf.len());
+		let end = end.min(l);
+		let start = start.min(end);
+		buf.copy_within(end..l, start);
+		*len = l - (end - start);
+		self.at = start.min(65535) as u16;
+		self.anchor = self.at;
+	}
+
+	fn delete_selection(&mut self, buf: &mut [u8], len: &mut usize) -> bool {
+		let (s, e) = self.selection();
+		if s == e {
+			return false;
+		}
+		self.remove(buf, len, s, e);
+		true
+	}
+
+	fn insert(&mut self, buf: &mut [u8], len: &mut usize, c: u8, overtype: bool) {
+		self.delete_selection(buf, len);
+		let at = self.at().min(*len);
+		let l = *len;
+		if overtype && at < l {
+			if let Some(slot) = buf.get_mut(at) {
+				*slot = c;
+			}
+		} else {
+			if l >= buf.len() {
+				return;
+			}
+			buf.copy_within(at..l, at + 1);
+			if let Some(slot) = buf.get_mut(at) {
+				*slot = c;
+			}
+			*len = l + 1;
+		}
+		self.at = (at + 1).min(65535) as u16;
+		self.anchor = self.at;
+	}
+
+	/// Handles an editing or movement key on the text `buf[..*len]` (`accepts` says which characters it takes, and may change them).
+	/// Returns true when the key was one of the field's, even if nothing changed, so the caller does not treat it as something else.
+	pub fn key(
+		&mut self,
+		k: DlgKey,
+		buf: &mut [u8],
+		len: &mut usize,
+		accepts: &dyn Fn(u8) -> Option<u8>,
+		overtype: &mut bool,
+	) -> bool {
+		*len = (*len).min(buf.len());
+		self.clamp(*len);
+		let l = *len;
+		match k {
+			DlgKey::Char(c) => {
+				if let Some(c) = accepts(c) {
+					self.insert(buf, len, c, *overtype);
+				}
+				true
+			}
+			DlgKey::Backspace => {
+				if !self.delete_selection(buf, len) && self.at > 0 {
+					let at = self.at();
+					self.remove(buf, len, at - 1, at);
+				}
+				true
+			}
+			DlgKey::Delete => {
+				if !self.delete_selection(buf, len) && self.at() < l {
+					let at = self.at();
+					self.remove(buf, len, at, at + 1);
+				}
+				true
+			}
+			DlgKey::Left => {
+				let (s, _) = self.selection();
+				self.at = if self.has_selection() {
+					s as u16
+				} else {
+					self.at.saturating_sub(1)
+				};
+				self.anchor = self.at;
+				true
+			}
+			DlgKey::Right => {
+				let (_, e) = self.selection();
+				self.at = if self.has_selection() {
+					e as u16
+				} else {
+					(self.at + 1).min(l as u16)
+				};
+				self.anchor = self.at;
+				true
+			}
+			DlgKey::Home => {
+				*self = Caret::new();
+				true
+			}
+			DlgKey::End => {
+				self.end(l);
+				true
+			}
+			DlgKey::ShiftLeft => {
+				self.at = self.at.saturating_sub(1);
+				true
+			}
+			DlgKey::ShiftRight => {
+				self.at = (self.at + 1).min(l as u16);
+				true
+			}
+			DlgKey::ShiftHome => {
+				self.at = 0;
+				true
+			}
+			DlgKey::ShiftEnd => {
+				self.at = l as u16;
+				true
+			}
+			DlgKey::Insert => {
+				*overtype = !*overtype;
+				true
+			}
+			_ => false,
+		}
+	}
+}
+
 /// A one-line text field of at most `N` bytes (`N` up to 255), with a caret, a selection and overtype.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Field<const N: usize> {
 	bytes: [u8; N],
 	len: u8,
-	cursor: u8,
-	anchor: u8,
+	caret: Caret,
 	kind: FieldKind,
 	overtype: bool,
 }
@@ -35,8 +260,7 @@ impl<const N: usize> Field<N> {
 		Field {
 			bytes: [0; N],
 			len: 0,
-			cursor: 0,
-			anchor: 0,
+			caret: Caret::new(),
 			kind,
 			overtype: false,
 		}
@@ -57,25 +281,24 @@ impl<const N: usize> Field<N> {
 
 	/// The caret, from 0 to the length.
 	pub fn cursor(&self) -> usize {
-		usize::from(self.cursor)
+		self.caret.at()
 	}
 
 	/// The selected range, start before end; empty when nothing is selected.
 	pub fn selection(&self) -> (usize, usize) {
-		let (a, c) = (usize::from(self.anchor), usize::from(self.cursor));
-		(a.min(c), a.max(c))
+		self.caret.selection()
 	}
 
 	pub fn has_selection(&self) -> bool {
-		self.anchor != self.cursor
+		self.caret.has_selection()
 	}
 
 	pub fn overtype(&self) -> bool {
 		self.overtype
 	}
 
-	fn accepts(&self, c: u8) -> Option<u8> {
-		match self.kind {
+	fn accepts_of(kind: FieldKind, c: u8) -> Option<u8> {
+		match kind {
 			FieldKind::Name if (0x21..=0x7E).contains(&c) => Some(c.to_ascii_uppercase()),
 			FieldKind::Text if (0x20..=0x7E).contains(&c) || c >= 0x80 => Some(c),
 			_ => None,
@@ -86,7 +309,7 @@ impl<const N: usize> Field<N> {
 	pub fn set(&mut self, text: &[u8]) {
 		self.len = 0;
 		for c in text {
-			if let Some(c) = self.accepts(*c) {
+			if let Some(c) = Self::accepts_of(self.kind, *c) {
 				if usize::from(self.len) < N {
 					if let Some(slot) = self.bytes.get_mut(usize::from(self.len)) {
 						*slot = c;
@@ -95,140 +318,44 @@ impl<const N: usize> Field<N> {
 				}
 			}
 		}
-		self.anchor = 0;
-		self.cursor = self.len;
+		self.caret.select_all(self.len());
 	}
 
 	/// Selects all the text, caret at the end.
 	pub fn select_all(&mut self) {
-		self.anchor = 0;
-		self.cursor = self.len;
+		self.caret.select_all(self.len());
 	}
 
 	/// Puts the caret at the end with nothing selected.
 	pub fn end(&mut self) {
-		self.anchor = self.len;
-		self.cursor = self.len;
+		self.caret.end(self.len());
 	}
 
-	fn delete_selection(&mut self) -> bool {
-		let (s, e) = self.selection();
-		if s == e {
-			return false;
-		}
-		self.remove(s, e);
-		true
+	/// A press or a drag at character offset `pos` (see [`Caret::place`]).
+	pub fn place(&mut self, pos: usize, extend: bool) {
+		self.caret.place(pos, self.len(), extend);
 	}
 
-	/// Removes `start..end` and puts the caret at `start`.
-	fn remove(&mut self, start: usize, end: usize) {
-		let len = self.len();
-		let end = end.min(len);
-		let start = start.min(end);
-		self.bytes.copy_within(end..len, start);
-		self.len = (len - (end - start)) as u8;
-		self.cursor = start as u8;
-		self.anchor = start as u8;
-	}
-
-	fn insert(&mut self, c: u8) {
-		self.delete_selection();
-		let at = self.cursor();
-		let len = self.len();
-		if self.overtype && at < len {
-			if let Some(slot) = self.bytes.get_mut(at) {
-				*slot = c;
-			}
-		} else {
-			if len >= N {
-				return;
-			}
-			self.bytes.copy_within(at..len, at + 1);
-			if let Some(slot) = self.bytes.get_mut(at) {
-				*slot = c;
-			}
-			self.len += 1;
-		}
-		self.cursor = (at + 1) as u8;
-		self.anchor = self.cursor;
+	/// A double click at `pos`: selects the word there.
+	pub fn select_word(&mut self, pos: usize) {
+		let text = self.bytes.get(..usize::from(self.len)).unwrap_or(&[]);
+		self.caret.select_word(text, pos);
 	}
 
 	/// Handles an editing or movement key. Returns true when the key was one of the field's (even if nothing changed), so the
 	/// caller does not treat it as something else.
 	pub fn key(&mut self, k: DlgKey) -> bool {
-		let len = self.len;
-		match k {
-			DlgKey::Char(c) => {
-				if let Some(c) = self.accepts(c) {
-					self.insert(c);
-				}
-				true
-			}
-			DlgKey::Backspace => {
-				if !self.delete_selection() && self.cursor > 0 {
-					let at = self.cursor();
-					self.remove(at - 1, at);
-				}
-				true
-			}
-			DlgKey::Delete => {
-				if !self.delete_selection() && self.cursor < len {
-					let at = self.cursor();
-					self.remove(at, at + 1);
-				}
-				true
-			}
-			DlgKey::Left => {
-				let (s, _) = self.selection();
-				self.cursor = if self.has_selection() {
-					s as u8
-				} else {
-					self.cursor.saturating_sub(1)
-				};
-				self.anchor = self.cursor;
-				true
-			}
-			DlgKey::Right => {
-				let (_, e) = self.selection();
-				self.cursor = if self.has_selection() {
-					e as u8
-				} else {
-					(self.cursor + 1).min(len)
-				};
-				self.anchor = self.cursor;
-				true
-			}
-			DlgKey::Home => {
-				self.cursor = 0;
-				self.anchor = 0;
-				true
-			}
-			DlgKey::End => {
-				self.end();
-				true
-			}
-			DlgKey::ShiftLeft => {
-				self.cursor = self.cursor.saturating_sub(1);
-				true
-			}
-			DlgKey::ShiftRight => {
-				self.cursor = (self.cursor + 1).min(len);
-				true
-			}
-			DlgKey::ShiftHome => {
-				self.cursor = 0;
-				true
-			}
-			DlgKey::ShiftEnd => {
-				self.cursor = len;
-				true
-			}
-			DlgKey::Insert => {
-				self.overtype = !self.overtype;
-				true
-			}
-			_ => false,
-		}
+		let kind = self.kind;
+		let mut len = usize::from(self.len);
+		let r = self.caret.key(
+			k,
+			&mut self.bytes,
+			&mut len,
+			&|c| Self::accepts_of(kind, c),
+			&mut self.overtype,
+		);
+		self.len = len as u8;
+		r
 	}
 }
 
@@ -596,6 +723,100 @@ mod tests {
 	fn typed<const N: usize>(f: &mut Field<N>, s: &str) {
 		for c in s.bytes() {
 			f.key(DlgKey::Char(c));
+		}
+	}
+
+	#[test]
+	fn a_press_places_the_caret_and_a_drag_extends_from_where_it_began() {
+		let mut f = Field::<16>::new(FieldKind::Text);
+		typed(&mut f, "hello world");
+		f.place(5, false);
+		assert_eq!((f.cursor(), f.selection()), (5, (5, 5)));
+		f.place(9, true);
+		assert_eq!((f.cursor(), f.selection()), (9, (5, 9)));
+		f.place(2, true);
+		assert_eq!(
+			(f.cursor(), f.selection()),
+			(2, (2, 5)),
+			"dragged back past where it began"
+		);
+		f.place(99, false);
+		assert_eq!(f.cursor(), 11, "past the end is the end");
+		f.place(3, false);
+		f.key(DlgKey::Char(b'X'));
+		assert_eq!(f.as_bytes(), b"helXlo world");
+		f.key(DlgKey::Delete);
+		f.key(DlgKey::Delete);
+		assert_eq!(f.as_bytes(), b"helX world");
+	}
+
+	#[test]
+	fn a_double_click_selects_the_word_the_spaces_or_the_punctuation_under_it() {
+		let mut f = Field::<24>::new(FieldKind::Text);
+		typed(&mut f, "one  two,three_4");
+		let word = |f: &mut Field<24>, at: usize| {
+			f.select_word(at);
+			f.selection()
+		};
+		assert_eq!(word(&mut f, 1), (0, 3));
+		assert_eq!(word(&mut f, 3), (3, 5), "the spaces");
+		assert_eq!(word(&mut f, 6), (5, 8));
+		assert_eq!(word(&mut f, 8), (8, 9), "a comma is a run of its own");
+		assert_eq!(
+			word(&mut f, 12),
+			(9, 16),
+			"an underscore and digits belong to a word"
+		);
+		assert_eq!(word(&mut f, 99), (9, 16), "past the end takes the last run");
+		let mut e = Field::<4>::new(FieldKind::Text);
+		e.select_word(3);
+		assert_eq!(e.selection(), (0, 0));
+	}
+
+	#[test]
+	fn a_caret_on_a_buffer_the_field_does_not_own_edits_the_same_way() {
+		let mut buf = [0u8; 8];
+		let mut len = 0usize;
+		let mut c = Caret::new();
+		let mut over = false;
+		let any = |b: u8| Some(b);
+		for b in b"abcdef" {
+			c.key(DlgKey::Char(*b), &mut buf, &mut len, &any, &mut over);
+		}
+		c.place(2, len, false);
+		c.key(DlgKey::Backspace, &mut buf, &mut len, &any, &mut over);
+		assert_eq!(&buf[..len], b"acdef");
+		assert_eq!(c.at(), 1);
+		c.select_all(len);
+		c.key(DlgKey::Char(b'z'), &mut buf, &mut len, &any, &mut over);
+		assert_eq!(&buf[..len], b"z");
+		// A full buffer takes no more, and a stale length or caret is brought back inside.
+		for _ in 0..20 {
+			c.key(DlgKey::Char(b'q'), &mut buf, &mut len, &any, &mut over);
+		}
+		assert_eq!(len, 8);
+		let mut stale = Caret::at_end(500);
+		let mut big = 500usize;
+		stale.key(DlgKey::Left, &mut buf, &mut big, &any, &mut over);
+		assert_eq!((big, stale.at()), (8, 7));
+	}
+
+	proptest! {
+		#[test]
+		fn a_caret_keeps_inside_its_text_for_any_keys_and_presses(
+			ops in proptest::collection::vec((any_key(), 0usize..40, 0u8..3), 0..80),
+		) {
+			let mut f = Field::<12>::new(FieldKind::Text);
+			for (k, pos, how) in ops {
+				match how {
+					0 => { f.key(k); }
+					1 => f.place(pos, pos % 2 == 0),
+					_ => f.select_word(pos),
+				}
+				prop_assert!(f.cursor() <= f.len());
+				let (s, e) = f.selection();
+				prop_assert!(s <= e && e <= f.len());
+			}
 		}
 	}
 

@@ -15,6 +15,8 @@ use quill_core::doc::cflag;
 use quill_core::layout::Measure;
 use quill_core::store::ReadStore;
 
+use quill_dlg::widgets::Caret;
+
 use crate::find::Focus;
 use crate::{form, Command, Mode, Prompt};
 
@@ -66,6 +68,8 @@ pub struct Wid {
 	pub default: bool,
 	/// The caret's offset in `text` for an edit field that has the focus, else 255.
 	pub caret: u8,
+	/// The other end of the selection in an edit field that has the focus: the same as `caret` when nothing is selected.
+	pub anchor: u8,
 }
 
 impl Wid {
@@ -87,6 +91,7 @@ const BLANK: Wid = Wid {
 	focus: false,
 	default: false,
 	caret: 255,
+	anchor: 255,
 };
 
 /// A dialog: its title, its size in cells and its widgets.
@@ -164,14 +169,15 @@ impl Overlay {
 		self.add(Wk::Label, col, row, 0, text);
 	}
 
-	fn edit(&mut self, id: u8, col: u8, row: u8, w: u8, text: &[u8], focus: bool) {
+	fn edit(&mut self, id: u8, (col, row, w): (u8, u8, u8), text: &[u8], focus: bool, c: &Caret) {
 		if let Some(e) = self.add(Wk::Edit, col, row, w, text) {
 			e.id = id;
 			e.focus = focus;
-			e.caret = if focus {
-				text.len().min(255) as u8
+			let at = |v: usize| v.min(text.len()).min(WID_TEXT) as u8;
+			(e.caret, e.anchor) = if focus {
+				(at(c.at()), at(c.selection().0 + c.selection().1 - c.at()))
 			} else {
-				255
+				(255, 255)
 			};
 		}
 	}
@@ -266,7 +272,12 @@ impl<M: Measure + Clone> crate::App<M> {
 	pub fn overlay<S: ReadStore + ?Sized>(&self, s: &S, o: &mut Overlay) -> bool {
 		match &self.mode {
 			Mode::Edit | Mode::Menu { .. } => false,
-			Mode::Prompt { kind, buf, len } => {
+			Mode::Prompt {
+				kind,
+				buf,
+				len,
+				caret,
+			} => {
 				let title: &[u8] = match kind {
 					Prompt::Open => b"Open",
 					Prompt::SaveAs => b"Save As",
@@ -275,7 +286,7 @@ impl<M: Measure + Clone> crate::App<M> {
 				};
 				o.start(title, 56, 4);
 				o.label(2, 1, b"File name:");
-				o.edit(0, 14, 1, 40, buf.get(..*len).unwrap_or(&[]), true);
+				o.edit(0, (14, 1, 40), buf.get(..*len).unwrap_or(&[]), true, caret);
 				let w = o.button(255, 14, 3, b"OK", false, true);
 				o.button(255, 14 + w + 2, 3, b"Cancel", false, false);
 				true
@@ -345,22 +356,20 @@ impl<M: Measure + Clone> crate::App<M> {
 				o.label(2, row, b"Find what:");
 				o.edit(
 					0,
-					16,
-					row,
-					34,
+					(16, row, 34),
 					st.find.get(..st.flen).unwrap_or(&[]),
 					st.focus == Focus::Find,
+					&st.fcaret,
 				);
 				if replace {
 					row += 1;
 					o.label(2, row, b"Replace with:");
 					o.edit(
 						1,
-						16,
-						row,
-						34,
+						(16, row, 34),
 						st.with.get(..st.wlen).unwrap_or(&[]),
 						st.focus == Focus::Replace,
+						&st.wcaret,
 					);
 				}
 				row += 1;
@@ -423,7 +432,13 @@ impl<M: Measure + Clone> crate::App<M> {
 					match r.kind {
 						0 => {
 							o.label(2, row, r.label.as_bytes());
-							o.edit(id, col, row, 14, r.text.get(..r.len).unwrap_or(&[]), on);
+							o.edit(
+								id,
+								(col, row, 14),
+								r.text.get(..r.len).unwrap_or(&[]),
+								on,
+								&r.caret,
+							);
 							row += 1;
 						}
 						1 => {

@@ -1,0 +1,16 @@
+# G8 (graphics): the ruler's tab kind button. A click goes round left, centre, right and decimal; a click on the scale sets a tab of the
+# kind the button shows; a stop is dragged along the ruler; the first-line marker at the left edge is still reached under the button.
+# Every frame's CRC-32 must equal the host's.
+@copy letter.rtf
+@open LETTER.RTF
+@click 4 86             # the button: centre
+@click 100 88           # a centre tab
+@click 4 86             # right
+@click 200 88           # a right tab
+@click 4 86             # decimal
+@click 300 88           # a decimal tab
+@drag 300 88 340 88     # moved along the ruler
+@click 4 86             # left again
+@click 400 88           # a left tab
+@drag 0 79 48 79        # the first-line marker, under the button
+f10 end enter

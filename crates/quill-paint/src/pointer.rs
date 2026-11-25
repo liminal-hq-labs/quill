@@ -20,6 +20,7 @@
 
 use quill_app::mouse::{Ctx, Ev, Pointer, DOUBLE_TICKS};
 use quill_app::view::{snap, text_extent, Drag, Hit, RulerState, RULER_H, TOOLBAR, TWIPS_PX};
+use quill_app::widgets::Place;
 use quill_app::{menu_items_for, menu_title, App, Files, Key, Overlay, Slot, Wk, MENU_COUNT};
 use quill_core::layout::Measure;
 use quill_core::store::{ReadStore, Store};
@@ -48,6 +49,8 @@ pub struct View {
 	pub tip: Option<Target>,
 	/// The ruler as a drag has it, ahead of the app.
 	pub ruler: Option<RulerState>,
+	/// The kind of tab the ruler's button shows and a click on the scale sets: 0 left, 1 centre, 2 right, 3 decimal.
+	pub kind: u8,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -67,8 +70,16 @@ enum Cap {
 	Widget { idx: usize, over: bool },
 	/// A drop-down list is being tracked.
 	Pop { opened: bool },
-	/// The thumb of the vertical scroll bar is being dragged.
+	/// An arrow or the track of a scroll bar is held: it repeats every `REPEAT_STEP` ticks from tick `next`.
+	Repeat {
+		vertical: bool,
+		part: Part,
+		next: u32,
+	},
+	/// The thumb of a scroll bar is being dragged.
 	Thumb { grab: i32, parts: Parts, range: i32 },
+	/// A text field's selection is being dragged out; `skip` is how many characters the field had scrolled off when it was pressed.
+	Field { idx: usize, skip: usize },
 	/// An indent marker or a tab stop on the ruler is being dragged.
 	Ruler { drag: Drag, at: usize },
 }
@@ -87,6 +98,28 @@ pub struct Gfx {
 	tip: Option<Target>,
 	/// The last press on a dialog's list entry, for a double click.
 	last: Option<(u32, usize)>,
+	/// The kind of tab the ruler's button is on.
+	kind: u8,
+}
+
+/// Ticks a held scroll bar arrow or track waits before it repeats: about 385 ms at the BIOS clock's 18.2 a second.
+pub const REPEAT_DELAY: u32 = 7;
+/// Ticks between repeats: one, the finest the BIOS clock keeps (55 ms; a finer step would need the timer chip).
+pub const REPEAT_STEP: u32 = 1;
+/// The width of the ruler's tab kind button.
+pub const KIND_W: i32 = 22;
+/// The most repeats one event runs (a program that was busy for a while does not scroll for ever afterwards).
+const REPEAT_MAX: u32 = 64;
+/// Pixels a click on the horizontal bar's arrow, and a turn of the wheel with Shift held, scroll.
+pub const HSTEP: i32 = 16;
+
+/// What a scroll bar scrolls: where it is, how far it goes and how far an arrow and the track move it.
+struct Bar {
+	parts: Parts,
+	pos: i32,
+	range: i32,
+	line: i32,
+	page: i32,
 }
 
 fn inside(r: Rect, x: i32, y: i32) -> bool {
@@ -129,6 +162,7 @@ impl Gfx {
 			rest: None,
 			tip: None,
 			last: None,
+			kind: 0,
 		}
 	}
 
@@ -159,6 +193,7 @@ impl Gfx {
 				Cap::Ruler { drag, .. } => Some(drag.state),
 				_ => None,
 			},
+			kind: self.kind,
 		}
 	}
 
@@ -193,11 +228,16 @@ impl Gfx {
 	) -> bool {
 		self.now = ctx.tick;
 		let before = (self.view(), app.menu_open());
+		let page_event = matches!(self.cap, Cap::Page);
 		let mut sure = !matches!(ev, Ev::Move { .. } | Ev::Tick);
 		match ev {
 			Ev::Move { x, y } => {
+				let prev = self.at;
 				self.at = (x, y);
-				sure |= self.moved(app, s, f, x, y, ctx);
+				// A move to where the pointer already is drags nothing (a driver may report one just before the release).
+				if prev != (x, y) || !matches!(self.cap, Cap::Field { .. }) {
+					sure |= self.moved(app, s, f, x, y, ctx);
+				}
 			}
 			Ev::Down { x, y } => {
 				self.at = (x, y);
@@ -208,10 +248,17 @@ impl Gfx {
 				self.up(app, s, f, x, y, ctx);
 			}
 			Ev::Wheel(n) => self.wheel(app, s, f, n, ctx),
-			Ev::Tick => self.rest_tip(),
+			Ev::Tick => {
+				self.rest_tip();
+				sure |= self.repeat(app, s);
+			}
 		}
 		if !matches!(ev, Ev::Move { .. } | Ev::Tick) {
-			shell::sync_view(app);
+			shell::sync_view(app, &*s);
+			// A press, a drag or a release in the page moves the caret, and the view goes after it.
+			if matches!(self.cap, Cap::Page) || page_event {
+				shell::follow_caret(app, &*s);
+			}
 		}
 		sure || before != (self.view(), app.menu_open())
 	}
@@ -286,7 +333,7 @@ impl Gfx {
 				self.ptr.handle(app, s, f, &space, Ev::Move { x, y }, ctx);
 				return true;
 			}
-			Cap::Spent => {}
+			Cap::Spent | Cap::Repeat { .. } => {}
 			Cap::Menu { .. } => self.menu_over(app, x, y),
 			Cap::Button { i, .. } => {
 				let over = button_at(&Layout::of(app), x, y) == Some(i);
@@ -298,9 +345,22 @@ impl Gfx {
 				self.cap = Cap::Widget { idx, over };
 			}
 			Cap::Pop { .. } => self.drop_over(app, x, y),
+			Cap::Field { idx, skip } => {
+				let mut o = Overlay::default();
+				if app.overlay(s, &mut o) {
+					if let Some(pos) = self.field_at(&o, idx, skip, x) {
+						app.field_place(pos, Place::Extend);
+					}
+				}
+				return true;
+			}
 			Cap::Thumb { grab, parts, range } => {
-				let pos = scroll::pos_at(&parts, y - grab, range);
-				app.scroll_to(s, pos.max(0) as u32);
+				let pos = scroll::pos_at(&parts, if parts.vertical { y } else { x } - grab, range);
+				if parts.vertical {
+					app.scroll_to(s, pos.max(0) as u32);
+				} else {
+					app.set_hscroll_pos(pos);
+				}
 				return true;
 			}
 			Cap::Ruler { mut drag, at } => {
@@ -444,11 +504,56 @@ impl Gfx {
 					self.last = None;
 				}
 			}
+			Some(Wk::Edit) => {
+				// The press is read against the field as it was drawn: its scroll depends on where the caret was.
+				let skip = self.field_skip(&o, idx);
+				app.press_widget(s, f, idx, false);
+				let again = self
+					.last
+					.is_some_and(|(t, i)| i == idx && ctx.tick.wrapping_sub(t) <= DOUBLE_TICKS);
+				self.last = if again { None } else { Some((ctx.tick, idx)) };
+				if let Some(pos) = self.field_at(&o, idx, skip, x) {
+					let how = if again {
+						Place::Word
+					} else if ctx.shift {
+						Place::Extend
+					} else {
+						Place::Set
+					};
+					app.field_place(pos, how);
+				}
+				self.cap = Cap::Field { idx, skip };
+			}
 			Some(_) => {
 				app.press_widget(s, f, idx, false);
 			}
 			None => {}
 		}
+	}
+
+	/// The width of `text` in the interface font.
+	fn text_w(&self, text: &[u8]) -> i32 {
+		text.iter().map(|c| adv_of(&self.adv, *c)).sum()
+	}
+
+	/// How many characters the edit field `idx` of `o` has scrolled off as drawn.
+	fn field_skip(&self, o: &Overlay, idx: usize) -> usize {
+		let Some(w) = o.widgets().get(idx) else {
+			return 0;
+		};
+		let (_, room) = dialog::field_text_box(dialog::widget_rect(o, w));
+		dialog::field_skip(w.bytes(), usize::from(w.caret), room, &mut |t| {
+			self.text_w(t)
+		})
+	}
+
+	/// The character offset in edit field `idx` of `o` under pixel column `x`, with `skip` characters scrolled off.
+	fn field_at(&self, o: &Overlay, idx: usize, skip: usize, x: i32) -> Option<usize> {
+		let w = o.widgets().get(idx)?;
+		let (x0, _) = dialog::field_text_box(dialog::widget_rect(o, w));
+		Some(dialog::field_pos(w.bytes(), skip, x - x0, &mut |t| {
+			self.text_w(t)
+		}))
 	}
 
 	fn chrome_down<M: Measure + Clone, S: Store + ?Sized, F: Files>(
@@ -484,10 +589,13 @@ impl Gfx {
 			return;
 		}
 		if inside(lay.vbar, x, y) {
-			self.bar_down(app, s, &lay, x, y);
+			self.bar_down(app, s, &lay, (x, y), true, ctx);
 			return;
 		}
-		// The horizontal bar has nothing to scroll: the page is always shown with its text column at the left edge.
+		if lay.hbar.is_some_and(|r| inside(r, x, y)) {
+			self.bar_down(app, s, &lay, (x, y), false, ctx);
+			return;
+		}
 		if inside(lay.page, x, y) {
 			self.cap = Cap::Page;
 			let space = Pixels::of(app);
@@ -495,36 +603,154 @@ impl Gfx {
 		}
 	}
 
+	/// The scroll bar that runs the way `vertical` says, as it is now; `None` when the View menu has hidden it.
+	fn bar_of<M: Measure + Clone, S: Store + ?Sized>(
+		app: &App<M>,
+		s: &S,
+		lay: &Layout,
+		vertical: bool,
+	) -> Option<Bar> {
+		if vertical {
+			let total = app.line_total(s) as i32;
+			let view = (app.lines_in_view(s) as i32).min(total);
+			let pos = app.top_line() as i32;
+			Some(Bar {
+				parts: scroll::parts(lay.vbar, true, pos, total, view),
+				pos,
+				range: (total - view).max(0),
+				line: 1,
+				page: (view - 1).max(1),
+			})
+		} else {
+			let w = lay.page.width();
+			let range = shell::hrange(app, s, w);
+			let pos = app.hscroll_pos();
+			Some(Bar {
+				parts: scroll::parts(lay.hbar?, false, pos, range + w, w),
+				pos,
+				range,
+				line: HSTEP,
+				page: (w - 2 * HSTEP).max(HSTEP),
+			})
+		}
+	}
+
+	/// Moves the bar to `to`, within its range.
+	fn bar_to<M: Measure + Clone, S: Store + ?Sized>(
+		app: &mut App<M>,
+		s: &mut S,
+		vertical: bool,
+		bar: &Bar,
+		to: i32,
+	) {
+		let to = to.clamp(0, bar.range);
+		if vertical {
+			app.scroll_to(s, to as u32);
+		} else {
+			app.set_hscroll_pos(to);
+		}
+	}
+
+	/// One step of a held arrow or track: the part pressed moves the bar a line or a page.
+	fn bar_step<M: Measure + Clone, S: Store + ?Sized>(
+		app: &mut App<M>,
+		s: &mut S,
+		vertical: bool,
+		bar: &Bar,
+		part: Part,
+	) {
+		let to = match part {
+			Part::LineUp => bar.pos - bar.line,
+			Part::LineDown => bar.pos + bar.line,
+			Part::PageUp => bar.pos - bar.page,
+			Part::PageDown => bar.pos + bar.page,
+			Part::Thumb => return,
+		};
+		Self::bar_to(app, s, vertical, bar, to);
+	}
+
 	fn bar_down<M: Measure + Clone, S: Store + ?Sized>(
 		&mut self,
 		app: &mut App<M>,
 		s: &mut S,
 		lay: &Layout,
-		x: i32,
-		y: i32,
+		(x, y): (i32, i32),
+		vertical: bool,
+		ctx: Ctx,
 	) {
-		let total = app.line_total(s) as i32;
-		let view = (app.page_rows() as i32).min(total);
-		let range = (total - view).max(0);
-		let top = app.top_line() as i32;
-		let p = scroll::parts(lay.vbar, true, top, total, view);
-		let page = (view - 1).max(1);
-		let to = match scroll::hit(&p, x, y) {
-			Some(Part::LineUp) => top - 1,
-			Some(Part::LineDown) => top + 1,
-			Some(Part::PageUp) => top - page,
-			Some(Part::PageDown) => top + page,
-			Some(Part::Thumb) => {
-				self.cap = Cap::Thumb {
-					grab: y - p.thumb.top,
-					parts: p,
-					range,
-				};
-				return;
-			}
-			None => return,
+		let Some(bar) = Self::bar_of(app, s, lay, vertical) else {
+			return;
 		};
-		app.scroll_to(s, to.clamp(0, range) as u32);
+		let Some(part) = scroll::hit(&bar.parts, x, y) else {
+			return;
+		};
+		if part == Part::Thumb {
+			self.cap = Cap::Thumb {
+				grab: if vertical {
+					y - bar.parts.thumb.top
+				} else {
+					x - bar.parts.thumb.left
+				},
+				parts: bar.parts,
+				range: bar.range,
+			};
+			return;
+		}
+		// A bar with nothing to scroll is drawn disabled and does nothing.
+		if bar.range == 0 {
+			return;
+		}
+		Self::bar_step(app, s, vertical, &bar, part);
+		self.cap = Cap::Repeat {
+			vertical,
+			part,
+			next: ctx.tick.wrapping_add(REPEAT_DELAY),
+		};
+	}
+
+	/// The clock moved: a held arrow or track repeats once for each step of time that has passed since it was due, while the pointer is
+	/// still on the part that was pressed. A track stops where the thumb comes under the pointer. True when the view moved.
+	fn repeat<M: Measure + Clone, S: Store + ?Sized>(
+		&mut self,
+		app: &mut App<M>,
+		s: &mut S,
+	) -> bool {
+		let Cap::Repeat {
+			vertical,
+			part,
+			mut next,
+		} = self.cap
+		else {
+			return false;
+		};
+		let lay = Layout::of(app);
+		let mut moved = false;
+		let mut n = 0;
+		while (self.now.wrapping_sub(next) as i32) >= 0 && n < REPEAT_MAX {
+			n += 1;
+			next = next.wrapping_add(REPEAT_STEP);
+			let Some(bar) = Self::bar_of(app, s, &lay, vertical) else {
+				break;
+			};
+			// Off the part (the pointer left it, or the thumb arrived under it) there is nothing to repeat.
+			if scroll::hit(&bar.parts, self.at.0, self.at.1) == Some(part) {
+				let before = bar.pos;
+				Self::bar_step(app, s, vertical, &bar, part);
+				moved |= Self::bar_of(app, s, &lay, vertical).is_some_and(|b| b.pos != before);
+			}
+		}
+		if n == REPEAT_MAX {
+			next = self.now.wrapping_add(REPEAT_STEP);
+		}
+		self.cap = Cap::Repeat {
+			vertical,
+			part,
+			next,
+		};
+		if moved {
+			shell::sync_view(app, &*s);
+		}
+		moved
 	}
 
 	fn ruler_down<M: Measure + Clone, S: Store + ?Sized>(
@@ -538,10 +764,17 @@ impl Gfx {
 		let Some(r) = lay.ruler else { return };
 		let (left, w) = ruler_extent(app, lay);
 		let st = RulerState::of(app, s);
-		// No button for the kind of tab is drawn here, so the whole ruler is the scale and the markers: kind 0, a left tab.
-		match quill_app::view::ruler_hit_with(x, y, r.top, left, w, &st, 0) {
-			Some(Hit::Scale(t)) => app.add_tab(s, snap(t), 0),
-			Some(Hit::Kind) | None => {}
+		// The button at the left end of the ruler goes round the kinds of tab, as the Windows builds' does; the scale sets a tab of
+		// the kind it shows.
+		let mut hit = quill_app::view::ruler_hit_with(x, y, r.top, left, w, &st, 0);
+		// The button is under the markers and the stops, which come first where they overlap it.
+		if x < KIND_W && matches!(hit, None | Some(Hit::Scale(_))) && inside(r, x, y) {
+			hit = Some(Hit::Kind);
+		}
+		match hit {
+			Some(Hit::Scale(t)) => app.add_tab(s, snap(t), self.kind),
+			Some(Hit::Kind) => self.kind = (self.kind + 1) % 4,
+			None => {}
 			Some(hit) => {
 				let at = match hit {
 					Hit::Tab(p) => st.stops().iter().position(|t| t.0 == p).unwrap_or(0),
@@ -572,7 +805,8 @@ impl Gfx {
 	) {
 		let cap = core::mem::replace(&mut self.cap, Cap::None);
 		match cap {
-			Cap::None | Cap::Spent | Cap::Thumb { .. } => {}
+			Cap::None | Cap::Spent | Cap::Thumb { .. } | Cap::Field { .. } | Cap::Repeat { .. } => {
+			}
 			Cap::Page => {
 				let space = Pixels::of(app);
 				self.ptr.handle(app, s, f, &space, Ev::Up { x, y }, ctx);
@@ -727,6 +961,11 @@ impl Gfx {
 			return;
 		}
 		if app.editing() {
+			if ctx.shift {
+				// Shift and the wheel scroll sideways, three arrow steps a notch.
+				shell::hscroll_by(app, &*s, n.saturating_mul(3 * HSTEP));
+				return;
+			}
 			let space = Pixels::of(app);
 			self.ptr.handle(app, s, f, &space, Ev::Wheel(n), ctx);
 			return;

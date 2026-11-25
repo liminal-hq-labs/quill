@@ -15,6 +15,17 @@ use crate::find::Focus;
 use crate::form::{FONT_FAMILY, FONT_NAMES};
 use crate::{paint, App, Files, Key, Mode, Overlay, Wk};
 
+/// What the pointer does to the caret of the focused text field.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Place {
+	/// A press: the caret goes there and the selection is dropped.
+	Set,
+	/// A drag, or a press with Shift: the caret goes there and the other end stays.
+	Extend,
+	/// A double click: the word there is selected.
+	Word,
+}
+
 /// What a press of a widget did.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Pressed {
@@ -210,6 +221,32 @@ impl<M: Measure + Clone> App<M> {
 				_ => Pressed::Nothing,
 			},
 			Mode::Edit | Mode::Menu { .. } => Pressed::Nothing,
+		}
+	}
+
+	/// Moves the caret of the field that has the focus to character offset `pos` (what a press, a drag or a double click on it does).
+	/// False when no text field has the focus.
+	pub fn field_place(&mut self, pos: usize, how: Place) -> bool {
+		let place = |text: &[u8], c: &mut quill_dlg::widgets::Caret| match how {
+			Place::Set => c.place(pos, text.len(), false),
+			Place::Extend => c.place(pos, text.len(), true),
+			Place::Word => c.select_word(text, pos),
+		};
+		match &mut self.mode {
+			Mode::Prompt {
+				buf, len, caret, ..
+			} => buf.get(..*len).map(|t| place(t, caret)).is_some(),
+			Mode::Find(st) => st
+				.field()
+				.and_then(|(b, l, c)| b.get(..*l).map(|t| place(t, c)))
+				.is_some(),
+			Mode::Form(fm) => fm
+				.rows
+				.get_mut(fm.focus)
+				.filter(|r| r.kind == 0)
+				.and_then(|r| r.text.get(..r.len).map(|t| place(t, &mut r.caret)))
+				.is_some(),
+			_ => false,
 		}
 	}
 

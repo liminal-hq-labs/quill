@@ -7,6 +7,7 @@ name = "quill-app"
 version = "0.0.0"
 dependencies = [
  "quill-core",
+ "quill-dlg",
  "quill-formats",
  "quill-grid",
  "quill-image",
@@ -18,6 +19,13 @@ dependencies = [
 [[package]]
 name = "quill-core"
 version = "0.0.0"
+
+[[package]]
+name = "quill-dlg"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+]
 
 [[package]]
 name = "quill-formats"

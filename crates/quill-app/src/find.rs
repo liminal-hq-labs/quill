@@ -7,6 +7,8 @@ use quill_core::store::{ReadStore, Store};
 
 use quill_core::layout::Measure;
 
+use quill_dlg::widgets::Caret;
+
 use crate::{label, App, Mode};
 
 /// Longest text in a find or replace field.
@@ -31,8 +33,10 @@ pub(crate) struct FindState {
 	pub replace: bool,
 	pub find: [u8; FIELD],
 	pub flen: usize,
+	pub fcaret: Caret,
 	pub with: [u8; FIELD],
 	pub wlen: usize,
+	pub wcaret: Caret,
 	pub case: bool,
 	pub word: bool,
 	pub focus: Focus,
@@ -49,8 +53,10 @@ impl FindState {
 			replace,
 			find: f,
 			flen: n,
+			fcaret: Caret::at_end(n),
 			with: [0; FIELD],
 			wlen: 0,
+			wcaret: Caret::new(),
 			case: false,
 			word: false,
 			focus: Focus::Find,
@@ -86,10 +92,10 @@ impl FindState {
 		self.focus = o.get((i + 1) % o.len()).copied().unwrap_or(Focus::Find);
 	}
 
-	fn field(&mut self) -> Option<(&mut [u8; FIELD], &mut usize)> {
+	pub(crate) fn field(&mut self) -> Option<(&mut [u8; FIELD], &mut usize, &mut Caret)> {
 		match self.focus {
-			Focus::Find => Some((&mut self.find, &mut self.flen)),
-			Focus::Replace => Some((&mut self.with, &mut self.wlen)),
+			Focus::Find => Some((&mut self.find, &mut self.flen, &mut self.fcaret)),
+			Focus::Replace => Some((&mut self.with, &mut self.wlen, &mut self.wcaret)),
 			_ => None,
 		}
 	}
@@ -298,26 +304,14 @@ impl<M: Measure + Clone> App<M> {
 				return;
 			}
 			Key::Tab => st.step(),
-			Key::Char(c) if st.field().is_some() => {
-				if let Some((buf, len)) = st.field() {
-					if *len < FIELD {
-						if let Some(slot) = buf.get_mut(*len) {
-							*slot = c;
-							*len += 1;
-						}
-					}
-				}
-			}
+			k if st.field().is_some_and(|(buf, len, caret)| {
+				crate::edit::field_key(k, buf, len, caret, &Some)
+			}) => {}
 			Key::Char(b' ') => match st.focus {
 				Focus::Case => st.case = !st.case,
 				Focus::Word => st.word = !st.word,
 				_ => {}
 			},
-			Key::Backspace => {
-				if let Some((_, len)) = st.field() {
-					*len = len.saturating_sub(1);
-				}
-			}
 			Key::Enter => {
 				let act = match st.focus {
 					Focus::Case => {

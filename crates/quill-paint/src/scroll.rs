@@ -111,7 +111,8 @@ pub fn pos_at(p: &Parts, coord: i32, range: i32) -> i32 {
 	((coord - start).clamp(0, p.travel) * range + p.travel / 2) / p.travel
 }
 
-fn arrow<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, dir: u8) {
+fn arrow<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, dir: u8, enabled: bool) {
+	let ink = if enabled { INK } else { SHADOW };
 	sf.fill_rect(r, FACE);
 	outline(sf, r, INK);
 	bevel(
@@ -123,10 +124,10 @@ fn arrow<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, dir: u8) {
 	// A triangle four rows deep.
 	for i in 0..4 {
 		match dir {
-			0 => sf.hline(cx - i, cx + i + 1, cy - 2 + i, INK),
-			1 => sf.hline(cx - 3 + i, cx + 4 - i, cy - 1 + i, INK),
-			2 => sf.vline(cx - 2 + i, cy - i, cy + i + 1, INK),
-			_ => sf.vline(cx - 1 + i, cy - 3 + i, cy + 4 - i, INK),
+			0 => sf.hline(cx - i, cx + i + 1, cy - 2 + i, ink),
+			1 => sf.hline(cx - 3 + i, cx + 4 - i, cy - 1 + i, ink),
+			2 => sf.vline(cx - 2 + i, cy - i, cy + i + 1, ink),
+			_ => sf.vline(cx - 1 + i, cy - 3 + i, cy + 4 - i, ink),
 		}
 	}
 }
@@ -152,8 +153,8 @@ pub fn draw<Sf: Surface + ?Sized>(sf: &mut Sf, p: &Parts, enabled: bool) {
 	} else {
 		sf.hline(t.left, t.right, t.top, SHADOW);
 	}
-	arrow(sf, p.up, if p.vertical { 0 } else { 2 });
-	arrow(sf, p.down, if p.vertical { 1 } else { 3 });
+	arrow(sf, p.up, if p.vertical { 0 } else { 2 }, enabled);
+	arrow(sf, p.down, if p.vertical { 1 } else { 3 }, enabled);
 	if enabled && !p.thumb.is_empty() {
 		let r = p.thumb;
 		sf.fill_rect(r, FACE);

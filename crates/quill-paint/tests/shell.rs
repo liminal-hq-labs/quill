@@ -72,7 +72,7 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 	let (mut app, mut s, _) = new_app();
 	app.load_settings(&mut files);
 	app.set_about("Host test run");
-	shell::sync_view(&mut app);
+	shell::sync_view(&mut app, &s);
 	app.open(&mut s, &mut files, sc.open.as_deref().unwrap().as_bytes())
 		.unwrap();
 	let mut frames = vec![frame(
@@ -92,12 +92,13 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 				if !gfx.key(&mut app, &mut s, *k) {
 					app.key(&mut s, &mut files, *k)
 				}
+				shell::sync_view(&mut app, &s);
+				shell::follow_caret(&mut app, &s);
 			}
 			other => other.play(&mut tick, |ev, ctx| {
 				gfx.handle(&mut app, &mut s, &mut files, ev, ctx);
 			}),
 		}
-		shell::sync_view(&mut app);
 		frames.push(frame(
 			mode,
 			&mut ScreenJob {
@@ -375,7 +376,7 @@ fn a_real_screen_changes_few_rows_for_one_typed_letter() {
 
 fn open_named_for_typing() -> (TApp, quill_host::HostStore, MemFiles) {
 	let (mut app, s, f) = open_doc("letter.rtf");
-	shell::sync_view(&mut app);
+	shell::sync_view(&mut app, &s);
 	(app, s, f)
 }
 
@@ -466,4 +467,34 @@ fn the_pointer_on_the_scroll_bar_at_16_colours() {
 #[test]
 fn the_pointer_on_the_scroll_bar_at_256_colours() {
 	golden_of(Mode::C256, "g8-gfx-scroll");
+}
+
+#[test]
+fn the_horizontal_scroll_bar_at_16_colours() {
+	golden_of(Mode::C16, "g8-gfx-hscroll");
+}
+
+#[test]
+fn the_horizontal_scroll_bar_at_256_colours() {
+	golden_of(Mode::C256, "g8-gfx-hscroll");
+}
+
+#[test]
+fn the_caret_in_a_dialogs_text_field_at_16_colours() {
+	golden_of(Mode::C16, "g8-gfx-fields");
+}
+
+#[test]
+fn the_caret_in_a_dialogs_text_field_at_256_colours() {
+	golden_of(Mode::C256, "g8-gfx-fields");
+}
+
+#[test]
+fn the_rulers_tab_kind_button_at_16_colours() {
+	golden_of(Mode::C16, "g8-gfx-ruler");
+}
+
+#[test]
+fn the_rulers_tab_kind_button_at_256_colours() {
+	golden_of(Mode::C256, "g8-gfx-ruler");
 }

@@ -417,6 +417,7 @@ name = "quill-app"
 version = "0.0.0"
 dependencies = [
  "quill-core",
+ "quill-dlg",
  "quill-formats",
  "quill-grid",
  "quill-image",
