@@ -113,6 +113,16 @@ pub fn read_faces() {
 			count += 1;
 		}
 	}
+	// With no profile list (WIN.INI without a `[fonts]` section, as under WineVDM) the three faces the documents are written in.
+	if count == 0 {
+		for (slot, name) in list
+			.iter_mut()
+			.zip([&b"Times New Roman"[..], b"Arial", b"Courier New"])
+		{
+			slot.get_mut(..name.len()).map(|d| d.copy_from_slice(name));
+			count += 1;
+		}
+	}
 	// Sorted, by a simple insertion sort: there are a dozen at most.
 	for i in 1..count {
 		let mut j = i;
@@ -449,8 +459,13 @@ pub fn sync_combos(app: &QApp, s: &FarStore) {
 		face.get_mut(..n)
 			.map(|d| d.copy_from_slice(cs.face.get(..n).unwrap_or(&[])));
 		if face != c.last_face {
-			let at = SendMessage(c.face, CB_FINDSTRINGEXACT, 0xFFFF, fp(face.as_ptr()));
-			SendMessage(c.face, CB_SETCURSEL, at & 0xFFFF, 0);
+			let mut at =
+				SendMessage(c.face, CB_FINDSTRINGEXACT, 0xFFFF, fp(face.as_ptr())) & 0xFFFF;
+			// A face the list lacks (not installed, or no list at all) is added and chosen, so the box is never blank.
+			if at == 0xFFFF && n > 0 {
+				at = SendMessage(c.face, CB_ADDSTRING, 0, fp(face.as_ptr())) & 0xFFFF;
+			}
+			SendMessage(c.face, CB_SETCURSEL, at, 0);
 			c.last_face = face;
 		}
 		if cs.size != c.last_size {

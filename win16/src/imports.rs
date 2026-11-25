@@ -4564,6 +4564,42 @@ global_asm!(
 	".byte 0x66, 0xc3",
 );
 
+// GDI.13 SetViewportOrg
+global_asm!(
+	".code16",
+	".section .text.imp_SetViewportOrg,\"ax\"",
+	".globl SetViewportOrg",
+	"SetViewportOrg:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push word ptr [bp+8]",
+	"push word ptr [bp+12]",
+	"push word ptr [bp+16]",
+	"mov ss, word ptr [__w16_ss16]",
+	"movzx esp, sp",
+	".byte 0x9a",
+	".globl __w16imp_GDI_13_SetViewportOrg",
+	"__w16imp_GDI_13_SetViewportOrg:",
+	".word 0, 0",
+	".byte 0x66, 0xe8",
+	".long w16_sync_alias - . - 4",
+	"mov ss, word ptr [__w16_ss32]",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"shl edx, 16",
+	"or eax, edx",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
 // GDI.52 CreateCompatibleDC
 global_asm!(
 	".code16",
@@ -5231,6 +5267,7 @@ unsafe extern "C" {
 	pub fn BitBlt(a0: u32, a1: u32, a2: u32, a3: u32, a4: u32, a5: u32, a6: u32, a7: u32, a8: u32) -> u32;
 	pub fn Polygon(a0: u32, a1: u32, a2: u32) -> u32;
 	pub fn CreateCompatibleBitmap(a0: u32, a1: u32, a2: u32) -> u32;
+	pub fn SetViewportOrg(a0: u32, a1: u32, a2: u32) -> u32;
 	pub fn CreateCompatibleDC(a0: u32) -> u32;
 	pub fn CreateFontIndirect(a0: u32) -> u32;
 	pub fn DeleteDC(a0: u32) -> u32;
