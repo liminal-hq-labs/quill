@@ -429,6 +429,15 @@ A RIFF file (little-endian, chunks padded to even length) with form type `QLD1`.
 | `OBJS` | Inside a story: one entry per `0x01` in its text, in order: kind (`u8`: 0 picture, 1 page number, 2 page count, 3 date, 4 file name) and a picture index (`u16`, zero for fields) |
 | `PARA` and `RUNS` order | A story's chunks are written in the order `STHD`, `TEXT`, `RUNS`, `PARA`, `OBJS`, and a reader needs `TEXT` before the others |
 | `INFO` | Optional: title, author and comments, each a `u8` length and ANSI bytes |
+| `RCOV` | Only in a recovery file, right after `HEAD`: see below. Every reader skips it, so any build opens a recovery file as an ordinary document |
+
+#### Recovery file
+
+A recovery file is a complete `.QLD` with one `RCOV` chunk right after `HEAD`; nothing else differs, and the bytes after the chunk are exactly what `qld::write` gives for the document. The chunk holds, in order: version (`u16`, 1), flags (`u16`: 1 untitled, 2 emergency, 4 end of session, 8 autosave, 16 path is UTF-8, 32 in the central folder), the document's own format (`u8`: 0 `.QLD`, 1 RTF, 2 text), the writer (`u8`: 0 DOS text, 1 DOS graphics, 2 Windows 3.x, 3 Win32, 4 terminal, 5 GTK, 6 WinUI, 7 web), the Quill version (`u8` major, `u8` minor), when it was written (`u32`, DOS packed date and time), `Doc::revision` (`u32`), the original's size (`u32`, `0xFFFFFFFF` for none) and its DOS date and time (`u32`), the caret and the top line (`u32` each), the Adler-32 of every byte after the chunk (including its pad byte) to the end of the file (`u32`), how many bytes that is (`u32`), and the original's full path (`u16` length of at most 259, then the bytes; the chunk's size is 42 plus the length, and RIFF pads it to even).
+
+`qld::read_header` reads the chunk from the first 338 bytes and checks it against the file's own sizes; `qld::verify` also checks the checksum and that the file ends where its `RIFF` chunk does, in 1,024-byte reads, and allocates nothing. A file that is not a recovery file, has a path length over 259, a size that disagrees with it, or any damaged byte after the chunk is `BadFile`; a newer `HEAD` major or `RCOV` version is `Newer`. The header's own fields are not under the checksum, so a caller that uses a recovery file calls `verify` and then reads the document with `qld::read`.
+
+The writer computes the checksum in its counting pass (the first of its two passes), so a recovery file is written once and never read back. `qld::write_with_progress` and `qld::write_recovery` take a hook, called about every 4,096 bytes with the bytes done and the file's size (0 while the first pass counts); a hook that returns false stops the write at once, and the result is `FormatError::Write`, the same as a full disk.
 
 ### RTF subset
 

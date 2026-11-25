@@ -20,6 +20,13 @@ pub const VERSION: (u16, u16) = (1, 0);
 const MAX_HF_TEXT: u32 = 4096;
 const MAX_CHUNKS: usize = 64;
 
+/// The bytes between progress calls while a file is written.
+pub const PROGRESS_STEP: u32 = 4096;
+
+/// The progress hook of a write: called with the bytes done so far and the file's size in bytes (0 during the counting pass). Returning
+/// false stops the write, which then reports `FormatError::Write` like a full disk.
+pub type Progress<'a> = &'a mut dyn FnMut(u32, u32) -> bool;
+
 struct Emit<'a, K: Sink> {
 	k: &'a mut K,
 	pass2: bool,
@@ -29,6 +36,24 @@ struct Emit<'a, K: Sink> {
 	depth: usize,
 	count: u32,
 	ok: bool,
+	rcov: Option<&'a Recovery>,
+	/// Set once the `RCOV` chunk is behind: the checksum covers what follows.
+	sum: Option<Sum>,
+	adler: u32,
+	covered: u32,
+	total: u32,
+	since: u32,
+	hook: Option<Progress<'a>>,
+}
+
+/// The checksum of the counting pass. That pass writes every chunk's size as 0, so each size is added afterwards: a byte `v` at offset
+/// `i` of `n` covered bytes adds `v` to `a` and `v * (n - i)` to `b`.
+struct Sum {
+	start: u32,
+	adler: Adler,
+	/// The sum of the size bytes, and of each times its offset, both modulo 65521.
+	size_sum: u32,
+	size_weighted: u32,
 }
 
 impl<'a, K: Sink> Emit<'a, K> {
@@ -42,20 +67,57 @@ impl<'a, K: Sink> Emit<'a, K> {
 			depth: 0,
 			count: 0,
 			ok: true,
+			rcov: None,
+			sum: None,
+			adler: 0,
+			covered: 0,
+			total: 0,
+			since: 0,
+			hook: None,
 		}
 	}
 
+	/// Ends the counting pass: the checksum and the length it gives are what the second pass writes into `RCOV`.
 	fn restart(&mut self) {
+		self.total = self.count;
+		if let Some(m) = self.sum.take() {
+			let n = self.count - m.start;
+			let mut a = m.adler;
+			a.a = (a.a + m.size_sum) % ADLER_MOD;
+			let grown = (n % ADLER_MOD) * m.size_sum % ADLER_MOD;
+			a.b = (a.b + grown + ADLER_MOD - m.size_weighted) % ADLER_MOD;
+			self.adler = a.finish();
+			self.covered = n;
+		}
 		self.pass2 = true;
 		self.idx = 0;
 		self.depth = 0;
 		self.count = 0;
+		self.since = 0;
 	}
 
 	fn put(&mut self, d: &[u8]) {
 		self.count += d.len() as u32;
-		if self.pass2 && !self.k.write(d) {
-			self.ok = false;
+		if !self.ok {
+			return;
+		}
+		if self.pass2 {
+			if !self.k.write(d) {
+				self.ok = false;
+			}
+		} else if let Some(m) = self.sum.as_mut() {
+			m.adler.update(d);
+		}
+		self.since += d.len() as u32;
+		if self.since >= PROGRESS_STEP {
+			self.since = 0;
+			let total = if self.pass2 { self.total } else { 0 };
+			let count = self.count;
+			if let Some(h) = self.hook.as_mut() {
+				if !h(count, total) {
+					self.ok = false;
+				}
+			}
 		}
 	}
 
@@ -99,6 +161,17 @@ impl<'a, K: Sink> Emit<'a, K> {
 		if !self.pass2 {
 			if let Some(s) = self.sizes.get_mut(idx) {
 				*s = size;
+			}
+			if let Some(m) = self.sum.as_mut() {
+				// The size field sits just before `start` and is covered when it follows the `RCOV` chunk.
+				if let Some(at) = (start - 4).checked_sub(m.start) {
+					for (j, v) in size.to_le_bytes().into_iter().enumerate() {
+						let v = u32::from(v);
+						m.size_sum = (m.size_sum + v) % ADLER_MOD;
+						let pos = (at + j as u32) % ADLER_MOD;
+						m.size_weighted = (m.size_weighted + pos * v) % ADLER_MOD;
+					}
+				}
 			}
 		}
 		if size % 2 == 1 {
@@ -149,6 +222,36 @@ fn body<S: ReadStore + ?Sized, K: Sink>(doc: &Doc, s: &S, e: &mut Emit<'_, K>, s
 	e.u16(stories);
 	e.u16(0);
 	e.end();
+
+	if let Some(r) = e.rcov {
+		e.begin(b"RCOV", None);
+		e.u16(RCOV_VERSION);
+		e.u16(r.flags);
+		e.u8(r.format);
+		e.u8(r.writer);
+		e.u8(r.quill.0);
+		e.u8(r.quill.1);
+		e.u32(r.written);
+		e.u32(r.revision);
+		e.u32(r.orig_size);
+		e.u32(r.orig_stamp);
+		e.u32(r.caret);
+		e.u32(r.top_line);
+		let (adler, covered) = (e.adler, e.covered);
+		e.u32(adler);
+		e.u32(covered);
+		e.u16(r.path_len);
+		e.put(r.path());
+		e.end();
+		if !e.pass2 {
+			e.sum = Some(Sum {
+				start: e.count,
+				adler: Adler::new(),
+				size_sum: 0,
+				size_weighted: 0,
+			});
+		}
+	}
 
 	let p = &doc.page;
 	e.begin(b"DOCP", None);
@@ -325,12 +428,53 @@ fn body<S: ReadStore + ?Sized, K: Sink>(doc: &Doc, s: &S, e: &mut Emit<'_, K>, s
 
 /// Writes `doc` as a `.QLD` file. The same document always gives the same bytes.
 pub fn write<S: ReadStore + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<()> {
+	write_inner(doc, s, k, None, None)
+}
+
+/// Writes `doc` as `write` does, calling `progress(done, total)` about every `PROGRESS_STEP` bytes (`total` is 0 while the first pass counts).
+/// When `progress` returns false the write stops, nothing more reaches `k` and the result is `FormatError::Write`.
+pub fn write_with_progress<'a, S: ReadStore + ?Sized, K: Sink>(
+	doc: &Doc,
+	s: &S,
+	k: &'a mut K,
+	progress: Progress<'a>,
+) -> Result<()> {
+	write_inner(doc, s, k, None, Some(progress))
+}
+
+/// Writes `doc` as a recovery file: the same bytes as `write` with an `RCOV` chunk right after `HEAD`, which holds `rec` and the Adler-32 and
+/// length of everything after it. The checksum comes from the counting pass, so the file is not read back or written twice.
+pub fn write_recovery<'a, S: ReadStore + ?Sized, K: Sink>(
+	doc: &Doc,
+	s: &S,
+	k: &'a mut K,
+	rec: &'a Recovery,
+	progress: Option<Progress<'a>>,
+) -> Result<()> {
+	if usize::from(rec.path_len) > MAX_RCOV_PATH {
+		return Err(FormatError::TooLarge);
+	}
+	write_inner(doc, s, k, Some(rec), progress)
+}
+
+fn write_inner<'a, S: ReadStore + ?Sized, K: Sink>(
+	doc: &Doc,
+	s: &S,
+	k: &'a mut K,
+	rec: Option<&'a Recovery>,
+	hook: Option<Progress<'a>>,
+) -> Result<()> {
 	let stories = StoryKind::ALL
 		.iter()
 		.filter(|k| **k == StoryKind::Body || !doc.story(**k).is_empty())
 		.count() as u16;
 	let mut e = Emit::new(k);
+	e.rcov = rec;
+	e.hook = hook;
 	body(doc, s, &mut e, stories);
+	if !e.ok {
+		return Err(FormatError::Write);
+	}
 	e.restart();
 	body(doc, s, &mut e, stories);
 	if e.ok {
@@ -338,6 +482,254 @@ pub fn write<S: ReadStore + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Res
 	} else {
 		Err(FormatError::Write)
 	}
+}
+
+const ADLER_MOD: u32 = 65521;
+
+/// Adler-32 (RFC 1950): two sums, no table.
+#[derive(Copy, Clone)]
+pub struct Adler {
+	a: u32,
+	b: u32,
+}
+
+impl Default for Adler {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
+impl Adler {
+	/// The empty checksum, 1.
+	pub const fn new() -> Self {
+		Adler { a: 1, b: 0 }
+	}
+
+	/// Adds `data`.
+	pub fn update(&mut self, data: &[u8]) {
+		// 5552 bytes is the most that cannot overflow 32 bits before the sums are reduced.
+		for block in data.chunks(5552) {
+			for v in block {
+				self.a += u32::from(*v);
+				self.b += self.a;
+			}
+			self.a %= ADLER_MOD;
+			self.b %= ADLER_MOD;
+		}
+	}
+
+	/// The checksum of everything added.
+	pub const fn finish(self) -> u32 {
+		(self.b << 16) | self.a
+	}
+}
+
+/// The version of the `RCOV` chunk this code writes and reads.
+pub const RCOV_VERSION: u16 = 1;
+/// The longest original path a recovery file records, in bytes.
+pub const MAX_RCOV_PATH: usize = 259;
+/// The most bytes `read_header` reads: the `RIFF`, `HEAD` and `RCOV` headers, the fixed fields and the longest padded path.
+pub const RCOV_HEAD_MAX: usize = 28 + 8 + 42 + MAX_RCOV_PATH + 1;
+/// The bytes `verify` reads at a time.
+pub const VERIFY_BLOCK: usize = 1024;
+
+/// `Recovery::flags`: the document has no name yet.
+pub const RCV_UNTITLED: u16 = 1;
+/// `Recovery::flags`: written after a failure.
+pub const RCV_EMERGENCY: u16 = 2;
+/// `Recovery::flags`: written as a session ended.
+pub const RCV_END_OF_SESSION: u16 = 4;
+/// `Recovery::flags`: written by the autosave timer.
+pub const RCV_AUTOSAVE: u16 = 8;
+/// `Recovery::flags`: the path is UTF-8, not the system code page.
+pub const RCV_PATH_UTF8: u16 = 16;
+/// `Recovery::flags`: the file is in the central recovery folder, not beside the original.
+pub const RCV_CENTRAL: u16 = 32;
+
+/// The fields of an `RCOV` chunk: what a recovery file says about the document it holds. A reader fills `version`, `adler`, `covered` and
+/// `body`; a writer sets the rest and the writer computes the checksum.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Recovery {
+	/// The chunk's version (read only).
+	pub version: u16,
+	/// `RCV_*` bits.
+	pub flags: u16,
+	/// The document's own format: 0 `.QLD`, 1 RTF, 2 text.
+	pub format: u8,
+	/// Which build wrote the file: 0 DOS text, 1 DOS graphics, 2 Win16, 3 Win32, 4 terminal, 5 GTK, 6 WinUI, 7 web.
+	pub writer: u8,
+	/// The Quill version that wrote it, major and minor.
+	pub quill: (u8, u8),
+	/// When it was written, as a DOS packed date and time.
+	pub written: u32,
+	/// `Doc::revision` at the write.
+	pub revision: u32,
+	/// The original's size when the session opened or last saved it (`u32::MAX`: none).
+	pub orig_size: u32,
+	/// The original's DOS date and time then.
+	pub orig_stamp: u32,
+	/// The caret position.
+	pub caret: u32,
+	/// The top line of the view.
+	pub top_line: u32,
+	/// The Adler-32 of the covered bytes (read only).
+	pub adler: u32,
+	/// How many bytes follow the chunk to the end of the file (read only).
+	pub covered: u32,
+	/// How many bytes of `path` are used (0 for an untitled document).
+	pub path_len: u16,
+	path: [u8; MAX_RCOV_PATH],
+	/// Where the covered bytes start in the file (read only).
+	pub body: u32,
+}
+
+impl Default for Recovery {
+	fn default() -> Self {
+		Recovery {
+			version: RCOV_VERSION,
+			flags: 0,
+			format: 0,
+			writer: 0,
+			quill: (0, 0),
+			written: 0,
+			revision: 0,
+			orig_size: u32::MAX,
+			orig_stamp: 0,
+			caret: 0,
+			top_line: 0,
+			adler: 0,
+			covered: 0,
+			path_len: 0,
+			path: [0; MAX_RCOV_PATH],
+			body: 0,
+		}
+	}
+}
+
+impl Recovery {
+	/// The original's full path as recorded, empty for an untitled document.
+	pub fn path(&self) -> &[u8] {
+		self.path.get(..usize::from(self.path_len)).unwrap_or(&[])
+	}
+
+	/// Records the original's path; a path over `MAX_RCOV_PATH` bytes is refused.
+	pub fn set_path(&mut self, path: &[u8]) -> Result<()> {
+		let dst = self
+			.path
+			.get_mut(..path.len())
+			.ok_or(FormatError::TooLarge)?;
+		dst.copy_from_slice(path);
+		self.path_len = path.len() as u16;
+		Ok(())
+	}
+}
+
+fn le16(b: &[u8], at: usize) -> u16 {
+	u16::from_le_bytes([
+		b.get(at).copied().unwrap_or(0),
+		b.get(at + 1).copied().unwrap_or(0),
+	])
+}
+
+fn le32(b: &[u8], at: usize) -> u32 {
+	u32::from(le16(b, at)) | (u32::from(le16(b, at + 2)) << 16)
+}
+
+/// Reads the `RCOV` chunk at the front of a recovery file, from at most `RCOV_HEAD_MAX` bytes, and checks it against the file's own
+/// sizes. A file that is not a recovery file, or whose header is damaged, is `BadFile`; a newer major version is `Newer`. The fields are not
+/// covered by the checksum, so a caller that goes on to use the document calls `verify` as well.
+pub fn read_header<R: Source>(r: &mut R) -> Result<Recovery> {
+	let mut h = [0u8; 36];
+	if r.read(&mut h) != h.len() {
+		return Err(FormatError::BadFile);
+	}
+	let riff = le32(&h, 4);
+	if h.get(..4) != Some(b"RIFF") || h.get(8..12) != Some(b"QLD1") {
+		return Err(FormatError::BadFile);
+	}
+	if h.get(12..16) != Some(b"HEAD") || le32(&h, 16) != 8 {
+		return Err(FormatError::BadFile);
+	}
+	if le16(&h, 20) > VERSION.0 {
+		return Err(FormatError::Newer);
+	}
+	if h.get(28..32) != Some(b"RCOV") {
+		return Err(FormatError::BadFile);
+	}
+	let size = le32(&h, 32);
+	let fixed = 42u32;
+	if size < fixed || size > fixed + MAX_RCOV_PATH as u32 {
+		return Err(FormatError::BadFile);
+	}
+	// The chunk's data, then the pad byte RIFF puts after an odd size.
+	let mut f = [0u8; 42 + MAX_RCOV_PATH + 1];
+	let take = (size + size % 2) as usize;
+	if r.read(f.get_mut(..take).ok_or(FormatError::BadFile)?) != take {
+		return Err(FormatError::BadFile);
+	}
+	let data = f.get(..size as usize).ok_or(FormatError::BadFile)?;
+	let mut rec = Recovery {
+		version: le16(data, 0),
+		flags: le16(data, 2),
+		format: data.get(4).copied().unwrap_or(0),
+		writer: data.get(5).copied().unwrap_or(0),
+		quill: (
+			data.get(6).copied().unwrap_or(0),
+			data.get(7).copied().unwrap_or(0),
+		),
+		written: le32(data, 8),
+		revision: le32(data, 12),
+		orig_size: le32(data, 16),
+		orig_stamp: le32(data, 20),
+		caret: le32(data, 24),
+		top_line: le32(data, 28),
+		adler: le32(data, 32),
+		covered: le32(data, 36),
+		path_len: le16(data, 40),
+		path: [0; MAX_RCOV_PATH],
+		body: 36 + size + size % 2,
+	};
+	if rec.version == 0 || rec.format > 2 {
+		return Err(FormatError::BadFile);
+	}
+	if rec.version > RCOV_VERSION {
+		return Err(FormatError::Newer);
+	}
+	let plen = usize::from(rec.path_len);
+	if plen > MAX_RCOV_PATH || size as usize != 42 + plen {
+		return Err(FormatError::BadFile);
+	}
+	rec.set_path(data.get(42..42 + plen).ok_or(FormatError::BadFile)?)?;
+	// The RIFF chunk holds everything after its own header, so the covered bytes run from the end of `RCOV` to its end.
+	let end = riff.checked_add(8).ok_or(FormatError::BadFile)?;
+	if end.checked_sub(rec.body) != Some(rec.covered) {
+		return Err(FormatError::BadFile);
+	}
+	Ok(rec)
+}
+
+/// Checks a whole recovery file: the header as `read_header` does, then the Adler-32 of every byte after it, read `VERIFY_BLOCK` bytes at
+/// a time, and that the file ends where the `RIFF` chunk does. Returns the header of a file that passes. This reads no document, so it
+/// allocates nothing and cannot fail on memory.
+pub fn verify<R: Source>(r: &mut R) -> Result<Recovery> {
+	let rec = read_header(r)?;
+	let mut left = rec.covered;
+	let mut sum = Adler::new();
+	let mut buf = [0u8; VERIFY_BLOCK];
+	while left > 0 {
+		let n = (left as usize).min(VERIFY_BLOCK);
+		let part = buf.get_mut(..n).ok_or(FormatError::BadFile)?;
+		if r.read(part) != n {
+			return Err(FormatError::BadFile);
+		}
+		sum.update(part);
+		left -= n as u32;
+	}
+	let mut extra = [0u8; 1];
+	if r.read(&mut extra) != 0 || sum.finish() != rec.adler {
+		return Err(FormatError::BadFile);
+	}
+	Ok(rec)
 }
 
 struct Ck<'a, R: Source> {
