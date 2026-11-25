@@ -11,6 +11,7 @@ dependencies = [
  "quill-grid",
  "quill-image",
  "quill-inflate",
+ "quill-mouse",
  "quill-spell",
 ]
 
@@ -49,6 +50,10 @@ dependencies = [
 
 [[package]]
 name = "quill-inflate"
+version = "0.0.0"
+
+[[package]]
+name = "quill-mouse"
 version = "0.0.0"
 
 [[package]]
