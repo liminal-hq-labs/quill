@@ -74,6 +74,7 @@ Quill is a [Liminal HQ Labs](https://github.com/liminal-hq-labs) experiment: one
 - **Dependabot** is off. Add `.github/dependabot.yml` only when the project opts in (see `docs/new-project.md`).
 
 - **Toolchain:** Rust 1.98.0 (`rust-toolchain.toml`) for the host workspace. `make validate` is the single local gate: format check, clippy, `cargo nextest`, headers and the float ban. Set `CARGO_TARGET_DIR` outside the repository for big builds.
+- **Test results** reach pull requests through `.github/workflows/publish-test-results.yml`, which runs the [pr-results](https://github.com/liminal-hq-labs/pr-results) publisher (pinned by full commit SHA) after `CI` finishes, from the `rust-test-results` and `event-file` artefacts of the `Tests` job (`cargo nextest run --profile ci`, JUnit at `target/nextest/ci/junit.xml`). Each PR gets one sticky comment and a check run. The publisher runs only from `main`.
 - **Goldens:** `QUILL_UPDATE_GOLDEN=1 cargo nextest run --workspace` (or `make goldens`) rewrites them; review the diff like code.
 
 ## Licence headers
