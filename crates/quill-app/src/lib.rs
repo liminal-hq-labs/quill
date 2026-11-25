@@ -28,6 +28,7 @@ mod native;
 mod overlay;
 mod paint;
 pub mod picture;
+pub mod picture_geom;
 pub mod platform;
 mod pointer;
 mod print;
@@ -79,6 +80,8 @@ pub enum Key {
 	Esc,
 	/// Tab.
 	Tab,
+	/// Shift+Tab: with a picture selected, the previous picture; otherwise nothing.
+	BackTab,
 	/// Cursor keys.
 	Left,
 	/// Right arrow.
@@ -389,6 +392,8 @@ pub mod label {
 	pub const CHAR_FORMAT: u8 = 3;
 	/// Paragraph formatting.
 	pub const PARA_FORMAT: u8 = 4;
+	/// Sizing a picture.
+	pub const SIZE_PICTURE: u8 = 5;
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -1955,6 +1960,12 @@ impl<M: Measure + Clone> App<M> {
 		}
 		match k {
 			Key::Char(c) => self.insert(s, c),
+			Key::Tab | Key::BackTab if self.selected_picture(s).is_some() => {
+				if let Some(p) = self.neighbour_picture(s, k == Key::Tab) {
+					self.select_picture(s, p);
+				}
+			}
+			Key::BackTab => {}
 			Key::Tab => self.insert(s, 0x09),
 			Key::Enter => {
 				let pf = self.para_pfmt(s, self.caret);

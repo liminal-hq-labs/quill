@@ -669,6 +669,9 @@ pub unsafe fn page_down(hwnd: Handle, sh: &mut Shell, x: i32, y: i32) {
 		_ => 1,
 	};
 	sh.click = Some(Click { time: now, x, y, count });
+	if picture_down(hwnd, sh, x, y, shift) {
+		return;
+	}
 	let margin = in_left_margin(hwnd, sh, x, y);
 	let pos = pos_under(hwnd, sh, x, y);
 	let grain = match (margin, count) {
@@ -701,6 +704,58 @@ pub unsafe fn page_down(hwnd: Handle, sh: &mut Shell, x: i32, y: i32) {
 	SetTimer(hwnd, TIMER_DRAG, 50, null());
 	ensure_visible(hwnd, sh);
 	InvalidateRect(hwnd, null(), 0);
+}
+
+/// A press on a picture: a handle of the selected one is taken (the drag sizes the picture), or the picture becomes the selection.
+/// True when the press was used.
+unsafe fn picture_down(hwnd: Handle, sh: &mut Shell, x: i32, y: i32, shift: bool) -> bool {
+	let area = page_area(hwnd, sh);
+	let p = pct(sh, area.right - area.left);
+	let (px, py) = to_page(hwnd, sh, x, y);
+	let at = (px, py, view::stride(&sh.app));
+	let size = (
+		log(quill_app::picture_geom::HANDLE, p).max(1),
+		log(quill_app::picture_geom::SLOP, p),
+	);
+	match sh.app.press_picture(&sh.store, at, size, shift) {
+		quill_app::picture_geom::PicPress::Miss => false,
+		quill_app::picture_geom::PicPress::Selected => {
+			InvalidateRect(hwnd, null(), 0);
+			status_update(hwnd, sh);
+			true
+		}
+		quill_app::picture_geom::PicPress::Handle(d) => {
+			sh.pic_drag = Some(d);
+			SetCapture(hwnd);
+			true
+		}
+	}
+}
+
+/// The pointer moved with a picture's handle held: the picture takes the size the handle's new place gives.
+pub unsafe fn picture_drag(hwnd: Handle, sh: &mut Shell, x: i32, y: i32) {
+	let Some(mut d) = sh.pic_drag else {
+		return;
+	};
+	let (px, py) = to_page(hwnd, sh, x, y);
+	d.moved(&mut sh.app, &mut sh.store, px, py, GetKeyState(VK_SHIFT) < 0);
+	sh.pic_drag = Some(d);
+	crate::retitle(hwnd, sh);
+	update_scroll(hwnd, sh);
+	InvalidateRect(hwnd, null(), 0);
+	status_update(hwnd, sh);
+}
+
+/// The button went up with a handle held: the drag is one undo step.
+pub unsafe fn picture_up(hwnd: Handle, sh: &mut Shell) {
+	if let Some(d) = sh.pic_drag.take() {
+		d.release(&mut sh.app);
+		ReleaseCapture();
+		crate::story_changed(sh);
+		update_scroll(hwnd, sh);
+		InvalidateRect(hwnd, null(), 0);
+		status_update(hwnd, sh);
+	}
 }
 
 /// The pointer moved with the button down in the page: grows the selection to the character under it, and scrolls when it is past the
@@ -1315,6 +1370,12 @@ pub unsafe fn status_update(_hwnd: Handle, sh: &mut Shell) {
 	};
 	let mut text: [Vec<u8>; 5] = Default::default();
 	text[0] = sh.app.message().to_vec();
+	if text[0].is_empty() {
+		// A selected picture says what it is, with the multiplication sign of the ANSI code page.
+		let mut pic = [0u8; 80];
+		let n = sh.app.picture_status(&sh.store, 0xD7, &mut pic);
+		text[0] = pic.get(..n).unwrap_or(&[]).to_vec();
+	}
 	text[1] = name;
 	if sh.preview.is_some() {
 		if text[0].is_empty() {

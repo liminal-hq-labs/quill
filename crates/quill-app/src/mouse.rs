@@ -19,6 +19,7 @@ use quill_grid::COLS;
 pub use quill_mouse::Ev;
 
 use crate::paint::{self, MENU_COUNT};
+use crate::picture_geom::{HandleDrag, PicPress};
 use crate::{App, Files, Grain, Key, Mode};
 
 /// What the shell knows when an event comes in.
@@ -40,6 +41,19 @@ pub struct PageHit {
 	pub margin: bool,
 }
 
+/// A point of the page in the layout's own units (as [`crate::App::pos_at_point`] measures them), and the sizes a picture's handles
+/// take in those units.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct PageSpace {
+	pub x: i32,
+	pub y: i32,
+	/// Units from one paper's top to the next.
+	pub stride: i32,
+	/// A handle's size and the slop around it.
+	pub handle: i32,
+	pub slop: i32,
+}
+
 /// What is under a point of a shell's screen. A shell implements this for its own units; the page and the wheel are the same on all.
 pub trait PointerTarget<M: Measure + Clone> {
 	/// The page position under (`x`, `y`), or `None` when the point is not in the page area (the menu bar, the ruler, the status line).
@@ -50,6 +64,18 @@ pub trait PointerTarget<M: Measure + Clone> {
 		x: i32,
 		y: i32,
 	) -> Option<PageHit>;
+
+	/// The point (`x`, `y`) in the page's own units, for a shell that can show a picture selected; `None` on the text screen. The point
+	/// need not be inside the page area, so a drag that leaves it goes on.
+	fn page_space<S: ReadStore + ?Sized>(
+		&self,
+		_app: &App<M>,
+		_s: &S,
+		_x: i32,
+		_y: i32,
+	) -> Option<PageSpace> {
+		None
+	}
 
 	/// How far a press may stray from the last to count as the same place for a double click.
 	fn slop(&self) -> i32 {
@@ -112,6 +138,7 @@ struct Sel {
 pub struct Pointer {
 	click: Option<Click>,
 	sel: Option<Sel>,
+	resize: Option<HandleDrag>,
 	x: i32,
 	y: i32,
 }
@@ -127,7 +154,7 @@ impl Pointer {
 
 	/// True while a drag is selecting.
 	pub fn dragging(&self) -> bool {
-		self.sel.is_some()
+		self.sel.is_some() || self.resize.is_some()
 	}
 
 	/// Takes one event.
@@ -149,7 +176,9 @@ impl Pointer {
 			Ev::Move { x, y } => {
 				self.x = x;
 				self.y = y;
-				if self.sel.is_some() {
+				if self.resize.is_some() {
+					self.resize_move(app, s, t, ctx);
+				} else if self.sel.is_some() {
 					self.drag(app, s, t);
 				} else if !app.editing() {
 					t.hover_overlay(app, x, y);
@@ -159,6 +188,9 @@ impl Pointer {
 				self.x = x;
 				self.y = y;
 				self.sel = None;
+				if let Some(d) = self.resize.take() {
+					d.release(app);
+				}
 			}
 			Ev::Wheel(n) => {
 				if app.editing() {
@@ -207,6 +239,9 @@ impl Pointer {
 			y,
 			count,
 		});
+		if self.picture_down(app, s, t, ctx) {
+			return;
+		}
 		let grain = match (hit.margin, count) {
 			(true, 1) => Grain::Line,
 			(true, _) => Grain::Paragraph,
@@ -232,6 +267,43 @@ impl Pointer {
 			},
 			grain,
 		});
+	}
+
+	/// A press that is on a picture: a handle of the selected one starts a resize, the picture itself becomes the selection. True when
+	/// it took the press.
+	fn picture_down<M: Measure + Clone, S: Store + ?Sized, T: PointerTarget<M>>(
+		&mut self,
+		app: &mut App<M>,
+		s: &mut S,
+		t: &T,
+		ctx: Ctx,
+	) -> bool {
+		let Some(sp) = t.page_space(app, s, self.x, self.y) else {
+			return false;
+		};
+		match app.press_picture(s, (sp.x, sp.y, sp.stride), (sp.handle, sp.slop), ctx.shift) {
+			PicPress::Miss => false,
+			PicPress::Selected => true,
+			PicPress::Handle(d) => {
+				self.resize = Some(d);
+				true
+			}
+		}
+	}
+
+	/// The pointer moved with a handle held.
+	fn resize_move<M: Measure + Clone, S: Store + ?Sized, T: PointerTarget<M>>(
+		&mut self,
+		app: &mut App<M>,
+		s: &mut S,
+		t: &T,
+		ctx: Ctx,
+	) {
+		let (Some(mut d), Some(sp)) = (self.resize, t.page_space(app, s, self.x, self.y)) else {
+			return;
+		};
+		d.moved(app, s, sp.x, sp.y, ctx.shift);
+		self.resize = Some(d);
 	}
 
 	fn drag<M: Measure + Clone, S: Store + ?Sized, T: PointerTarget<M>>(

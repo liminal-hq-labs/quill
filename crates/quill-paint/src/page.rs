@@ -7,6 +7,7 @@
 //! inch, with the vertical scroll the app keeps (by line), and reads only the app's public API.
 
 use quill_app::picture::{self, WINDOW};
+use quill_app::picture_geom::{self as geom, Frame};
 use quill_app::view::{page_x0, PageGeom};
 use quill_app::{line_label, App, ListCounters};
 use quill_core::doc::{cflag, CFmt, Doc, StoryKind};
@@ -361,7 +362,41 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 		if done.is_err() {
 			sf.fill_rect(r, Rgb::SILVER);
 		}
+		self.picture_marks(sf, p, r);
 		true
+	}
+
+	/// The frame and eight handles of the selected picture, black and outside its pixels; a picture inside a larger selection gets a
+	/// navy border inside its edge instead, as selected text has navy behind it.
+	fn picture_marks<Sf: Surface>(&self, sf: &mut Sf, p: u32, r: Rect) {
+		let Some((lo, hi)) = self.sel.filter(|(lo, hi)| p >= *lo && p < *hi) else {
+			return;
+		};
+		if hi > lo + 1 {
+			for k in 0..2 {
+				let q = Rect::new(r.left + k, r.top + k, r.right - k, r.bottom - k);
+				sf.hline(q.left, q.right, q.top, Rgb::NAVY);
+				sf.hline(q.left, q.right, q.bottom - 1, Rgb::NAVY);
+				sf.fill_rect(Rect::new(q.left, q.top, q.left + 1, q.bottom), Rgb::NAVY);
+				sf.fill_rect(Rect::new(q.right - 1, q.top, q.right, q.bottom), Rgb::NAVY);
+			}
+			return;
+		}
+		let rect = Frame {
+			left: r.left,
+			top: r.top,
+			right: r.right,
+			bottom: r.bottom,
+		};
+		let o = geom::outline(&rect);
+		let ink = Rgb::BLACK;
+		sf.fill_rect(Rect::new(o.left, o.top, o.right, o.top + 1), ink);
+		sf.fill_rect(Rect::new(o.left, o.bottom - 1, o.right, o.bottom), ink);
+		sf.fill_rect(Rect::new(o.left, o.top, o.left + 1, o.bottom), ink);
+		sf.fill_rect(Rect::new(o.right - 1, o.top, o.right, o.bottom), ink);
+		for b in geom::handles(&rect, geom::HANDLE) {
+			sf.fill_rect(Rect::new(b.left, b.top, b.right, b.bottom), ink);
+		}
 	}
 
 	fn finish<Sf: Surface>(&mut self, sf: &mut Sf) {

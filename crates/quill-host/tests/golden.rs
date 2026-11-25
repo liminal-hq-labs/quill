@@ -272,6 +272,15 @@ fn m2_lists_script_matches_its_golden_screens() {
 }
 
 #[test]
+fn m15_picture_select_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("m15-picture-select");
+	compare(
+		"tests/golden/screens/m15-picture-select.frames.txt",
+		&frames,
+	);
+}
+
+#[test]
 fn m14_heading_enter_script_matches_its_golden_screens() {
 	let (_, frames) = scenario("m14-heading-enter");
 	compare("tests/golden/screens/m14-heading-enter.frames.txt", &frames);

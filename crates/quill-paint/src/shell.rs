@@ -8,8 +8,9 @@
 //! and `QUILL.INI`'s choice ([`Layout`]); a Letter sheet is 816 pixels wide, so the page is scrolled sideways until the 6.5-inch text
 //! column fills the area beside the vertical bar.
 
-use quill_app::mouse::{PageHit, PointerTarget};
+use quill_app::mouse::{PageHit, PageSpace, PointerTarget};
 use quill_app::picture::WINDOW;
+use quill_app::picture_geom::{HANDLE, SLOP};
 use quill_app::view::{
 	hscroll_max, page_width, page_x0, ruler_marks, ruler_ticks, tab_x, text_extent, PageGeom,
 	RulerState, PAGE_GAP, PAGE_PAD, PAGE_TOP, RULER_H,
@@ -426,14 +427,31 @@ pub fn pos_at_pixel<M: Measure + Clone, St: quill_core::store::ReadStore + ?Size
 	x: i32,
 	y: i32,
 ) -> PageHit {
-	let area = Layout::of(app).page;
+	let sp = page_space_at(app, s, x, y);
+	let (px, py) = (sp.x, sp.y);
 	let g = PageGeom::of(app, s);
-	let px = x - area.left - page_x0(area.width(), page_width(app), hscroll(app, area.width()));
-	let py = y - area.top - PAGE_TOP + g.top;
 	let margin = to_units(app.doc().page.margin_l, 96);
 	PageHit {
 		pos: app.pos_at_point(s, px, py, g.page_h + PAGE_GAP),
 		margin: px < margin - 4 && px >= -PAGE_PAD,
+	}
+}
+
+/// The screen pixel (`x`, `y`) in the page's own units, with the pages' spacing and the size of a picture's handles at 96 to the inch.
+pub fn page_space_at<M: Measure + Clone, St: quill_core::store::ReadStore + ?Sized>(
+	app: &App<M>,
+	s: &St,
+	x: i32,
+	y: i32,
+) -> PageSpace {
+	let area = Layout::of(app).page;
+	let g = PageGeom::of(app, s);
+	PageSpace {
+		x: x - area.left - page_x0(area.width(), page_width(app), hscroll(app, area.width())),
+		y: y - area.top - PAGE_TOP + g.top,
+		stride: g.page_h + PAGE_GAP,
+		handle: HANDLE,
+		slop: SLOP,
 	}
 }
 
@@ -467,6 +485,16 @@ impl<M: Measure + Clone> PointerTarget<M> for Pixels {
 		let a = self.page;
 		(x >= a.left && x < a.right && y >= a.top && y < a.bottom)
 			.then(|| pos_at_pixel(app, s, x, y))
+	}
+
+	fn page_space<St: quill_core::store::ReadStore + ?Sized>(
+		&self,
+		app: &App<M>,
+		s: &St,
+		x: i32,
+		y: i32,
+	) -> Option<PageSpace> {
+		Some(page_space_at(app, s, x, y))
 	}
 
 	fn slop(&self) -> i32 {

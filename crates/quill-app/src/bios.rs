@@ -44,6 +44,7 @@ pub fn decode(ascii: u8, scan: u8) -> Option<Key> {
 		(0, 0x85) => Key::F(11),
 		(0, 0x86) => Key::F(12),
 		(0, 0x0E) => Key::Alt(8),
+		(0, 0x0F) => Key::BackTab,
 		(0, s) if alt_letter(s).is_some() => Key::Alt(alt_letter(s)?),
 		// The keys with a code of their own: the scan code says whether it was the key or Ctrl with a letter.
 		(0x0D, 0x1C | 0xE0) => Key::Enter,

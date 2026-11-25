@@ -278,6 +278,8 @@ struct Shell {
 	/// The last click, for double and triple clicks, and the selection a drag is growing.
 	click: Option<ui::Click>,
 	sel: Option<ui::SelDrag>,
+	/// A picture handle held down: the drag that sizes the selected picture.
+	pic_drag: Option<quill_app::picture_geom::HandleDrag>,
 	/// What the pointer is over on the toolbars, and whether the status line is showing its hint.
 	hover: ui::Hover,
 	hint_on: bool,
@@ -478,6 +480,7 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			let k = match c {
 				0x0D => Some(Key::Enter),
 				0x08 => Some(Key::Backspace),
+				0x09 if GetKeyState(VK_SHIFT) < 0 => Some(Key::BackTab),
 				0x09 => Some(Key::Tab),
 				0x1B => Some(Key::Esc),
 				1..=26 => Some(Key::Ctrl(c + 0x60)),
@@ -1502,6 +1505,10 @@ unsafe fn mouse_move(hwnd: Handle, x: i32, y: i32) {
 		invalidate_ruler(hwnd, sh);
 		return;
 	}
+	if sh.pic_drag.is_some() {
+		ui::picture_drag(hwnd, sh, x, y);
+		return;
+	}
 	if sh.sel.is_some() {
 		ui::page_drag(hwnd, sh, x, y);
 		return;
@@ -1536,6 +1543,10 @@ unsafe fn mouse_up(hwnd: Handle, x: i32, y: i32) {
 			}
 			InvalidateRect(hwnd, null(), 0);
 		}
+		return;
+	}
+	if sh.pic_drag.is_some() {
+		ui::picture_up(hwnd, sh);
 		return;
 	}
 	if sh.sel.is_some() {
@@ -2191,6 +2202,7 @@ pub extern "C" fn start() -> ! {
 		last_view: 0,
 		click: None,
 		sel: None,
+		pic_drag: None,
 		hover: ui::Hover::None,
 		hint_on: false,
 		pressed: None,
