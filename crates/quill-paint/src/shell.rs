@@ -7,9 +7,11 @@
 //! area (the page is scrolled sideways so the 6.5-inch text column fits, because a Letter sheet is 816 pixels wide) and a 20-pixel
 //! status line. Menus and dialogs are not drawn yet: while one is open the status line says so.
 
+use quill_app::mouse::{PageHit, PointerTarget};
 use quill_app::picture::WINDOW;
 use quill_app::view::{
-	hscroll_max, ruler_marks, ruler_ticks, tab_x, text_extent, RulerState, RULER_H,
+	hscroll_max, page_width, page_x0, ruler_marks, ruler_ticks, tab_x, text_extent, PageGeom,
+	RulerState, PAGE_GAP, PAGE_PAD, PAGE_TOP, RULER_H,
 };
 use quill_app::{menu_title, status_text, App, MENU_COUNT};
 use quill_core::layout::{to_units, FontRef, Measure};
@@ -337,5 +339,63 @@ impl Graphics {
 		} else {
 			None
 		}
+	}
+}
+
+/// The page position under the screen pixel (`x`, `y`), as the page is painted: the page's left edge is `page_x0` from the area, the
+/// line at the top of the area is `PageGeom::top`, and the pages are stacked a page and a gap apart. A point in the white space left
+/// of the text is a margin hit.
+pub fn pos_at_pixel<M: Measure + Clone, St: quill_core::store::ReadStore + ?Sized>(
+	app: &App<M>,
+	s: &St,
+	x: i32,
+	y: i32,
+) -> PageHit {
+	let area = PAGE_AREA;
+	let g = PageGeom::of(app, s);
+	let px = x - area.left - page_x0(area.width(), page_width(app), hscroll(app));
+	let py = y - area.top - PAGE_TOP + g.top;
+	let margin = to_units(app.doc().page.margin_l, 96);
+	PageHit {
+		pos: app.pos_at_point(s, px, py, g.page_h + PAGE_GAP),
+		margin: px < margin - 4 && px >= -PAGE_PAD,
+	}
+}
+
+/// The graphics screen as a pointer space: pixels of the 640 by 480 screen. Only the page takes the pointer for now. The menus and
+/// dialogs are not drawn in graphics yet, so there are no hit tests for them here; when they are, this is where they go (the
+/// `press_chrome`, `press_overlay` and `hover_overlay` methods of [`PointerTarget`]).
+#[derive(Copy, Clone, Debug, Default)]
+pub struct Pixels;
+
+impl<M: Measure + Clone> PointerTarget<M> for Pixels {
+	fn page_hit<St: quill_core::store::ReadStore + ?Sized>(
+		&self,
+		app: &App<M>,
+		s: &St,
+		x: i32,
+		y: i32,
+	) -> Option<PageHit> {
+		let a = PAGE_AREA;
+		(x >= a.left && x < a.right && y >= a.top && y < a.bottom)
+			.then(|| pos_at_pixel(app, s, x, y))
+	}
+
+	fn slop(&self) -> i32 {
+		4
+	}
+
+	fn edge(&self, y: i32) -> i32 {
+		if y < PAGE_AREA.top {
+			-1
+		} else if y >= PAGE_AREA.bottom {
+			1
+		} else {
+			0
+		}
+	}
+
+	fn clamp_y(&self, y: i32) -> i32 {
+		y.clamp(PAGE_AREA.top, PAGE_AREA.bottom - 1)
 	}
 }

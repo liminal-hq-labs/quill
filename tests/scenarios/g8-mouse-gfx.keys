@@ -1,0 +1,17 @@
+# G8: the mouse in graphics. Places are pixels of the 640 by 480 screen. Double click a word and type over it, click and Shift-click, drag
+# across a line, triple click a paragraph, scroll with the wheel, then save and exit by key. Played on the host through quill-paint's
+# shell and pointer, and into QUILLDOS.EXE from a QUILL_MOUSE file, so every frame's CRC-32 must be equal.
+@copy letter.rtf
+@open LETTER.RTF
+@dclick 45 90
+h e l l o
+@click 20 110
+@shiftclick 200 110
+@drag 150 154 330 154
+@tclick 120 203
+@wheel 2
+@wheel -2
+@click 100 20
+@click 3 240
+f10 down down enter     # File > Save
+f10 end enter           # File > Exit

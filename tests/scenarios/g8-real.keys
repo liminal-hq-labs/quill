@@ -1,0 +1,6 @@
+# G8: the same pointer actions made through the real INT 33h of DOSBox's mouse driver (dos/tools/mouse-x11.sh moves a pointer inside a
+# virtual X server with xdotool). Places are pixels. The run's last frame before it exits must be this scenario's last frame.
+@copy letter.rtf
+@open LETTER.RTF
+@click 60 95
+@drag 150 154 330 154
