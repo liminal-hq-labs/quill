@@ -183,4 +183,20 @@ jobs:
           shared-key: quill
 
       - name: Run the tests
-        run: cargo nextest run --workspace --locked
+        run: cargo nextest run --workspace --locked --profile ci
+
+      # `publish-test-results.yml` reads these after the run, with the permissions a fork's pull request lacks.
+      - name: Upload the JUnit report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: rust-test-results
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: error
+
+      - name: Upload the event file
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: event-file
+          path: ${{ github.event_path }}

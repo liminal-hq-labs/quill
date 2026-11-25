@@ -89,6 +89,10 @@ What `expect` checks, by kind: `ask "text" [default Yes] [buttons=YesNoCancel]`;
 - **Size checks** fail the build when a Win16 segment passes its budget, DGROUP statics pass theirs, or any executable passes its unpacked budget in the roadmap's release table; the report is posted as a job summary.
 - **Float ban** and **panic-site count** run on every build; the Win32 **instruction scan** fails on anything a Pentium lacks; the Win16 **branch check** fails on any near branch that leaves its segment.
 
+## Results on the pull request
+
+CI runs the host tests with `cargo nextest run --workspace --locked --profile ci`, which retries a failing test once (a test that passes the second time is shown as flaky) and writes JUnit to `target/nextest/ci/junit.xml`. The `Tests` job uploads it as `rust-test-results`, with `event-file`. After CI finishes, `publish-test-results.yml` runs the [pr-results](https://github.com/liminal-hq-labs/pr-results) publisher from `main`, which posts one sticky comment on the pull request and a check run for the suite, with annotations at the failing file and line. It works for fork pull requests too. The publisher runs only from the default branch, so a change to it shows its effect after merge. See SITE-1 in [decisions](decisions.md).
+
 ## Self-test scripts
 
 `/SELFTEST SCRIPT` runs a script of commands through `quill-app`, the same commands keys and menus send, and writes results to `QUILL.LOG`: each step, any failure, the hash of the document after named steps, and the saved files' names. On Windows 3.1 the script ends with `ExitWindows`, so DOSBox-X exits by itself. Scripts live in `tests/selftest/` and cover typing, formatting, lists, tabs, headers, pictures, find and replace, spelling, undo all the way back, and saving in every format.

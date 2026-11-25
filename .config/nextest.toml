@@ -1,0 +1,19 @@
+# cargo-nextest profiles: `default` for local runs, `ci` for the pipeline.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[profile.default]
+retries = 0
+fail-fast = false
+
+# CI retries once, so a flaky test shows as flaky in the JUnit report rather than failing the run,
+# and reports every failure rather than stopping at the first. The report is written to
+# `target/nextest/ci/junit.xml`, which the results publisher reads.
+[profile.ci]
+retries = 1
+fail-fast = false
+failure-output = "immediate-final"
+
+[profile.ci.junit]
+path = "junit.xml"
