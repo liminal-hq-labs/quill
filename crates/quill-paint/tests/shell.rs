@@ -12,8 +12,9 @@ use quill_app::picture::WINDOW;
 use quill_host::png::encode_indexed;
 use quill_host::script::{parse_script, MemFiles};
 use quill_paint::damage::{self, RowSet, PLANAR_ROW};
+use quill_paint::layout::Layout;
 use quill_paint::raster::{Planar4, PLANAR_BYTES, PLANE_BYTES};
-use quill_paint::shell::{self, paint_screen, Graphics, PAGE_AREA};
+use quill_paint::shell::{self, paint_screen, Graphics};
 use quill_paint::{crc32, Surface};
 use quill_strike::{SliceSource, StrikeMeasure};
 
@@ -64,8 +65,7 @@ fn play(scenario: &str, mode: Mode) -> (Vec<Frame>, MemFiles) {
 	let (mut app, mut s, _) = new_app();
 	app.load_settings(&mut files);
 	app.set_about("Host test run");
-	app.set_view_height(shell::view_height());
-	app.set_rows(shell::view_rows());
+	shell::sync_view(&mut app);
 	app.open(&mut s, &mut files, sc.open.as_deref().unwrap().as_bytes())
 		.unwrap();
 	let mut frames = vec![frame(
@@ -78,6 +78,7 @@ fn play(scenario: &str, mode: Mode) -> (Vec<Frame>, MemFiles) {
 	)];
 	for k in &sc.keys {
 		app.key(&mut s, &mut files, *k);
+		shell::sync_view(&mut app);
 		frames.push(frame(
 			mode,
 			&mut ScreenJob {
@@ -143,11 +144,16 @@ fn the_scenario_at_256_colours() {
 #[test]
 fn the_text_column_fits_beside_the_edges() {
 	let (app, s, _) = open_doc("letter.rtf");
-	let hs = shell::hscroll(&app);
-	let (left, w) = quill_app::view::text_extent(&app, 640, hs);
-	assert!(left >= 0 && left + w <= 640, "text {left}..{}", left + w);
-	assert_eq!(PAGE_AREA.top, 42);
-	assert_eq!(PAGE_AREA.bottom, 460);
+	let lay = Layout::of(&app);
+	let hs = shell::hscroll(&app, lay.page.width());
+	let (left, w) = quill_app::view::text_extent(&app, lay.page.width(), hs);
+	assert!(
+		left >= 0 && left + w <= lay.page.width(),
+		"text {left}..{}",
+		left + w
+	);
+	assert_eq!(lay.page.top, 98);
+	assert_eq!(lay.page.bottom, 444);
 	let _ = s;
 }
 
@@ -168,7 +174,8 @@ fn the_chrome_is_drawn_over_its_strips_only() {
 		0xD8 + 6,
 		"silver is the extra entry 222"
 	);
-	let area = &fr.pixels[PAGE_AREA.top as usize * 640..PAGE_AREA.bottom as usize * 640];
+	let lay = Layout::of(&app);
+	let area = &fr.pixels[lay.page.top as usize * 640..lay.page.bottom as usize * 640];
 	let mut seen = [false; 256];
 	for p in area {
 		seen[*p as usize] = true;
@@ -307,7 +314,7 @@ fn a_real_screen_changes_few_rows_for_one_typed_letter() {
 
 fn open_named_for_typing() -> (TApp, quill_host::HostStore, MemFiles) {
 	let (mut app, s, f) = open_doc("letter.rtf");
-	app.set_view_height(shell::view_height());
+	shell::sync_view(&mut app);
 	(app, s, f)
 }
 
@@ -348,4 +355,14 @@ fn the_dialogs_at_16_colours() {
 #[test]
 fn the_dialogs_at_256_colours() {
 	golden("g7-dialogs", Mode::C256);
+}
+
+#[test]
+fn the_toolbar_and_the_scroll_bars_at_16_colours() {
+	golden("g6-toolbar", Mode::C16);
+}
+
+#[test]
+fn the_toolbar_and_the_scroll_bars_at_256_colours() {
+	golden("g6-toolbar", Mode::C256);
 }

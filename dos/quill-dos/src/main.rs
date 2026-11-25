@@ -244,8 +244,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 		gfx::leave();
 		return Err("there is not enough memory");
 	}
-	app.set_view_height(shell::view_height());
-	app.set_rows(shell::view_rows());
+	shell::sync_view(&mut app);
 	open_arguments(&mut app, &mut store, &mut files);
 	let mut window = Box::new([0u8; WINDOW]);
 	let mut dump = env::var("QUILL_DUMP").and_then(|p| File::open(&p, Mode::Create).ok());
@@ -309,6 +308,8 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 		};
 		if let Some(k) = key {
 			app.key(&mut store, &mut files, k);
+			// The View menu can hide the bars, which changes how much page there is.
+			shell::sync_view(&mut app);
 		}
 	}
 	app.save_settings(&mut files);
