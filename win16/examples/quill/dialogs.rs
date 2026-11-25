@@ -101,7 +101,10 @@ fn checked(dlg: u32, id: u32) -> bool {
 fn message(owner: u32, text: &[u8], flags: u32) -> u32 {
 	let mut z: Text<120> = Text::new();
 	z.b(text);
-	unsafe { MessageBox(owner, z.ptr(), cs!("Quill"), flags) & 0xFFFF }
+	crate::diag::check(0xF003);
+	let r = unsafe { MessageBox(owner, z.ptr(), cs!("Quill"), flags) & 0xFFFF };
+	crate::diag::check(0xF004);
+	r
 }
 
 /// Puts a dialog in the middle of the window that owns it.
@@ -524,6 +527,7 @@ fn file_dialog(owner: u32, kind: FileKind, out: &mut [u8; 128]) -> Option<usize>
 		hook: 0,
 		template: 0,
 	};
+	crate::diag::check(0xF001);
 	let ok = unsafe {
 		if kind == FileKind::Save {
 			GetSaveFileName(np(&mut ofn))
@@ -531,6 +535,7 @@ fn file_dialog(owner: u32, kind: FileKind, out: &mut [u8; 128]) -> Option<usize>
 			GetOpenFileName(np(&mut ofn))
 		}
 	} & 0xFFFF;
+	crate::diag::check(0xF002);
 	if ok == 0 {
 		common_error();
 		return None;
@@ -575,9 +580,14 @@ fn save_current(owner: u32) -> bool {
 		let Some(n) = file_dialog(owner, FileKind::Save, &mut path) else {
 			return false;
 		};
-		return app().save_as(store(), &mut Win16Files, &path[..n]);
+		crate::diag::check(0xF005);
+		let saved = app().save_as(store(), &mut Win16Files, &path[..n]);
+		crate::diag::check(0xF006);
+		return saved;
 	}
+	crate::diag::check(0xF005);
 	app().command(store(), &mut Win16Files, Command::Save);
+	crate::diag::check(0xF006);
 	!app().modified()
 }
 

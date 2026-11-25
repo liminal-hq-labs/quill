@@ -23,8 +23,9 @@
 # the tree is missing. DOSBox-X runs in a container of its own (quill16-launch-w31, W31_LAUNCH_CONTAINER) on a virtual X server of its
 # own, started on a free display number and stopped by its process id, so nothing here reads or types into the desktop.
 # FIELDS=1 also types a line, inserts a Date and a Time field with Insert > Date and Insert > Time (and types on after each, so the caret
-# shows where it landed), and keeps launch-fields.png; the exit then answers the save question with No.
-# SHOTS=DIR keeps launch-open.png (while the window is open), launch-exit.png (after File > Exit) and the logs the program wrote.
+# shows where it landed), and keeps launch-fields.png; the exit then answers the save question with No as well.
+# The Insert > Date step leaves the document changed, so File > Exit always meets the save question and the script answers No.
+# SHOTS=DIR keeps launch-open.png (while the window is open), launch-exit.png (after File > Exit), launch-save-question.png and the logs the program wrote.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -188,11 +189,10 @@ xdotool key alt+f
 sleep 1
 shot launch-menu
 xdotool key x
-if [ -n "${FIELDS:-}" ]; then
-	sleep 2
-	shot launch-save-question
-	xdotool key n
-fi
+# The Date field above (and the fields typed under FIELDS) changed the document, so Quill asks whether to save: answer No.
+sleep 2
+shot launch-save-question
+xdotool key n
 t=0
 while [ "$t" -lt 20 ] && [ ! -f "$WORK/d/STACK.LOG" ]; do
 	sleep 1

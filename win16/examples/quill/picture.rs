@@ -15,7 +15,7 @@ use w16::*;
 
 /// How many pictures the cache holds, and the most far memory they may take together (a single picture over the budget is still
 /// tried, alone).
-const SLOTS: usize = 3;
+pub const SLOTS: usize = 3;
 const BUDGET: u32 = 1 << 20;
 /// The most pixels along a side drawn (the decoders' limit, `quill_image::MAX_SIDE`).
 const MAX_SIDE: u32 = 4096;
@@ -28,6 +28,7 @@ const COLORONCOLOR: u32 = 3;
 
 /// Why a picture is a grey box.
 #[derive(Copy, Clone, PartialEq)]
+#[repr(u8)]
 pub enum Why {
 	/// Not tried yet.
 	None,
@@ -43,10 +44,25 @@ pub enum Why {
 	NoMemory,
 }
 
+impl Why {
+	/// The state a stored byte names, or `None` for a byte that is not one. The slots live in the data segment, which a host can
+	/// scribble on, and a `match` on a bad enum byte would run an unchecked jump table off the end of the code, so every read of a
+	/// slot's state goes through here.
+	fn from_byte(b: u8) -> Option<Why> {
+		if b <= Why::NoMemory as u8 {
+			// SAFETY: `Why` is `repr(u8)` with the values 0 to `NoMemory`, and `b` is in that range.
+			Some(unsafe { core::mem::transmute::<u8, Why>(b) })
+		} else {
+			None
+		}
+	}
+}
+
 struct Slot {
 	idx: u16,
 	fp: u32,
-	why: Why,
+	/// A `Why`, kept as its byte (see `Why::from_byte`).
+	why: u8,
 	block: FarBlock,
 	/// Where the pixels start in the block, and the bitmap's size in pixels.
 	bits: u32,
@@ -63,7 +79,7 @@ impl Slot {
 	const EMPTY: Slot = Slot {
 		idx: 0,
 		fp: 0,
-		why: Why::None,
+		why: Why::None as u8,
 		block: FarBlock::empty(),
 		bits: 0,
 		w: 0,
@@ -72,6 +88,15 @@ impl Slot {
 		size: 0,
 		bpp: 0,
 	};
+
+	/// The slot's state; a byte that is not a state reads as not tried, so the slot is rebuilt.
+	fn state(&self) -> Why {
+		Why::from_byte(self.why).unwrap_or(Why::None)
+	}
+
+	fn set(&mut self, why: Why) {
+		self.why = why as u8;
+	}
 }
 
 static mut SLOT: [Slot; SLOTS] = [Slot::EMPTY; SLOTS];
@@ -96,7 +121,7 @@ fn le16(b: &[u8], at: usize) -> u32 {
 fn cached_bytes() -> u32 {
 	slots()
 		.iter()
-		.filter(|s| s.why == Why::Ready)
+		.filter(|s| s.state() == Why::Ready)
 		.map(|s| s.block.len())
 		.sum()
 }
@@ -111,7 +136,7 @@ fn evict() -> bool {
 	}
 	let Some(i) = pick else { return false };
 	slots()[i].block.free();
-	slots()[i].why = Why::None;
+	slots()[i].set(Why::None);
 	true
 }
 
@@ -121,19 +146,19 @@ fn build(doc: &Doc, s: &FarStore, idx: u16, fp: u32, at: usize) {
 	slot.block.free();
 	slot.idx = idx;
 	slot.fp = fp;
-	slot.why = Why::Format;
+	slot.set(Why::Format);
 	let Some(p) = doc.pictures.get(s, u32::from(idx)) else {
-		slot.why = Why::Damaged;
+		slot.set(Why::Damaged);
 		return;
 	};
 	if p.kind != 0 {
-		slot.why = Why::Png;
+		slot.set(Why::Png);
 		return;
 	}
 	let mut head = [0u8; 54];
 	let got = doc.picture_bytes(s, idx, 0, &mut head);
 	if got < head.len() || head.get(..2) != Some(b"BM") {
-		slot.why = Why::Format;
+		slot.set(Why::Format);
 		return;
 	}
 	let (off_bits, size) = (le32(&head, 10), p.len);
@@ -156,11 +181,11 @@ fn build(doc: &Doc, s: &FarStore, idx: u16, fp: u32, at: usize) {
 		|| !matches!(bpp, 1 | 4 | 8 | 24)
 		|| height < 0
 	{
-		slot.why = Why::Format;
+		slot.set(Why::Format);
 		return;
 	}
 	if width <= 0 || height == 0 || width as u32 > MAX_SIDE || height as u32 > MAX_SIDE {
-		slot.why = Why::Damaged;
+		slot.set(Why::Damaged);
 		return;
 	}
 	// The colour table that precedes the pixels (a 24-bit bitmap's, when it has one, is ignored by GDI).
@@ -179,11 +204,11 @@ fn build(doc: &Doc, s: &FarStore, idx: u16, fp: u32, at: usize) {
 		stride * height as u32
 	};
 	if rle && pixels == 0 {
-		slot.why = Why::Damaged;
+		slot.set(Why::Damaged);
 		return;
 	}
 	if off_bits < 14 + 40 + 4 * colours || off_bits.saturating_add(pixels) > size {
-		slot.why = Why::Damaged;
+		slot.set(Why::Damaged);
 		return;
 	}
 	// Room for this picture: drop the oldest until it fits the budget, and try again alone when Windows says no.
@@ -194,7 +219,7 @@ fn build(doc: &Doc, s: &FarStore, idx: u16, fp: u32, at: usize) {
 		block = FarBlock::alloc(need, false);
 	}
 	let Some(block) = block else {
-		slot.why = Why::NoMemory;
+		slot.set(Why::NoMemory);
 		slot.size = size;
 		return;
 	};
@@ -211,7 +236,7 @@ fn build(doc: &Doc, s: &FarStore, idx: u16, fp: u32, at: usize) {
 	}
 	let slot = &mut slots()[at];
 	if pos < size {
-		slot.why = Why::Damaged;
+		slot.set(Why::Damaged);
 		let mut b = block;
 		b.free();
 		return;
@@ -222,7 +247,7 @@ fn build(doc: &Doc, s: &FarStore, idx: u16, fp: u32, at: usize) {
 	slot.h = height;
 	slot.bpp = bpp as u16;
 	slot.size = size;
-	slot.why = Why::Ready;
+	slot.set(Why::Ready);
 }
 
 /// The slot holding picture `idx`, building it when it is not cached (or when another picture took its index).
@@ -231,9 +256,15 @@ fn get(doc: &Doc, s: &FarStore, idx: u16) -> &'static Slot {
 	unsafe { CLOCK += 1 };
 	let now = unsafe { CLOCK };
 	let all = slots();
+	// A slot whose state byte is not a state was overwritten: start it again (its block is not trusted, so it is left).
+	for x in all.iter_mut() {
+		if Why::from_byte(x.why).is_none() {
+			*x = Slot::EMPTY;
+		}
+	}
 	if let Some(i) = all
 		.iter()
-		.position(|x| x.why != Why::None && x.idx == idx && x.fp == fp)
+		.position(|x| x.state() != Why::None && x.idx == idx && x.fp == fp)
 	{
 		all[i].used = now;
 		return &all[i];
@@ -241,7 +272,7 @@ fn get(doc: &Doc, s: &FarStore, idx: u16) -> &'static Slot {
 	// A free slot, else the least recently used.
 	let at = all
 		.iter()
-		.position(|x| x.why == Why::None && x.block.is_empty())
+		.position(|x| x.state() == Why::None && x.block.is_empty())
 		.unwrap_or_else(|| {
 			let mut best = 0;
 			for (i, x) in all.iter().enumerate() {
@@ -261,7 +292,7 @@ fn get(doc: &Doc, s: &FarStore, idx: u16) -> &'static Slot {
 /// caller paints its grey box.
 pub fn draw(dc: u32, doc: &Doc, s: &FarStore, idx: u16, x: i32, y: i32, w: i32, h: i32) -> bool {
 	let slot = get(doc, s, idx);
-	if slot.why != Why::Ready || w <= 0 || h <= 0 {
+	if slot.state() != Why::Ready || w <= 0 || h <= 0 {
 		return false;
 	}
 	unsafe {
@@ -285,13 +316,55 @@ pub fn draw(dc: u32, doc: &Doc, s: &FarStore, idx: u16, x: i32, y: i32, w: i32, 
 	}
 }
 
+/// The slot's bytes, as stored (for the diagnostics build's check), where the state byte is among them and the largest state.
+#[cfg(feature = "diag")]
+pub fn slot_bytes(i: usize) -> &'static [u8] {
+	let s = &slots()[i];
+	// SAFETY: a `Slot` is plain data, so its bytes can be read as they are.
+	unsafe {
+		core::slice::from_raw_parts(s as *const Slot as *const u8, core::mem::size_of::<Slot>())
+	}
+}
+
+/// Where `why` is in a slot's bytes. Rust orders the fields, so this is found rather than assumed.
+#[cfg(feature = "diag")]
+pub const WHY_AT: usize = core::mem::offset_of!(Slot, why);
+#[cfg(feature = "diag")]
+pub const WHY_MAX: u8 = Why::NoMemory as u8;
+
+/// Gives slot `i` a state byte, whatever it is (the `/BADSLOT` test).
+#[cfg(feature = "diag")]
+pub fn plant_bad_slot(i: usize, byte: u8) {
+	unsafe { core::ptr::write_volatile(&mut slots()[i].why, byte) };
+}
+
 /// Writes PICS.LOG beside the program: one line for each picture the page asked for, and the far memory in use.
 pub fn write_log() {
 	let log = w16::log();
 	log.clear();
 	let mut any = false;
 	for (i, x) in slots().iter().enumerate() {
-		if x.why == Why::None {
+		let Some(why) = Why::from_byte(x.why) else {
+			any = true;
+			log.s("slot ")
+				.dec(i as u32)
+				.s(": bad state 0x")
+				.hex(u32::from(x.why), 2)
+				.s(", bytes");
+			// SAFETY: a `Slot` is plain data, so its bytes can be read as they are.
+			let raw = unsafe {
+				core::slice::from_raw_parts(
+					x as *const Slot as *const u8,
+					core::mem::size_of::<Slot>(),
+				)
+			};
+			for b in raw {
+				log.s(" ").hex(u32::from(*b), 2);
+			}
+			log.nl();
+			continue;
+		};
+		if why == Why::None {
 			continue;
 		}
 		any = true;
@@ -300,7 +373,7 @@ pub fn write_log() {
 			.s(" picture ")
 			.dec(u32::from(x.idx))
 			.s(": ");
-		match x.why {
+		match why {
 			Why::Ready => log
 				.s("drawn ")
 				.dec(x.w as u32)
@@ -325,7 +398,11 @@ pub fn write_log() {
 	if !any {
 		log.s("no pictures asked for").nl();
 	}
-	if let Some(e) = unsafe { OPEN_FAILED } {
+	// The error is matched only when its byte is one of the five (`None` is the next value), for the same reason as the slots'.
+	const _: () = assert!(core::mem::size_of::<Option<quill_formats::FormatError>>() == 1);
+	let open_ok =
+		unsafe { core::ptr::read_volatile(core::ptr::addr_of!(OPEN_FAILED) as *const u8) } < 5;
+	if let (Some(e), true) = (unsafe { OPEN_FAILED }, open_ok) {
 		log.s("the file did not open: ").s(match e {
 			quill_formats::FormatError::BadFile => "not a document, or damaged",
 			quill_formats::FormatError::Newer => "from a newer version",

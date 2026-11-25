@@ -12,6 +12,7 @@
 #![no_main]
 
 mod chrome;
+mod diag;
 mod dialogs;
 mod far;
 mod gdi;
@@ -29,7 +30,10 @@ use quill_grid::Grid;
 use store::FarStore;
 use w16::*;
 
+#[cfg(not(feature = "diag"))]
 export_proc!(QuillWndProc, wnd_proc);
+#[cfg(feature = "diag")]
+export_proc!(QuillWndProc, wnd_proc_checked);
 
 const WM_SIZE: u32 = 0x0005;
 const WM_CLOSE: u32 = 0x0010;
@@ -1228,7 +1232,15 @@ fn write_stack_log() {
 		.s(" top ")
 		.hex(u32::from(top), 4)
 		.s(" low ")
-		.hex(u32::from(low), 4)
+		.hex(u32::from(low), 4);
+	// How often the 32-bit stack alias followed the data segment to a new place, and the two stack selectors.
+	let (ss16, ss32) = w16::stack_selectors();
+	log.s(" moves ")
+		.dec(w16::stack_moves())
+		.s(" ss ")
+		.hex(ss16, 4)
+		.s("/")
+		.hex(ss32, 4)
 		.nl();
 	let sh = sh();
 	log.s("back ")
@@ -1301,6 +1313,15 @@ fn lo16(v: u32) -> i32 {
 
 fn hi16(v: u32) -> i32 {
 	i32::from((v >> 16) as u16 as i16)
+}
+
+/// The window procedure of a diagnostics build: `wnd_proc` between two checks of the picture slots and the stack alias.
+#[cfg(feature = "diag")]
+extern "C" fn wnd_proc_checked(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
+	diag::check(msg);
+	let r = wnd_proc(hwnd, msg, wparam, lparam);
+	diag::check(0x1_0000 | msg);
+	r
 }
 
 extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
@@ -1628,6 +1649,11 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 	let mut mono = false;
 	// `/EXIT [SECONDS]` closes the window, and ends Windows, after a while (for a test harness that reads the logs).
 	let mut exit_after: Option<u32> = None;
+	// `/BADSLOT` (a diagnostics build) plants a bad picture-slot state, to test that the exit survives it.
+	let badslot = cfg!(feature = "diag")
+		&& cmd[..n]
+			.windows(8)
+			.any(|w| w.eq_ignore_ascii_case(b"/BADSLOT"));
 	let mut words = cmd[..n].split(|b| *b == b' ').filter(|w| !w.is_empty());
 	let take = |w: Option<&[u8]>| {
 		let w = w?;
@@ -1798,6 +1824,9 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		}
 		if !gridview {
 			SetTimer(hwnd, tips::TIMER, 100, 0);
+		}
+		if badslot {
+			diag::plant();
 		}
 		let mut msg = core::mem::zeroed::<Msg>();
 		while GetMessage(&mut msg as *mut Msg as u32, 0, 0, 0) != 0 {
