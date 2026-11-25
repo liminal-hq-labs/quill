@@ -1,0 +1,13 @@
+# M15: select a picture with F8 and an arrow (the status line names it), collapse with Esc, move to the next picture with Tab,
+# delete it, and take the deletion back with Edit > Undo.
+@copy pictures.rtf
+@open PICTURES.RTF
+down home                       # the PNG picture, alone on its line
+f8 right                        # selected: the status line says what it is
+esc                             # collapsed, the caret after it
+f8 left                         # selected again
+tab                             # the next picture, the bitmap
+delete                          # removed in one step
+f10 right enter                 # Edit > Undo: it is back
+f10 end enter                   # File > Exit asks to save: Yes has the focus
+right enter                     # No: leave without saving

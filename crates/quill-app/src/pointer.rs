@@ -27,7 +27,7 @@ pub enum Grain {
 
 impl<M: Measure + Clone> App<M> {
 	/// The top of `line` in the stacked pages, in layout units.
-	fn stacked_top(&self, l: &Line, stride: i32) -> i32 {
+	pub(crate) fn stacked_top(&self, l: &Line, stride: i32) -> i32 {
 		let (_, ry) = self.measure.resolution();
 		(l.page as i32 - 1) * stride + to_units(self.doc.page.margin_t, ry) + l.y
 	}

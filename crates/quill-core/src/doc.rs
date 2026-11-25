@@ -705,6 +705,61 @@ impl Doc {
 		Ok(idx as u16)
 	}
 
+	/// A record that shows picture `idx`'s bytes at `w` by `h` twips: an existing record that already does (so sizing a picture back
+	/// to a size it had, or two pictures to one size, costs nothing), else a new one at the end. With `fresh` a new record is always
+	/// made, for a drag that will keep changing it. The old record is left as it was, so undo can put the picture back.
+	pub fn shown_record<S: Store + ?Sized>(
+		&mut self,
+		s: &mut S,
+		idx: u16,
+		w: i32,
+		h: i32,
+		fresh: bool,
+	) -> Result<u16> {
+		let old = self.pictures.get(s, u32::from(idx)).ok_or(Error::Range)?;
+		let new = Picture {
+			shown_w: w,
+			shown_h: h,
+			..old
+		};
+		if !fresh {
+			for i in 0..self.pictures.len() {
+				if self.pictures.get(s, i) == Some(new) {
+					return Ok(i as u16);
+				}
+			}
+		}
+		if self.pictures.len() >= MAX_PICTURES {
+			return Err(Error::TooLarge);
+		}
+		self.pictures.reserve(s, 1)?;
+		self.touch();
+		let at = self.pictures.len();
+		self.pictures.push(s, new)?;
+		Ok(at as u16)
+	}
+
+	/// Changes the size record `idx` shows, in place. Only for a record a drag made for itself: every other change makes a new record.
+	pub fn set_shown<S: Store + ?Sized>(
+		&mut self,
+		s: &mut S,
+		idx: u16,
+		w: i32,
+		h: i32,
+	) -> Result<()> {
+		let old = self.pictures.get(s, u32::from(idx)).ok_or(Error::Range)?;
+		self.touch();
+		self.pictures.set(
+			s,
+			u32::from(idx),
+			Picture {
+				shown_w: w,
+				shown_h: h,
+				..old
+			},
+		)
+	}
+
 	/// Copies picture `idx`'s file bytes from `pos` into `out`.
 	pub fn picture_bytes<S: ReadStore + ?Sized>(
 		&self,

@@ -30,6 +30,7 @@ fn typed(k: Key) -> KeyEvent {
 		Key::Delete => KeyEvent::new(KeyCode::Delete, n),
 		Key::Esc => KeyEvent::new(KeyCode::Esc, n),
 		Key::Tab => KeyEvent::new(KeyCode::Tab, n),
+		Key::BackTab => KeyEvent::new(KeyCode::BackTab, KeyModifiers::SHIFT),
 		Key::Left => KeyEvent::new(KeyCode::Left, n),
 		Key::Right => KeyEvent::new(KeyCode::Right, n),
 		Key::Up => KeyEvent::new(KeyCode::Up, n),

@@ -416,6 +416,8 @@ struct LineCtx<'a> {
 	/// Draw each character at its own layout position (a zoomed screen), so no rounding of the font's widths or of the layout's
 	/// advances builds up along the line.
 	per_char: bool,
+	/// The zoom in percent, so the selected picture's frame and handles are a pixel and seven pixels whatever the page units are.
+	pct: i32,
 	/// The half-period of the wavy underline of misspelt words in page units, or 0 when the page shows none (the printer, a header
 	/// or footer, and the screen with Check Spelling as You Type off).
 	wave: i32,
@@ -561,6 +563,15 @@ unsafe fn draw_line(
 					Pics::Cache(cache) => draw_picture(dc, cache, app, s, idx, tx + x, base - ph, pw, ph),
 					Pics::Banded(cache) => draw_picture_banded(dc, cache, doc, s, idx, tx + x, base - ph, pw, ph),
 				}
+				if matches!(pics, Pics::Cache(_)) && selected {
+					let r = quill_app::picture_geom::Frame {
+						left: tx + x,
+						top: base - ph,
+						right: tx + x + pw,
+						bottom: base,
+					};
+					picture_marks(dc, &r, cx.pct, sel.is_some_and(|(lo, hi)| hi > lo + 1));
+				}
 				return;
 			}
 			if let Some(kind) = text.object_at(s, p).map(|v| v >> 16).filter(|k| (1..=5).contains(k)) {
@@ -695,6 +706,34 @@ pub fn body_pages(app: &App<GdiMeasure>, s: &HeapStore) -> u32 {
 	app.page_total(s).max(1)
 }
 
+/// The selection's navy, as a COLORREF (0x00BBGGRR).
+const NAVY: u32 = 0x0080_0000;
+
+/// The selected picture's frame and eight handles in black, or, for a picture inside a larger selection, a navy border two pixels wide
+/// inside its edge. `r` is the picture's rectangle in page units, drawn at `pct` percent, so a pixel is `100 / pct` of a unit.
+unsafe fn picture_marks(dc: Handle, r: &quill_app::picture_geom::Frame, pct: i32, within: bool) {
+	let px = crate::view::log(1, pct).max(1);
+	if within {
+		for k in 0..2 {
+			let q = r.grow(-k * px);
+			fill(dc, q.left, q.top, q.right, q.top + px, NAVY);
+			fill(dc, q.left, q.bottom - px, q.right, q.bottom, NAVY);
+			fill(dc, q.left, q.top, q.left + px, q.bottom, NAVY);
+			fill(dc, q.right - px, q.top, q.right, q.bottom, NAVY);
+		}
+		return;
+	}
+	let o = r.grow(px);
+	fill(dc, o.left, o.top, o.right, o.top + px, 0);
+	fill(dc, o.left, o.bottom - px, o.right, o.bottom, 0);
+	fill(dc, o.left, o.top, o.left + px, o.bottom, 0);
+	fill(dc, o.right - px, o.top, o.right, o.bottom, 0);
+	let size = crate::view::log(quill_app::picture_geom::HANDLE, pct).max(1);
+	for b in quill_app::picture_geom::handles(&r.grow(px - 1), size) {
+		fill(dc, b.left, b.top, b.right, b.bottom, 0);
+	}
+}
+
 /// Fills a device rectangle with a colour.
 unsafe fn fill(dc: Handle, left: i32, top: i32, right: i32, bottom: i32, colour: u32) {
 	let r = Rect {
@@ -818,6 +857,7 @@ pub unsafe fn paint_page(
 				page: l.page,
 				fields,
 				per_char: pct != 100,
+				pct,
 				wave: if app.spell_live() { (200 / pct.max(1)).clamp(2, 8) } else { 0 },
 			},
 			&mut Pics::Cache(cache),
@@ -924,6 +964,7 @@ unsafe fn draw_page(
 				page: p,
 				fields: Some(pages),
 				per_char: pl.per_char,
+				pct: 100,
 				wave: 0,
 			};
 			let label = line_label(app, s, l, &mut c, dpi);
@@ -945,6 +986,7 @@ unsafe fn draw_page(
 			page: p,
 			fields: Some(pages),
 			per_char: pl.per_char,
+			pct: 100,
 			wave: 0,
 		};
 		draw_line(

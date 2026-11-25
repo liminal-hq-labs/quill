@@ -420,7 +420,15 @@ fn status_into<M: Measure + Clone, S: ReadStore + ?Sized>(
 	ln_in_page: u32,
 	st: &mut Row,
 ) {
-	if app.msg.is_empty() {
+	let mut pic = [0u8; 80];
+	let pn = if app.msg.is_empty() {
+		app.picture_status(s, b'x', &mut pic)
+	} else {
+		0
+	};
+	if pn > 0 {
+		st.s(" ").bytes(pic.get(..pn).unwrap_or(&[]));
+	} else if app.msg.is_empty() {
 		st.s(" ");
 		match app.view {
 			1 => {
