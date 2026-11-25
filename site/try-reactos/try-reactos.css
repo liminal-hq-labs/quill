@@ -1,0 +1,81 @@
+/*
+	Layout for the ReactOS experiment page, on top of the site and Try Quill styles.
+
+	(c) Copyright 2026 Liminal HQ, Scott Morris
+	SPDX-License-Identifier: Apache-2.0 OR MIT
+*/
+
+.stage--reactos {
+	max-width: 64rem;
+	aspect-ratio: 4 / 3;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.stage--reactos .screen {
+	width: 100%;
+	height: 100%;
+}
+
+.stage--reactos .screen-text {
+	display: none;
+	white-space: pre;
+	font: 14px monospace;
+	line-height: 14px;
+	color: #c0c0c0;
+}
+
+.stage--reactos .screen-canvas {
+	display: none;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	image-rendering: pixelated;
+}
+
+.hint {
+	color: var(--text-muted);
+	font-size: 0.9rem;
+}
+
+.diag {
+	margin-top: 1.5rem;
+	border: 1px solid var(--ink-700);
+	border-radius: 0.5rem;
+	padding: 0.75rem 1rem;
+}
+
+.diag summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.diag-form {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1.25rem;
+	margin: 0.75rem 0;
+}
+
+.diag-form label {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.diag-readout {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 0.15rem 1rem;
+	font-family: monospace;
+	font-size: 0.85rem;
+}
+
+.diag-readout dt {
+	color: var(--text-muted);
+}
+
+.diag-readout dd {
+	margin: 0;
+}

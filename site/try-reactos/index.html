@@ -1,0 +1,78 @@
+<!doctype html>
+<!--
+	Try Quill on ReactOS: a local experiment that boots ReactOS in v86, an x86 emulator in WebAssembly. Static, relative URLs only; the
+	disk and CD images are served by harness/serve.ts from /images/ and are never committed. Nothing here is published.
+
+	(c) Copyright 2026 Liminal HQ, Scott Morris
+	SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
+<html lang="en-CA">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Try Quill on ReactOS (local experiment)</title>
+		<meta name="description" content="A local experiment: ReactOS with Quill, running in v86 inside the browser.">
+		<meta name="robots" content="noindex">
+		<meta name="color-scheme" content="light dark">
+		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
+		<link rel="stylesheet" href="../css/site.css">
+		<link rel="stylesheet" href="../css/try.css">
+		<link rel="stylesheet" href="try-reactos.css">
+		<script src="try-reactos.js" type="module"></script>
+	</head>
+	<body>
+		<main id="main">
+			<section class="section" aria-labelledby="title">
+				<div class="wrap">
+					<h1 id="title">Quill on ReactOS</h1>
+					<p class="lede">A local experiment. ReactOS runs in <a href="https://copy.sh/v86/">v86</a>, an x86 emulator that compiles to WebAssembly. Nothing here is published, and nothing is uploaded.</p>
+					<p id="nowasm" class="notice" role="alert" hidden>This browser can't run WebAssembly, which the emulator needs.</p>
+
+					<div class="player" data-player>
+						<div class="player-controls">
+							<button class="button" type="button" data-start aria-describedby="player-status">Start</button>
+							<button class="button button--alt" type="button" data-fullscreen disabled>Full screen</button>
+							<button class="button button--alt" type="button" data-stop disabled>Stop</button>
+							<p class="player-status" id="player-status" role="status" aria-live="polite" data-status>Not started. The emulator is about 2 MB and loads when you start it.</p>
+						</div>
+						<div class="stage stage--reactos" data-stage tabindex="0" aria-label="ReactOS running in an emulated PC">
+							<div class="screen" data-screen>
+								<div class="screen-text"></div>
+								<canvas class="screen-canvas"></canvas>
+							</div>
+						</div>
+						<p class="hint">Select the screen to give it the keyboard. Click the screen twice to lock the mouse; press <kbd>Esc</kbd> to release it.</p>
+					</div>
+
+					<details class="diag" data-diag open>
+						<summary>Builder and diagnostics</summary>
+						<form class="diag-form" data-config autocomplete="off">
+							<label>RAM (MB) <input name="ram" type="number" min="32" max="2048" step="32" value="256"></label>
+							<label>VGA memory (MB) <input name="vga" type="number" min="2" max="64" value="8"></label>
+							<label>ACPI <input name="acpi" type="checkbox" checked></label>
+							<label>JIT <input name="jit" type="checkbox" checked></label>
+							<label>cpuid level <input name="cpuid" type="text" placeholder="default" size="6"></label>
+							<label>Boot order
+								<select name="boot">
+									<option value="auto">auto</option>
+									<option value="cd">CD, floppy, disk</option>
+									<option value="hd">disk, CD, floppy</option>
+								</select>
+							</label>
+							<label>Disk URL <input name="disk" type="text" placeholder="/images/disk.img" size="40"></label>
+							<label>Disk chunk (bytes, blank = whole file) <input name="chunk" type="text" placeholder="1048576" size="8"></label>
+							<label>CD URL <input name="cdrom" type="text" placeholder="/images/cd.iso" size="40"></label>
+							<label>State URL <input name="state" type="text" placeholder="/images/state.bin.zst" size="40"></label>
+							<label>Run id <input name="run" type="text" size="14"></label>
+						</form>
+						<dl class="diag-readout" data-readout aria-live="off"></dl>
+						<p class="diag-buttons">
+							<button class="button button--alt" type="button" data-shot>Screenshot (PNG)</button>
+							<button class="button button--alt" type="button" data-save-state>Save state</button>
+						</p>
+					</details>
+				</div>
+			</section>
+		</main>
+	</body>
+</html>
