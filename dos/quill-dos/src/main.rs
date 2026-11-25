@@ -322,8 +322,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 		gfx::leave();
 		return Err("there is not enough memory");
 	}
-	app.set_view_height(shell::view_height());
-	app.set_rows(shell::view_rows());
+	shell::sync_view(&mut app);
 	open_arguments(&mut app, &mut store, &mut files);
 	clock::set(&mut app);
 	let mut window = Box::new([0u8; WINDOW]);
@@ -401,7 +400,8 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 					Some(Step::Key(k)) => Some(k),
 					Some(other) => {
 						other.play(&mut tick, |ev, ctx| {
-							ptr.handle(&mut app, &mut store, &mut files, &shell::Pixels, ev, ctx);
+							let space = shell::Pixels::of(&app);
+							ptr.handle(&mut app, &mut store, &mut files, &space, ev, ctx);
 							at = Some(ptr.at());
 						});
 						repaint = true;
@@ -438,7 +438,8 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 							shift: keys::shift_down(),
 							tick: mouse::ticks(),
 						};
-						ptr.handle(&mut app, &mut store, &mut files, &shell::Pixels, ev, ctx);
+						let space = shell::Pixels::of(&app);
+						ptr.handle(&mut app, &mut store, &mut files, &space, ev, ctx);
 					});
 					any
 				});
@@ -453,6 +454,8 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 		if let Some(k) = key {
 			clock::set(&mut app);
 			app.key(&mut store, &mut files, k);
+			// The View menu can hide the bars, which changes how much page there is.
+			shell::sync_view(&mut app);
 			repaint = true;
 		}
 	}

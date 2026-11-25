@@ -2,5 +2,5 @@
 # virtual X server with xdotool). Places are pixels. The run's last frame before it exits must be this scenario's last frame.
 @copy letter.rtf
 @open LETTER.RTF
-@click 60 95
-@drag 150 154 330 154
+@click 60 151
+@drag 150 210 330 210

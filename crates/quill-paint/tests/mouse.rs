@@ -12,13 +12,18 @@ use quill_app::mouse::{Ctx, Pointer};
 use quill_app::view::{page_width, page_x0, PageGeom};
 use quill_core::layout::to_units;
 use quill_mouse::Ev;
-use quill_paint::shell::{self, hscroll, pos_at_pixel, Pixels, PAGE_AREA};
+use quill_paint::layout::Layout;
+use quill_paint::shell::{self, hscroll, pos_at_pixel, Pixels};
 
 fn rig(name: &str) -> (TApp, quill_host::HostStore, quill_host::script::MemFiles) {
 	let (mut app, s, f) = open_doc(name);
-	app.set_view_height(shell::view_height());
-	app.set_rows(shell::view_rows());
+	shell::sync_view(&mut app);
 	(app, s, f)
+}
+
+/// The page area as the app's chrome flags lay it out.
+fn page_area(app: &TApp) -> quill_paint::Rect {
+	Layout::of(app).page
 }
 
 fn press(
@@ -30,7 +35,8 @@ fn press(
 	tick: u32,
 ) {
 	for e in evs {
-		p.handle(app, s, f, &Pixels, *e, Ctx { shift: false, tick });
+		let space = Pixels::of(app);
+		p.handle(app, s, f, &space, *e, Ctx { shift: false, tick });
 	}
 }
 
@@ -38,15 +44,17 @@ fn press(
 fn caret_pixel(app: &TApp, s: &quill_host::HostStore) -> Option<(i32, i32)> {
 	let (_, l, x) = app.caret_xy(s)?;
 	let g = PageGeom::of(app, s);
-	let x0 = page_x0(PAGE_AREA.width(), page_width(app), hscroll(app));
-	let tx = PAGE_AREA.left + x0 + to_units(app.doc().page.margin_l, 96) + x;
-	Some((tx, g.line_y(&l, PAGE_AREA.top) + (l.ascent + l.descent) / 2))
+	let area = page_area(app);
+	let x0 = page_x0(area.width(), page_width(app), hscroll(app, area.width()));
+	let tx = area.left + x0 + to_units(app.doc().page.margin_l, 96) + x;
+	Some((tx, g.line_y(&l, area.top) + (l.ascent + l.descent) / 2))
 }
 
 #[test]
 fn clicking_where_the_caret_is_painted_gives_the_position_back() {
 	let (mut app, mut s, mut f) = rig("letter.rtf");
 	let mut ptr = Pointer::default();
+	let area = page_area(&app);
 	let len = app.doc().body.len().saturating_sub(1);
 	let mut tested = 0;
 	for pos in 0..len {
@@ -54,9 +62,7 @@ fn clicking_where_the_caret_is_painted_gives_the_position_back() {
 		let Some((x, y)) = caret_pixel(&app, &s) else {
 			continue;
 		};
-		if !(PAGE_AREA.left..PAGE_AREA.right).contains(&x)
-			|| !(PAGE_AREA.top..PAGE_AREA.bottom).contains(&y)
-		{
+		if !(area.left..area.right).contains(&x) || !(area.top..area.bottom).contains(&y) {
 			continue;
 		}
 		let (_, line, _) = app.caret_xy(&s).unwrap();
@@ -94,7 +100,8 @@ proptest! {
 		let (mut app, mut s, mut f) = rig("letter.rtf");
 		let mut ptr = Pointer::default();
 		app.place_caret(&s, 3, false);
-		let inside = (PAGE_AREA.left..PAGE_AREA.right).contains(&x) && (PAGE_AREA.top..PAGE_AREA.bottom).contains(&y);
+		let area = page_area(&app);
+		let inside = (area.left..area.right).contains(&x) && (area.top..area.bottom).contains(&y);
 		let hit = pos_at_pixel(&app, &s, x, y);
 		press(&mut ptr, &mut app, &mut s, &mut f, &[Ev::Down { x, y }, Ev::Up { x, y }], 0);
 		if !inside {
@@ -111,7 +118,7 @@ proptest! {
 
 	// A drag between two pixels in the text selects the characters between them, whichever way it goes.
 	#[test]
-	fn a_drag_selects_between_the_pixels(a in (30i32..600, 50i32..440), b in (30i32..600, 50i32..440)) {
+	fn a_drag_selects_between_the_pixels(a in (30i32..600, 110i32..420), b in (30i32..600, 110i32..420)) {
 		let (mut app, mut s, mut f) = rig("letter.rtf");
 		let mut ptr = Pointer::default();
 		let (ha, hb) = (pos_at_pixel(&app, &s, a.0, a.1), pos_at_pixel(&app, &s, b.0, b.1));
@@ -131,7 +138,7 @@ proptest! {
 
 	// Two presses within the double-click time and place are a double click and a third a triple; a press too late, or too far, is a click.
 	#[test]
-	fn clicks_count_by_time_and_place(x in 30i32..600, y in 50i32..300, late in 10u32..200, far in 5i32..60) {
+	fn clicks_count_by_time_and_place(x in 30i32..600, y in 110i32..300, late in 10u32..200, far in 5i32..60) {
 		let (mut app, mut s, mut f) = rig("letter.rtf");
 		let mut ptr = Pointer::default();
 		let hit = pos_at_pixel(&app, &s, x, y);

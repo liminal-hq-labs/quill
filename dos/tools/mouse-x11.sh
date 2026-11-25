@@ -75,13 +75,13 @@ run() { # <label> <arguments> <16|256>
 	sleep "$SETTLE"
 	# Into the window first, so the driver sees a move before the press.
 	x xdotool mousemove $((X + 200)) $((Y + 300)); sleep 1
-	x xdotool mousemove $((X + 60)) $((Y + 95)); sleep "$SETTLE"
+	x xdotool mousemove $((X + 60)) $((Y + 151)); sleep "$SETTLE"
 	shot "$label-cursor.png"
 	x xdotool click 1; sleep "$SETTLE"
-	x xdotool mousemove $((X + 150)) $((Y + 154)); sleep 2
+	x xdotool mousemove $((X + 150)) $((Y + 210)); sleep 2
 	x xdotool mousedown 1; sleep 2
-	x xdotool mousemove $((X + 240)) $((Y + 154)); sleep 2
-	x xdotool mousemove $((X + 330)) $((Y + 154)); sleep 2
+	x xdotool mousemove $((X + 240)) $((Y + 210)); sleep 2
+	x xdotool mousemove $((X + 330)) $((Y + 210)); sleep 2
 	x xdotool mouseup 1; sleep "$SETTLE"
 	shot "$label-select.png"
 	local rc=0

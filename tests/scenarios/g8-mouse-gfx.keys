@@ -3,15 +3,15 @@
 # shell and pointer, and into QUILLDOS.EXE from a QUILL_MOUSE file, so every frame's CRC-32 must be equal.
 @copy letter.rtf
 @open LETTER.RTF
-@dclick 45 90
+@dclick 45 146
 h e l l o
-@click 20 110
-@shiftclick 200 110
-@drag 150 154 330 154
-@tclick 120 203
+@click 20 166
+@shiftclick 200 166
+@drag 150 210 330 210
+@tclick 120 259
 @wheel 2
 @wheel -2
 @click 100 20
-@click 3 240
+@click 3 296
 f10 down down enter     # File > Save
 f10 end enter           # File > Exit
