@@ -212,7 +212,7 @@ The user dictionary and the ignore table left `App` for one `Store` chunk (`crat
 ### The shipped sample document (SITE-3)
 
 - **What ships.** `samples/demo.rtf` and `samples/demo.qld` replace `letter.*` as the sample on the installer disks (`SAMPLES\DEMO.QLD`, `SAMPLES\DEMO.RTF`), in the Try Quill floppy and as the document its two start scripts open. `tests/docs/letter.*` is kept as a fixture only.
-- **How it is made.** `samples/make-demo.sh` (with `--check` for the committed files) builds the RTF from `samples/demo.rtf.in` and the two 4-bit icons, then `quill convert` writes the QLD. The ReactOS web demo's wording is in `demo-reactos.*` and `demo-reactos16.*`.
+- **How it is made.** `samples/make-demo.sh` (with `--check` for the committed files) builds the RTF from `samples/demo.rtf.in` and the two 4-bit icons, then `quill convert` writes the QLD. The ReactOS web demo's wording is in `demo-reactos.*` and `demo-reactos16.*`. The 64 px icon ends the opening heading (text, no-break space, picture), so it sits on the heading's line on every build; it used to start the heading.
 - **Tests.** `crates/quill-cli/tests/samples.rs`: every sample opens with its two pictures, each QLD is what its RTF converts to, and QLD to RTF to QLD to RTF changes nothing.
 
 ## Blocked
