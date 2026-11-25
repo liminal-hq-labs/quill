@@ -1,0 +1,17 @@
+Windows Registry Editor Version 5.00
+
+; Demo polish for the Afterglow guest: no version watermark on the desktop, and the smooth dusk wallpaper.
+;
+; (c) Copyright 2026 Liminal HQ, Scott Morris
+; SPDX-License-Identifier: Apache-2.0 OR MIT
+
+; win32k paints "ReactOS Version ..." on the desktop when HKCU\Control Panel\Desktop PaintDesktopVersion is non-zero or
+; HKLM\...\Windows NT\CurrentVersion\Windows DisplayVersion is non-zero (and always in safe mode).
+[HKEY_CURRENT_USER\Control Panel\Desktop]
+"PaintDesktopVersion"=dword:00000000
+"Wallpaper"="C:\\ReactOS\\Web\\Wallpaper\\QuillSmooth.bmp"
+"WallpaperStyle"="2"
+"TileWallpaper"="0"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows]
+"DisplayVersion"=dword:00000000

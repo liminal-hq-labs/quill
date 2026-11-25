@@ -1,0 +1,43 @@
+# Provenance of the original Afterglow visual style
+
+**Licence:** Apache-2.0 OR MIT, (c) Copyright 2026 Liminal HQ, Scott Morris. That covers the scripts, the INI template, the generated `dist/afterglow.msstyles` and the generated pointers in `cursors/`. The style was made clean-room: no bitmap, INI text, section order or comment of another visual style (Lunar, Lautus, Mizu, Blackshade, Modern or Luna) was read, copied, traced or recoloured.
+
+## How each asset was produced
+
+| Asset | Made by | How |
+|---|---|---|
+| All 55 bitmaps (`art/...` in the build) | `agart.py`, drawn with `agdraw.py` | Procedural numpy drawing from the palette below: rounded rectangles sampled at pixel centres, a 1 px outline from the shape's own edge, flat colour bands ("two-band gloss") and per-row or per-column ramps. Glyphs (minimise, maximise, restore, close, help, arrows, tick, plus and minus) are set pixel by pixel in the code. Each image is stored as an uncompressed BMP in the smallest exact encoding (32 at 4 bits, 21 at 8 bits, 2 at 24 bits: the two caption strips), with magenta (255, 0, 255) as the transparent key |
+| Caption ramp | `agart.py` `caption()` | A ramp through the seven dusk steps of the Quill wallpaper (`#1f2554`, `#2a3164`, `#35366a`, `#42396c`, `#523d6c`, `#643f68`, `#7a4562`) across 48 stretched columns, a lighter top highlight, a soft upper band, a darker bottom edge and a gold ink line that fades out to the right. `STEPPED = True` gives seven flat steps instead |
+| `ini/dusk-normal.ini` | Written by hand | Section names, keys and values were chosen from the engine facts below and Microsoft's public part and state names; the structure (system colours, frame, scroll bars, dialog controls, bars, shell) and every comment are original |
+| `themes.ini`, `afterglow.rc`, string tables, `VERSIONINFO` | `gen.py` | Generated: `[Documentation]`, the resource names the engine looks up, the colour name `Dusk` and the size name `Normal` |
+| `dist/afterglow.msstyles` | `build.sh` | `llvm-rc` then `lld-link /dll /noentry /machine:x86 /nodefaultlib /Brepro`. Reproducible: SHA-256 `0f4615edd46eeb2e083f7bb8c50e8e555c81f2b92407bd6c5ce4d331f978ba36`, 119,808 bytes |
+| Pointers (`cursors/afterglow-*.cur`, `.ani`) | `cursors/gen-cursors.py` | Shapes defined in the script as polygons, circles, rounded rectangles and strokes on a 32-unit grid (arrow, help mark, spinner, the Quill-ring busy pointer, crosshair, I-beam, unavailable ring, double arrows, move cross, up arrow, a hand built from rounded rectangles), rasterised with Pillow at 8× and box-filtered to 32 × 32 with 8-bit alpha. Layers: a faint dark halo, a gold rim (rose for the unavailable pointer), a navy body (dusk step 1), a light inner highlight. Written as 32-bit ARGB `.cur` files with a 1-bit AND mask, and RIFF `ACON` `.ani` files with eight frames. Reproducible. No ReactOS or Windows pointer was opened, copied or traced |
+| Patched `user32.dll` (on the demo disk only, not in git) | `cursors/patch-user32.py` | Appends the pointer images to a copy of the guest's own `user32.dll` in a new `.agcur` section and repoints the `RT_GROUP_CURSOR` / `RT_CURSOR` entries; recomputes the PE checksum. The rest of the file is unchanged ReactOS (LGPL-2.1) |
+| `polish.reg`, `apply-polish.cmd` | Written by hand | Watermark switch and wallpaper path |
+| `afterglow-original.reg`, `apply.cmd`, `deploy.sh`, `vm.sh` | Written by hand | Adapted from the author's own earlier packaging and VM scripts and `../vm/` (mechanics, Apache-2.0 OR MIT, not art) |
+
+**Palette.** Liminal HQ Afterglow tokens (`apps/studio/src/theme/tokens.css` in `liminal-installer`, read only): `#050507`, `#0c0c10`, `#111116`, `#14161d`, `#1b1e28`, `#262a37`, text `#e0e0e0`, `#b4bfce`, `#7c8796`, gold `#ffaa40`, `#e89930`, `#ffd08e`, rose `#f43f5e` and its ramp (`#f995a6`, `#c9354e`). Quill wallpaper notes (`quill-wallpaper-notes.md`): the dusk glow steps, the horizon edge `#4a4580`, the ink `#f0a830`, the tile navy `#0a1230`, the gold ring tones `#b8893a` and `#e9dcb0`. Classic ReactOS client colours (212 208 200 and the rest), read from the guest's own `HKCU\Control Panel\Colors`.
+
+## What was consulted
+
+- **ReactOS 0.4.16 engine source** (GPL and LGPL code, read for facts about behaviour, nothing copied), tag `0.4.16-release`:
+  - `dll/win32/uxtheme`: `msstyles.c` (resource types `PACKTHEM_VERSION` = 3, `COLORNAMES`, `SIZENAMES`, `FILERESNAMES`, `TEXTFILE` `THEMES_INI`; section syntax; first property wins; app classes fall back to `globals`, not to the base class; image names map `\ / .` to `_`), `draw.c` (image selection, `ImageCount`, sizing margins, `TrueSize`, transparency, glyph images, border fill, text colour and single text shadow), `nonclient.c` and `themehooks.c` (which window parts are drawn, eight caption button states, the window region taken from the caption image), `ncscrollbar.c`, `metric.c` (`[SysMetrics]` is read only through `GetThemeSysColor`, `GetThemeSysSize`, `GetThemeSysFont`), `system.c` (`[Documentation]` and string tables 1000, 3000, 5000 to 5007), `uxini.c` (comments, no byte-order mark), `stylemap.c` (the class, part, state, property and enum names the parser accepts), `pngsup.cpp` and `CMakeLists.txt` (PNG images are not built into 0.4.16).
+  - `dll/win32/comctl32`: which classes, parts and states each control opens (`button.c`, `combo.c`, `edit.c`, `listbox.c`, `progress.c`, `theme_scrollbar.c`, `header.c`, `status.c`, `updown.c`, `tab.c`, `treeview.c`, `trackbar.c`, `listview.c`, `toolbar.c`, `rebar.c`, `tooltips.c`).
+  - `base/shell/explorer`: the class names the shell asks for (`TaskBar`, `TaskBand`, `Start`, `TrayNotify`, `TrayNotifyHoriz`, `Clock`, `ShowDesktop`) and that the clock needs a `Font` from the style.
+  - `dll/cpl/desk/theme.c`: Display Properties copies `[SysMetrics]` colours and sizes into the scheme when a style is picked there.
+  - `win32ss/user/ntuser`: `sysparams.c` (the `WindowMetrics` values and their twip conversion, `PaintDesktopVersion`), `metric.c` (`SM_CYCAPTION` = `CaptionHeight` + 1, `SM_CYSIZE` = `CaptionHeight`, frame sizes), `desktop.c` and `ntuser.c` (the version watermark and `DisplayVersion`), `cursoricon.c` (`SetSystemCursor` does not replace a loaded cursor); `win32ss/user/user32/windows/cursoricon.c` (system cursors come from user32's resources at boot; 32-bit alpha and `.ani` loading); `win32ss/user/user32/user32.rc` (the cursor resource ids); `dll/cpl/main/mouse.c` (the scheme registry layout and order).
+  - `sdk/include/psdk/vssym32.h`: part and state numbers (Microsoft's public names, as in the "Parts and States" documentation).
+- **Microsoft's public visual styles documentation** ("Parts and States", the property names): only through the names in `vssym32.h` and `stylemap.c`; no web page text was used.
+- **The author's earlier packaging scripts** (`build.sh`, `deploy.sh`, `vm.sh`, `apply.cmd` and the resource-script part of `gen.py`), for packaging mechanics only. They are not part of this repository and no art, INI text or bitmap came from them.
+
+## Pointers: where other pointer sets were looked at
+
+No pointer art was copied or traced. `user32.rc`'s list of resource ids and names was read, to know which groups to repoint, and the stock ReactOS pointers in the guest's `user32.dll` were measured for their bounding boxes and hot spots only, so the Afterglow pointers match their footprint (a comparison sheet renders the stock pointers next to ours for scale; it is not committed and none of their pixels are used). The patch keeps ReactOS's own pointer images inside `user32.dll` (the old groups' data stays in the file, unused).
+
+## Where Lunar was looked at
+
+**Nowhere.** No file under `media/themes/` was opened, listed for content or diffed during this work: not Lunar's INI, not its `lunar.rc`, not its bitmaps. Engine behaviour came from the engine source listed above and from testing in the guest. The earlier packaging scripts' resource script carried two resources specific to another style (`COMBODATA`, `MINDEPTH`) that this style does not use, since the engine never reads them. The caption strips are 64 × 24 per state and the caption buttons 16 × 16 per state, sizes chosen from the engine's own behaviour.
+
+## Owner review before publishing
+
+The clean-room position holds if the record above is accurate. Before the style goes on the public page, a quick review is recommended: look over `agart.py` and `ini/dusk-normal.ini`, compare the contact sheet (`contact-sheet.png` in the build folder) with Lunar's bitmaps if desired, and confirm that the Start orb drawn on the button (a ReactOS shell icon, not part of this file) is acceptable.

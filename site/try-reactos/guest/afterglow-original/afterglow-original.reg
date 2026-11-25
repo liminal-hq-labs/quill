@@ -1,0 +1,57 @@
+Windows Registry Editor Version 5.00
+
+; Selects the original Afterglow visual style (colour "Dusk", size "Normal") for the current user, with its caption metrics and
+; pointer scheme. The colour block tunes only the title colours of the classic scheme; every colour an application's client area
+; uses stays the classic cream scheme.
+;
+; (c) Copyright 2026 Liminal HQ, Scott Morris
+; SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\ThemeManager]
+"ThemeActive"="1"
+"DllName"="C:\\ReactOS\\Resources\\Themes\\Afterglow\\afterglow.msstyles"
+"ColorName"="Dusk"
+"SizeName"="Normal"
+
+[HKEY_CURRENT_USER\Control Panel\Colors]
+"ActiveTitle"="31 37 84"
+"GradientActiveTitle"="122 69 98"
+"InactiveTitle"="20 22 29"
+"GradientInactiveTitle"="27 30 40"
+"TitleText"="255 255 255"
+"InactiveTitleText"="124 135 150"
+
+; Caption metrics, in negative twips (-15 per pixel at 96 dpi), read by win32k at logon. SM_CYCAPTION becomes 25 and SM_CYSIZE
+; 24; the theme engine then draws the title in a 14 px box, so an 8 pt bold title is never clipped. Small (tool window)
+; captions get 23. The frame (BorderWidth) and the fonts stay as they are; ReactOS 0.4.16 has no PaddedBorderWidth.
+[HKEY_CURRENT_USER\Control Panel\Desktop\WindowMetrics]
+"CaptionHeight"="-360"
+"CaptionWidth"="-360"
+"SmCaptionHeight"="-345"
+"SmCaptionWidth"="-345"
+
+; The Afterglow pointer scheme, listed as "Afterglow" in Control Panel, Mouse, Pointers (static busy pointers: the dialog shows no
+; preview for the .ani versions, which ship next to them). ReactOS 0.4.16 does not load a pointer
+; scheme (see cursors/patch-user32.py); the deploy script also puts the pointers into the guest's user32.dll so they are the
+; system pointers.
+[HKEY_CURRENT_USER\Control Panel\Cursors]
+@="Afterglow"
+"Scheme Source"=dword:00000001
+"Arrow"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-arrow.cur"
+"Help"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-help.cur"
+"AppStarting"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-working.cur"
+"Wait"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-busy.cur"
+"Crosshair"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-cross.cur"
+"IBeam"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-ibeam.cur"
+"NWPen"=""
+"No"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-no.cur"
+"SizeNS"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-size-ns.cur"
+"SizeWE"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-size-we.cur"
+"SizeNWSE"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-size-nwse.cur"
+"SizeNESW"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-size-nesw.cur"
+"SizeAll"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-move.cur"
+"UpArrow"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-up.cur"
+"Hand"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-hand.cur"
+
+[HKEY_CURRENT_USER\Control Panel\Cursors\Schemes]
+"Afterglow"="C:\\ReactOS\\Cursors\\Afterglow\\afterglow-arrow.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-help.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-working.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-busy.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-cross.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-ibeam.cur,,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-no.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-size-ns.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-size-we.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-size-nwse.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-size-nesw.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-move.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-up.cur,C:\\ReactOS\\Cursors\\Afterglow\\afterglow-hand.cur"
