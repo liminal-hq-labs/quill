@@ -48,8 +48,11 @@ done
 # With the Afterglow theme (below) the wallpaper is the Quillified one it ships with, not WALLPAPER_BMP.
 [ -n "${AFTERGLOW_DIR:-}" ] && [ -f "$AFTERGLOW_DIR/afterglow.msstyles" ] && [ -f "$AFTERGLOW_DIR/quill-wallpaper.bmp" ] && WALL=$AFTERGLOW_DIR/quill-wallpaper.bmp
 mcopy -i "$D" "$WALL" ::/ReactOS/Web/Wallpaper/Quill.bmp
-python3 -I "$HERE/make-lnk.py" "$VMDIR/lnk/Quill.lnk" 'C:\Quill\QUILL32.EXE' --args 'C:\Quill\DEMO.QLD' --cwd 'C:\Quill' --desc 'Quill, 32-bit build, opening the demo letter'
-python3 -I "$HERE/make-lnk.py" "$VMDIR/lnk/Quill16.lnk" 'C:\Quill\QUILL.EXE' --args 'C:\Quill\DEMO16.QLD' --cwd 'C:\Quill' --desc 'Quill, Windows 3.x build, opening the demo letter. Slow: WineVDM inside the emulator is emulation inside emulation' --show 1
+# The desktop shortcuts use QUILLDESK.ICO, built from the repository's icon art with the detailed master at 32, 48 and 256 px (make_desk_icon.py).
+python3 -I "$HERE/make_desk_icon.py" "$VMDIR/stage/QUILLDESK.ICO"
+mcopy -o -i "$D" "$VMDIR/stage/QUILLDESK.ICO" ::/Quill/QUILLDESK.ICO
+python3 -I "$HERE/make-lnk.py" "$VMDIR/lnk/Quill.lnk" 'C:\Quill\QUILL32.EXE' --args 'C:\Quill\DEMO.QLD' --cwd 'C:\Quill' --desc 'Quill, 32-bit build, opening the demo letter' --icon 'C:\Quill\QUILLDESK.ICO'
+python3 -I "$HERE/make-lnk.py" "$VMDIR/lnk/Quill16.lnk" 'C:\Quill\QUILL.EXE' --args 'C:\Quill\DEMO16.QLD' --cwd 'C:\Quill' --desc 'Quill, Windows 3.x build, opening the demo letter. Slow: WineVDM inside the emulator is emulation inside emulation' --show 1 --icon 'C:\Quill\QUILLDESK.ICO'
 U="::/Documents and Settings/Administrator/Desktop"
 for f in "Applications Manager" "Command Prompt" "Read Me"; do mdel -i "$D" "$U/$f.lnk"; done
 mcopy -i "$D" "$VMDIR/lnk/Quill.lnk" "$U/Quill.lnk"

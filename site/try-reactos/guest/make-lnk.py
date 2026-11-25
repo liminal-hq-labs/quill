@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Write a minimal Windows shell link (.lnk): a local target path, optional arguments, working folder and description.
-# Usage: make-lnk.py OUT.lnk TARGET [--args ARGS] [--cwd DIR] [--desc TEXT] [--show 1|3|7]
+# Usage: make-lnk.py OUT.lnk TARGET [--args ARGS] [--cwd DIR] [--desc TEXT] [--show 1|3|7] [--icon FILE [--icon-index N]]
+# --icon names an .ico (or any file with icons) and the index inside it, instead of the target's own icon.
 # The link carries no ID list, only LinkInfo with the local base path, which the Wine-derived shell32 in ReactOS reads.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
@@ -11,6 +12,7 @@ p = argparse.ArgumentParser()
 p.add_argument("out"); p.add_argument("target")
 p.add_argument("--args", default=""); p.add_argument("--cwd", default=""); p.add_argument("--desc", default="")
 p.add_argument("--show", type=int, default=1)
+p.add_argument("--icon", default=""); p.add_argument("--icon-index", type=int, default=0)  # default: the target's own first icon
 a = p.parse_args()
 
 HAS_LINKINFO, HAS_NAME, HAS_WORKDIR, HAS_ARGS, HAS_ICON = 0x2, 0x4, 0x10, 0x20, 0x40
@@ -23,7 +25,7 @@ flags |= HAS_ICON  # the icon comes from the target itself, as there is no ID li
 header = struct.pack("<I", 0x4C)
 header += bytes.fromhex("0114020000000000C000000000000046")  # CLSID 00021401-0000-0000-C000-000000000046
 header += struct.pack("<IIQQQ", flags, 0x20, 0, 0, 0)  # attributes (archive), three FILETIMEs
-header += struct.pack("<IIIHHII", 0, 0, a.show, 0, 0, 0, 0)  # size, icon index, show command, hotkey, three reserved
+header += struct.pack("<IiIHHII", 0, a.icon_index, a.show, 0, 0, 0, 0)  # size, icon index, show command, hotkey, three reserved
 
 base = a.target.encode("ascii") + b"\0"
 vol_label = b"\0"
@@ -42,6 +44,6 @@ out = header + linkinfo
 if a.desc: out += counted(a.desc)
 if a.cwd: out += counted(a.cwd)
 if a.args: out += counted(a.args)
-out += counted(a.target)
+out += counted(a.icon or a.target)
 out += struct.pack("<I", 0)  # terminal block
 open(a.out, "wb").write(out)
