@@ -23,7 +23,7 @@ The Rust-on-DOS foundation in this folder comes from [Desk](https://github.com/l
 | `hal/Cargo.toml`, `hal/clippy.toml` | Desk's `hal/` | Drops the `serial` and `pit` members, which Quill does not use (`pic` came back for the IRQ 12 handler). `clippy.toml` keeps the ban on compare-and-swap (DOSBox with `cputype = 486` rejects `CMPXCHG`) and gains a header |
 | `hal/rustfmt.toml`, `hal/.cargo/config.toml` | Quill's | Hard tabs at 130 columns. The config sets the host target and clears `-Zbuild-std`, so `cd dos/hal && cargo test` runs on the host although `dos/.cargo/config.toml` builds for DOS |
 | `rt/src/bios.rs` | `dos/rt/src/hal.rs` (`DosBios`, `buffer_segment`) | Only `DosBios`: `DosDisplay` and the mode restore stay out until `quill-gfx` needs them. A new file header |
-| `.cargo/config.toml` | The installer's `dos/` | Adds `-C llvm-args=-inline-threshold=28`, which holds `QUILLDOS.EXE` under its budget (DOS-28) |
+| `.cargo/config.toml` | The installer's `dos/` | Adds `-C llvm-args=-inline-threshold=20`, which holds `QUILLDOS.EXE` under its budget (DOS-28) |
 | `build.sh`, `check.sh` | The installer's `dos/` | Build `quill-dos` and pack it as `QUILLDOS.EXE` |
 
 Every copied file has its Desk header, which names the same copyright holder and licence as this repository's, so none needed changing. The files were reformatted with hard tabs (`cargo fmt` in `dos/hal`), and nothing else in them was touched.
