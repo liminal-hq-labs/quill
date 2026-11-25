@@ -11,8 +11,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::rc::Rc;
 
+use adw::prelude::*;
 use gtk::gio;
-use gtk::prelude::*;
 use quill_fonts::FontSet;
 use quill_gtk::doc::Document;
 use quill_gtk::files::GuiFiles;
@@ -36,6 +36,8 @@ For tests and screenshots:
       --dark, --light  Force the desk's theme
       --vendored-fonts Use only the fonts shipped with Quill
       --open-dialog    Open the Open dialog at start
+      --dialog NAME    Show a dialog at start: find, replace, fonts, tabs, spelling or about
+      --self-test-dialogs  Show every dialog, press its buttons, report and quit
       --no-settings    Do not read or write the window settings";
 
 fn parse() -> Result<(Opts, Vec<PathBuf>, bool), String> {
@@ -64,6 +66,8 @@ fn parse() -> Result<(Opts, Vec<PathBuf>, bool), String> {
 			"--light" => o.dark = Some(false),
 			"--vendored-fonts" => o.vendored_fonts = true,
 			"--open-dialog" => o.open_dialog = true,
+			"--dialog" => o.dialog = Some(value(&a, &mut args)?),
+			"--self-test-dialogs" => o.self_test_dialogs = true,
 			"--no-settings" => o.no_settings = true,
 			"--new-instance" => new_instance = true,
 			s if s.starts_with("--") => return Err(format!("unknown option {s}")),
@@ -94,7 +98,7 @@ fn main() -> ExitCode {
 			return ExitCode::from(2);
 		}
 	};
-	if gtk::init().is_err() {
+	if adw::init().is_err() {
 		eprintln!("quill: cannot open a display");
 		return ExitCode::FAILURE;
 	}
@@ -102,15 +106,16 @@ fn main() -> ExitCode {
 	if new_instance || opts.screenshot.is_some() {
 		flags |= gio::ApplicationFlags::NON_UNIQUE;
 	}
-	let app = gtk::Application::builder()
-		.application_id("io.github.liminal_hq_labs.Quill")
+	window::install_icons();
+	let app = adw::Application::builder()
+		.application_id(window::APP_ID)
 		.flags(flags)
 		.build();
 	let ui: Rc<RefCell<Option<Rc<Ui>>>> = Rc::default();
 	let make = {
 		let ui = ui.clone();
 		let opts = opts.clone();
-		move |app: &gtk::Application| -> Option<Rc<Ui>> {
+		move |app: &adw::Application| -> Option<Rc<Ui>> {
 			if let Some(u) = ui.borrow().clone() {
 				return Some(u);
 			}

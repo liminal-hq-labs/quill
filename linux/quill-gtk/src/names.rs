@@ -41,6 +41,27 @@ pub fn title(name: Option<&str>, modified: bool) -> String {
 	}
 }
 
+/// The heading of the header bar: the name with the `*` mark when there are unsaved changes, or `Untitled` with no name.
+pub fn heading(name: Option<&str>, modified: bool) -> String {
+	format!(
+		"{}{}",
+		if modified { "*" } else { "" },
+		name.unwrap_or("Untitled")
+	)
+}
+
+/// The header bar's subtitle: the folder the file is in, with the home folder shortened to `~`.
+pub fn subtitle(path: Option<&Path>, home: Option<&Path>) -> String {
+	let Some(dir) = path.and_then(Path::parent) else {
+		return String::new();
+	};
+	match home.and_then(|h| dir.strip_prefix(h).ok()) {
+		Some(rest) if rest.as_os_str().is_empty() => "~".to_string(),
+		Some(rest) => format!("~/{}", rest.display()),
+		None => dir.display().to_string(),
+	}
+}
+
 /// What to say when a file would not open.
 pub fn open_failure(name: &str, e: FormatError) -> String {
 	match e {
@@ -68,6 +89,20 @@ mod tests {
 		);
 		assert_eq!(title(None, false), "Quill");
 		assert_eq!(title(None, true), "*Quill");
+	}
+
+	#[test]
+	fn the_header_names_the_document_and_its_folder() {
+		assert_eq!(heading(Some("a.qld"), true), "*a.qld");
+		assert_eq!(heading(None, false), "Untitled");
+		let home = Path::new("/home/a");
+		assert_eq!(
+			subtitle(Some(Path::new("/home/a/docs/x.qld")), Some(home)),
+			"~/docs"
+		);
+		assert_eq!(subtitle(Some(Path::new("/home/a/x.qld")), Some(home)), "~");
+		assert_eq!(subtitle(Some(Path::new("/srv/x.qld")), Some(home)), "/srv");
+		assert_eq!(subtitle(None, Some(home)), "");
 	}
 
 	#[test]

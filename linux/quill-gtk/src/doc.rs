@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use quill_app::picture::WINDOW;
 use quill_app::view::page_width;
-use quill_app::App;
+use quill_app::{App, Command, Dialog, Mark};
 use quill_core::doc::StoryKind;
 use quill_core::layout::{dump_story, to_units};
 use quill_fonts::{FontSet, MeasureGlyphs, OutlineMeasure};
@@ -21,7 +21,7 @@ use quill_paint::pixel::{ByteOrder, PixelBuffer};
 use quill_paint::{Rect, Rgb, Surface};
 
 use crate::files::GuiFiles;
-use crate::names::{display_editor_name, display_name, open_failure, title};
+use crate::names::{display_editor_name, display_name, heading, open_failure, subtitle, title};
 use crate::view::{Geometry, View, Zoom};
 
 /// The section of `QUILL.INI` that holds the recent files of a build with long names.
@@ -87,6 +87,8 @@ impl Document {
 		app.reset(&mut store)
 			.map_err(|_| "There is not enough memory to start Quill.".to_string())?;
 		app.set_recent_section(RECENT_SECTION);
+		// Dialogs are the window's, never text cells (D86): a command that wants one leaves a `Dialog` request.
+		app.set_native_dialogs(true);
 		app.load_settings(&mut files);
 		let mut doc = Document {
 			layout: measure(),
@@ -148,9 +150,146 @@ impl Document {
 			.collect()
 	}
 
+	/// Writes the document as the editor does when told the person chose not to save: clears its changed mark so a command that
+	/// replaces it can go on.
+	pub fn discard_changes(&mut self) {
+		self.with(|app, _, _| app.discard_changes());
+	}
+
+	/// True when there are changes that are not on disk: what the question on close is asked for.
+	pub fn unsaved_work(&self) -> bool {
+		self.app.unsaved_work()
+	}
+
+	/// True once the editor was asked to exit and has nothing left to ask.
+	pub fn quit_requested(&self) -> bool {
+		self.app.quit()
+	}
+
 	/// The window title.
 	pub fn title(&self) -> String {
 		title(self.name.as_deref(), self.app.modified())
+	}
+
+	/// Runs `f` over the app, its store and its files, then brings what a paint depends on up to date: a command from a menu, a
+	/// button or a dialog goes through here.
+	pub fn with<R>(
+		&mut self,
+		f: impl FnOnce(&mut App<OutlineMeasure>, &mut HostStore, &mut GuiFiles) -> R,
+	) -> R {
+		let r = f(&mut self.app, &mut self.store, &mut self.files);
+		self.sync_name();
+		self.revision += 1;
+		self.geometry = self.measure_geometry();
+		r
+	}
+
+	/// Reads the app and its store: the state a menu, a bar or the ruler shows.
+	pub fn read<R>(&self, f: impl FnOnce(&App<OutlineMeasure>, &HostStore) -> R) -> R {
+		f(&self.app, &self.store)
+	}
+
+	/// Takes the editor's idea of the file name back into the path and the name shown: a new document has none, and a file the
+	/// editor opened itself (a recent file) has the path it kept.
+	fn sync_name(&mut self) {
+		let name = self.app.name();
+		if name.is_empty() {
+			self.path = None;
+			self.name = None;
+			return;
+		}
+		let shown = self.files.path_of(name);
+		if self.path.as_deref() != Some(shown.as_path()) {
+			self.name = Some(display_name(&shown));
+			self.path = Some(shown);
+		}
+	}
+
+	/// Starts an empty document. The changes are gone: ask first (`unsaved_work`).
+	pub fn new_document(&mut self) {
+		self.with(|app, s, f| {
+			app.discard_changes();
+			app.run_confirmed(s, f, Command::New);
+		});
+	}
+
+	/// Saves under the current name. `Err` says why not, for a message.
+	pub fn save(&mut self) -> Result<(), String> {
+		let shown = self.name.clone().unwrap_or_default();
+		self.with(|app, s, f| {
+			app.command(s, f, Command::Save);
+			if app.modified() {
+				Err(format!("{shown} could not be saved."))
+			} else {
+				Ok(())
+			}
+		})
+	}
+
+	/// Saves under a new name, adding the default extension when the name has none. `Err` says why not.
+	pub fn save_as(&mut self, path: &Path) -> Result<(), String> {
+		let name = self.files.name_for(path);
+		let mut buf = [0u8; crate::files::NAME_MAX + 8];
+		let n = name.len().min(crate::files::NAME_MAX);
+		buf[..n].copy_from_slice(&name[..n]);
+		let n = quill_app::savename::complete_name(&mut buf, n, 1);
+		let name = buf[..n].to_vec();
+		let shown = display_name(path);
+		let ok = self.with(|app, s, f| app.save_as(s, f, &name));
+		if ok {
+			Ok(())
+		} else {
+			Err(format!("{shown} could not be saved."))
+		}
+	}
+
+	/// Inserts a picture at the caret.
+	pub fn insert_picture(&mut self, path: &Path) -> Result<(), String> {
+		let name = self.files.name_for(path);
+		let shown = display_name(path);
+		self.with(|app, s, f| app.insert_picture(s, f, &name))
+			.map_err(|_| format!("{shown} is not a picture Quill can use."))
+	}
+
+	/// The margin and width of the text in document pixels, and the paragraph at the caret, for the ruler.
+	pub fn ruler_info(&self) -> (i32, i32, quill_app::view::RulerState) {
+		self.read(|app, s| {
+			let page = &app.doc().page;
+			(
+				to_units(page.margin_l, 96),
+				to_units(page.text_w(), 96),
+				quill_app::view::RulerState::of(app, s),
+			)
+		})
+	}
+
+	/// Runs a command and returns the dialog it asked for, if any.
+	pub fn command(&mut self, c: Command) -> Option<Dialog> {
+		self.with(|app, s, f| {
+			app.command(s, f, c);
+			app.take_dialog()
+		})
+	}
+
+	/// The check mark and the greyed state of the menu item that runs `c`.
+	pub fn mark(&self, c: Command) -> Mark {
+		self.read(|app, s| app.menu_mark(s, c))
+	}
+
+	/// The font a document uses at the caret and its set of fonts the page can draw, for the formatting bar.
+	pub fn fonts(&self) -> &FontSet {
+		&self.fonts
+	}
+
+	/// The header bar's heading.
+	pub fn heading(&self) -> String {
+		heading(self.name.as_deref(), self.app.modified())
+	}
+
+	/// The header bar's subtitle.
+	pub fn subtitle(&self) -> String {
+		let home = std::env::var_os("HOME").map(PathBuf::from);
+		subtitle(self.path.as_deref(), home.as_deref())
 	}
 
 	/// The path of the open file.

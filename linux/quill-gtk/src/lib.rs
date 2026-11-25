@@ -11,10 +11,21 @@
 //! - [`files`] and [`names`] map between Linux paths and the editor's Windows-1252 names, over the terminal client's `LinuxFiles`.
 //! - [`settings`] keeps the window's size and state in `$XDG_CONFIG_HOME/quill`.
 //!
-//! The widgets are in the `quill` binary (`window`, `page`).
+//! - [`actions`], [`menu`], [`toolbar`], [`format_bar`], [`ruler`], [`status`] and [`dialogs`] are the chrome: the Windows build's
+//!   menus, toolbar, formatting bar, ruler, status bar and dialogs as GTK4 and libadwaita widgets over Gio actions that run the
+//!   shared `Command`s. Each has a plain-data part (the tree, the specs, the layout) that is tested without a display.
+//!
+//! The window and the page widget are in the `quill` binary (`window`, `page`).
 
+pub mod actions;
+pub mod dialogs;
 pub mod doc;
 pub mod files;
+pub mod format_bar;
+pub mod menu;
 pub mod names;
+pub mod ruler;
 pub mod settings;
+pub mod status;
+pub mod toolbar;
 pub mod view;

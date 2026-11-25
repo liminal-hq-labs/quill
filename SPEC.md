@@ -31,7 +31,7 @@ Quill is the companion application to the Liminal HQ blog series *Cross-compilin
 | DOS | `QUILLDOS.EXE` (go32 with a built-in DPMI host) | MS-DOS 5 or later on a 486 or later with a VGA | Text mode (80 × 25 or 80 × 50) first; a graphics mode with real fonts (`/G`) second |
 | Linux terminal | `quill-tty` | Linux, in a terminal of at least 80 × 25 | The DOS text screen on crossterm, with the same editor; see [docs/linux.md](docs/linux.md) |
 | Linux command line | `quill` | Linux | `cat`, `convert` and `info` for documents, with no screen |
-| Linux desktop | `quill` (`linux/quill-gtk`) | Linux with GTK 4.20 or later, on Wayland or X11 | A page viewer so far (open, scroll, zoom, drag and drop, dark desk), drawn by Quill's own renderer at the exact device scale; editing follows. Built in its own workspace; see [docs/linux.md](docs/linux.md) |
+| Linux desktop | `quill` (`linux/quill-gtk`) | Linux with GTK 4.20 or later, on Wayland or X11 | A libadwaita window with the Windows menu bar, toolbar, formatting bar, ruler, status bar and dialogs over a page viewer (open, scroll, zoom, drag and drop, dark desk), drawn by Quill's own renderer at the exact device scale; editing follows. Built in its own workspace; see [docs/linux.md](docs/linux.md) |
 
 - Every build reads and writes byte-identical `.QLD` and RTF files and has the same document limits, so a document moves between them unchanged. A build that cannot show a property keeps it (see [Build differences](#build-differences)).
 - Windows 95 on a 486 uses the Win16 build: the Win32 build's floor is a Pentium (D33).
@@ -100,7 +100,7 @@ Everything in this table is v1 unless the last column says otherwise. When time 
 - **Quill for Windows 95** (`QUILL32.EXE`, crate `quill-win9x`): the Win32 application.
 - **Quill for DOS** (`QUILLDOS.EXE`, crate `quill-dos`): the DOS application, text mode and graphics mode in one executable.
 - **Quill for Linux terminals** (`quill-tty`): the Linux terminal application, drawing `quill-grid`'s screen with crossterm.
-- **Quill for Linux desktops** (`quill-gtk`, binary `quill`): the GTK4 application. It shows a document's sheets through `quill-paint`'s pixel surface into a texture of exactly device size, with scrolling, zoom, the Open dialog, drag and drop and the recent files, over the same `App`; it does not edit yet.
+- **Quill for Linux desktops** (`quill-gtk`, binary `quill`): the GTK4 application. It shows a document's sheets through `quill-paint`'s pixel surface into a texture of exactly device size, with scrolling, zoom, the Open dialog, drag and drop and the recent files, over the same `App`; its libadwaita chrome (menu bar, toolbar, formatting bar, ruler, status bar, dialogs) runs the shared commands, but it has no keyboard or pointer editing yet.
 - **Quill command** (`quill`, crate `quill-cli`): `quill cat`, `quill convert` and `quill info`.
 - **Quill core** (`quill-core`): the document model, editing, undo and layout. Portable `no_std` Rust with no Windows or DOS dependency.
 - **Quill formats** (`quill-formats`): the native, RTF and plain text readers and writers.

@@ -235,6 +235,15 @@ impl View {
 		self.clamp();
 	}
 
+	/// Tells the view the sheets' size after an edit: the scroll stays where it is, held inside the document.
+	pub fn update_geometry(&mut self, geom: Geometry) {
+		self.geom = Geometry {
+			pages: geom.pages.max(1),
+			..geom
+		};
+		self.clamp();
+	}
+
 	fn clamp(&mut self) {
 		let (mx, my) = self.max_scroll();
 		self.x = self.x.clamp(0, mx);
@@ -295,6 +304,11 @@ impl View {
 	/// Home or End: the top or the bottom of the document.
 	pub fn to_edge(&mut self, end: bool) -> bool {
 		self.scroll_to(self.x, if end { i32::MAX } else { 0 })
+	}
+
+	/// The sheet's left edge in document pixels from the view's left (the page is centred when narrower than the view).
+	pub fn page_left(&self) -> i32 {
+		page_x0(self.visible().0, self.geom.page_w, self.x)
 	}
 
 	/// The sheets that are on screen. Each sheet is placed by `quill_app::view::page_x0`, so a page narrower than the window is

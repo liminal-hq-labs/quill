@@ -1,0 +1,19 @@
+# The desktop entry of the GTK4 client: its name, icon, command and the types it opens.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[Desktop Entry]
+Type=Application
+Name=Quill
+GenericName=Word Processor
+Comment=Write and edit Quill, Rich Text and plain text documents
+Exec=quill %F
+Icon=io.github.liminal_hq_labs.Quill
+Terminal=false
+StartupNotify=true
+StartupWMClass=io.github.liminal_hq_labs.Quill
+DBusActivatable=false
+Categories=Office;WordProcessor;GTK;
+MimeType=application/x-quill-document;application/rtf;text/rtf;text/plain;
+Keywords=word;document;rtf;text;
