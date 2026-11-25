@@ -41,15 +41,27 @@ pub static W16_NOALIAS: u8 = if cfg!(feature = "noalias") { 1 } else { 0 };
 pub static mut W16_CMD: [u16; 2] = [0; 2];
 
 /// Copies the command line (at most `out.len() - 1` bytes) into `out`, ends it with a zero, and returns its length.
+///
+/// Windows 3.1 ends the line with a zero. WineVDM (Windows on ReactOS) copies exactly the length byte's worth of text into the PSP and
+/// writes no terminator, so what follows the text is whatever the PSP held; a plain DOS line ends with CR. The text therefore stops at
+/// the first zero, CR or LF, and at the PSP's length byte (offset 0x80, counted from 0x81) when that is set.
 pub fn command_line(out: &mut [u8]) -> usize {
 	let (off, sel) = unsafe { (W16_CMD[0], W16_CMD[1]) };
 	if sel == 0 || out.is_empty() {
 		return 0;
 	}
+	let far = u32::from(sel) << 16 | u32::from(off);
+	let mut room = usize::MAX;
+	if (0x81..0x100).contains(&off) {
+		let len = usize::from(far_byte(u32::from(sel) << 16, 0x80));
+		if len > 0 {
+			room = (0x81 + len).saturating_sub(usize::from(off));
+		}
+	}
 	let mut n = 0;
-	while n + 1 < out.len() {
-		let b = far_byte(u32::from(sel) << 16 | u32::from(off), n as u32);
-		if b == 0 {
+	while n + 1 < out.len() && n < room {
+		let b = far_byte(far, n as u32);
+		if b == 0 || b == b'\r' || b == b'\n' {
 			break;
 		}
 		out[n] = b;

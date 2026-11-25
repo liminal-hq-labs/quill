@@ -17,6 +17,7 @@
 pub mod accel;
 pub mod bios;
 mod chrome;
+pub mod cmdline;
 pub mod datefmt;
 mod find;
 pub mod flow;
