@@ -301,6 +301,24 @@ fn measure_flag(e: u32, bit: u8) {
 	}
 }
 
+/// The advance of the leader character `ch` in `fr`: from the screen widths kept in far memory when they are there, else asked of
+/// `dc` (the same device, so the same widths). At least 1.
+fn leader_width(fr: &FontRef, dc: u32, ch: u8) -> i32 {
+	if let Some(base) = measures() {
+		let e = measure_entry(base, fr);
+		let mut f = 0u8;
+		unsafe { far_read(e + FLAGS_AT, &mut f, 1) };
+		if f & 1 != 0 {
+			let mut w = [0u8; 2];
+			unsafe { far_read(e + WIDTHS_AT + u32::from(ch - 32) * 2, w.as_mut_ptr(), 2) };
+			return i32::from(u16::from_le_bytes(w)).max(1);
+		}
+	}
+	let mut cw = [0i16; 1];
+	unsafe { GetCharWidth(dc, u32::from(ch), u32::from(ch), np(cw.as_mut_ptr())) };
+	i32::from(cw[0]).max(1)
+}
+
 impl Measure for Gdi16 {
 	fn resolution(&self) -> (u16, u16) {
 		if self.grid {
@@ -610,14 +628,7 @@ fn draw_line(
 								2 => b'-',
 								_ => b'_',
 							}];
-							let mut cw = [0i16; 1];
-							GetCharWidth(
-								dc,
-								u32::from(ch[0]),
-								u32::from(ch[0]),
-								np(cw.as_mut_ptr()),
-							);
-							let step = i32::from(cw[0]).max(1);
+							let step = leader_width(&fr, dc, ch[0]);
 							ts.mode(dc, TRANSPARENT);
 							ts.colour(
 								dc,
@@ -627,10 +638,20 @@ fn draw_line(
 									colour_of(app, s, &cfmt)
 								},
 							);
+							// The leader's characters go out in strings of up to 64, each as far from the last as the characters
+							// advance, where each one used to be a `TextOut` of its own.
+							let mut dots = [ch[0]; 64];
 							let mut dx = 0;
 							while dx + step <= w {
-								TextOut(dc, (tx + x + dx) as u32, base as u32, np(ch.as_ptr()), 1);
-								dx += step;
+								let k = (((w - dx) / step) as usize).min(dots.len());
+								TextOut(
+									dc,
+									(tx + x + dx) as u32,
+									base as u32,
+									np(dots.as_mut_ptr()),
+									k as u32,
+								);
+								dx += step * k as i32;
 							}
 						}
 					}
@@ -771,8 +792,8 @@ pub fn paint_page(
 			}
 			draw_line(dc, app, s, &sh.line, sh.label, tx, y, pages, &mut ts);
 		}
+		// The text alignment goes back with the `RestoreDC` below.
 		ts.done(dc);
-		SetTextAlign(dc, 0);
 		// The caret: a two-pixel bar the height of its line.
 		if app.editing() {
 			if let Some((idx, l, x)) = app.caret_xy(s) {

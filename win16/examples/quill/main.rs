@@ -315,13 +315,15 @@ fn page_area(hwnd: u32) -> Rect16 {
 	Rect16::new(0, view::chrome_height(app()), l.page_w, l.page_bottom)
 }
 
-/// The width of the vertical bar and the height of the horizontal one.
+/// The width of the vertical bar and the height of the horizontal one, asked of Windows once: every key lays the bars out several
+/// times, and the system's metrics do not change while the program runs.
 fn bar_size() -> (i32, i32) {
+	static mut BARS: (u16, u16) = (0, 0);
 	unsafe {
-		(
-			i32::from(GetSystemMetrics(2) as u16),
-			i32::from(GetSystemMetrics(3) as u16),
-		)
+		if BARS.0 == 0 {
+			BARS = (GetSystemMetrics(2) as u16, GetSystemMetrics(3) as u16);
+		}
+		(i32::from(BARS.0), i32::from(BARS.1))
 	}
 }
 
@@ -526,6 +528,11 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 /// Asks for the page and the status bar to be painted again, and nothing above them.
 fn invalidate_page(hwnd: u32) {
 	let (w, h) = client_size(hwnd);
+	invalidate_page_in(hwnd, w, h);
+}
+
+/// `invalidate_page` for a window whose client area is already known to be `w` by `h`.
+fn invalidate_page_in(hwnd: u32, w: i32, h: i32) {
 	let r = Rect16::new(0, view::chrome_height(app()), w, h);
 	#[cfg(feature = "bench")]
 	bench::inv(&r);
@@ -569,8 +576,16 @@ fn update_scroll(hwnd: u32) {
 	if sh().grid {
 		return;
 	}
-	let (app, s) = (app(), store());
 	let (cw, ch) = client_size(hwnd);
+	update_scroll_in(hwnd, cw, ch);
+}
+
+/// `update_scroll` for a window whose client area is already known to be `cw` by `ch`.
+fn update_scroll_in(hwnd: u32, cw: i32, ch: i32) {
+	if sh().grid {
+		return;
+	}
+	let (app, s) = (app(), store());
 	let lines = app.line_total(s).saturating_sub(1).min(32000);
 	let hmax = view::hscroll_max(app, layout(cw, ch, false).page_w).min(32000);
 	let sh = sh();
@@ -612,9 +627,9 @@ fn update_scroll(hwnd: u32) {
 }
 
 /// Scrolls sideways, when the window is narrower than the page, until the caret is in view.
-fn follow_caret(hwnd: u32) {
+fn follow_caret(hwnd: u32, cw: i32, ch: i32) {
 	let (app, s) = (app(), store());
-	let w = page_w(hwnd);
+	let w = layout(cw, ch, false).page_w;
 	if sh().grid || !app.editing() || view::hscroll_max(app, w) == 0 {
 		return;
 	}
@@ -628,7 +643,7 @@ fn follow_caret(hwnd: u32) {
 		} else if at - sh.hscroll > w - slack {
 			sh.hscroll = at - (w - slack);
 		}
-		update_scroll(hwnd);
+		update_scroll_in(hwnd, cw, ch);
 	}
 }
 
@@ -686,12 +701,14 @@ fn after_edit(hwnd: u32, before: u32) {
 	}
 	retitle(hwnd);
 	let scrolled = sh().hscroll;
-	update_scroll(hwnd);
-	follow_caret(hwnd);
+	// A key does not change the window's size: it is asked for once.
+	let (cw, ch) = client_size(hwnd);
+	update_scroll_in(hwnd, cw, ch);
+	follow_caret(hwnd, cw, ch);
 	if before != view::signature(app(), store()) || scrolled != sh().hscroll {
 		invalidate_all(hwnd);
 	} else {
-		invalidate_page(hwnd);
+		invalidate_page_in(hwnd, cw, ch);
 	}
 	if app().quit() {
 		unsafe { DestroyWindow(hwnd) };
@@ -1375,8 +1392,11 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 			WM_ERASEBKGND => 1,
 			WM_KEYDOWN => {
 				tips::dismiss();
-				let shift = GetKeyState(0x10) & 0x8000 != 0;
 				let ctrl = GetKeyState(0x11) & 0x8000 != 0;
+				// Shift changes what only Ctrl shortcuts, the cursor keys (Home to Down), Insert and Delete mean, so a character
+				// key does not ask for it.
+				let shifts = ctrl || matches!(wparam, 0x21..=0x28 | 0x2D | 0x2E);
+				let shift = shifts && GetKeyState(0x10) & 0x8000 != 0;
 				if let Some(k) = map_vk(wparam, shift, ctrl) {
 					press(hwnd, k);
 				} else if let Some(a) = accel::from_vk(wparam as u16, ctrl, shift, false) {
