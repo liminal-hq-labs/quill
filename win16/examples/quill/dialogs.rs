@@ -763,6 +763,7 @@ pub fn handle(owner: u32) {
 			quill_app::Dialog::Open => {
 				let mut path = [0u8; 128];
 				if let Some(n) = file_dialog(owner, FileKind::Open, &mut path) {
+					crate::set_clock();
 					if a.open(s, &mut Win16Files, &path[..n]).is_err() {
 						a.set_message("Quill cannot open that file.");
 					}

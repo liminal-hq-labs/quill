@@ -509,8 +509,40 @@ pub fn dos_date() -> (u16, u8, u8) {
 	(u16::from(out[0]) | u16::from(out[1]) << 8, out[2], out[3])
 }
 
+/// The time from DOS (function 2Ch): hour and minute.
+pub fn dos_time() -> (u8, u8) {
+	let mut out = [0u8; 2];
+	unsafe {
+		asm!(
+			"push ebx",
+			"push esi",
+			"push edi",
+			"mov ss, word ptr [__w16_ss16]",
+			"movzx esp, sp",
+			"int 0x21",
+			"mov byte ptr [{p}], ch",
+			"mov byte ptr [{p} + 1], cl",
+			".byte 0x66, 0xe8",
+			".long w16_sync_alias - . - 4",
+			"mov ss, word ptr [__w16_ss32]",
+			"movzx esp, sp",
+			"pop edi",
+			"pop esi",
+			"pop ebx",
+			"push ds",
+			"pop es",
+			p = in(reg) out.as_mut_ptr() as u16,
+			inout("ax") 0x2C00u16 => _,
+			out("cx") _,
+			out("dx") _,
+			options(nostack),
+		);
+	}
+	(out[0], out[1])
+}
+
 // A small text buffer for the result log. There is no `core::fmt`, which would cost tens of kilobytes of code.
-const LOG_SIZE: usize = 1024;
+const LOG_SIZE: usize = 640;
 
 pub struct Log {
 	buf: [u8; LOG_SIZE],
