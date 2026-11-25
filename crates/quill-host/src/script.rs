@@ -6,6 +6,8 @@
 use std::collections::HashMap;
 use std::fmt::Write as _;
 
+use quill_app::mouse::{Pointer, TextCells};
+use quill_app::script::{parse_pointer, Step};
 use quill_app::{App, Files, Key};
 use quill_grid::Grid;
 
@@ -76,10 +78,14 @@ pub fn parse_token(t: &str) -> Option<Key> {
 	quill_app::script::parse_token(t)
 }
 
-/// A key script: directives (`@mono`, `@rows N`, `@open NAME`, `@copy NAME`, `@live`) and key tokens, with `#` starting a comment.
+/// A key script: directives (`@mono`, `@rows N`, `@open NAME`, `@copy NAME`, `@live`), key tokens and pointer directives
+/// (`@click x y`, `@shiftclick x y`, `@dclick x y`, `@tclick x y`, `@drag x1 y1 x2 y2`, `@wheel n`, in text cells), with `#` starting
+/// a comment.
 #[derive(Default)]
 pub struct Script {
-	/// The keys.
+	/// The keys and pointer actions, in order.
+	pub steps: Vec<Step>,
+	/// The keys, for scripts that have no pointer.
 	pub keys: Vec<Key>,
 	/// Start in the mono attribute scheme.
 	pub mono: bool,
@@ -111,9 +117,17 @@ pub fn parse_script(text: &str) -> Script {
 				}
 				"@open" => sc.open = it.next().map(str::to_string),
 				"@copy" => sc.copy.extend(it.next().map(str::to_string)),
-				_ => sc
-					.keys
-					.push(parse_token(t).unwrap_or_else(|| panic!("unknown key token {t:?}"))),
+				_ if t.starts_with('@') => {
+					let step = parse_pointer(t, &mut it)
+						.unwrap_or_else(|| panic!("unknown directive {t:?}"))
+						.unwrap_or_else(|e| panic!("{t}: {e}"));
+					sc.steps.push(step);
+				}
+				_ => {
+					let k = parse_token(t).unwrap_or_else(|| panic!("unknown key token {t:?}"));
+					sc.keys.push(k);
+					sc.steps.push(Step::Key(k));
+				}
 			}
 		}
 	}
@@ -147,8 +161,18 @@ fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &
 	let mut n = 1;
 	quill_app::draw(&app, &s, &mut g);
 	g.dump(n, frames).unwrap();
-	for k in &script.keys {
-		app.key(&mut s, files, *k);
+	let mut pointer = Pointer::default();
+	let target = TextCells {
+		rows: (ROWS - 2) as i32,
+	};
+	let mut tick = 0;
+	for step in &script.steps {
+		match step {
+			Step::Key(k) => app.key(&mut s, files, *k),
+			other => other.play(&mut tick, |ev, ctx| {
+				pointer.handle(&mut app, &mut s, files, &target, ev, ctx)
+			}),
+		}
 		quill_app::draw(&app, &s, &mut g);
 		n += 1;
 		g.dump(n, frames).unwrap();

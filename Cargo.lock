@@ -421,6 +421,7 @@ dependencies = [
  "quill-grid",
  "quill-image",
  "quill-inflate",
+ "quill-mouse",
  "quill-spell",
 ]
 
@@ -535,6 +536,7 @@ dependencies = [
  "quill-formats",
  "quill-grid",
  "quill-heap",
+ "quill-mouse",
 ]
 
 [[package]]
@@ -554,6 +556,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-mouse"
+version = "0.0.0"
+
+[[package]]
 name = "quill-paint"
 version = "0.0.0"
 dependencies = [
@@ -564,6 +570,7 @@ dependencies = [
  "quill-heap",
  "quill-host",
  "quill-image",
+ "quill-mouse",
  "quill-strike",
 ]
 

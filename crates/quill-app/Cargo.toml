@@ -12,6 +12,7 @@ quill-formats = { path = "../quill-formats" }
 quill-grid = { path = "../quill-grid" }
 quill-image = { path = "../quill-image" }
 quill-inflate = { path = "../quill-inflate" }
+quill-mouse = { path = "../quill-mouse" }
 quill-spell = { path = "../quill-spell" }
 
 [features]

@@ -17,7 +17,7 @@ pub const TEXT_ROWS: usize = 23;
 pub const MENU_COUNT: u8 = 9;
 
 /// The column each menu's title starts at on the DOS menu bar.
-const MENU_COLS: [usize; 9] = [1, 7, 13, 21, 27, 38, 49, 59, 65];
+pub(crate) const MENU_COLS: [usize; 9] = [1, 7, 13, 21, 27, 38, 49, 59, 65];
 /// The attribute of a mnemonic letter on an unselected menu entry, and on the selected one.
 const HOT: u8 = 0x74;
 const HOT_SELECTED: u8 = 0x0E;

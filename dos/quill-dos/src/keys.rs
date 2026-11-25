@@ -14,11 +14,24 @@ use quill_app::{Dir, Key};
 /// Set when a key was typed while Alt was held, so that letting Alt go afterwards is the end of a chord and not a tap.
 static ALT_USED: AtomicBool = AtomicBool::new(false);
 
-/// Waits for the next key and decodes it; keys Quill has no use for come back as `None`. Alt pressed and let go with no key between
+/// What `wait_until` came back with.
+pub enum Wait {
+	/// A key was typed; `None` when Quill has no use for it.
+	Key(Option<Key>),
+	/// The caller's check asked to stop waiting.
+	Break,
+}
+
+/// Waits for the next key and decodes it; keys Quill has no use for come back as `Key(None)`. Alt pressed and let go with no key between
 /// comes back as F10, which is how Alt activates the menu bar: the BIOS reports only the state of Alt, so this polls it while it waits.
-pub fn wait() -> Option<Key> {
+/// `check` is called each time round the idle loop (many times a tick, while no key is waiting) and `Break` comes back when it says
+/// true: the mouse is polled this way, so a click is acted on while the keyboard is quiet.
+pub fn wait_until(check: &mut dyn FnMut() -> bool) -> Wait {
 	let mut alt_down = false;
 	while !key_ready() {
+		if check() {
+			return Wait::Break;
+		}
 		if alt_flag() {
 			alt_down = true;
 		} else if alt_down {
@@ -26,7 +39,7 @@ pub fn wait() -> Option<Key> {
 			if ALT_USED.swap(false, Ordering::Relaxed) {
 				alt_down = false;
 			} else if !key_ready() {
-				return Some(Key::F(10));
+				return Wait::Key(Some(Key::F(10)));
 			} else {
 				break;
 			}
@@ -41,7 +54,14 @@ pub fn wait() -> Option<Key> {
 	let ax: u32;
 	// SAFETY: INT 16h is a BIOS service with register arguments only.
 	unsafe { asm!("int 0x16", inout("eax") 0u32 => ax) };
-	let key = quill_app::bios::decode(ax as u8, (ax >> 8) as u8)?;
+	let Some(key) = quill_app::bios::decode(ax as u8, (ax >> 8) as u8) else {
+		return Wait::Key(None);
+	};
+	Wait::Key(with_shift(key))
+}
+
+/// The key as the shift keys make it: Shift with a movement key extends the selection.
+fn with_shift(key: Key) -> Option<Key> {
 	if shift_down() {
 		let dir = match key {
 			Key::Left => Dir::Left,
@@ -60,7 +80,7 @@ pub fn wait() -> Option<Key> {
 }
 
 /// True while a Shift key is held (INT 16h AH=02h, bits 0 and 1 of the shift flags).
-fn shift_down() -> bool {
+pub fn shift_down() -> bool {
 	let ax: u32;
 	// SAFETY: INT 16h is a BIOS service with register arguments only.
 	unsafe { asm!("int 0x16", inout("eax") 0x0200u32 => ax) };

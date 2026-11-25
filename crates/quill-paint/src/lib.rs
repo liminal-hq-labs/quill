@@ -22,6 +22,7 @@
 #[cfg(feature = "pixel")]
 extern crate alloc;
 
+pub mod cursor;
 pub mod damage;
 pub mod page;
 pub mod palette;

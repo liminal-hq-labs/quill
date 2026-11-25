@@ -385,3 +385,9 @@ fn captured_metrics_lay_the_letter_out_as_windows_me_did() {
 		std::fs::read_to_string(root().join("tests/golden/layout/letter.windows-me.txt")).unwrap();
 	assert_eq!(want.replace("\r\n", "\n"), dump);
 }
+
+#[test]
+fn g8_mouse_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("g8-mouse");
+	compare("tests/golden/screens/g8-mouse.frames.txt", &frames);
+}

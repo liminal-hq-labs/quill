@@ -24,6 +24,7 @@ quill-heap = { path = "../../crates/quill-heap" }
 quill-core = { path = "../../crates/quill-core" }
 quill-strike = { path = "../../crates/quill-strike" }
 quill-paint = { path = "../../crates/quill-paint" }
+quill-mouse = { path = "../../crates/quill-mouse" }
 desk-hal = { path = "../hal/hal" }
 desk-vga = { path = "../hal/drivers/vga" }
 

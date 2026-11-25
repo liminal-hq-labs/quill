@@ -141,3 +141,16 @@ pub fn cursor_shape(overtype: bool) {
 	let block = unsafe { BLOCK_CURSOR };
 	int10(0x0100, 0, u32::from(if overtype { block } else { 0x0607 }), 0);
 }
+
+/// Shows the pointer on the text screen: the cell at (column, row) with its colours swapped. `present` has just written every cell, so
+/// there is nothing to take back; the next `present` does that.
+pub fn pointer(at: (i32, i32), rows: usize) {
+	let (x, y) = (at.0.clamp(0, 79) as usize, at.1.clamp(0, rows as i32 - 1) as usize);
+	let cell = screen().wrapping_add(y * 80 + x);
+	// SAFETY: inside the text page, as `present`.
+	unsafe {
+		let w = cell.read_volatile();
+		let a = (w >> 8) as u8;
+		cell.write_volatile((w & 0xFF) | (u16::from(a.rotate_left(4)) << 8));
+	}
+}
