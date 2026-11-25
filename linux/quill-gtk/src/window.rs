@@ -56,8 +56,13 @@ pub struct Opts {
 	pub vendored_fonts: bool,
 	/// Open the Open dialog at start.
 	pub open_dialog: bool,
+	/// Open the Save As dialog at start.
+	pub save_as_dialog: bool,
 	/// Show this dialog (`find`, `replace`, `fonts`, `tabs`, `spelling`, `about`) at start.
 	pub dialog: Option<String>,
+	/// Test hook: check the pointer's shape over a sheet and the desk and the scroll of a drag past the page's edge, report on
+	/// standard output and quit.
+	pub self_test_input: bool,
 	/// Show every dialog, press every button that does not close it, report each on standard output and quit.
 	pub self_test_dialogs: bool,
 	/// Force a dark or a light desk.
@@ -605,8 +610,18 @@ impl Ui {
 		if self.opts.open_dialog {
 			self.open_dialog();
 		}
+		if self.opts.save_as_dialog {
+			let ui = self.clone();
+			self.save_as_dialog(Box::new(move |_, _| ui.changed()));
+		}
 		if let Some(name) = self.opts.dialog.clone() {
 			self.show_dialog_named(&name);
+		}
+		if self.opts.self_test_input {
+			let ui = self.clone();
+			glib::timeout_add_local_once(std::time::Duration::from_millis(800), move || {
+				ui.self_test_input();
+			});
 		}
 		if self.opts.self_test_dialogs {
 			let ui = self.clone();
@@ -1155,6 +1170,36 @@ impl Ui {
 			*self.last_dialog.borrow_mut() = v.clone();
 		}
 		v
+	}
+
+	/// The test hook behind `--self-test-input`: the pointer's shape over a sheet and over the desk, and a drag that goes past the
+	/// bottom of the page, which must scroll the view and grow the selection.
+	fn self_test_input(self: &Rc<Self>) {
+		let shape = |ui: &Rc<Ui>, x: f64, y: f64| {
+			ui.update_cursor(x, y);
+			ui.page
+				.cursor()
+				.and_then(|c| c.name())
+				.map_or_else(|| "none".to_string(), |n| n.to_string())
+		};
+		let w = f64::from(self.page.width());
+		println!("cursor over a sheet: {}", shape(self, w / 2.0, 150.0));
+		println!("cursor over the desk: {}", shape(self, 2.0, 150.0));
+		let h = f64::from(self.page.height());
+		let none = gdk::ModifierType::empty();
+		let before = self.view.borrow().scroll().1;
+		self.pointer_event(none, 0, w / 2.0, 200.0, 0);
+		self.dragging.set(true);
+		for _ in 0..12 {
+			self.pointer_event(none, 0, w / 2.0, h + 30.0, 1);
+		}
+		self.pointer_event(none, 0, w / 2.0, h + 30.0, 2);
+		self.dragging.set(false);
+		let after = self.view.borrow().scroll().1;
+		let sel = self.doc.borrow().selection();
+		println!("drag past the bottom: scroll {before} -> {after}, selection {sel:?}");
+		self.closing.set(true);
+		self.window.close();
 	}
 
 	/// The test hook behind `--self-test-dialogs`: shows each dialog, presses every button that does not close it, and says what

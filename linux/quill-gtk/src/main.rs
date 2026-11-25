@@ -38,7 +38,9 @@ For tests and screenshots:
       --commit TEXT    Commit TEXT through the input method once the window is up
       --preedit TEXT   Show TEXT as being composed, under the caret
       --open-dialog    Open the Open dialog at start
+      --save-as-dialog Open the Save As dialog at start
       --dialog NAME    Show a dialog at start: find, replace, fonts, tabs, spelling or about
+      --self-test-input  Check the pointer's shape and a drag past the page's edge, report and quit
       --self-test-dialogs  Show every dialog, press its buttons, report and quit
       --no-settings    Do not read or write the window settings";
 
@@ -70,7 +72,9 @@ fn parse() -> Result<(Opts, Vec<PathBuf>, bool), String> {
 			"--commit" => o.commit = Some(value(&a, &mut args)?),
 			"--preedit" => o.preedit = Some(value(&a, &mut args)?),
 			"--open-dialog" => o.open_dialog = true,
+			"--save-as-dialog" => o.save_as_dialog = true,
 			"--dialog" => o.dialog = Some(value(&a, &mut args)?),
+			"--self-test-input" => o.self_test_input = true,
 			"--self-test-dialogs" => o.self_test_dialogs = true,
 			"--no-settings" => o.no_settings = true,
 			"--new-instance" => new_instance = true,
