@@ -8,7 +8,7 @@
 // the editor's own methods, as the Win32 build's `dialogs.rs` does (D86). The dialog procedures are exported far procedures, so they
 // run with DS loaded from SS, and `DialogBox` takes them as segment 1 offsets.
 use quill_app::view;
-use quill_app::{Command, FindAction};
+use quill_app::{Command, Files, FindAction};
 use w16::*;
 
 use crate::gdi::{Rect16, fp, np};
@@ -535,7 +535,20 @@ fn file_dialog(owner: u32, kind: FileKind, out: &mut [u8; 128]) -> Option<usize>
 		common_error();
 		return None;
 	}
-	let n = out.iter().position(|b| *b == 0).unwrap_or(0);
+	let mut n = out.iter().position(|b| *b == 0).unwrap_or(0);
+	if kind == FileKind::Save {
+		// COMMDLG adds `lpstrDefExt` only for a name it can see, and not every host does; so a name typed without an extension
+		// gets the chosen type's here, and the overwrite prompt then asks about the name that will be written.
+		let filter_index = ofn.filter_index;
+		let typed = n;
+		n = quill_app::savename::complete_name(&mut out[..], n, filter_index);
+		if n != typed && Win16Files.open(&out[..n]).is_some() {
+			// MB_YESNO | MB_ICONQUESTION
+			if message(owner, b"That file already exists. Replace it?", 0x24) != 6 {
+				return None;
+			}
+		}
+	}
 	app().remember_folder(&out[..n]);
 	Some(n)
 }
