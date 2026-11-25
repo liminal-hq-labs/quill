@@ -977,6 +977,14 @@ fn a_tab_stop_or_a_picture_wider_than_the_column_widens_the_content() {
 	assert_eq!(r.app.hscroll_pos(), shell::hrange(&r.app, &r.s, w));
 }
 
+/// How far the page is scrolled, in pixels.
+fn px(r: &Rig) -> i32 {
+	r.app.vscroll_pos(&r.s)
+}
+
+/// What an arrow of the vertical bar moves, in pixels.
+const LINE: i32 = quill_app::view::SCROLL_LINE;
+
 fn hold_at(r: &mut Rig, at: (i32, i32)) -> u32 {
 	r.down(at.0, at.1);
 	r.tick
@@ -988,17 +996,21 @@ fn a_held_arrow_repeats_after_a_delay_and_stops_on_release() {
 	let p = bar(&r);
 	let at = centre(p.down);
 	let t0 = hold_at(&mut r, at);
-	assert_eq!(r.app.top_line(), 1, "the press is one line at once");
+	assert_eq!(px(&r), LINE, "the press is one line at once");
 	r.wait(REPEAT_DELAY - 1);
-	assert_eq!(r.app.top_line(), 1, "nothing before the delay");
+	assert_eq!(px(&r), LINE, "nothing before the delay");
 	r.wait(1);
-	assert_eq!(r.app.top_line(), 2, "the first repeat comes at the delay");
+	assert_eq!(px(&r), 2 * LINE, "the first repeat comes at the delay");
 	r.wait(5);
-	assert_eq!(r.app.top_line(), 2 + 5 / REPEAT_STEP, "then one a step");
+	assert_eq!(
+		px(&r),
+		(2 + 5 / REPEAT_STEP) as i32 * LINE,
+		"then one a step"
+	);
 	r.up(at.0, at.1);
-	let after = r.app.top_line();
+	let after = px(&r);
 	r.wait(200);
-	assert_eq!(r.app.top_line(), after, "released: no more");
+	assert_eq!(px(&r), after, "released: no more");
 	assert!(r.tick > t0);
 	assert!(!r.g.holding());
 }
@@ -1009,13 +1021,13 @@ fn a_held_arrow_pauses_off_the_arrow_and_goes_on_when_the_pointer_returns() {
 	let at = centre(bar(&r).down);
 	hold_at(&mut r, at);
 	r.wait(REPEAT_DELAY);
-	let on = r.app.top_line();
+	let on = px(&r);
 	r.mv(300, 300);
 	r.wait(20);
-	assert_eq!(r.app.top_line(), on, "the pointer left the arrow");
+	assert_eq!(px(&r), on, "the pointer left the arrow");
 	r.mv(at.0, at.1);
 	r.wait(3);
-	assert!(r.app.top_line() > on, "back on it, it goes on");
+	assert!(px(&r) > on, "back on it, it goes on");
 	r.up(at.0, at.1);
 }
 
@@ -1025,22 +1037,19 @@ fn a_held_track_repeats_pages_and_stops_where_the_thumb_reaches_the_pointer() {
 	let p = bar(&r);
 	let at = (p.thumb.left + 4, p.thumb.bottom + 20);
 	hold_at(&mut r, at);
-	let first = r.app.top_line();
-	assert!(first > 1, "a page");
+	let first = px(&r);
+	assert!(first > LINE, "a page");
 	r.wait(REPEAT_DELAY + 400);
-	let top = r.app.top_line();
+	let top = px(&r);
 	let p = bar(&r);
 	assert!(
 		p.thumb.top <= at.1 && at.1 < p.thumb.bottom + 1 + 20,
 		"the thumb has come to the pointer"
 	);
 	r.wait(100);
-	assert_eq!(r.app.top_line(), top, "and the track stops there");
+	assert_eq!(px(&r), top, "and the track stops there");
 	r.up(at.0, at.1);
-	assert!(
-		(top as i32) < r.app.line_total(&r.s) as i32,
-		"short of the end"
-	);
+	assert!(top < r.app.vscroll_max(&r.s), "short of the end");
 }
 
 #[test]
@@ -1063,7 +1072,7 @@ fn a_clock_that_jumps_runs_a_bounded_number_of_repeats() {
 	let at = centre(bar(&r).down);
 	hold_at(&mut r, at);
 	r.wait(1_000_000);
-	assert!(r.app.top_line() <= 1 + 64 + 1, "{}", r.app.top_line());
+	assert!(px(&r) <= (1 + 64 + 1) * LINE, "{}", px(&r));
 	r.up(at.0, at.1);
 }
 
@@ -1291,53 +1300,75 @@ fn long_doc() -> Rig {
 }
 
 fn bar(r: &Rig) -> scroll::Parts {
-	let total = r.app.line_total(&r.s) as i32;
-	let view = (r.app.lines_in_view(&r.s) as i32).min(total);
-	scroll::parts(r.lay().vbar, true, r.app.top_line() as i32, total, view)
+	let view = r.app.vscroll_view();
+	let range = r.app.vscroll_max(&r.s);
+	scroll::parts(r.lay().vbar, true, px(r).min(range), range + view, view)
 }
 
 #[test]
 fn the_vertical_bar_scrolls_by_arrows_pages_and_thumb() {
 	let mut r = long_doc();
-	assert_eq!(r.app.top_line(), 0);
-	let total = r.app.line_total(&r.s) as i32;
-	let view = (r.app.lines_in_view(&r.s) as i32).min(total);
-	assert!(total > 2 * view);
+	assert_eq!(px(&r), 0);
+	let view = r.app.vscroll_view();
+	let range = r.app.vscroll_max(&r.s);
+	assert!(range > 2 * view);
 	let p = bar(&r);
 	r.click(centre(p.down));
-	assert_eq!(r.app.top_line(), 1, "the arrow is a line");
+	assert_eq!(px(&r), LINE, "the arrow is a line");
 	r.click(centre(p.up));
-	assert_eq!(r.app.top_line(), 0);
+	assert_eq!(px(&r), 0);
 	r.click(centre(p.up));
-	assert_eq!(r.app.top_line(), 0, "never above the first line");
+	assert_eq!(px(&r), 0, "never above the first line");
 	let p = bar(&r);
 	let below = (p.thumb.left + 4, p.thumb.bottom + 6);
 	r.click(below);
 	assert_eq!(
-		r.app.top_line() as i32,
-		view - 1,
+		px(&r),
+		view - 2 * LINE,
 		"the track below the thumb is a page"
 	);
 	let p = bar(&r);
 	r.click((p.thumb.left + 4, p.thumb.top - 4));
-	assert_eq!(r.app.top_line(), 0, "and above it a page back");
-	// Drag the thumb to the bottom of the track: the last page.
+	assert_eq!(px(&r), 0, "and above it a page back");
+	// Drag the thumb to the bottom of the track: the foot of the last sheet.
 	let p = bar(&r);
 	let grab = (p.thumb.left + 4, p.thumb.top + 3);
 	r.drag(grab, (grab.0, p.track.bottom + 40));
-	assert_eq!(r.app.top_line() as i32, total - view);
-	// And half way.
+	assert_eq!(px(&r), range);
+	// And half way, to the pixel the thumb stands for.
 	let p = bar(&r);
 	let grab = (p.thumb.left + 4, p.thumb.top + 3);
 	let half = p.track.top + p.travel / 2 + 3;
 	r.drag(grab, (grab.0, half));
-	let top = r.app.top_line() as i32;
-	assert!((top - (total - view) / 2).abs() <= 2, "{top}");
+	let slack = range / p.travel.max(1) + 2;
+	assert!((px(&r) - range / 2).abs() <= slack, "{}", px(&r));
 	// The thumb follows the position, as the painter will draw it.
 	let p = bar(&r);
 	assert!(p.thumb.top > p.track.top && p.thumb.bottom < p.track.bottom);
 	r.ev(Ev::Wheel(-100));
-	assert_eq!(r.app.top_line(), 0, "the wheel is the page's, as before");
+	assert_eq!(px(&r), 0, "the wheel is the page's, as before");
+}
+
+#[test]
+fn an_empty_page_has_a_bar_and_the_wheel_arrows_and_thumb_scroll_it() {
+	let (app, s, f) = new_app();
+	let mut r = Rig::of(app, s, f);
+	let range = r.app.vscroll_max(&r.s);
+	assert!(range > 0, "the sheet is taller than the window: {range}");
+	assert!(
+		bar(&r).thumb.height() < bar(&r).track.height(),
+		"so the bar has a thumb"
+	);
+	r.ev(Ev::Wheel(1));
+	assert_eq!(px(&r), 3 * LINE, "a notch is three lines");
+	r.click(centre(bar(&r).down));
+	assert_eq!(px(&r), 4 * LINE);
+	let p = bar(&r);
+	let grab = (p.thumb.left + 4, p.thumb.top + 3);
+	r.drag(grab, (grab.0, p.track.bottom + 40));
+	assert_eq!(px(&r), range, "the thumb drags to the foot of the sheet");
+	r.ev(Ev::Wheel(-1_000));
+	assert_eq!(px(&r), 0);
 }
 
 #[test]
@@ -1352,28 +1383,27 @@ fn a_few_tall_lines_still_have_a_vertical_bar_with_a_thumb_that_scrolls() {
 	let (app, s, f) = app_with("tall.rtf", rtf.as_bytes()).unwrap();
 	let mut r = Rig::of(app, s, f);
 	let total = r.app.line_total(&r.s) as i32;
-	let view = r.app.lines_in_view(&r.s) as i32;
 	assert!(
 		total <= r.app.page_rows() as i32,
 		"fewer lines than rows: {total}"
 	);
-	assert!(view < total, "but not all of them fit: {view} of {total}");
+	assert!(r.app.vscroll_max(&r.s) > 0, "but the page scrolls");
 	let p = bar(&r);
 	assert!(
 		p.thumb.height() < p.track.height(),
 		"so the bar has a thumb"
 	);
 	r.click(centre(p.down));
-	assert_eq!(r.app.top_line(), 1, "and the arrow scrolls a line");
+	assert_eq!(px(&r), LINE, "and the arrow scrolls a line");
 	let p = bar(&r);
 	r.click((p.thumb.left + 4, p.thumb.bottom + 6));
-	assert!(r.app.top_line() > 1, "and the track a page");
+	assert!(px(&r) > LINE, "and the track a page");
 	let p = bar(&r);
 	let grab = (p.thumb.left + 4, p.thumb.top + 3);
 	r.drag(grab, (grab.0, p.track.bottom + 30));
 	assert_eq!(
-		r.app.top_line() as i32,
-		total - r.app.lines_in_view(&r.s) as i32,
+		px(&r),
+		r.app.vscroll_max(&r.s),
 		"the thumb drags to the end"
 	);
 }
@@ -1381,22 +1411,17 @@ fn a_few_tall_lines_still_have_a_vertical_bar_with_a_thumb_that_scrolls() {
 #[test]
 fn the_thumb_drag_uses_the_shared_position_arithmetic() {
 	let mut r = long_doc();
-	let total = r.app.line_total(&r.s) as i32;
-	let view = (r.app.lines_in_view(&r.s) as i32).min(total);
-	let range = total - view;
+	let view = r.app.vscroll_view();
+	let range = r.app.vscroll_max(&r.s);
 	for want in [0, 1, range / 3, range / 2, range - 1, range] {
-		r.app.scroll_to(&r.s, 0);
+		r.app.set_vscroll_pos(&r.s, 0);
 		let p = bar(&r);
 		let grab = (p.thumb.left + 4, p.thumb.top + 2);
-		let to = scroll::parts(r.lay().vbar, true, want, total, view)
-			.thumb
-			.top + 2;
-		r.drag(grab, (grab.0, to));
-		assert_eq!(
-			r.app.top_line() as i32,
-			want,
-			"a drag to where the thumb for {want} sits"
-		);
+		let target = scroll::parts(r.lay().vbar, true, want, range + view, view);
+		r.drag(grab, (grab.0, target.thumb.top + 2));
+		// A thumb pixel stands for several of the page's, so the drag lands within one pixel of where that thumb sits.
+		let off = (bar(&r).thumb.top - target.thumb.top).abs();
+		assert!(off <= 1, "a drag to where the thumb for {want} sits: {off}");
 	}
 }
 

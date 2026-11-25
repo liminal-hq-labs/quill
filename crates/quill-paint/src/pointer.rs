@@ -19,7 +19,7 @@
 //! What the painter needs to show a gesture in progress is [`View`], read with [`Gfx::view`]; the rest is the app's.
 
 use quill_app::mouse::{Ctx, Ev, Pointer, DOUBLE_TICKS};
-use quill_app::view::{snap, text_extent, Drag, Hit, RulerState, RULER_H, TOOLBAR, TWIPS_PX};
+use quill_app::view::{self, snap, text_extent, Drag, Hit, RulerState, RULER_H, TOOLBAR, TWIPS_PX};
 use quill_app::widgets::Place;
 use quill_app::{menu_items_for, menu_title, App, Files, Key, Overlay, Slot, Wk, MENU_COUNT};
 use quill_core::layout::Measure;
@@ -357,7 +357,7 @@ impl Gfx {
 			Cap::Thumb { grab, parts, range } => {
 				let pos = scroll::pos_at(&parts, if parts.vertical { y } else { x } - grab, range);
 				if parts.vertical {
-					app.scroll_to(s, pos.max(0) as u32);
+					app.set_vscroll_pos(&*s, pos);
 				} else {
 					app.set_hscroll_pos(pos);
 				}
@@ -611,15 +611,16 @@ impl Gfx {
 		vertical: bool,
 	) -> Option<Bar> {
 		if vertical {
-			let total = app.line_total(s) as i32;
-			let view = (app.lines_in_view(s) as i32).min(total);
-			let pos = app.top_line() as i32;
+			// Pixels of the page, not lines: a page with one line still scrolls to the foot of its sheet.
+			let view = app.vscroll_view();
+			let range = app.vscroll_max(s);
+			let pos = app.vscroll_pos(s).min(range);
 			Some(Bar {
-				parts: scroll::parts(lay.vbar, true, pos, total, view),
+				parts: scroll::parts(lay.vbar, true, pos, range + view, view),
 				pos,
-				range: (total - view).max(0),
-				line: 1,
-				page: (view - 1).max(1),
+				range,
+				line: view::SCROLL_LINE,
+				page: (view - 2 * view::SCROLL_LINE).max(view::SCROLL_LINE),
 			})
 		} else {
 			let w = lay.page.width();
@@ -645,7 +646,7 @@ impl Gfx {
 	) {
 		let to = to.clamp(0, bar.range);
 		if vertical {
-			app.scroll_to(s, to as u32);
+			app.set_vscroll_pos(&*s, to);
 		} else {
 			app.set_hscroll_pos(to);
 		}

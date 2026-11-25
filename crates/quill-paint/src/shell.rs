@@ -247,10 +247,17 @@ fn scroll_bars<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 	s: &St,
 	lay: &Layout,
 ) {
-	let total = app.line_total(s) as i32;
-	let view = (app.lines_in_view(s) as i32).min(total);
-	let v = scroll::parts(lay.vbar, true, app.top_line() as i32, total, view);
-	scroll::draw(sf, &v, total > view);
+	// The bar counts pixels of the page, so a page of one line (an empty one) still scrolls down its sheet.
+	let view = app.vscroll_view();
+	let range = app.vscroll_max(s);
+	let v = scroll::parts(
+		lay.vbar,
+		true,
+		app.vscroll_pos(s).min(range),
+		range + view,
+		view,
+	);
+	scroll::draw(sf, &v, range > 0);
 	if let Some(hbar) = lay.hbar {
 		// The thumb is the width of the area over the width of what it can show, and sits at the sideways scroll.
 		let w = lay.page.width();
