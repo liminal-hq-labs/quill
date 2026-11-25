@@ -11,6 +11,7 @@
 #![no_std]
 #![no_main]
 
+mod bench;
 mod chrome;
 mod diag;
 mod dialogs;
@@ -418,6 +419,8 @@ fn paint(hwnd: u32) {
 		}
 		let (back, bh) = (sh().back_dc, sh().back_h);
 		if back == 0 {
+			#[cfg(feature = "bench")]
+			bench::painted(&damage);
 			paint_into(wdc, damage, w, h);
 		} else {
 			// One pass for a whole-window bitmap; a band bitmap is moved down the damage a band at a time.
@@ -428,7 +431,11 @@ fn paint(hwnd: u32) {
 				if bh < h {
 					SetViewportOrg(back, 0, (-y) as u32);
 				}
+				#[cfg(feature = "bench")]
+				bench::painted(&band);
 				paint_into(back, band, w, h);
+				#[cfg(feature = "bench")]
+				bench::blitted(i32::from(band.right - band.left), y1 - y);
 				BitBlt(
 					wdc,
 					band.left as u32,
@@ -472,6 +479,8 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 			damage.bottom as u32,
 		);
 		if tb > 0 && dt < tb {
+			#[cfg(feature = "bench")]
+			bench::add(bench::TOOLBAR, 1);
 			chrome::paint_toolbar(dc, w, app, s);
 		}
 		let lay = layout(w, h, sh().hbar_on);
@@ -480,6 +489,8 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 			let st = sh()
 				.drag
 				.map_or_else(|| view::RulerState::of(app, s), |d| d.state);
+			#[cfg(feature = "bench")]
+			bench::add(bench::RULER, 1);
 			chrome::paint_ruler(dc, tb, w, left, tw, &st, sh().ruler_kind);
 		}
 		let area = Rect16::new(0, tb + rl, lay.page_w, lay.page_bottom);
@@ -493,6 +504,8 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 			gdi::fill(dc, cx, cy, cw, ch, gdi::FACE);
 		}
 		if status > 0 && db > h - status {
+			#[cfg(feature = "bench")]
+			bench::add(bench::STATUS, 1);
 			let mut t = [0u8; 96];
 			let hint = tips::hint();
 			let n = if hint.is_empty() {
@@ -514,6 +527,8 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 fn invalidate_page(hwnd: u32) {
 	let (w, h) = client_size(hwnd);
 	let r = Rect16::new(0, view::chrome_height(app()), w, h);
+	#[cfg(feature = "bench")]
+	bench::inv(&r);
 	unsafe { InvalidateRect(hwnd, gdi::fp(&r), 0) };
 }
 
@@ -524,6 +539,8 @@ fn invalidate_status(hwnd: u32) {
 	}
 	let (w, h) = client_size(hwnd);
 	let r = Rect16::new(0, h - chrome::status_h(), w, h);
+	#[cfg(feature = "bench")]
+	bench::inv(&r);
 	unsafe { InvalidateRect(hwnd, gdi::fp(&r), 0) };
 }
 
@@ -535,10 +552,14 @@ fn invalidate_ruler(hwnd: u32) {
 	let (w, _) = client_size(hwnd);
 	let top = view::chrome_height(app()) - view::RULER_H;
 	let r = Rect16::new(0, top, w, top + view::RULER_H);
+	#[cfg(feature = "bench")]
+	bench::inv(&r);
 	unsafe { InvalidateRect(hwnd, gdi::fp(&r), 0) };
 }
 
 fn invalidate_all(hwnd: u32) {
+	#[cfg(feature = "bench")]
+	bench::inv_all();
 	unsafe { InvalidateRect(hwnd, 0, 0) };
 }
 
@@ -824,6 +845,8 @@ fn after(hwnd: u32) {
 		if app().take_help() {
 			open_help(hwnd);
 		}
+		#[cfg(feature = "bench")]
+		bench::inv_all();
 		InvalidateRect(hwnd, 0, 0);
 		if app().quit() {
 			DestroyWindow(hwnd);
@@ -1410,7 +1433,18 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 						invalidate_status(hwnd);
 					}
 				} else {
+					#[cfg(feature = "bench")]
+					if bench::run(hwnd) {
+						return 0;
+					}
 					play(hwnd);
+				}
+				0
+			}
+			#[cfg(feature = "bench")]
+			bench::KEY_MSG => {
+				if let Some(k) = bench::take_key() {
+					press(hwnd, k);
 				}
 				0
 			}
@@ -1690,7 +1724,22 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		b[..m].copy_from_slice(&w[..m]);
 		Some((b, m))
 	};
+	#[cfg(feature = "bench")]
+	let mut bench_file: Option<([u8; 32], usize)> = None;
 	while let Some(w) = words.next() {
+		#[cfg(feature = "bench")]
+		{
+			// `/BENCH SCRIPT.TXT [/END]` runs the paint benchmark (bench.rs); `/END` then ends Windows.
+			if w.eq_ignore_ascii_case(b"/BENCH") {
+				bench_file = take(words.next());
+				continue;
+			}
+			if w.eq_ignore_ascii_case(b"/END") {
+				#[cfg(feature = "bench")]
+				bench::set_end();
+				continue;
+			}
+		}
 		if w.eq_ignore_ascii_case(b"/PLAY") {
 			play_file = take(words.next());
 		} else if w.eq_ignore_ascii_case(b"/DUMP") {
@@ -1723,6 +1772,10 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 	app().set_native_dialogs(!gridview);
 	// With a script, files are found beside the program.
 	unsafe { USE_HERE = gridview };
+	#[cfg(feature = "bench")]
+	if bench_file.is_some() {
+		unsafe { USE_HERE = true };
+	}
 	load_settings();
 	if !gridview {
 		set_clock();
@@ -1736,6 +1789,16 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 	if let Some((name, len)) = &play_file {
 		if let Some((text, tlen, o, ol)) = load_script(&name[..*len]) {
 			script = Some((text, tlen));
+			if ol > 0 {
+				open = Some((o, ol));
+			}
+		}
+	}
+	#[cfg(feature = "bench")]
+	if let Some((name, len)) = &bench_file {
+		if let Some((text, tlen, o, ol)) = load_script(&name[..*len]) {
+			#[cfg(feature = "bench")]
+			bench::set_script(text, tlen);
 			if ol > 0 {
 				open = Some((o, ol));
 			}
@@ -1847,6 +1910,11 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		if (*core::ptr::addr_of!(PLAY)).is_some() {
 			SetTimer(hwnd, 1, 300, 0);
 		}
+		#[cfg(feature = "bench")]
+		if bench::armed() {
+			// The window has had its first paint; the script runs from this timer message, with the window up.
+			SetTimer(hwnd, 1, 300, 0);
+		}
 		if let Some(secs) = exit_after {
 			SetTimer(hwnd, EXIT_TIMER, secs * 1000, 0);
 		}
@@ -1870,6 +1938,11 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 			write_stack_log();
 			picture::write_log();
 			if exit_after.is_some() {
+				ExitWindows(0, 0);
+			}
+			// A benchmark ends Windows only when asked: on another system's Windows that would end the session.
+			#[cfg(feature = "bench")]
+			if bench::end() {
 				ExitWindows(0, 0);
 			}
 		}

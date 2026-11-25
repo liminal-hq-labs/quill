@@ -87,6 +87,8 @@ pub fn fill(dc: u32, x: i32, y: i32, w: i32, h: i32, colour: u32) {
 		return;
 	}
 	let r = Rect16::new(x, y, x + w, y + h);
+	#[cfg(feature = "bench")]
+	crate::bench::filled(w, h);
 	unsafe {
 		let b = CreateSolidBrush(colour);
 		FillRect(dc, np(&r), b);
@@ -207,6 +209,8 @@ impl Measure for Gdi16 {
 			};
 		}
 		let mut tm = [0u8; 32];
+		#[cfg(feature = "bench")]
+		crate::bench::add(crate::bench::METRICS, 1);
 		unsafe {
 			let old = SelectObject(self.dc, font_handle(font, 0));
 			GetTextMetrics(self.dc, np(tm.as_mut_ptr()));
@@ -226,6 +230,8 @@ impl Measure for Gdi16 {
 			return;
 		}
 		let mut w = [0i16; GLYPHS];
+		#[cfg(feature = "bench")]
+		crate::bench::add(crate::bench::CACHES, 1);
 		unsafe {
 			let old = SelectObject(self.dc, font_handle(font, 0));
 			GetCharWidth(self.dc, 32, 255, np(w.as_mut_ptr()));
@@ -264,6 +270,8 @@ fn draw_line(
 	let text = doc.story(StoryKind::Body);
 	let sel = app.selection();
 	let base = y_top + l.ascent;
+	#[cfg(feature = "bench")]
+	crate::bench::add(crate::bench::LINES, 1);
 	unsafe {
 		if let Some((mut lab, n, first)) = label {
 			if lab.first() == Some(&0x07) {
@@ -303,6 +311,10 @@ fn draw_line(
 			_ => 0,
 		};
 		crate::store::sample();
+		#[cfg(feature = "bench")]
+		crate::bench::add(crate::bench::RUNS, 1);
+		#[cfg(feature = "bench")]
+		crate::bench::add(crate::bench::CHARS, *n as u32);
 		unsafe {
 			let old = SelectObject(dc, font_handle(&fr, extra));
 			if selected {

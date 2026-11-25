@@ -1,0 +1,30 @@
+# The Win16 paint benchmark script (win16/tools/bench-w31.sh): keys for QUILLB.EXE's /BENCH driver, one word each.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+#
+# Words are the /PLAY key tokens plus NAME*N (N presses), type:TEXT (each character of TEXT as a key), ctrl+LETTER, ctrl+home,
+# ctrl+end and @phase NAME (the keys after it are one group in the report). letter.qld is one font on one page.
+@open letter.qld
+@phase setup
+ctrl+end
+@phase type
+enter space
+type:Quill space type:sets space type:every space type:word space type:in space type:one space type:font space
+type:so space type:a space type:long space type:line space type:has space type:to space type:wrap space
+type:and space type:the space type:page space type:must space type:draw space type:only space type:what space
+type:changed space type:when space type:a space type:key space type:goes space type:in space type:this space
+type:benchmark space type:of space type:the space type:paint space type:path space type:on space type:Windows space
+type:three space type:point space type:one space type:one space type:with space type:words space type:that space
+type:fill space type:more space type:than space type:two space type:whole space type:lines space type:of space type:text
+@phase enter
+enter*10
+@phase back
+bspace*20
+@phase arrows
+left*10 right*10
+@phase page
+pagedown*3 pageup*3
+@phase format
+ctrl+b
+type:bold space type:text space type:ok
