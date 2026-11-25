@@ -2,74 +2,74 @@
 	"description": "Limits for win16/tools/bench-w31.sh (bench_report.py): per phase of tests/bench/w16-type.txt, the most a metric may be, on S3 and on VGA video. Call counts and work counters are the gate; times are only reported. Tighten a limit in the change that lowers the number, never raise one without saying why.",
 	"phases": {
 		"setup": {
-			"calls_median": 513,
+			"calls_median": 511,
 			"wm_median": 2,
 			"caches_median": 34,
 			"lines_median": 14,
 			"inv_px_median": 449600,
 			"paint_px_median": 449600,
 			"wm_max": 2,
-			"calls_max": 513
+			"calls_max": 511
 		},
 		"type": {
-			"calls_median": 314,
+			"calls_median": 312,
 			"wm_median": 0,
 			"caches_median": 38,
 			"lines_median": 16,
 			"inv_px_median": 387200,
 			"paint_px_median": 387200,
 			"wm_max": 2,
-			"calls_max": 512
+			"calls_max": 510
 		},
 		"enter": {
-			"calls_median": 315,
+			"calls_median": 313,
 			"wm_median": 2,
 			"caches_median": 34,
 			"lines_median": 21,
 			"inv_px_median": 387200,
 			"paint_px_median": 387200,
 			"wm_max": 2,
-			"calls_max": 318
+			"calls_max": 316
 		},
 		"back": {
-			"calls_median": 233,
+			"calls_median": 231,
 			"wm_median": 1,
 			"caches_median": 23,
 			"lines_median": 12,
 			"inv_px_median": 387200,
 			"paint_px_median": 387200,
 			"wm_max": 2,
-			"calls_max": 235
+			"calls_max": 233
 		},
 		"arrows": {
-			"calls_median": 231,
+			"calls_median": 229,
 			"wm_median": 0,
 			"caches_median": 21,
 			"lines_median": 12,
 			"inv_px_median": 387200,
 			"paint_px_median": 387200,
 			"wm_max": 0,
-			"calls_max": 231
+			"calls_max": 229
 		},
 		"page": {
-			"calls_median": 272,
+			"calls_median": 270,
 			"wm_median": 0,
 			"caches_median": 29,
 			"lines_median": 14,
 			"inv_px_median": 387200,
 			"paint_px_median": 387200,
 			"wm_max": 1,
-			"calls_max": 518
+			"calls_max": 516
 		},
 		"format": {
-			"calls_median": 317,
+			"calls_median": 315,
 			"wm_median": 0,
 			"caches_median": 45,
 			"lines_median": 17,
 			"inv_px_median": 387200,
 			"paint_px_median": 387200,
 			"wm_max": 0,
-			"calls_max": 509
+			"calls_max": 507
 		}
 	},
 	"functions": {
@@ -81,7 +81,7 @@
 			"SetBkMode": 3.0,
 			"SetTextColor": 5.0,
 			"TextOut": 240.0,
-			"FillRect": 164.0
+			"FillRect": 162.0
 		},
 		"type": {
 			"GetCharWidth": 4.0,
@@ -91,7 +91,7 @@
 			"SetBkMode": 2.01,
 			"SetTextColor": 4.01,
 			"TextOut": 235.83,
-			"FillRect": 12.64
+			"FillRect": 10.64
 		},
 		"enter": {
 			"GetCharWidth": 3.9,
@@ -101,7 +101,7 @@
 			"SetBkMode": 2.0,
 			"SetTextColor": 3.2,
 			"TextOut": 225.1,
-			"FillRect": 12.0
+			"FillRect": 10.0
 		},
 		"back": {
 			"GetCharWidth": 3.0,
@@ -111,7 +111,7 @@
 			"SetBkMode": 2.0,
 			"SetTextColor": 2.0,
 			"TextOut": 172.0,
-			"FillRect": 12.0
+			"FillRect": 10.0
 		},
 		"arrows": {
 			"GetCharWidth": 3.0,
@@ -121,7 +121,7 @@
 			"SetBkMode": 2.0,
 			"SetTextColor": 2.0,
 			"TextOut": 172.0,
-			"FillRect": 12.0
+			"FillRect": 10.0
 		},
 		"page": {
 			"GetCharWidth": 3.5,
@@ -131,7 +131,7 @@
 			"SetBkMode": 2.17,
 			"SetTextColor": 3.17,
 			"TextOut": 205.5,
-			"FillRect": 37.34
+			"FillRect": 35.34
 		},
 		"format": {
 			"GetCharWidth": 4.0,
@@ -141,7 +141,7 @@
 			"SetBkMode": 2.08,
 			"SetTextColor": 4.08,
 			"TextOut": 238.39,
-			"FillRect": 23.7
+			"FillRect": 21.7
 		}
 	}
 }

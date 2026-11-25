@@ -120,6 +120,16 @@ pub fn fill(dc: u32, x: i32, y: i32, w: i32, h: i32, colour: u32) {
 	}
 }
 
+/// Fills the part of a rectangle that is inside `clip` (nothing when none is).
+fn fill_in(dc: u32, clip: &Rect16, x: i32, y: i32, w: i32, h: i32, colour: u32) {
+	let (x0, y0) = (x.max(i32::from(clip.left)), y.max(i32::from(clip.top)));
+	let (x1, y1) = (
+		(x + w).min(i32::from(clip.right)),
+		(y + h).min(i32::from(clip.bottom)),
+	);
+	fill(dc, x0, y0, x1 - x0, y1 - y0, colour);
+}
+
 /// The 50-byte LOGFONT of Windows 3.1.
 #[repr(C)]
 struct LogFont {
@@ -649,6 +659,9 @@ fn app_measure_dc() -> u32 {
 	unsafe { crate::MEASURE_DC }
 }
 
+/// How far past its box a line's drawing may reach (an italic overhang, a picture's edge).
+const LINE_MARGIN: i32 = 4;
+
 /// The most lines one paint draws: what a 768-pixel-high screen of 10-point text holds.
 const MAX_SHOWN: usize = 48;
 
@@ -674,8 +687,16 @@ struct Shown {
 }
 
 /// Paints the page view into `area` (the client area under the toolbars and ruler, above the status bar), scrolled `hscroll` pixels
-/// sideways, and returns how many lines fit.
-pub fn paint_page(dc: u32, area: Rect16, hscroll: i32, app: &QApp, s: &FarStore) -> usize {
+/// sideways, and returns how many lines fit. Only `damage` is drawn: a fill is cut to it and a line it does not reach is not drawn
+/// (the clip region would discard the pixels anyway, but every call would still be made).
+pub fn paint_page(
+	dc: u32,
+	area: Rect16,
+	damage: Rect16,
+	hscroll: i32,
+	app: &QApp,
+	s: &FarStore,
+) -> usize {
 	let (left, top, right, bottom) = (
 		i32::from(area.left),
 		i32::from(area.top),
@@ -690,7 +711,8 @@ pub fn paint_page(dc: u32, area: Rect16, hscroll: i32, app: &QApp, s: &FarStore)
 	unsafe {
 		let saved = SaveDC(dc);
 		IntersectClipRect(dc, left as u32, top as u32, right as u32, bottom as u32);
-		fill(dc, left, top, right - left, bottom - top, SHADOW);
+		let d = &damage;
+		fill_in(dc, d, left, top, right - left, bottom - top, SHADOW);
 		let mut p = 0;
 		loop {
 			let y = g.page_y(p, top);
@@ -698,10 +720,10 @@ pub fn paint_page(dc: u32, area: Rect16, hscroll: i32, app: &QApp, s: &FarStore)
 				break;
 			}
 			if y + g.page_h > top {
-				fill(dc, x0, y, page_w, g.page_h, WHITE);
+				fill_in(dc, d, x0, y, page_w, g.page_h, WHITE);
 				// A thin shadow on the right and below, as a sheet on the desk.
-				fill(dc, x0 + page_w, y + 3, 2, g.page_h, BLACK);
-				fill(dc, x0 + 3, y + g.page_h, page_w, 2, BLACK);
+				fill_in(dc, d, x0 + page_w, y + 3, 2, g.page_h, BLACK);
+				fill_in(dc, d, x0 + 3, y + g.page_h, page_w, 2, BLACK);
 			}
 			p += 1;
 		}
@@ -740,17 +762,14 @@ pub fn paint_page(dc: u32, area: Rect16, hscroll: i32, app: &QApp, s: &FarStore)
 		SetTextAlign(dc, TA_BASELINE);
 		let mut ts = TextState::new();
 		for sh in shown.iter().take(count) {
-			draw_line(
-				dc,
-				app,
-				s,
-				&sh.line,
-				sh.label,
-				tx,
-				g.line_y(&sh.line, top),
-				pages,
-				&mut ts,
-			);
+			let y = g.line_y(&sh.line, top);
+			// A line is drawn when its box, with a margin for what hangs outside it, reaches the damage.
+			if y + sh.line.ascent + sh.line.descent + LINE_MARGIN <= i32::from(damage.top)
+				|| y - LINE_MARGIN >= i32::from(damage.bottom)
+			{
+				continue;
+			}
+			draw_line(dc, app, s, &sh.line, sh.label, tx, y, pages, &mut ts);
 		}
 		ts.done(dc);
 		SetTextAlign(dc, 0);
@@ -759,7 +778,7 @@ pub fn paint_page(dc: u32, area: Rect16, hscroll: i32, app: &QApp, s: &FarStore)
 			if let Some((idx, l, x)) = app.caret_xy(s) {
 				if idx >= first {
 					let y = g.line_y(&l, top);
-					fill(dc, tx + x, y, 2, l.ascent + l.descent, BLACK);
+					fill_in(dc, d, tx + x, y, 2, l.ascent + l.descent, BLACK);
 				}
 			}
 		}

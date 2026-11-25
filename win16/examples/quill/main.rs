@@ -495,7 +495,7 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 		}
 		let area = Rect16::new(0, tb + rl, lay.page_w, lay.page_bottom);
 		if db > tb + rl && dt < lay.page_bottom {
-			let rows = gdi::paint_page(dc, area, sh().hscroll, app, s);
+			let rows = gdi::paint_page(dc, area, damage, sh().hscroll, app, s);
 			app.set_rows(rows);
 			app.set_view_height(lay.page_bottom - tb - rl);
 		}
