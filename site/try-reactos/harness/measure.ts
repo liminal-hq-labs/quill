@@ -1,7 +1,7 @@
 // Boot the machine in headless Chromium and measure it: bytes and time to the desktop, typing latency in Quill, scroll frame rate,
 // guest speed, and memory. Writes one JSON file per run to out/results/ and screenshots to out/<name>/.
 //
-// Usage: node measure.ts [--name N] [--app quill32|quill16|none] [--profile unthrottled|50mbit|10mbit] [--keys 50]
+// Usage: node measure.ts [--name N] [--app quill32|quill16|auto|none]   (auto: the image opens Quill itself, from its Run key) [--profile unthrottled|50mbit|10mbit] [--keys 50]
 //                        [--param k=v ...]     (page parameters: ram, acpi, vga, disk, cdrom, state, boot, cpuid, jit)
 // The server must be running (bun harness/serve.ts). Input reaches the guest only through the page's emulator API.
 //
@@ -21,7 +21,7 @@ const name = opt("name", "spike-a");
 const app = opt("app", "quill32");
 const profile = PROFILES[opt("profile", "unthrottled")];
 const nKeys = Number(opt("keys", "50"));
-const params: Record<string, string> = { disk: "/images/reactos16-spike-a.img", cdrom: "/images/quill.iso", boot: "hd", ram: "256" };
+const params: Record<string, string> = { disk: "/images/reactos16-trim.img", boot: "hd", ram: "256" };
 args.forEach((a, i) => {
 	if (a === "--param") {
 		const eq = args[i + 1].indexOf("=");
@@ -154,12 +154,25 @@ try {
 	if (app !== "none" && !restored) {
 		// 3. Start Quill with Win+R, from the Quill CD (the only CD drive, D:).
 		const exe = opt("exe", app === "quill32" ? "D:\\QUILL32.EXE" : "D:\\QUILL.EXE");
+		const auto = app === "auto";
 		const white = "(() => { const c = window.tryReactos.canvas(); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 16) if (d[i] > 250 && d[i+1] > 250 && d[i+2] > 250) n++; return n / (d.length / 16) > 0.3; })()";
 		const before = await snapStats();
 		let ready: number | null = null;
 		let tEnter = 0;
 		let attempts = 0;
 		// Win+R, then the path typed one key at a time: a burst of keys has crashed Explorer's Run box before.
+		if (auto) {
+			// The image opens the demo letter itself; time from the desktop to Quill on screen.
+			while (Date.now() - wall0 < 900_000) {
+				await sleep(250);
+				if (await ev<boolean>(white)) {
+					result.quillOpenSeconds = round((Date.now() - wall0) / 1000);
+					ready = Date.now() - wall0 - (result.desktop.seconds ?? 0) * 1000;
+					break;
+				}
+			}
+			attempts = 1;
+		}
 		while (ready === null && attempts < 3) {
 			attempts++;
 			await s.page.evaluate((c) => { window.tryReactos.input.key(c[0]); window.tryReactos.input.key(c[1]); window.tryReactos.input.key(c[1].map((v: number) => v | 0x80)); window.tryReactos.input.key(c[0].map((v: number) => v | 0x80)); }, [KEY.win, KEY.r]);

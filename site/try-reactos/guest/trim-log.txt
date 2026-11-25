@@ -1,0 +1,141 @@
+# Bytes freed per item by trim.sh on 2026-11-25 (kind, path, bytes; TOTAL is per batch)
+d	ReactOS/Installer	27967488
+d	ReactOS/system32/gecko	57012224
+d	Program Files/Internet Explorer	81920
+f	ReactOS/system32/sol.exe	258048
+f	ReactOS/system32/spider.exe	221184
+f	ReactOS/system32/winmine.exe	1159168
+f	ReactOS/system32/maze.exe	45056
+f	ReactOS/system32/3dtext.scr	77824
+f	ReactOS/system32/butterflies.scr	229376
+f	ReactOS/system32/circles.scr	57344
+f	ReactOS/system32/cylfrac.scr	65536
+f	ReactOS/system32/matrix.scr	139264
+f	ReactOS/system32/mazescr.scr	98304
+f	ReactOS/system32/ssstars.scr	159744
+f	ReactOS/system32/starfield.scr	61440
+f	ReactOS/system32/mspaint.exe	1024000
+f	ReactOS/system32/wordpad.exe	372736
+f	ReactOS/system32/write.exe	61440
+f	ReactOS/system32/mplay32.exe	126976
+f	ReactOS/system32/sndrec32.exe	229376
+f	ReactOS/system32/dxdiag.exe	405504
+f	ReactOS/system32/mstsc.exe	528384
+f	ReactOS/system32/rapps.exe	1708032
+f	ReactOS/system32/rapps.com	36864
+f	ReactOS/system32/magnify.exe	135168
+f	ReactOS/system32/osk.exe	159744
+f	ReactOS/system32/charmap.exe	184320
+f	ReactOS/system32/calc.exe	528384
+f	ReactOS/system32/mmc.exe	90112
+f	ReactOS/system32/progman.exe	192512
+f	ReactOS/system32/screenshot.exe	61440
+f	ReactOS/system32/wined3dcfg.cpl	81920
+f	ReactOS/system32/openglcfg.cpl	81920
+f	ReactOS/system32/telephon.cpl	49152
+f	ReactOS/system32/joy.cpl	147456
+f	ReactOS/system32/bthprops.cpl	53248
+f	ReactOS/system32/usrmgr.cpl	253952
+f	ReactOS/system32/ftp.exe	155648
+f	ReactOS/system32/telnet.exe	942080
+f	ReactOS/system32/telnetd.exe	57344
+f	ReactOS/system32/tftpd.exe	102400
+f	ReactOS/system32/roshttpd.exe	716800
+f	ReactOS/system32/ncftp.exe	434176
+f	ReactOS/system32/rosperf.exe	61440
+f	ReactOS/system32/gdb2.exe	57344
+f	ReactOS/system32/regexpl.exe	241664
+f	ReactOS/system32/vgafontedit.exe	118784
+f	ReactOS/system32/vcdcli.exe	45056
+f	ReactOS/system32/vcdcontroltool.exe	77824
+f	ReactOS/system32/vfd.exe	110592
+f	ReactOS/system32/wlanconf.exe	86016
+f	ReactOS/system32/wlansvc.exe	45056
+f	ReactOS/system32/nfsd.exe	540672
+f	ReactOS/system32/d3dx9_24.dll	1122304
+f	ReactOS/system32/d3dx9_25.dll	1122304
+f	ReactOS/system32/d3dx9_26.dll	1126400
+f	ReactOS/system32/d3dx9_27.dll	1126400
+f	ReactOS/system32/d3dx9_28.dll	1126400
+f	ReactOS/system32/d3dx9_29.dll	1126400
+f	ReactOS/system32/d3dx9_30.dll	1126400
+f	ReactOS/system32/d3dx9_31.dll	1126400
+f	ReactOS/system32/d3dx9_32.dll	1126400
+f	ReactOS/system32/d3dx9_33.dll	1126400
+f	ReactOS/system32/d3dx9_34.dll	1126400
+f	ReactOS/system32/d3dx9_35.dll	1126400
+f	ReactOS/system32/d3dx9_36.dll	1126400
+f	ReactOS/system32/d3dx9_37.dll	1126400
+f	ReactOS/system32/d3dx9_38.dll	1126400
+f	ReactOS/system32/d3dx9_39.dll	1126400
+f	ReactOS/system32/d3dx9_40.dll	1126400
+f	ReactOS/system32/d3dx9_41.dll	1126400
+f	ReactOS/system32/d3dx9_42.dll	1122304
+f	ReactOS/system32/d3dx9_43.dll	1122304
+f	ReactOS/Web/Wallpaper/Angelus.txt	4096
+f	ReactOS/Web/Wallpaper/Backwoods.jpg	49152
+f	ReactOS/Web/Wallpaper/Borealis Dark.jpg	139264
+f	ReactOS/Web/Wallpaper/Borealis.jpg	122880
+f	ReactOS/Web/Wallpaper/Deep Sea.jpg	192512
+f	ReactOS/Web/Wallpaper/Grass.jpg	356352
+f	ReactOS/Web/Wallpaper/Mizu (4x3).png	40960
+f	ReactOS/Web/Wallpaper/Mizu.png	49152
+f	ReactOS/Web/Wallpaper/Nebula.bmp	6221824
+f	ReactOS/Web/Wallpaper/Polarlicht.jpg	352256
+f	ReactOS/Web/Wallpaper/README.txt	4096
+f	ReactOS/Web/Wallpaper/Silhouette Dark.png	61440
+f	ReactOS/Web/Wallpaper/Silhouette.png	61440
+TOTAL		128106496
+f	ReactOS/Fonts/comicbd.ttf	77824
+f	ReactOS/Fonts/comic.ttf	69632
+f	ReactOS/Fonts/framdit.ttf	331776
+f	ReactOS/Fonts/framd.ttf	356352
+f	ReactOS/Fonts/georgiab.ttf	81920
+f	ReactOS/Fonts/georgiai.ttf	81920
+f	ReactOS/Fonts/georgia.ttf	81920
+f	ReactOS/Fonts/georgiaz.ttf	81920
+f	ReactOS/Fonts/lucon.ttf	274432
+f	ReactOS/Fonts/palabi.ttf	262144
+f	ReactOS/Fonts/palab.ttf	262144
+f	ReactOS/Fonts/palai.ttf	278528
+f	ReactOS/Fonts/pala.ttf	266240
+f	ReactOS/Fonts/trebucbd.ttf	176128
+f	ReactOS/Fonts/trebucbi.ttf	180224
+f	ReactOS/Fonts/trebucit.ttf	180224
+f	ReactOS/Fonts/trebuc.ttf	176128
+f	ReactOS/Fonts/verdanab.ttf	565248
+f	ReactOS/Fonts/verdanai.ttf	524288
+f	ReactOS/Fonts/verdana.ttf	573440
+f	ReactOS/Fonts/verdanaz.ttf	536576
+f	ReactOS/Fonts/ariblk.ttf	57344
+f	ReactOS/Fonts/DroidSansFallback.ttf	3084288
+f	ReactOS/Fonts/FreeSansBoldOblique.ttf	344064
+f	ReactOS/Fonts/FreeSansBold.ttf	417792
+f	ReactOS/Fonts/FreeSansOblique.ttf	765952
+f	ReactOS/system32/drivers/btrfs.sys	3010560
+f	ReactOS/system32/shellbtrfs.dll	2129920
+f	ReactOS/system32/drivers/ext2fs.sys	1396736
+f	ReactOS/system32/drivers/nfs41_driver.sys	561152
+f	ReactOS/system32/drivers/e1000.sys	77824
+f	ReactOS/system32/drivers/rtl8139.sys	61440
+f	ReactOS/system32/drivers/pcnet.sys	65536
+f	ReactOS/system32/drivers/dc21x4.sys	155648
+f	ReactOS/system32/drivers/nvnet.sys	131072
+f	ReactOS/system32/drivers/netkvm.sys	233472
+f	ReactOS/system32/drivers/fbtusb.sys	143360
+f	ReactOS/system32/drivers/cmipci.sys	212992
+f	ReactOS/system32/drivers/cmicpl.cpl	114688
+f	ReactOS/system32/drivers/cmicontrol.exe	159744
+TOTAL		18542592
+d	ReactOS/Resources/Themes/Lautus	1069056
+d	ReactOS/Resources/Themes/Lunar	1060864
+d	ReactOS/Resources/Themes/Mizu	1056768
+d	ReactOS/Resources/Themes/Modern	2859008
+d	Documents and Settings/Administrator/Start Menu/Programs/Games	16384
+f	Documents and Settings/Administrator/Start Menu/Programs/Wine Internet Explorer.lnk	4096
+f	Documents and Settings/Administrator/Start Menu/Programs/ReactOS Applications Manager.lnk	4096
+f	Documents and Settings/Administrator/Start Menu/Programs/Accessories/Paint.lnk	4096
+f	Documents and Settings/Administrator/Start Menu/Programs/Accessories/WordPad.lnk	4096
+f	Documents and Settings/Administrator/Start Menu/Programs/Accessories/Calculator.lnk	4096
+f	Documents and Settings/Administrator/Recent/LETTER.RTF.lnk	4096
+TOTAL		6086656
