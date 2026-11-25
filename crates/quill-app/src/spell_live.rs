@@ -590,7 +590,7 @@ impl<M: Measure + Clone> App<M> {
 				left -= 1;
 				let word = w.get(..n).unwrap_or(&[]);
 				let known = self.spell.dict.as_ref().is_some_and(|d| d.known(s, word));
-				if !(known || self.user_has(word) || self.ignored(word)) {
+				if !(known || self.user_has(s, word) || self.ignored(s, word)) {
 					self.mark_add(s, st, len, word);
 				}
 			}
@@ -727,7 +727,7 @@ impl<M: Measure + Clone> App<M> {
 		if n == 0 {
 			return false;
 		}
-		self.ignore_word(w.get(..n).unwrap_or(&[]));
+		self.ignore_word(s, w.get(..n).unwrap_or(&[]));
 		self.spell_recheck();
 		true
 	}
@@ -744,7 +744,7 @@ impl<M: Measure + Clone> App<M> {
 		if n == 0 {
 			return false;
 		}
-		let ok = self.user_add(f, w.get(..n).unwrap_or(&[]));
+		let ok = self.user_add(s, f, w.get(..n).unwrap_or(&[]));
 		self.spell_recheck();
 		ok
 	}
