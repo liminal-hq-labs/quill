@@ -11,6 +11,7 @@ What fills the 64 KB automatic data segment of `QUILL.EXE`, what happens when it
 - [Pushing it](#pushing-it)
 - [Pictures](#pictures)
 - [Recommendations](#recommendations)
+- [The spelling lists in far memory (CORE-8)](#the-spelling-lists-in-far-memory-core-8)
 
 ## Why one segment
 
@@ -68,7 +69,7 @@ The margin is the same in every run, so it is the deepest call chain and not cha
 
 ## What cannot move
 
-- **`App` (11,060).** Every field is reached through a DS-relative reference, so `App` cannot be anywhere but near. The parts of it that are byte buffers behind methods could be Store chunks: the clipboard (2,048), the spelling lists (2,976) and the four header and footer stories (3,200 of the document's 4,976) are 8.2 KB. That is a change to `quill-app` and `quill-core` for every build, so it is a recommendation here and not part of the change.
+- **`App` (11,060).** Every field is reached through a DS-relative reference, so `App` cannot be anywhere but near. The parts of it that are byte buffers behind methods could be Store chunks: the clipboard (2,048), the spelling lists (2,976; in far memory since CORE-8) and the four header and footer stories (3,200 of the document's 4,976) are 8.2 KB. That is a change to `quill-app` and `quill-core` for every build, so it is a recommendation here and not part of the change.
 - **Read-only data (11,414).** Strings and tables are addressed by near pointers from code. No piece is large; the one table worth a look is `ansi_to_cp437`'s 512 bytes (128 `u32`), 256 of which `u16` would give back.
 - **The stack (29,696), the heap (4,096) and the shadow stack (1,030).** The heap is Windows': the edit part of the face and size combo boxes takes its text from the program's local heap, and the build was not tried with less. The shadow stack is the packer's.
 - **`STORE` (1,024).** The table of the store's blocks (128, now 160) could be a far array, but every store call reads it, and each read would be a far copy of its own for one kilobyte.
@@ -143,3 +144,24 @@ What is proven: BMP pictures of 1, 4, 8 (plain and RLE8) and 24 bits, from 64 by
 ## Tooltips back in the link (W16-3)
 
 From `f29ecaf` until W16-3 the data figures above were for a program whose tooltips could not run: `EXIT_TIMER` equalled `tips::TIMER`, so the tooltip branch of `WM_TIMER` was unreachable, the linker dropped the tooltip code and its text, and the window closed a moment after it opened. With the ids apart the tooltips are linked in: data 29,236 to 31,696 bytes (+2,460, mostly the tip strings), five more imports, 7 KB more code. The segment is then 31,696 + 29,696 stack + 4,096 heap = 65,488 of 65,536 bytes, 48 free. A windowed session on Windows 3.11 (`e2e-launch-w31.sh`) used 19,822 bytes of the stack and left a margin of 9,298 bytes. Any new static now needs something moved to far memory first.
+
+## The spelling lists in far memory (CORE-8)
+
+The user dictionary (2,048 bytes) and the table of words ignored for the session (24 words of 32 bytes and 24 lengths) were arrays in `App`, 2,840 bytes of the segment. They are one chunk of the document's `Store` now, and `App` holds its `ChunkId`, a 16-bit length and an 8-bit count (decision CORE-8). On Windows 3.x the chunk is a global block like the dictionary's, allocated the first time a word is kept. Measured with `win16/build.sh` on the same source before and after:
+
+| Bytes | Before | After | Change |
+|---|---:|---:|---:|
+| Data (`.rodata`, `.data`, `.bss`, shadow stack) | 31,580 | 28,740 | -2,840 |
+| Stack (`STACK_SIZE` 0x7400) | 29,696 | 29,696 | 0 |
+| Heap (`HEAP_SIZE`) | 4,096 | 4,096 | 0 |
+| **Total of 65,536** | **65,372** | **62,532** | **-2,840** |
+| **Free** | **164** | **3,004** | **+2,840** |
+| Code (all segments) | 270,430 | 271,564 | +1,134 (segment 9: 1,785 to 3,116; segments 7 and 8 shrank) |
+
+| Windows 3.11, stack 0x7400 | Used | Margin |
+|---|---:|---:|
+| `m1-edit` and `m8-spelling` play-backs, before | 23,542 | 5,658 |
+| `m1-edit` and `m8-spelling` play-backs, after | 23,542 | 5,658 |
+| Windowed launch and File > Exit (`e2e-launch-w31.sh`), before and after | 19,850 | 9,350 |
+
+The margin is unchanged because the stack's use is: the lists are read in 64-byte blocks, so no frame grew by more than about 100 bytes and none is on the deepest path. `check_stack_log.py` wants 2,048. The painted-stack `top` value moves up by the 2,840 bytes (0xED6E to 0xE256), as the stack starts where the data ends. The benchmark (`bench-w31.sh`, 241 typed keys) gives the same calls per phase before and after (`type` median 99), and the `m1-edit` and `m8-spelling` frames and `QUILL.UDC` equal the host's goldens.
