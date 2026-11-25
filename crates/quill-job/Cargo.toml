@@ -1,0 +1,24 @@
+# The job crate: budgets, tickets, cancellation and an inline executor, with a seeded simulator for tests.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-job"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Quill's job mechanism: budgets, tickets, cancellation, an inline executor and a seeded simulator"
+
+[features]
+# Reserved for the executors that need a heap (a mailbox between threads); the core never names `alloc`.
+alloc = []
+# Reserved for the std thread pool.
+std = ["alloc"]
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = false
+float = false

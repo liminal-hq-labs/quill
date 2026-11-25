@@ -207,6 +207,29 @@ jobs:
       - name: Check the pixel surface builds for the browser
         run: cargo check --target wasm32-unknown-unknown -p quill-paint --features pixel --locked
 
+  bare:
+    name: Bare-metal build of quill-job
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: ghcr.io/liminal-hq/ci-rust@sha256:f12097be8cc22eb5145a46bc9f75b38a67fedd5833add4392e11ce85023e64df
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Cache Rust build output
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: quill
+
+      - name: Add the bare-metal target
+        run: rustup target add x86_64-unknown-none
+
+      - name: Check the job crate builds with no operating system
+        run: cargo build --release --target x86_64-unknown-none -p quill-job --locked
+
   test:
     name: Tests
     runs-on: ubuntu-24.04

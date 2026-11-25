@@ -560,6 +560,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-job"
+version = "0.0.0"
+
+[[package]]
 name = "quill-mouse"
 version = "0.0.0"
 

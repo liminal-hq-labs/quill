@@ -3,9 +3,9 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-.PHONY: installer disks installer-dos installer-w31 installer-w95 dos gtk validate fmt clippy test headers floats layers goldens wasm
+.PHONY: installer disks installer-dos installer-w31 installer-w95 dos gtk validate fmt clippy test headers floats layers goldens wasm bare
 
-validate: fmt clippy test headers floats layers magic wasm
+validate: fmt clippy test headers floats layers magic wasm bare
 	@echo "validate: ok"
 
 fmt:
@@ -28,6 +28,11 @@ floats:
 wasm:
 	rustup target add wasm32-unknown-unknown
 	cargo check --target wasm32-unknown-unknown -p quill-paint --features pixel --locked
+
+# The job crate must build with no operating system and no allocator: `x86_64-unknown-none` has neither.
+bare:
+	rustup target add x86_64-unknown-none
+	cargo build --release --target x86_64-unknown-none -p quill-job --locked
 
 layers:
 	python3 -I scripts/check-layers.py
