@@ -79,6 +79,7 @@ user32.dll!GetDlgItemTextA
 user32.dll!GetKeyState
 user32.dll!GetMenu
 user32.dll!GetMessageA
+user32.dll!GetSysColor
 user32.dll!GetSystemMetrics
 user32.dll!GetWindowRect
 user32.dll!InvalidateRect
