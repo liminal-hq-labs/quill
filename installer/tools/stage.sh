@@ -42,10 +42,10 @@ crlf "$HERE/README.TXT" "$DIST/common/README.TXT"
 # whole 13 KB of both licences does not fit. The installed LICENCE.TXT is the full text.
 crlf "$HERE/LICENCE-FULL.TXT" "$DIST/common/LICENCE.TXT"
 
-# The samples are the documents the tests already use, under 8.3 names.
-cp "$ROOT/tests/docs/letter.qld" "$DIST/samples/LETTER.QLD"
+# The samples: the demo document (samples/, rebuilt by samples/make-demo.sh) and two test documents, under 8.3 names.
+cp "$ROOT/samples/demo.qld" "$DIST/samples/DEMO.QLD"
 cp "$ROOT/tests/docs/plain.qld" "$DIST/samples/PLAIN.QLD"
-cp "$ROOT/tests/docs/letter.rtf" "$DIST/samples/LETTER.RTF"
+cp "$ROOT/samples/demo.rtf" "$DIST/samples/DEMO.RTF"
 cp "$ROOT/tests/docs/pictures.rtf" "$DIST/samples/PICTURES.RTF"
 
 if [ "$mode" = stand-in ]; then

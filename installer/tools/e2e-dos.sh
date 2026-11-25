@@ -96,12 +96,12 @@ fi
 
 APP="$DISK/QUILL"
 for f in QUILLDOS.EXE QUILLDOS.BAT EN_CA.DIC EN_GB.DIC EN_US.DIC README.TXT LICENCE.TXT INSTALL.LIR \
-	SAMPLES/LETTER.QLD SAMPLES/LETTER.RTF SAMPLES/PICTURES.RTF SAMPLES/PLAIN.QLD; do
+	SAMPLES/DEMO.QLD SAMPLES/DEMO.RTF SAMPLES/PICTURES.RTF SAMPLES/PLAIN.QLD; do
 	[ -f "$APP/$f" ] || { find "$DISK" | sort >&2; fail "QUILL/$f was not installed"; }
 done
 cmp "$APP/QUILLDOS.EXE" "$DIST/dos-x86/QUILLDOS.EXE" || fail "QUILLDOS.EXE differs from the staged program"
 for f in EN_CA.DIC EN_GB.DIC EN_US.DIC; do cmp "$APP/$f" "$DIST/dict/$f" || fail "$f differs from the staged file"; done
-for f in LETTER.QLD LETTER.RTF PICTURES.RTF PLAIN.QLD; do cmp "$APP/SAMPLES/$f" "$DIST/samples/$f" || fail "SAMPLES/$f differs"; done
+for f in DEMO.QLD DEMO.RTF PICTURES.RTF PLAIN.QLD; do cmp "$APP/SAMPLES/$f" "$DIST/samples/$f" || fail "SAMPLES/$f differs"; done
 cmp "$APP/README.TXT" "$DIST/common/README.TXT" || fail "README.TXT differs"
 grep -q 'dir=C:.QUILL' "$APP/INSTALL.LIR" || fail "the receipt does not name C:\\QUILL"
 echo "e2e-dos: install: files byte-equal to the staged files, receipt names C:\\QUILL"
@@ -114,12 +114,12 @@ export DOS_AUTOTYPE="-w 3 -p 0.3 f10 end enter"
 if [ -n "${SHOTS:-}" ]; then export DOS_AUTOTYPE="-w 4 -p 2.5 f10 end enter"; fi
 rc=0
 [ -z "${SHOTS:-}" ] || shots_watch_start "$WORK/run"
-"$DOSRUN" "$DISK" 'QUILL\QUILLDOS.EXE QUILL\SAMPLES\LETTER.QLD' >"$WORK/run.out" || rc=$?
+"$DOSRUN" "$DISK" 'QUILL\QUILLDOS.EXE QUILL\SAMPLES\DEMO.QLD' >"$WORK/run.out" || rc=$?
 shots_watch_stop
 [ "$rc" = 0 ] || fail "QUILLDOS.EXE exited with $rc"
 [ -f "$WORK/keep/DUMP.TXT" ] || fail "QUILLDOS.EXE drew no screen"
 # The sample's first line, read from the screen it drew.
-grep -q -F 'Dear reader,' "$WORK/keep/DUMP.TXT" || fail "the sample's text is on no screen QUILLDOS.EXE drew"
+grep -q -F 'Hi, this is Quill' "$WORK/keep/DUMP.TXT" || fail "the sample's text is on no screen QUILLDOS.EXE drew"
 if [ -n "${SHOTS:-}" ]; then
 	n="$(frames run)"
 	if [ "$n" -ge 2 ]; then
@@ -129,7 +129,7 @@ if [ -n "${SHOTS:-}" ]; then
 		echo "e2e-dos: note: Quill showed $n distinct frames; no shots saved"
 	fi
 fi
-echo "e2e-dos: run: QUILLDOS.EXE opened SAMPLES\\LETTER.QLD and exited 0"
+echo "e2e-dos: run: QUILLDOS.EXE opened SAMPLES\\DEMO.QLD and exited 0"
 
 # 3. Uninstall: confirm, then the done page, with the same repeated keys.
 rm -rf "$WORK/keep"

@@ -1,7 +1,7 @@
 @ECHO OFF
 PATH=\;\QUILL
 CD \QUILL
-QUILLDOS.EXE SAMPLES\LETTER.QLD
+QUILLDOS.EXE SAMPLES\DEMO.QLD
 CD \
 ECHO.
 ECHO Quill has ended. This is FreeDOS 1.3. Type QUILLDOS to start it again, or QUILLDOS /G for graphics.

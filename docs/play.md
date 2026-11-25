@@ -27,7 +27,7 @@ Two scripts start a real Windows in a real DOSBox-X window on your desktop, with
 | `QUILL32.EXE` (Win32) | `win9x/build.sh` | `win9x/dist/QUILL32.EXE` |
 | `QUILLDOS.EXE` (DOS) | `dos/build.sh` | `dos/dist/QUILLDOS.EXE` |
 
-The sample documents `LETTER.RTF`, `LETTER.QLD` and `PLAIN.QLD` come from `tests/docs/`. All of them end up on `D:`.
+The documents `LETTER.RTF`, `LETTER.QLD` and `PLAIN.QLD` come from `tests/docs/` (test fixtures; the sample that ships is `samples/demo.*`, see SITE-3). All of them end up on `D:`.
 
 ## Windows for Workgroups 3.11
 
