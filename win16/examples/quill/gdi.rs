@@ -61,6 +61,16 @@ pub fn fp<T>(p: *const T) -> u32 {
 	far(data_selector(), p as u32)
 }
 
+/// Reads a WIN.INI string. `section`, `key` and `default` are `cs!` literals; `key` of `None` lists every key in the section, each
+/// followed by a NUL. GetProfileString's key is an `l` slot (a far pointer, so that 0 can mean NULL), which is why the key is made
+/// far here and the rest stay near. Returns the number of bytes written, not counting the final NUL.
+#[inline(never)]
+pub fn profile_string(section: u32, key: Option<u32>, default: u32, buf: &mut [u8]) -> usize {
+	let key = key.map_or(0, |k| far(data_selector(), k));
+	let room = buf.len().saturating_sub(1) as u32;
+	unsafe { GetProfileString(section, key, default, np(buf.as_mut_ptr()), room) as usize }
+}
+
 pub const TRANSPARENT: u32 = 1;
 pub const OPAQUE: u32 = 2;
 pub const TA_BASELINE: u32 = 24;

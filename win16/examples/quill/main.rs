@@ -591,15 +591,12 @@ fn press(hwnd: u32, k: Key) {
 fn set_today() {
 	let (y, m, d) = w16::dos_date();
 	let mut fmt = [0u8; 24];
-	let n = unsafe {
-		GetProfileString(
-			cs!("intl"),
-			cs!("sShortDate"),
-			cs!("M/d/yy"),
-			np(fmt.as_mut_ptr()),
-			23,
-		)
-	} as usize;
+	let n = gdi::profile_string(
+		cs!("intl"),
+		Some(cs!("sShortDate")),
+		cs!("M/d/yy"),
+		&mut fmt,
+	);
 	let mut out = [0u8; 24];
 	let k = quill_app::datefmt::format(
 		fmt.get(..n).unwrap_or(&[]),

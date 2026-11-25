@@ -154,10 +154,19 @@ shot launch-open
 # File > Exit.
 xdotool mousemove 400 300
 sleep 0.5
+# Insert > Date reads sShortDate from WIN.INI (a far-pointer key slot: a near pointer there made WineVDM fault); the shot shows the date.
+xdotool key alt+i
+sleep 1
+xdotool key d
+sleep 2
+shot launch-date
 xdotool key alt+f
 sleep 1
 shot launch-menu
 xdotool key x
+# The Date field changed the document: answer "Save the changes?" with No.
+sleep 2
+xdotool key n
 t=0
 while [ "$t" -lt 20 ] && [ ! -f "$WORK/d/STACK.LOG" ]; do
 	sleep 1

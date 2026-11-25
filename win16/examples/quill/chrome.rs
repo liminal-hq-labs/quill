@@ -6,7 +6,9 @@
 use quill_app::view::{self, Act, RulerState, TOOLBAR, Toggle};
 use w16::*;
 
-use crate::gdi::{BLACK, FACE, QApp, Rect16, SHADOW, SRCCOPY, TRANSPARENT, WHITE, fill, fp, np};
+use crate::gdi::{
+	BLACK, FACE, QApp, Rect16, SHADOW, SRCCOPY, TRANSPARENT, WHITE, fill, fp, np, profile_string,
+};
 use crate::store::FarStore;
 
 /// Control identifiers of the combo boxes, and the colour list's commands (500 Automatic, 501 to 516 the colours).
@@ -88,15 +90,7 @@ fn name_of(f: &[u8; 32]) -> &[u8] {
 #[inline(never)]
 pub fn read_faces() {
 	let mut buf = [0u8; 2048];
-	let n = unsafe {
-		GetProfileString(
-			cs!("fonts"),
-			0,
-			cs!(""),
-			np(buf.as_mut_ptr()),
-			buf.len() as u32 - 1,
-		)
-	} as usize;
+	let n = profile_string(cs!("fonts"), None, cs!(""), &mut buf);
 	let mut list = [[0u8; 32]; MAX_FACES];
 	let mut count = 0usize;
 	for key in buf.get(..n).unwrap_or(&[]).split(|b| *b == 0) {
