@@ -9,6 +9,9 @@
 # the host's screen. Functions:
 #
 #   shots_xvfb "$0" "$@"        re-run the script under xvfb-run when SHOTS is set and it is not already
+#   shots_display_start         start a private X server (no access control, nobody else can reach it by accident: it is on a free
+#                               display number from 90 up) and export DISPLAY; for a container, which cannot use xvfb-run's cookie
+#   shots_display_stop          stop it
 #   shots_watch_start DIR       start capturing a frame about every second into DIR (clears DIR first)
 #   shots_watch_stop            stop the capture
 #   shots_distinct DIR OUTDIR   copy the frames that differ from the one before to OUTDIR/NN.png, black frames left out
@@ -35,6 +38,37 @@ shots_xvfb() {
 
 # ImageMagick 7 wants `magick`; `convert` is the older spelling of the same program.
 _im() { if command -v magick >/dev/null; then magick "$@"; else convert "$@"; fi; }
+
+SHOTS_XPID=""
+shots_display_start() {
+	local n=90 geom="${SHOTS_SCREEN:-1024x768x24}"
+	unset WAYLAND_DISPLAY XAUTHORITY
+	while [ -e "/tmp/.X11-unix/X$n" ] || [ -e "/tmp/.X$n-lock" ]; do n=$((n + 1)); done
+	Xvfb ":$n" -screen 0 "$geom" -ac -nolisten tcp >/dev/null 2>&1 &
+	SHOTS_XPID=$!
+	export DISPLAY=":$n"
+	for _ in $(seq 1 50); do
+		[ -S "/tmp/.X11-unix/X$n" ] && return 0
+		sleep 0.1
+	done
+	echo "shots: the virtual X server did not start" >&2
+	return 1
+}
+shots_display_stop() {
+	[ -z "$SHOTS_XPID" ] || { kill "$SHOTS_XPID" 2>/dev/null || true; wait "$SHOTS_XPID" 2>/dev/null || true; }
+	SHOTS_XPID=""
+}
+
+# shots_window FILE: the emulator's window (or the whole display when there is none yet) as a PNG.
+shots_window() {
+	local id
+	id="$(xdotool search --onlyvisible --class dosbox 2>/dev/null | head -n 1 || true)"
+	if [ -n "$id" ]; then
+		timeout 20 import -window "$id" "$1" 2>/dev/null || timeout 20 import -window root "$1"
+	else
+		timeout 20 import -window root "$1"
+	fi
+}
 
 SHOTS_PID=""
 shots_watch_start() {
