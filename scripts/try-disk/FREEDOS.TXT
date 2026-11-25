@@ -1,0 +1,14 @@
+This disk boots FreeDOS 1.3, which is free software.
+
+KERNEL.SYS is the FreeDOS kernel (build 2043) and COMMAND.COM is FreeCOM, the FreeDOS command
+interpreter, both exactly as FreeDOS 1.3 ships them. They are licensed under the GNU General
+Public Licence, version 2 or (at your option) any later version. The licence text is at
+https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt and the sources are at
+https://github.com/FDOS/kernel and https://github.com/FDOS/freecom. FreeDOS 1.3 itself is at
+https://www.freedos.org/ and https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/distributions/1.3/official/.
+
+QUILL\QUILLDOS.EXE is Quill, licensed Apache-2.0 OR MIT, built from
+https://github.com/liminal-hq-labs/quill. It carries CWSDPMI, Charles W. Sandmann's DPMI host, unmodified.
+You have the right to receive the source code of CWSDPMI and updates to it: the source is
+at https://www.delorie.com/pub/djgpp/current/v2misc/csdpmi7s.zip. QUILL\QUILL.FNT is drawn from the Desk
+fonts, under the SIL Open Font Licence 1.1 (QUILL\OFL.TXT). QUILL\EN_CA.DIC is made from SCOWL.

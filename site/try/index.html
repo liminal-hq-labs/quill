@@ -1,0 +1,159 @@
+<!doctype html>
+<!--
+	Try Quill: Quill's DOS build running on FreeDOS in the visitor's browser, with js-dos. Static, relative URLs only. The disk bundle
+	(quill.jsdos) is built by scripts/build-try.sh and is not committed.
+
+	(c) Copyright 2026 Liminal HQ, Scott Morris
+	SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
+<html lang="en-CA">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Try Quill in your browser</title>
+		<meta name="description" content="Run Quill's DOS build on FreeDOS inside your browser, with js-dos. Nothing is uploaded; the files you save stay in the page until you close it.">
+		<meta name="color-scheme" content="light dark">
+		<meta name="theme-color" content="#fffaf0" media="(prefers-color-scheme: light)">
+		<meta name="theme-color" content="#070d24" media="(prefers-color-scheme: dark)">
+		<link rel="canonical" href="http://labs.liminalhq.ca/quill/try/">
+		<link rel="icon" href="../favicon.ico" sizes="16x16 32x32 48x48">
+		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
+		<link rel="apple-touch-icon" href="../img/quill-256.png">
+		<link rel="stylesheet" href="../css/site.css">
+		<link rel="stylesheet" href="../css/try.css">
+		<script>
+			// Apply a remembered theme before the first paint, so the page does not flash the other one.
+			try {
+				var t = localStorage.getItem("quill-theme");
+				if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+			} catch (e) {}
+		</script>
+		<script src="../js/site.js" defer></script>
+		<script src="try.js" defer></script>
+	</head>
+	<body>
+		<a class="skip-link" href="#main">Skip to the content</a>
+
+		<header class="site-header">
+			<div class="wrap">
+				<a class="brand" href="../">
+					<img src="../img/quill-small.svg" alt="" width="28" height="28">
+					<span>Quill</span>
+				</a>
+				<nav class="site-nav" aria-label="Pages">
+					<ul>
+						<li><a href="../">Home</a></li>
+						<li><a href="../#screenshots">Screenshots</a></li>
+						<li><a href="../#platforms">Where it runs</a></li>
+						<li><a href="./" aria-current="page">Try it</a></li>
+					</ul>
+				</nav>
+				<details class="mobile-nav" data-mobile-nav>
+					<summary>Pages</summary>
+					<nav aria-label="Pages">
+						<ul>
+							<li><a href="../">Home</a></li>
+							<li><a href="../#screenshots">Screenshots</a></li>
+							<li><a href="../#platforms">Where it runs</a></li>
+							<li><a href="./" aria-current="page">Try it</a></li>
+						</ul>
+					</nav>
+				</details>
+				<button class="theme-toggle" type="button" data-theme-toggle hidden>
+					<span data-icon-moon><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20 15.3A8.5 8.5 0 0 1 8.7 4a8.5 8.5 0 1 0 11.3 11.3Z"/></svg></span>
+					<span data-icon-sun hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg></span>
+					<span data-theme-label>Dark</span>
+				</button>
+			</div>
+		</header>
+
+		<main id="main">
+			<section class="section try-intro" aria-labelledby="title">
+				<div class="wrap">
+					<p class="breadcrumb"><a href="../">&larr; Back to the Quill home page</a></p>
+					<h1 id="title">Try Quill</h1>
+					<p class="lede">A real DOS program, running in this page. Select <strong>Start Quill</strong> and FreeDOS boots, asks which display you want, then opens a sample letter in Quill.</p>
+					<p>This is <code>QUILLDOS.EXE</code>, the same Rust code as Quill's Windows builds, built for a 1990s PC and started on <a href="https://freedos.org/">FreeDOS</a> 1.3 inside <a href="https://js-dos.com/">js-dos</a>, a DOSBox that runs in the browser. Everything happens on your computer: nothing is uploaded, and the files you save stay on the emulated disk in this page until you reload or close it.</p>
+					<p>The default is DOS text mode, so you get the blue screen, the menu bar on the top row and the keyboard, not a mouse-driven window. FreeDOS's start-up menu also offers a graphics mode with real fonts: press <kbd>2</kbd> within four seconds of the menu appearing. Quill is experimental, and this is a demonstration, not a release.</p>
+				</div>
+			</section>
+
+			<section class="section section--band" aria-labelledby="player-title">
+				<div class="wrap">
+					<h2 id="player-title">The player</h2>
+					<p id="nowasm" class="notice" role="alert" hidden>This browser can't run WebAssembly, which the player needs, so Quill can't start here. A current version of Firefox, Chrome, Edge or Safari will work. The <a href="../#screenshots">screenshots</a> show what you would have seen.</p>
+					<noscript><p class="notice">The player needs JavaScript. With it off, the <a href="../#screenshots">screenshots</a> show what Quill looks like.</p></noscript>
+
+					<div class="player" data-player>
+						<div class="player-controls">
+							<button class="button" type="button" data-start aria-describedby="player-status">Start Quill</button>
+							<button class="button button--alt" type="button" data-fullscreen hidden>Full screen</button>
+							<button class="button button--alt" type="button" data-stop hidden>Stop and reset</button>
+							<p class="player-status" id="player-status" role="status" aria-live="polite">Not started. The player is about 2 MB and loads when you start it.</p>
+						</div>
+						<div class="stage" data-stage tabindex="-1" aria-label="Quill running on FreeDOS in an emulated PC">
+							<div class="stage-idle" data-idle>
+								<img src="../img/shots/dos-letter.png" width="720" height="400" alt="A still of Quill for DOS in text mode, showing a letter with coloured formatting.">
+							</div>
+							<div class="stage-dos" data-dos></div>
+						</div>
+					</div>
+
+					<h3 id="keys-title">Keys</h3>
+					<p>Select the screen first, so the emulated PC has the keyboard. The screen is a picture of an 80 by 25 text display, so it scales with the page.</p>
+					<dl class="keys" aria-labelledby="keys-title">
+						<div><dt><kbd>F10</kbd></dt><dd>Open the menus; the arrow keys and <kbd>Enter</kbd> choose.</dd></div>
+						<div><dt><kbd>Alt</kbd> + a letter</dt><dd>Open a menu by its underlined letter, such as <kbd>Alt</kbd> + <kbd>F</kbd> for File.</dd></div>
+						<div><dt><kbd>Ctrl</kbd> + <kbd>F10</kbd></dt><dd>Open the notes list.</dd></div>
+						<div><dt><kbd>F7</kbd></dt><dd>Check the spelling, in Canadian English.</dd></div>
+						<div><dt>File &gt; Exit</dt><dd>Leave Quill for the FreeDOS prompt. Type <code>QUILLDOS</code> to start it again, or <code>QUILLDOS /G</code> for the graphics mode.</dd></div>
+					</dl>
+					<p>Your browser may keep a few keys for itself, such as <kbd>Alt</kbd> on its own or <kbd>F11</kbd>. If an <kbd>Alt</kbd> shortcut does nothing, open the menu with <kbd>F10</kbd> instead.</p>
+				</div>
+			</section>
+
+			<section class="section" aria-labelledby="displays-title">
+				<div class="wrap">
+					<h2 id="displays-title">The two displays</h2>
+					<p>Captured from this page, in Chromium, with the keyboard.</p>
+					<ul class="displays">
+						<li><figure><img src="../img/shots/try-text.png" width="960" height="720" loading="lazy" alt="Quill in DOS text mode inside the page: blue screen, menu bar on top, the sample letter with a line typed at its start."><figcaption>Text mode, after typing a line. <span class="where">js-dos on FreeDOS 1.3</span></figcaption></figure></li>
+						<li><figure><img src="../img/shots/try-graphics.png" width="960" height="720" loading="lazy" alt="Quill in graphics mode inside the page: a white page with a ruler, the sample letter in a serif face with a bold title and dot leaders."><figcaption>Graphics mode, chosen with 2 at the FreeDOS menu. <span class="where">js-dos on FreeDOS 1.3</span></figcaption></figure></li>
+					</ul>
+				</div>
+			</section>
+
+			<section class="section section--band" aria-labelledby="about-title">
+				<div class="wrap">
+					<h2 id="about-title">What is running</h2>
+					<ul class="plain-list">
+						<li><strong>Quill</strong> is <code>QUILLDOS.EXE</code>, built from this project's source for DOS, with the Canadian English dictionary, the sample documents and the fonts for the graphics mode. It carries its own DPMI host, so it needs nothing else.</li>
+						<li><strong>FreeDOS 1.3</strong> is the operating system: its kernel and command shell, unchanged, on a small floppy disk image. FreeDOS is free software, mostly under the GNU General Public Licence.</li>
+						<li><strong>js-dos 8.5.3</strong> is the player: DOSBox compiled to WebAssembly. It is also under the GNU General Public Licence, version 2, and is served from this site, not from js-dos.com.</li>
+					</ul>
+					<p>The <a href="licences.html">licences and sources</a> page names each part, where its source is and how the disk is made. The player makes no network requests of its own beyond the files above.</p>
+					<p><a class="button button--alt" href="../">Back to the Quill home page</a></p>
+				</div>
+			</section>
+		</main>
+
+		<footer class="site-footer">
+			<div class="wrap">
+				<a class="brand" href="../">
+					<img src="../img/quill-small.svg" alt="" width="28" height="28">
+					<span>Quill</span>
+				</a>
+				<div>
+					<ul aria-label="Project links">
+						<li><a href="https://github.com/liminal-hq-labs/quill">Repository</a></li>
+						<li><a href="https://github.com/liminal-hq-labs">Liminal HQ Labs</a></li>
+						<li>Licence: <a href="https://github.com/liminal-hq-labs/quill/blob/main/LICENSE-APACHE">Apache-2.0</a> or <a href="https://github.com/liminal-hq-labs/quill/blob/main/LICENSE-MIT">MIT</a></li>
+					</ul>
+					<p>Quill is a Liminal HQ Labs experiment, licensed under Apache-2.0 OR MIT, at your option.</p>
+					<p>This page runs <a href="https://freedos.org/">FreeDOS</a> 1.3 (kernel and command shell, GPL), <a href="https://js-dos.com/">js-dos</a> 8.5.3 (GPL-2.0, DOSBox compiled to WebAssembly) and <a href="https://www.delorie.com/pub/djgpp/current/v2misc/">CWSDPMI</a> (DPMI host, redistributed with the notice of the right to its source). Each is a separate program under its own licence. See the <a href="licences.html">licences and sources</a>, <a href="js-dos/LICENSE-GPL-2.0.txt">the GPL-2.0 text</a> and <a href="https://github.com/liminal-hq-labs/quill/blob/main/site/try/js-dos/PROVENANCE.md">where the player came from</a>.</p>
+					<p>© 2026 Liminal HQ, Scott Morris. Windows and MS-DOS are trademarks of Microsoft; Quill is not affiliated with Microsoft.</p>
+				</div>
+			</div>
+		</footer>
+	</body>
+</html>

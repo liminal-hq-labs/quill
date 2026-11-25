@@ -5,6 +5,11 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
+# One file is built here rather than committed: the Try Quill page's disk bundle, site/try/quill.jsdos, which holds FreeDOS and
+# QUILLDOS.EXE. No release builds exist to fetch it from, so the job builds the DOS program from source (the pinned Rust toolchain
+# and CWSDPMI's stub; no DOSBox, no Docker) and packs the disk with scripts/build-try.sh. That is a few minutes more than the
+# static upload alone, and it keeps the demo on the code in main.
+#
 name: Pages
 
 on:
@@ -14,6 +19,18 @@ on:
     paths:
       - 'site/**'
       - '.github/workflows/pages.yml'
+      # What the Try Quill disk is built from.
+      - 'scripts/build-try.sh'
+      - 'scripts/make-freedos-image.py'
+      - 'scripts/try-disk/**'
+      - 'scripts/try-dosbox.conf'
+      - 'dos/**'
+      - 'crates/**'
+      - 'dict/**'
+      - 'tests/docs/**'
+      - 'assets/fonts/**'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
   workflow_dispatch:
 
 permissions:
@@ -28,12 +45,25 @@ jobs:
   build:
     name: Upload the site
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+
+      - name: Install the pinned Rust toolchain
+        run: rustup toolchain install --profile minimal
+
+      - name: Install mtools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mtools
+
+      # Builds QUILLDOS.EXE, the graphics-mode fonts and the dictionary, fetches FreeDOS 1.3 (checked against a pinned SHA-256 sum)
+      # and writes site/try/quill.jsdos.
+      - name: Build the Try Quill disk
+        run: bash scripts/build-try.sh --build
 
       # The pull-request check (ci.yml) covers local links; here the outside links are fetched too before publishing.
       - name: Check links, including outside ones
