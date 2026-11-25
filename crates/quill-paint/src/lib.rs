@@ -24,12 +24,15 @@ extern crate alloc;
 
 pub mod cursor;
 pub mod damage;
+pub mod dialog;
+pub mod menu;
 pub mod page;
 pub mod palette;
 #[cfg(feature = "pixel")]
 pub mod pixel;
 pub mod raster;
 pub mod shell;
+pub mod ui;
 
 use quill_core::layout::FontRef;
 
