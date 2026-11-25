@@ -4,12 +4,18 @@
 (c) Copyright 2026 Liminal HQ, Scott Morris
 SPDX-License-Identifier: Apache-2.0 OR MIT
 
-Usage: quillify.py AFTERGLOW_WALLPAPER.svg OUT.bmp [--emblem quill-emblem.svg] [--png FULL.png]
+Usage: quillify.py AFTERGLOW_WALLPAPER.svg OUT.bmp [--emblem quill-emblem.svg] [--png FULL.png] [--dither N] [--seed N] [--rgb565]
 
 The Afterglow wallpaper is 3840 x 2160 with its low sun at (2880, 1846), radius 104 for the gold disc. The emblem overlay has the same canvas
 with the Q's ring centred on that sun. The composite is cropped to its centre 4:3 (x 480, width 2880, as Afterglow's own render script does for
 ReactOS) and scaled to 1024 x 768 with Lanczos, as a 24-bit BMP. The Afterglow art is read from the fetched source; none of it is kept here.
-Needs rsvg-convert (librsvg) and ImageMagick 7 (magick).
+Needs rsvg-convert (librsvg), ImageMagick 7 (magick) and numpy.
+
+The smooth Afterglow wallpapers band even at 24 bits, so --dither N adds the seeded triangular noise of +-N levels (Afterglow's
+scripts/render-wallpapers.mjs uses N = 1, seed 2026) to the 1024 x 768 pixels after the crop and scale, because scaling a dithered image averages
+the noise away. The generator is the same mulberry32, keyed the same way, so the noise is the same as Afterglow's own BMP, and the result is
+deterministic. --rgb565 then reduces the pixels to the 5-6-5 levels of the demo guest's 16-bit display with an 8 x 8 ordered dither and
+writes them back as 24-bit, so the guest's own reduction loses nothing more and the gradient does not band on screen.
 """
 import argparse
 import os
@@ -17,6 +23,8 @@ import re
 import subprocess
 import sys
 import tempfile
+
+import numpy as np
 
 WIDTH, HEIGHT = 3840, 2160
 SUN = (2880, 1846)
@@ -48,13 +56,65 @@ def find_sun(svg_text):
 	return best
 
 
+DEFAULT_SEED = 2026
+DITHER_KEY = 'afterglow-dusk-dark-smooth-bmp'   # Afterglow's key: `${id}-bmp`
+
+
+def mulberry32_stream(seed, count):
+	"""The first `count` draws in [0, 1) of mulberry32(seed), as Afterglow's script makes them. The state moves by a constant each draw, so it is a vector sum."""
+	a = (np.uint64(seed & 0xFFFFFFFF) + np.arange(1, count + 1, dtype=np.uint64) * np.uint64(0x6D2B79F5)) & np.uint64(0xFFFFFFFF)
+	a = a.astype(np.uint32)
+	with np.errstate(over='ignore'):
+		t = (a ^ (a >> np.uint32(15))) * (a | np.uint32(1))
+		t = (t + (t ^ (t >> np.uint32(7))) * (t | np.uint32(61))) ^ t
+		t = t ^ (t >> np.uint32(14))
+	return t.astype(np.float64) / 4294967296.0
+
+
+def fnv_hash(text):
+	"""Afterglow's string hash: FNV-1a over the character codes, 32 bits."""
+	h = 2166136261
+	for ch in text:
+		h = ((h ^ ord(ch)) * 16777619) & 0xFFFFFFFF
+	return h
+
+
+def triangular_dither(rgb, amount, key, seed=DEFAULT_SEED):
+	"""rgb: uint8 array. Adds triangular noise (two uniform draws) of +-amount levels, rounded and clamped, as render-wallpapers.mjs dither() does."""
+	flat = rgb.reshape(-1)
+	draws = mulberry32_stream(fnv_hash(key) ^ seed, flat.size * 2)
+	noise = (draws[0::2] + draws[1::2] - 1.0) * amount
+	return np.clip(np.floor(flat + noise + 0.5), 0, 255).astype(np.uint8).reshape(rgb.shape)
+
+
+def bayer8():
+	m = np.array([[0]])
+	for _ in range(3):
+		m = np.block([[4 * m, 4 * m + 2], [4 * m + 3, 4 * m + 1]])
+	return (m + 0.5) / 64.0
+
+
+def to_rgb565(rgb):
+	"""Reduce uint8 RGB (h, w, 3) to the levels of a 16-bit 5-6-5 display with an 8 x 8 ordered dither, expanded back to 8 bits the way a display
+	driver widens them (top bits repeated), so converting again by truncation or rounding gives the same levels."""
+	h, w, _ = rgb.shape
+	thr = np.tile(bayer8(), (h // 8 + 1, w // 8 + 1))[:h, :w]
+	out = np.empty_like(rgb)
+	for c, bits in enumerate((5, 6, 5)):
+		top = (1 << bits) - 1
+		v = rgb[:, :, c].astype(np.float64) * top / 255.0
+		q = np.clip(np.floor(v + thr), 0, top).astype(np.uint32)
+		out[:, :, c] = ((q << (8 - bits)) | (q >> (2 * bits - 8))).astype(np.uint8)
+	return out
+
+
 def run(cmd):
 	r = subprocess.run(cmd, capture_output=True)
 	if r.returncode != 0:
 		sys.exit('%s failed: %s' % (cmd[0], r.stderr.decode(errors='replace')))
 
 
-def quillify(wallpaper, emblem, out, keep_png=None):
+def quillify(wallpaper, emblem, out, keep_png=None, dither=0, seed=DEFAULT_SEED, rgb565=False):
 	with open(wallpaper, encoding='utf-8') as f:
 		text = f.read()
 	if 'viewBox="0 0 %d %d"' % (WIDTH, HEIGHT) not in text:
@@ -69,8 +129,20 @@ def quillify(wallpaper, emblem, out, keep_png=None):
 		run(['magick', base, over, '-compose', 'over', '-composite', '-alpha', 'off', full])
 		if keep_png:
 			run(['magick', full, keep_png])
-		run(['magick', full, '-crop', '%dx%d+%d+0' % (CROP_WIDTH, HEIGHT, CROP_X), '+repage', '-filter', 'Lanczos',
-			'-resize', '%dx%d!' % OUT_SIZE, '-type', 'TrueColor', 'BMP3:' + out])
+		crop = ['-crop', '%dx%d+%d+0' % (CROP_WIDTH, HEIGHT, CROP_X), '+repage', '-filter', 'Lanczos', '-resize', '%dx%d!' % OUT_SIZE]
+		if not dither and not rgb565:
+			run(['magick', full] + crop + ['-type', 'TrueColor', 'BMP3:' + out])
+			return
+		raw = os.path.join(tmp, 'small.rgb')
+		run(['magick', full] + crop + ['-alpha', 'off', '-depth', '8', 'rgb:' + raw])
+		w, h = OUT_SIZE
+		px = np.fromfile(raw, dtype=np.uint8).reshape(h, w, 3)
+		if dither:
+			px = triangular_dither(px, dither, DITHER_KEY, seed)
+		if rgb565:
+			px = to_rgb565(px)
+		px.tofile(raw)
+		run(['magick', '-size', '%dx%d' % OUT_SIZE, '-depth', '8', 'rgb:' + raw, '-type', 'TrueColor', 'BMP3:' + out])
 
 
 def main(argv):
@@ -79,8 +151,11 @@ def main(argv):
 	ap.add_argument('out')
 	ap.add_argument('--emblem', default=os.path.join(HERE, 'quill-emblem.svg'))
 	ap.add_argument('--png', help='also keep the full-size composite here')
+	ap.add_argument('--dither', type=int, default=0, help='triangular dither of +-N levels after the crop (smooth wallpapers; Afterglow uses 1)')
+	ap.add_argument('--seed', type=int, default=DEFAULT_SEED)
+	ap.add_argument('--rgb565', action='store_true', help='reduce to the 16-bit display levels with an ordered dither')
 	a = ap.parse_args(argv)
-	quillify(a.wallpaper, a.emblem, a.out, a.png)
+	quillify(a.wallpaper, a.emblem, a.out, a.png, a.dither, a.seed, a.rgb565)
 	x, y, r = sun_in_bmp()
 	print('quillify: %s (sun at %.1f, %.1f radius %.1f)' % (a.out, x, y, r))
 

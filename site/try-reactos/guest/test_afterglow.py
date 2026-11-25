@@ -17,6 +17,8 @@ import tarfile
 import tempfile
 import unittest
 
+import numpy as np
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 import quillify  # noqa: E402  (the guest folder is the script's own directory)
 
@@ -55,7 +57,8 @@ class PinTest(unittest.TestCase):
 		self.assertRegex(pin['AFTERGLOW_COMMIT'], r'^[0-9a-f]{40}$')
 		self.assertRegex(pin['AFTERGLOW_TAR_SHA256'], r'^[0-9a-f]{64}$')
 		self.assertRegex(pin['AFTERGLOW_MSSTYLES_SHA256'], r'^[0-9a-f]{64}$')
-		self.assertTrue(pin['AFTERGLOW_WALLPAPER'].endswith('.svg'))
+		self.assertTrue(pin['AFTERGLOW_WALLPAPER'].endswith('-smooth.svg'))
+		self.assertTrue(pin['AFTERGLOW_WALLPAPER_STEPPED'].endswith('-stepped.svg'))
 		self.assertTrue(pin['AFTERGLOW_APPLY_REG'].endswith('.reg'))
 
 
@@ -104,6 +107,73 @@ class FetchTest(unittest.TestCase):
 		raw = gzip.decompress(make_tar({'desktop/style/build.sh': b'x'})[0])
 		r, _ = self.fetch(gzip.compress(raw, 1, mtime=12345), sha)
 		self.assertEqual(r.returncode, 0, r.stderr)
+
+
+class DitherTest(unittest.TestCase):
+	def test_noise_matches_afterglow_render_wallpapers(self):
+		"""Expected values come from scripts/render-wallpapers.mjs's mulberry32 and dither(): 12 bytes of 20, amount 3, key afterglow-dusk-dark-smooth-bmp, seed 2026."""
+		got = quillify.triangular_dither(np.full((12,), 20, np.uint8), 3, quillify.DITHER_KEY).tolist()
+		self.assertEqual(got, [19, 20, 20, 22, 19, 19, 21, 22, 19, 21, 21, 20])
+
+	def test_dither_is_deterministic_and_within_one_level(self):
+		px = np.full((16, 16, 3), 100, np.uint8)
+		a = quillify.triangular_dither(px, 1, quillify.DITHER_KEY)
+		self.assertTrue(np.array_equal(a, quillify.triangular_dither(px, 1, quillify.DITHER_KEY)))
+		self.assertLessEqual(int(np.abs(a.astype(int) - 100).max()), 1)
+		self.assertFalse(np.array_equal(a, px))
+
+	def test_rgb565_lands_on_display_levels_and_keeps_the_gradient_smooth(self):
+		ramp = np.tile(np.linspace(10, 40, 256).astype(np.uint8)[None, :, None], (64, 1, 3))
+		out = quillify.to_rgb565(ramp)
+		for c, bits in enumerate((5, 6, 5)):
+			levels = {(v >> (8 - bits)) for v in np.unique(out[:, :, c]).tolist()}
+			self.assertTrue(all(((l << (8 - bits)) | (l >> (2 * bits - 8))) in np.unique(out[:, :, c]).tolist() for l in levels))
+		self.assertTrue(np.array_equal(out, quillify.to_rgb565(ramp)))
+		# the mean over a block follows the ramp closely, which plain truncation to five bits would not
+		self.assertLess(abs(float(out[:, 100:108, 0].mean()) - float(ramp[:, 100:108, 0].mean())), 2.5)
+
+	def test_black_and_white_stay_exact(self):
+		px = np.zeros((8, 8, 3), np.uint8)
+		self.assertEqual(int(quillify.to_rgb565(px).max()), 0)
+		self.assertEqual(int(quillify.to_rgb565(px + 255).min()), 255)
+
+
+class DeskIconTest(unittest.TestCase):
+	@unittest.skipUnless(shutil.which('rsvg-convert'), 'needs rsvg-convert')
+	def test_frames_and_reproducibility(self):
+		try:
+			import PIL  # noqa: F401
+		except ImportError:
+			self.skipTest('needs Pillow')
+		import struct
+		import make_desk_icon
+		data = make_desk_icon.build()
+		self.assertEqual(data, make_desk_icon.build())
+		count = struct.unpack('<H', data[4:6])[0]
+		sizes = [(data[6 + 16 * i] or 256, struct.unpack('<H', data[12 + 16 * i:14 + 16 * i])[0]) for i in range(count)]
+		self.assertEqual(sizes[:4], [(16, 4), (16, 8), (16, 24), (16, 32)])
+		self.assertIn((48, 32), sizes)
+		self.assertIn((32, 32), sizes)
+		self.assertEqual(sizes[-1][0], 256)
+		self.assertNotIn((32, 4), sizes)   # no flat 16-colour frame at 32 or 48 px: the detailed art has no flat version
+
+
+class LnkTest(unittest.TestCase):
+	def test_icon_location_and_index(self):
+		tmp = tempfile.mkdtemp()
+		self.addCleanup(shutil.rmtree, tmp)
+		out = os.path.join(tmp, 'a.lnk')
+		subprocess.run(['python3', '-I', os.path.join(HERE, 'make-lnk.py'), out, 'C:\\Q\\Q.EXE', '--icon', 'C:\\Q\\Q.ICO', '--icon-index', '2'], check=True)
+		data = open(out, 'rb').read()
+		self.assertEqual(int.from_bytes(data[0x38:0x3C], 'little', signed=True), 2)
+		self.assertIn(b'C:\\Q\\Q.ICO', data[-30:])
+
+	def test_default_icon_is_the_target(self):
+		tmp = tempfile.mkdtemp()
+		self.addCleanup(shutil.rmtree, tmp)
+		out = os.path.join(tmp, 'a.lnk')
+		subprocess.run(['python3', '-I', os.path.join(HERE, 'make-lnk.py'), out, 'C:\\Q\\Q.EXE'], check=True)
+		self.assertIn(b'C:\\Q\\Q.EXE', open(out, 'rb').read()[-30:])
 
 
 class QuillifyTest(unittest.TestCase):

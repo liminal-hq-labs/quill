@@ -11,6 +11,8 @@ AFTERGLOW_COMMIT=af5639304ea6e0ef59db48e67b1ac3d128966b30
 AFTERGLOW_TAR_SHA256=c595c68029e8ae48d3515a87b73e916cb15179101272b39a9c1ad64327c261bd
 # SHA-256 of the default build of desktop/style/build.sh (classic scroll bars), as recorded in desktop/SHA256SUMS at that commit.
 AFTERGLOW_MSSTYLES_SHA256=2a40fecc9ccaa054f6725d3626cd37e513f2413f9d385c9702dc3b0b9a03902d
-# The wallpaper the Quill overlay goes on, and the colour scheme the apply file selects.
-AFTERGLOW_WALLPAPER=assets/wallpapers/afterglow-dusk-dark-stepped.svg
+# The wallpapers the Quill overlay goes on (WALLPAPER_STYLE=smooth, the default, or stepped; prepare-afterglow.sh), and the colour scheme the apply
+# file selects. Both have the sun at the same place, which quillify.py checks.
+AFTERGLOW_WALLPAPER=assets/wallpapers/afterglow-dusk-dark-smooth.svg
+AFTERGLOW_WALLPAPER_STEPPED=assets/wallpapers/afterglow-dusk-dark-stepped.svg
 AFTERGLOW_APPLY_REG=desktop/install/afterglow-original.reg
