@@ -100,6 +100,11 @@ pub fn open(w: i32, h: i32, div: (i32, i32)) -> Option<Mice> {
 			return Some(Mice::Int33(m));
 		}
 	}
+	// A test run (`QUILL_DUMP`) plays keys through the emulator's keyboard controller, which answers the PS/2 mouse's commands in its own
+	// way and loses typed keys while it does, so the runs that must match the host's screens leave the controller alone.
+	if rt::env::var("QUILL_DUMP").is_some() {
+		return None;
+	}
 	Ps2Mouse::open(w, h, div).map(Mice::Ps2)
 }
 
