@@ -1,0 +1,40 @@
+# G7: every dialog drawn in graphics: Find and Replace (fields, check boxes, buttons), Fonts and Tabs (a text field, radio groups,
+# check boxes, buttons), About, the three file prompts, Spelling (a list, six buttons) and the Save changes question with its focus.
+@copy plain.qld
+@copy en_ca.dic
+@open PLAIN.QLD
+f10 right right right enter
+l i n e
+tab space tab space tab
+enter
+esc
+f10 right right right down down enter
+r tab tab tab tab space tab tab
+esc
+f8 right right right right right
+f10 right right right right down down down down down down down enter
+down tab bspace bspace 1 8 tab space tab space tab
+esc
+f10 right right right right right down down down down down down down down enter
+1 period 5 tab down tab down tab
+esc
+f10 right right right right right right right right down enter
+enter
+f10 down enter
+p l a i n period q l d bspace
+esc
+f10 down down down enter
+c o p y period q l d
+esc
+f10 right right enter
+p i c period b m p
+esc
+end enter
+T e h space q u i c k space f o x space
+f7
+tab tab
+esc
+f10 end enter
+tab tab tab
+right
+enter

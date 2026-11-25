@@ -13,12 +13,14 @@ use quill_app::view::{
 	hscroll_max, page_width, page_x0, ruler_marks, ruler_ticks, tab_x, text_extent, PageGeom,
 	RulerState, PAGE_GAP, PAGE_PAD, PAGE_TOP, RULER_H,
 };
-use quill_app::{menu_title, status_text, App, MENU_COUNT};
-use quill_core::layout::{to_units, FontRef, Measure};
+use quill_app::{status_text, App, Overlay};
+use quill_core::layout::{to_units, Measure};
 use quill_core::store::Store;
 
 use crate::page::{paint_page, PageInfo, PageView};
-use crate::{Rect, Rgb, Surface};
+use crate::ui::{bevel, Ui, FACE, INK, LIGHT, SHADOW};
+use crate::{dialog, menu};
+use crate::{Rect, Surface};
 
 /// The screen's width.
 pub const SCREEN_W: i32 = 640;
@@ -32,11 +34,6 @@ pub const STATUS_H: i32 = 20;
 pub const RULER_TOP: i32 = MENU_H;
 /// The part of the screen the page takes.
 pub const PAGE_AREA: Rect = Rect::new(0, MENU_H + RULER_H, SCREEN_W, SCREEN_H - STATUS_H);
-
-const FACE: Rgb = Rgb::SILVER;
-const SHADOW: Rgb = Rgb::GREY;
-const LIGHT: Rgb = Rgb::WHITE;
-const INK: Rgb = Rgb::BLACK;
 
 /// How the app is to be told the page area's size, so scrolling keeps the caret in view.
 pub fn view_height() -> i32 {
@@ -52,110 +49,6 @@ pub fn view_rows() -> usize {
 pub fn hscroll<M: Measure + Clone>(app: &App<M>) -> i32 {
 	let margin = to_units(app.doc().page.margin_l, 96);
 	margin.min(hscroll_max(app, SCREEN_W)).max(0)
-}
-
-fn ui_font() -> FontRef {
-	let mut face = [0u8; 31];
-	let name = b"Arial";
-	for (d, s) in face.iter_mut().zip(name) {
-		*d = *s;
-	}
-	FontRef {
-		face,
-		face_len: name.len() as u8,
-		family: 2,
-		size: 20,
-		flags: 0,
-	}
-}
-
-/// The user-interface font as the surface draws it, with its baseline offset.
-struct Ui<F: Copy> {
-	font: F,
-	ascent: i32,
-	height: i32,
-}
-
-impl<F: Copy> Ui<F> {
-	fn new<Sf: Surface<Font = F>, Me: Measure>(sf: &mut Sf, m: &mut Me) -> Self {
-		let fr = ui_font();
-		let met = m.metrics(&fr);
-		Ui {
-			font: sf.font(&fr),
-			ascent: met.ascent,
-			height: met.ascent + met.descent,
-		}
-	}
-
-	/// Draws `text` with its top at `y`; returns the x after it.
-	fn text<Sf: Surface<Font = F>>(
-		&self,
-		sf: &mut Sf,
-		x: i32,
-		y: i32,
-		text: &[u8],
-		fg: Rgb,
-	) -> i32 {
-		let mut x = x;
-		for chunk in text.chunks(32) {
-			let mut run = [(0u8, 0i32); 32];
-			let mut n = 0;
-			for (slot, &ch) in run.iter_mut().zip(chunk) {
-				*slot = (ch, x);
-				n += 1;
-				x += sf.advance(self.font, ch);
-			}
-			if let Some(r) = run.get(..n) {
-				sf.glyph_run(self.font, y + self.ascent, r, fg, false);
-			}
-		}
-		x
-	}
-
-	fn width<Sf: Surface<Font = F>>(&self, sf: &mut Sf, text: &[u8]) -> i32 {
-		text.iter().map(|c| sf.advance(self.font, *c)).sum()
-	}
-}
-
-fn bevel<Sf: Surface>(sf: &mut Sf, r: Rect, raised: bool) {
-	let (tl, br) = if raised {
-		(LIGHT, SHADOW)
-	} else {
-		(SHADOW, LIGHT)
-	};
-	sf.hline(r.left, r.right, r.top, tl);
-	sf.vline(r.left, r.top, r.bottom, tl);
-	sf.hline(r.left, r.right, r.bottom - 1, br);
-	sf.vline(r.right - 1, r.top, r.bottom, br);
-}
-
-fn menu_bar<Sf: Surface, M: Measure + Clone>(sf: &mut Sf, ui: &Ui<Sf::Font>, app: &App<M>) {
-	let bar = Rect::new(0, 0, SCREEN_W, MENU_H);
-	sf.clip(Some(bar));
-	sf.fill_rect(bar, FACE);
-	sf.hline(0, SCREEN_W, MENU_H - 1, INK);
-	let y = (MENU_H - 1 - ui.height) / 2;
-	let mut x = 10;
-	for m in 0..MENU_COUNT {
-		let title = menu_title(m);
-		// An ampersand marks the letter that opens the menu with Alt: it is not drawn, and the letter after it is underlined.
-		for (i, part) in title.split(|c| *c == b'&').enumerate() {
-			let (mark, rest) = match part.split_first() {
-				Some((c, rest)) if i > 0 => (Some(*c), rest),
-				_ => (None, part),
-			};
-			if let Some(c) = mark {
-				let w = sf.advance(ui.font, c);
-				ui.text(sf, x, y, &[c], INK);
-				sf.hline(x, x + w, y + ui.height, INK);
-				x += w;
-			}
-			x = ui.text(sf, x, y, rest, INK);
-		}
-		x += 18;
-	}
-	let _ = app;
-	sf.clip(None);
 }
 
 fn tab_mark<Sf: Surface>(sf: &mut Sf, kind: u8, x: i32, y: i32) {
@@ -250,15 +143,7 @@ fn status_line<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	let inset = Rect::new(4, r.top + 3, SCREEN_W - 4, r.bottom - 2);
 	bevel(sf, inset, false);
 	let mut buf = [0u8; 96];
-	let n = if app.editing() {
-		status_text(app, s, &mut buf)
-	} else {
-		let msg = b"A menu or dialog is open and is not drawn in graphics yet; Esc closes it";
-		for (d, c) in buf.iter_mut().zip(msg) {
-			*d = *c;
-		}
-		msg.len().min(buf.len())
-	};
+	let n = status_text(app, s, &mut buf);
 	let y = inset.top + (inset.height() - ui.height) / 2;
 	if let Some(t) = buf.get(..n) {
 		let max = SCREEN_W - 16;
@@ -292,9 +177,17 @@ pub fn paint_screen<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me: Mea
 		window,
 	);
 	let ui = Ui::new(sf, m);
-	menu_bar(sf, &ui, app);
+	let open = app.menu_open();
+	menu::draw_bar(sf, &ui, open.map(|(m, _)| m));
 	ruler(sf, &ui, app, s, hs);
 	status_line(sf, &ui, app, s);
+	if let Some((menu, item)) = open {
+		menu::draw_menu(sf, &ui, app, s, menu, item);
+	}
+	let mut ov = Overlay::default();
+	if app.overlay(s, &mut ov) {
+		dialog::draw_dialog(sf, &ui, &ov);
+	}
 	info
 }
 

@@ -50,12 +50,12 @@ impl Job for ScreenJob<'_> {
 }
 
 /// Plays the scenario as the DOS shell does: a frame at the start and after every key or pointer action. Returns the frames of one mode
-/// and the saved file.
-fn play(mode: Mode) -> (Vec<Frame>, Vec<u8>) {
+/// and the files.
+fn play(mode: Mode) -> (Vec<Frame>, MemFiles) {
 	play_file(mode, "g6-gfx")
 }
 
-fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, Vec<u8>) {
+fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 	let text =
 		std::fs::read_to_string(root().join(format!("tests/scenarios/{name}.keys"))).unwrap();
 	let sc = parse_script(&text);
@@ -102,15 +102,15 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, Vec<u8>) {
 			break;
 		}
 	}
-	(frames, files.files["LETTER.RTF"].clone())
+	(frames, files)
 }
 
 fn golden(mode: Mode) {
 	golden_of(mode, "g6-gfx");
 }
 
-fn golden_of(mode: Mode, name: &str) {
-	let (frames, saved) = play_file(mode, name);
+fn golden_of(mode: Mode, name: &str) -> Vec<Frame> {
+	let (frames, files) = play_file(mode, name);
 	let mut sums = String::new();
 	for (n, fr) in frames.iter().enumerate() {
 		writeln!(sums, "frame {} crc32 {:08x}", n + 1, crc32(&fr.native)).unwrap();
@@ -119,15 +119,34 @@ fn golden_of(mode: Mode, name: &str) {
 		&format!("tests/golden/gfx/{name}.{}.sums", mode.name()),
 		sums.as_bytes(),
 	);
-	compare_bytes(&format!("tests/golden/files/{name}.rtf"), &saved);
-	for (label, n) in [("start", 0), ("end", frames.len() - 2)] {
-		let fr = &frames[n];
-		let png = encode_indexed(640, 480, mode.depth(), &mode.palette(), &fr.pixels);
+	if !name.starts_with("g7-") {
 		compare_bytes(
-			&format!("tests/golden/gfx/{name}.{}.{label}.png", mode.name()),
-			&png,
+			&format!("tests/golden/files/{name}.rtf"),
+			&files.files["LETTER.RTF"],
 		);
+		for (label, n) in [("start", 0), ("end", frames.len() - 2)] {
+			let fr = &frames[n];
+			let png = encode_indexed(640, 480, mode.depth(), &mode.palette(), &fr.pixels);
+			compare_bytes(
+				&format!("tests/golden/gfx/{name}.{}.{label}.png", mode.name()),
+				&png,
+			);
+		}
 	}
+	// QUILL_FRAMES_DIR=dir writes every frame as a PNG there, for looking at.
+	if let Some(dir) = std::env::var_os("QUILL_FRAMES_DIR") {
+		let dir = std::path::PathBuf::from(dir);
+		std::fs::create_dir_all(&dir).unwrap();
+		for (n, fr) in frames.iter().enumerate() {
+			let png = encode_indexed(640, 480, mode.depth(), &mode.palette(), &fr.pixels);
+			std::fs::write(
+				dir.join(format!("{name}.{}.{:03}.png", mode.name(), n + 1)),
+				png,
+			)
+			.unwrap();
+		}
+	}
+	frames
 }
 
 /// The frame `dos/tools/mouse-x11.sh` compares with: the last one of the scenario a real pointer is made to play, as `crc32 XXXXXXXX`.
@@ -358,4 +377,24 @@ fn the_graphics_setting_reads_the_settings_text_and_the_command_line() {
 	assert_eq!(Graphics::from_arg("/t"), Some(Graphics::Text));
 	assert_eq!(Graphics::from_arg("/mono"), None);
 	assert_eq!(Graphics::from_arg("LETTER.RTF"), None);
+}
+
+#[test]
+fn the_menus_at_16_colours() {
+	golden_of(Mode::C16, "g7-menus");
+}
+
+#[test]
+fn the_menus_at_256_colours() {
+	golden_of(Mode::C256, "g7-menus");
+}
+
+#[test]
+fn the_dialogs_at_16_colours() {
+	golden_of(Mode::C16, "g7-dialogs");
+}
+
+#[test]
+fn the_dialogs_at_256_colours() {
+	golden_of(Mode::C256, "g7-dialogs");
 }

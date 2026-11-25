@@ -23,6 +23,7 @@ pub mod flow;
 mod form;
 pub mod mouse;
 mod native;
+mod overlay;
 mod paint;
 pub mod picture;
 pub mod platform;
@@ -48,6 +49,7 @@ pub use chrome::{
 	tab_stop, CharState, CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR, STYLE_NAMES,
 };
 pub use native::{Dialog, FindAction, VERSION};
+pub use overlay::{Mark, Overlay, Wid, Wk, WIDS, WID_TEXT};
 pub use paint::{
 	combo_hint, combo_tip, command_hint, command_tip, draw, item_for_mnemonic, line_label,
 	menu_box, menu_for_mnemonic, menu_items, menu_items_for, menu_title, mnemonic, slot,

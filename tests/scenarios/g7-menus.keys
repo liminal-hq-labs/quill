@@ -1,0 +1,23 @@
+# G7: the pull-down menus drawn in graphics. Select a word, then walk the bar: File, Edit (Cut and Copy are live with a selection), Find,
+# Character before and after Italic (the check mark), Paragraph (a check on Left), View (checks, the Zoom arrow) and Help; then leave
+# through File > Exit, which asks about the italic. Played into QUILLDOS.EXE with /G16 and /G, and on the host through quill-paint.
+@copy letter.rtf
+@open LETTER.RTF
+f8 right right right right right
+f10 down down
+right down down down
+right right down down
+right right down
+right
+f10 right right right right down down enter     # Character > Italic
+f10 right right right right down down
+right down down
+right right down
+right
+right
+esc
+f10 right right right right right right right down
+esc
+f10 end enter
+right
+enter
