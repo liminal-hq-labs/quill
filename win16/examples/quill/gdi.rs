@@ -348,7 +348,11 @@ fn draw_line(
 				} else if let Some(v) = text.object_at(s, p) {
 					// A field shows its value: the page it is on, the page count, the date or the file name.
 					let mut buf = [0u8; 32];
-					let n = app.field_text(v >> 16, l.page, pages, &mut buf);
+					// The date and the time are read as they are now, for this paint and no other.
+					let n = match v >> 16 {
+						k @ (3 | 5) => crate::clock_text(k, &mut buf),
+						k => app.field_text(k, l.page, pages, &mut buf),
+					};
 					let (fr, _, cfmt) = font_ref(doc, s, cf);
 					unsafe {
 						let old = SelectObject(dc, font_handle(&fr, 0));

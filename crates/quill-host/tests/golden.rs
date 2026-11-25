@@ -306,6 +306,15 @@ fn m4_print_scripts_match_their_golden_pages() {
 }
 
 #[test]
+fn m13_clock_script_matches_its_golden_screens_and_prints_the_fields() {
+	let (files, frames) = scenario("m13-clock");
+	compare("tests/golden/screens/m13-clock.frames.txt", &frames);
+	// The host has no clock, so the header fields print as nothing; the DOS run prints the clock's date and time.
+	let prn = String::from_utf8_lossy(&files.files["OUT.PRN"]).into_owned();
+	assert!(prn.contains("one"), "{prn:?}");
+}
+
+#[test]
 fn m7_picture_script_matches_its_golden_screens_and_file() {
 	let (files, frames) = scenario("m7-picture");
 	compare("tests/golden/screens/m7-picture.frames.txt", &frames);

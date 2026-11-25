@@ -16,6 +16,7 @@
 
 extern crate alloc;
 
+mod clock;
 mod files;
 mod gfx;
 mod keys;
@@ -215,6 +216,7 @@ fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 	}
 	app.set_rows(ROWS - 2);
 	open_arguments(&mut app, &mut store, &mut files);
+	clock::set(&mut app);
 	let mut dump = env::var("QUILL_DUMP").and_then(|p| File::open(&p, Mode::Create).ok());
 	let mut n = 0;
 	let target = TextCells { rows: (ROWS - 2) as i32 };
@@ -263,6 +265,7 @@ fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 		at = mouse.as_ref().map(|m| m.at()).or(at);
 		match waited {
 			keys::Wait::Key(Some(k)) => {
+				clock::set(&mut app);
 				app.key(&mut store, &mut files, k);
 				show::<ROWS>(&app, &store, &mut dump, &mut n, at, true);
 			}
@@ -322,6 +325,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 	app.set_view_height(shell::view_height());
 	app.set_rows(shell::view_rows());
 	open_arguments(&mut app, &mut store, &mut files);
+	clock::set(&mut app);
 	let mut window = Box::new([0u8; WINDOW]);
 	let mut dump = env::var("QUILL_DUMP").and_then(|p| File::open(&p, Mode::Create).ok());
 	let mut times = env::var("QUILL_TIMES").and_then(|p| File::open(&p, Mode::Create).ok());
@@ -447,6 +451,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 			}
 		};
 		if let Some(k) = key {
+			clock::set(&mut app);
 			app.key(&mut store, &mut files, k);
 			repaint = true;
 		}

@@ -165,7 +165,7 @@ impl<M: Measure + Clone> App<M> {
 					);
 				}
 			}
-			self.walk(s, l, |_, c, x, w, leader| {
+			self.walk(s, l, |p, c, x, w, leader| {
 				let xx = left + x as usize;
 				if c == 0x09 {
 					let fill = match leader {
@@ -177,7 +177,17 @@ impl<M: Measure + Clone> App<M> {
 					for i in 0..w as usize {
 						put(row, xx + i, fill);
 					}
-				} else if c != 0x01 {
+				} else if c == 0x01 {
+					// A page number fits the two columns a field takes on the text screen; the others (the date, the time and the file
+					// name are longer, and the page count is not known until the pass is done) leave their columns blank.
+					if self.doc.body.object_at(s, p).map(|v| v >> 16) == Some(1) {
+						let mut buf = [0u8; 32];
+						let n = self.field_text(1, cur, cur, &mut buf);
+						for (i, b) in buf.iter().take(n.min(w as usize)).enumerate() {
+							put(row, xx + i, *b);
+						}
+					}
+				} else {
 					put(row, xx, ansi_to_cp437(c));
 				}
 			});
