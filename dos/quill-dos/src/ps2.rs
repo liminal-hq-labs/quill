@@ -12,8 +12,8 @@
 use desk_hal::irq::{Chain, InterruptController, Irq, IrqHandler, IrqRegistry};
 use desk_hal::ring::{Consumer, SpscRing};
 use desk_hal::x86::RawPorts;
-use desk_hal::PortIo;
 use desk_hal::MouseEvent;
+use desk_hal::PortIo;
 use desk_i8042::{IrqStats, MouseIrq, I8042};
 use desk_pic::Pic8259;
 use quill_mouse::ps2::{Packet, Ps2Pointer};
@@ -44,14 +44,21 @@ fn ports() -> RawPorts {
 
 /// The keyboard's interrupt held off while the program talks to the controller: the BIOS's IRQ 1 handler would otherwise read the
 /// controller's own replies (the configuration byte, say) as if they were scancodes before the program could.
-struct KeyboardHeldOff(bool);
+struct KeyboardHeldOff {
+	was_masked: bool,
+	/// The controller has answered the program (a reply was read), so a request is latched in the PIC.
+	replied: bool,
+}
 
 impl KeyboardHeldOff {
 	fn new() -> Self {
 		let pic = Pic8259::new(ports());
 		let was = pic.is_masked(Irq::KEYBOARD);
 		pic.mask(Irq::KEYBOARD);
-		KeyboardHeldOff(was)
+		KeyboardHeldOff {
+			was_masked: was,
+			replied: false,
+		}
 	}
 }
 
@@ -61,7 +68,10 @@ impl KeyboardHeldOff {
 /// check): an acknowledgement, 0FAh, is what that handler expects from the keyboard and ignores.
 fn settle_keyboard() {
 	let ctl = I8042::new(ports());
-	ctl.flush();
+	// A byte waiting is a key typed meanwhile: the BIOS handler will read that one, and the register holds it.
+	if ctl.status() & desk_i8042::status::OUTPUT_FULL != 0 {
+		return;
+	}
 	if ctl.write_data(0xF4).is_ok() {
 		for _ in 0..desk_i8042::POLLS {
 			if ctl.status() & desk_i8042::status::OUTPUT_FULL != 0 {
@@ -74,8 +84,11 @@ fn settle_keyboard() {
 
 impl Drop for KeyboardHeldOff {
 	fn drop(&mut self) {
-		settle_keyboard();
-		if !self.0 {
+		// A controller that never answered (no mouse there) leaves nothing latched, and a typed key waiting in it is not touched.
+		if self.replied {
+			settle_keyboard();
+		}
+		if !self.was_masked {
 			Pic8259::new(ports()).unmask(Irq::KEYBOARD);
 		}
 	}
@@ -87,9 +100,10 @@ impl Ps2Mouse {
 		if !bios_has_pointing_device() {
 			return None;
 		}
-		let _held = KeyboardHeldOff::new();
+		let mut held = KeyboardHeldOff::new();
 		let ctl = I8042::new(ports());
 		let info = ctl.start_mouse(true).ok()?;
+		held.replied = true;
 		// A mouse that streams with nobody to read it would fill the controller's output buffer and hold the keyboard up.
 		let give_up = |registered: bool| {
 			if registered {
@@ -144,7 +158,8 @@ impl Ps2Mouse {
 	/// Gives the mouse back: its interrupt off, the vector put back, the mouse told to stop reporting, and what it had already sent
 	/// read off the controller (a byte left in the output buffer would hold the keyboard up).
 	pub fn close(self) {
-		let _held = KeyboardHeldOff::new();
+		let mut held = KeyboardHeldOff::new();
+		held.replied = true;
 		let ctl = I8042::new(ports());
 		let _ = ctl.set_interrupts(true, false);
 		let _ = DosIrq.unregister(Irq::MOUSE);
