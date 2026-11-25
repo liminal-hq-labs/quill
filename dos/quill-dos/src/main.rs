@@ -439,7 +439,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 							tick: mouse::ticks(),
 						};
 						let space = shell::Pixels::of(&app);
-							ptr.handle(&mut app, &mut store, &mut files, &space, ev, ctx);
+						ptr.handle(&mut app, &mut store, &mut files, &space, ev, ctx);
 					});
 					any
 				});
