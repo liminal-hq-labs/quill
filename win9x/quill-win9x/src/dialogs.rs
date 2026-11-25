@@ -116,12 +116,12 @@ unsafe fn lookup(module: &[u8], name: &[u8]) -> Option<*const u8> {
 unsafe fn platform_line() -> quill_app::platform::Line {
 	use quill_app::platform::{platform_line, Os, PLATFORM_NT};
 	let mut v = OsVersionInfo {
-		size: core::mem::size_of::<OsVersionInfo>() as u32,
+		size: 148,
 		major: 0,
 		minor: 0,
 		build: 0,
 		platform: 0,
-		csd: [0; 128],
+		csd: [0; 256],
 	};
 	GetVersionExA(&mut v);
 	if v.platform == PLATFORM_NT {
@@ -134,7 +134,7 @@ unsafe fn platform_line() -> quill_app::platform::Line {
 				minor: 0,
 				build: 0,
 				platform: 0,
-				csd: [0; 128],
+				csd: [0; 256],
 			};
 			if rtl(&mut real) >= 0 && real.major != 0 {
 				v = real;
@@ -158,7 +158,10 @@ unsafe fn platform_line() -> quill_app::platform::Line {
 			wine_len += 1;
 		}
 	}
-	let wine_str = core::str::from_utf8(&wine[..wine_len]).ok().filter(|w| !w.is_empty());
+	// Another system may export an unrelated symbol under that name; only a version number (digits and dots) is taken.
+	let wine_str = core::str::from_utf8(&wine[..wine_len])
+		.ok()
+		.filter(|w| !w.is_empty() && w.bytes().all(|b| b.is_ascii_digit() || b == b'.'));
 	platform_line(&Os {
 		platform: v.platform,
 		major: v.major,
@@ -206,8 +209,26 @@ unsafe extern "system" fn about_proc(dlg: Handle, msg: u32, wparam: usize, _lpar
 	match msg {
 		WM_INITDIALOG => {
 			set_text(dlg, 22, &alloc::format!("Version {}", quill_app::VERSION));
-			set_text(dlg, 25, platform_line().as_str());
-			set_text(dlg, 26, memory_line().as_str());
+			let platform = platform_line();
+			let memory = memory_line();
+			set_text(
+				dlg,
+				25,
+				if platform.as_str().is_empty() {
+					"Windows (version unknown)"
+				} else {
+					platform.as_str()
+				},
+			);
+			set_text(
+				dlg,
+				26,
+				if memory.as_str().is_empty() {
+					"Free memory: unknown"
+				} else {
+					memory.as_str()
+				},
+			);
 			centre(dlg);
 			1
 		}

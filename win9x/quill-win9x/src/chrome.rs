@@ -11,6 +11,7 @@ use quill_core::doc::cflag;
 use quill_heap::HeapStore;
 
 use crate::gdi::GdiMeasure;
+use crate::scheme;
 use crate::sys::*;
 
 /// Height of each of the two toolbar rows, in pixels: a 24-pixel button and two pixels either side.
@@ -25,11 +26,6 @@ pub const ID_SIZE: usize = 302;
 pub const ID_STYLE: usize = 303;
 /// Pop-up menu command numbers for the colour list: 500 is Automatic, 501 to 516 the 16 colours.
 const ID_COLOUR: usize = 500;
-
-const FACE: u32 = 0x00C0_C0C0;
-const WHITE: u32 = 0x00FF_FFFF;
-const SHADOW: u32 = 0x0080_8080;
-const BLACK: u32 = 0;
 
 static STRIP: &[u8] = include_bytes!("../../../assets/toolbar/toolbar.bmp");
 
@@ -165,10 +161,35 @@ unsafe fn fill(dc: Handle, x: i32, y: i32, w: i32, h: i32, colour: u32) {
 	DeleteObject(b);
 }
 
+/// The strip as drawn: a copy whose silver background and light-grey shading are the scheme's face and its light colour.
+static mut LIVE_STRIP: Vec<u8> = Vec::new();
+
+/// Palette entries of the strip that are chrome colours rather than picture: the silver background and the light grey of a highlight.
+const STRIP_FACE: usize = 0;
+const STRIP_LIGHT: usize = 11;
+/// Where the strip's palette starts: the 14-byte file header and the 40-byte information header.
+const STRIP_PALETTE: usize = 54;
+
+/// Rebuilds the glyph strip for the current scheme, so a button's picture sits on the button's face on any theme.
+pub fn recolour_strip() {
+	let mut v = STRIP.to_vec();
+	for (entry, colour) in [(STRIP_FACE, scheme::face()), (STRIP_LIGHT, light())] {
+		if let Some(p) = v.get_mut(STRIP_PALETTE + 4 * entry..STRIP_PALETTE + 4 * entry + 4) {
+			p.copy_from_slice(&[(colour >> 16) as u8, (colour >> 8) as u8, colour as u8, 0]);
+		}
+	}
+	// SAFETY: the shell is single-threaded; nothing else reads the strip while the scheme is being applied.
+	unsafe {
+		*core::ptr::addr_of_mut!(LIVE_STRIP) = v;
+	}
+}
+
 unsafe fn glyph(dc: Handle, k: i32, x: i32, y: i32) {
-	let off = u32::from_le_bytes([STRIP[10], STRIP[11], STRIP[12], STRIP[13]]) as usize;
-	let info = STRIP.as_ptr().add(14).cast::<BitmapInfoHeader>();
-	SetDIBitsToDevice(dc, x, y, 16, 15, k * 16, 0, 0, 15, STRIP.as_ptr().add(off), info, 0);
+	let live = &*core::ptr::addr_of!(LIVE_STRIP);
+	let strip: &[u8] = if live.len() == STRIP.len() { live } else { STRIP };
+	let off = u32::from_le_bytes([strip[10], strip[11], strip[12], strip[13]]) as usize;
+	let info = strip.as_ptr().add(14).cast::<BitmapInfoHeader>();
+	SetDIBitsToDevice(dc, x, y, 16, 15, k * 16, 0, 0, 15, strip.as_ptr().add(off), info, 0);
 }
 
 /// How a toolbar button looks.
@@ -182,22 +203,28 @@ pub enum Face {
 	Down,
 }
 
-/// Light grey between white and the face, and the dark grey of a shadow: the Windows 95 toolbar uses these two pixels deep and no black.
-const LIGHT: u32 = 0x00DF_DFDF;
-const MID: u32 = 0x00A0_A0A0;
+/// The inner ring of a bevel is halfway between the face and the edge: the Windows 95 toolbar bevel is two pixels deep and has no black.
+fn light() -> u32 {
+	scheme::mix(scheme::face(), scheme::hilight())
+}
+
+fn mid() -> u32 {
+	scheme::mix(scheme::face(), scheme::shadow())
+}
 
 /// Draws a button's face: flat until the pointer is over it, then a two-pixel raised bevel (white and light grey on the top and left,
 /// dark grey on the bottom and right); pressed or switched on, the same bevel sunken, with a lighter face for a switched-on toggle.
 unsafe fn button_face(dc: Handle, x: i32, y: i32, w: i32, h: i32, face: Face, lit: bool) {
-	let base = if face == Face::Down && lit { LIGHT } else { FACE };
+	let (face_c, shadow, white, light, mid) = (scheme::face(), scheme::shadow(), scheme::hilight(), light(), mid());
+	let base = if face == Face::Down && lit { light } else { face_c };
 	fill(dc, x, y, w, h, base);
 	if face == Face::Flat {
 		return;
 	}
 	let (tl, tl2, br, br2) = if face == Face::Down {
-		(SHADOW, MID, WHITE, LIGHT)
+		(shadow, mid, white, light)
 	} else {
-		(WHITE, LIGHT, SHADOW, MID)
+		(white, light, shadow, mid)
 	};
 	// Outer ring.
 	fill(dc, x, y, w - 1, 1, tl);
@@ -248,16 +275,16 @@ pub unsafe fn paint_toolbar(
 		if h == 0 {
 			continue;
 		}
-		fill(dc, 0, top, width, TB_H, FACE);
-		fill(dc, 0, top + TB_H - 1, width, 1, SHADOW);
-		fill(dc, 0, top, width, 1, WHITE);
+		fill(dc, 0, top, width, TB_H, scheme::face());
+		fill(dc, 0, top + TB_H - 1, width, 1, scheme::shadow());
+		fill(dc, 0, top, width, 1, scheme::hilight());
 		let mut prev_end: Option<i32> = None;
 		for (i, b) in lay.buttons.iter().enumerate().filter(|(_, b)| b.row == row) {
 			// An etched line fills the gap between groups of buttons.
 			if let Some(e) = prev_end {
 				if b.x - e > 4 {
-					fill(dc, e + (b.x - e) / 2 - 1, top + 5, 1, TB_H - 10, SHADOW);
-					fill(dc, e + (b.x - e) / 2, top + 5, 1, TB_H - 10, WHITE);
+					fill(dc, e + (b.x - e) / 2 - 1, top + 5, 1, TB_H - 10, scheme::shadow());
+					fill(dc, e + (b.x - e) / 2, top + 5, 1, TB_H - 10, scheme::hilight());
 				}
 			}
 			prev_end = Some(b.x + BTN_W);
@@ -684,18 +711,18 @@ unsafe fn triangle(dc: Handle, pts: [(i32, i32); 3], fill_colour: u32) {
 unsafe fn tab_mark(dc: Handle, kind: u8, x: i32, y: i32) {
 	match kind {
 		0 => {
-			fill(dc, x, y - 5, 1, 6, BLACK);
-			fill(dc, x, y, 5, 1, BLACK);
+			fill(dc, x, y - 5, 1, 6, scheme::text());
+			fill(dc, x, y, 5, 1, scheme::text());
 		}
 		2 => {
-			fill(dc, x, y - 5, 1, 6, BLACK);
-			fill(dc, x - 4, y, 5, 1, BLACK);
+			fill(dc, x, y - 5, 1, 6, scheme::text());
+			fill(dc, x - 4, y, 5, 1, scheme::text());
 		}
 		_ => {
-			fill(dc, x, y - 5, 1, 6, BLACK);
-			fill(dc, x - 3, y, 7, 1, BLACK);
+			fill(dc, x, y - 5, 1, 6, scheme::text());
+			fill(dc, x - 3, y, 7, 1, scheme::text());
 			if kind == 3 {
-				fill(dc, x + 2, y - 3, 1, 1, BLACK);
+				fill(dc, x + 2, y - 3, 1, 1, scheme::text());
 			}
 		}
 	}
@@ -706,16 +733,16 @@ unsafe fn tab_mark(dc: Handle, kind: u8, x: i32, y: i32) {
 /// # Safety
 /// `dc` must be a valid device context.
 pub unsafe fn paint_ruler(dc: Handle, top: i32, width: i32, text_left: i32, text_w: i32, st: &RulerState, kind: u8, pct: i32) {
-	fill(dc, 0, top, width, RULER_H, FACE);
-	fill(dc, 0, top + RULER_H - 1, width, 1, SHADOW);
+	fill(dc, 0, top, width, RULER_H, scheme::face());
+	fill(dc, 0, top + RULER_H - 1, width, 1, scheme::shadow());
 	// The scale: white over the text width, grey in the margins.
-	fill(dc, text_left, top + 8, text_w, 7, WHITE);
-	fill(dc, text_left - 1, top + 8, 1, 7, BLACK);
-	fill(dc, text_left + text_w, top + 8, 1, 7, BLACK);
+	fill(dc, text_left, top + 8, text_w, 7, scheme::window());
+	fill(dc, text_left - 1, top + 8, 1, 7, scheme::window_text());
+	fill(dc, text_left + text_w, top + 8, 1, 7, scheme::window_text());
 	let font = GetStockObject(17);
 	let old = SelectObject(dc, font);
 	SetBkMode(dc, TRANSPARENT);
-	SetTextColor(dc, BLACK);
+	SetTextColor(dc, scheme::window_text());
 	SetTextAlign(dc, 0);
 	// An eighth of an inch is 12 page units; the labels are inches.
 	for i in 0..=(crate::view::log(text_w, pct) * 8 / 96) {
@@ -728,7 +755,7 @@ pub unsafe fn paint_ruler(dc: Handle, top: i32, width: i32, text_left: i32, text
 			5
 		};
 		if h > 0 {
-			fill(dc, x, top + 8 + h, 1, 7 - 2 * h, BLACK);
+			fill(dc, x, top + 8 + h, 1, 7 - 2 * h, scheme::window_text());
 		} else if i > 0 {
 			let t = alloc::format!("{}", i / 8);
 			TextOutA(dc, x - 2, top + 8, t.as_ptr(), t.len() as i32);
@@ -740,12 +767,12 @@ pub unsafe fn paint_ruler(dc: Handle, top: i32, width: i32, text_left: i32, text
 		tab_mark(dc, *k, text_left + px(*pos, pct), top + 14);
 	}
 	let fx = text_left + px(st.first, pct);
-	triangle(dc, [(fx - 4, top + 1), (fx + 4, top + 1), (fx, top + 8)], WHITE);
+	triangle(dc, [(fx - 4, top + 1), (fx + 4, top + 1), (fx, top + 8)], scheme::window());
 	let lx = text_left + px(st.left, pct);
-	triangle(dc, [(lx, top + 14), (lx - 4, top + 19), (lx + 4, top + 19)], WHITE);
-	fill(dc, lx - 4, top + 19, 9, 3, WHITE);
+	triangle(dc, [(lx, top + 14), (lx - 4, top + 19), (lx + 4, top + 19)], scheme::window());
+	fill(dc, lx - 4, top + 19, 9, 3, scheme::window());
 	let rx = text_left + text_w - px(st.right, pct);
-	triangle(dc, [(rx, top + 14), (rx - 4, top + 19), (rx + 4, top + 19)], WHITE);
+	triangle(dc, [(rx, top + 14), (rx - 4, top + 19), (rx + 4, top + 19)], scheme::window());
 	// The button that picks the kind of tab stop a click on the scale makes.
 	button_face(dc, 2, top + 2, 18, 18, Face::Raised, false);
 	tab_mark(dc, kind, 8 + i32::from(kind == 2) * 3, top + 14);

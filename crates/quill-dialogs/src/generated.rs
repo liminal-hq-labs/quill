@@ -25,7 +25,7 @@ pub mod about {
 		x: 0,
 		y: 0,
 		cx: 200,
-		cy: 104,
+		cy: 116,
 		default_button: 1,
 		items: &[
 			crate::Item { class: crate::Class::Static, id: ICON, text: "", icon: 1, x: 12, y: 12, cx: 20, cy: 20, style: crate::style::ICON },
@@ -35,7 +35,7 @@ pub mod about {
 			crate::Item { class: crate::Class::Static, id: LICENCE, text: "Licensed under Apache-2.0 or MIT.", icon: 0, x: 44, y: 50, cx: 148, cy: 10, style: 0 },
 			crate::Item { class: crate::Class::Static, id: PLATFORM, text: "", icon: 0, x: 44, y: 66, cx: 148, cy: 10, style: 0 },
 			crate::Item { class: crate::Class::Static, id: MEMORY, text: "", icon: 0, x: 44, y: 78, cx: 148, cy: 10, style: 0 },
-			crate::Item { class: crate::Class::Button, id: OK, text: "OK", icon: 0, x: 76, y: 88, cx: 50, cy: 12, style: crate::style::DEFPUSHBUTTON | crate::style::TABSTOP | crate::style::GROUP },
+			crate::Item { class: crate::Class::Button, id: OK, text: "OK", icon: 0, x: 76, y: 98, cx: 50, cy: 12, style: crate::style::DEFPUSHBUTTON | crate::style::TABSTOP | crate::style::GROUP },
 		],
 	};
 }

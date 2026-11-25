@@ -292,7 +292,7 @@ unsafe fn draw_picture(
 			right: x + w,
 			bottom: y + h,
 		};
-		let b = CreateSolidBrush(0x00C0_C0C0);
+		let b = CreateSolidBrush(crate::scheme::face());
 		FillRect(dc, &area, b);
 		DeleteObject(b);
 		return;
@@ -491,10 +491,10 @@ unsafe fn draw_line(
 					right: tx + x + total,
 					bottom: y_top + l.ascent + l.descent,
 				};
-				let b = CreateSolidBrush(0x0080_0000);
+				let b = CreateSolidBrush(crate::scheme::select());
 				FillRect(dc, &r, b);
 				DeleteObject(b);
-				SetTextColor(dc, 0x00FF_FFFF);
+				SetTextColor(dc, crate::scheme::select_text());
 			} else {
 				SetTextColor(dc, colour_of(app, s, &cfmt));
 			}
@@ -510,8 +510,8 @@ unsafe fn draw_line(
 		}
 		if selected {
 			SetBkMode(dc, OPAQUE);
-			SetBkColor(dc, 0x0080_0000);
-			SetTextColor(dc, 0x00FF_FFFF);
+			SetBkColor(dc, crate::scheme::select());
+			SetTextColor(dc, crate::scheme::select_text());
 		} else {
 			SetBkMode(dc, TRANSPARENT);
 			SetTextColor(dc, colour_of(app, s, &cfmt));
@@ -589,8 +589,8 @@ unsafe fn draw_line(
 					let old = SelectObject(dc, fhandle(&fr, 0));
 					if selected {
 						SetBkMode(dc, OPAQUE);
-						SetBkColor(dc, 0x0080_0000);
-						SetTextColor(dc, 0x00FF_FFFF);
+						SetBkColor(dc, crate::scheme::select());
+						SetTextColor(dc, crate::scheme::select_text());
 					} else {
 						SetBkMode(dc, TRANSPARENT);
 						SetTextColor(dc, colour_of(app, s, &cfmt));
@@ -614,7 +614,7 @@ unsafe fn draw_line(
 				}];
 				if selected {
 					SetBkMode(dc, OPAQUE);
-					SetBkColor(dc, 0x0080_0000);
+					SetBkColor(dc, crate::scheme::select());
 				} else {
 					SetBkMode(dc, TRANSPARENT);
 				}
@@ -635,7 +635,7 @@ unsafe fn draw_line(
 						right: tx + x + w,
 						bottom: y_top + l.ascent + l.descent,
 					};
-					let b = CreateSolidBrush(0x0080_0000);
+					let b = CreateSolidBrush(crate::scheme::select());
 					FillRect(dc, &r, b);
 					DeleteObject(b);
 				}
@@ -759,7 +759,7 @@ pub unsafe fn paint_page(
 	let x0 = area.left + page_x0(client_w, dev(page_w, pct), hscroll);
 	#[cfg(feature = "bench")]
 	let fills = crate::bench::span(crate::bench::P::PFills);
-	fill(dc, area.left, area.top, area.right, area.bottom, 0x0080_8080);
+	fill(dc, area.left, area.top, area.right, area.bottom, crate::scheme::desk());
 	let pages = body_pages(app, s);
 	let view_h = log(area.bottom - area.top, pct);
 	for p in 0..pages as i32 {
@@ -1027,7 +1027,7 @@ pub unsafe fn paint_preview(
 ) -> PreviewSize {
 	let saved = SaveDC(dc);
 	IntersectClipRect(dc, area.left, area.top, area.right, area.bottom);
-	fill(dc, area.left, area.top, area.right, area.bottom, 0x0080_8080);
+	fill(dc, area.left, area.top, area.right, area.bottom, crate::scheme::desk());
 	let (lines, labels, pages) = preview_pages(app, s, mdc);
 	let n = if v.two { 2 } else { 1 };
 	let (aw, ah) = (area.right - area.left, area.bottom - area.top);

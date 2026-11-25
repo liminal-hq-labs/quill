@@ -33,6 +33,7 @@ pub const WS_HSCROLL: u32 = 0x0010_0000;
 pub const WS_MAXIMIZE: u32 = 0x0100_0000;
 pub const WS_CLIPCHILDREN: u32 = 0x0200_0000;
 pub const WM_SIZE: u32 = 0x0005;
+pub const WM_SYSCOLORCHANGE: u32 = 0x0015;
 pub const WM_HSCROLL: u32 = 0x0114;
 pub const SIZE_MINIMIZED: usize = 1;
 pub const SB_HORZ: i32 = 0;
@@ -313,6 +314,7 @@ counted! {
 		fn SetWindowTextA(hwnd: Handle, text: *const u8) -> i32;
 		fn ReleaseDC(hwnd: Handle, dc: Handle) -> i32;
 		fn GetSystemMetrics(index: i32) -> i32;
+		fn GetSysColor(index: i32) -> u32;
 		fn SetScrollInfo(hwnd: Handle, bar: i32, info: *const ScrollInfo, redraw: i32) -> i32;
 		fn GetCursorPos(p: *mut Point) -> i32;
 		fn KillTimer(hwnd: Handle, id: usize) -> i32;
@@ -331,6 +333,9 @@ extern "system" {
 }
 
 /// What `GetVersionExA` and `RtlGetVersion` fill in (`OSVERSIONINFOA`; `RtlGetVersion`'s wide record has the same first five fields).
+///
+/// The record is the size of the wide one (276 bytes), because `RtlGetVersion` writes and clears the whole of its 128-wide-character
+/// CSD string when it is told that size, and ReactOS does; a smaller buffer is a stack overrun. `GetVersionExA` is told 148.
 #[repr(C)]
 pub struct OsVersionInfo {
 	pub size: u32,
@@ -338,7 +343,7 @@ pub struct OsVersionInfo {
 	pub minor: u32,
 	pub build: u32,
 	pub platform: u32,
-	pub csd: [u8; 128],
+	pub csd: [u8; 256],
 }
 
 /// What `GlobalMemoryStatusEx` fills in (Windows 98 and NT 4.0 SP3 and later; it is looked up at run time).

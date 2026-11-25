@@ -32,6 +32,7 @@ mod chrome;
 mod dialogs;
 mod gdi;
 mod rt;
+mod scheme;
 mod sys;
 mod tips;
 mod ui;
@@ -454,6 +455,19 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 		}
 		// Every pixel of the client area is painted from the off-screen picture, so the system never erases it first.
 		WM_ERASEBKGND => 1,
+		// The user chose another colour scheme: read it again and repaint the chrome, the page's desk and the combo boxes.
+		WM_SYSCOLORCHANGE => {
+			apply_scheme();
+			if let Some(sh) = shell() {
+				if let Some(cb) = &sh.combos {
+					for h in [cb.style, cb.face, cb.size] {
+						InvalidateRect(h, null(), 1);
+					}
+				}
+			}
+			InvalidateRect(hwnd, null(), 0);
+			0
+		}
 		WM_SIZE => {
 			if wparam != SIZE_MINIMIZED {
 				if let Some(sh) = shell() {
@@ -968,7 +982,10 @@ unsafe fn open_help(hwnd: Handle) {
 	let mut path = [0u8; 280];
 	// SAFETY: `path` holds 280 bytes and the call is told 260.
 	let n = unsafe { GetModuleFileNameA(null_mut(), path.as_mut_ptr(), 260) } as usize;
-	let dir = path.get(..n).and_then(|p| p.iter().rposition(|b| *b == b'\\')).map_or(0, |i| i + 1);
+	let dir = path
+		.get(..n)
+		.and_then(|p| p.iter().rposition(|b| *b == b'\\'))
+		.map_or(0, |i| i + 1);
 	let name = b"QUILL.HLP\0";
 	if let Some(dst) = path.get_mut(dir..dir + name.len()) {
 		dst.copy_from_slice(name);
@@ -1140,6 +1157,12 @@ unsafe fn combo_changed(hwnd: Handle, wparam: usize) {
 	}
 	SetFocus(hwnd);
 	InvalidateRect(hwnd, null(), 0);
+}
+
+/// Reads the system colour scheme and rebuilds what was made from it.
+unsafe fn apply_scheme() {
+	scheme::refresh();
+	chrome::recolour_strip();
 }
 
 /// Fills `r` in `dc` with one solid colour.
@@ -1632,7 +1655,7 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 		GetClientRect(hwnd, &mut r);
 		{
 			span!(PGrey);
-			fill_rect(dc, &r, 0x00C0_C0C0);
+			fill_rect(dc, &r, scheme::face());
 		}
 		let (h0, h1) = chrome::rows(&sh.app);
 		let tb = if sh.preview.is_none() { h0 + h1 } else { 0 };
@@ -1680,7 +1703,7 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 					right: r.right,
 					bottom: ui::PV_BAR,
 				},
-				0x00C0_C0C0,
+				scheme::face(),
 			);
 			fill_rect(
 				dc,
@@ -1690,7 +1713,7 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 					right: r.right,
 					bottom: ui::PV_BAR,
 				},
-				0x0080_8080,
+				scheme::shadow(),
 			);
 			let size = gdi::paint_preview(dc, area, &sh.app, &sh.store, sh.screen_dc, &pv, &mut sh.pics);
 			if sh.pv_pages != size.pages {
@@ -2082,6 +2105,7 @@ pub extern "C" fn start() -> ! {
 			class_name: CLASS.as_ptr(),
 		};
 		RegisterClassA(&class);
+		apply_scheme();
 		// Measure the OEM fixed font to size the window to 80 by 25 cells.
 		let dc = GetDC(null_mut());
 		SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
