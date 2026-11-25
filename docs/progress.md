@@ -272,6 +272,14 @@ Steps 1 to 5 of the plan are done; each was checked by hand on Windows for Workg
 
 Not proven or not done: printing (Print shows the dialog and then says printing is not in this build); PNG pictures are grey boxes on the Win16 page (BMPs draw, D200); Windows 3.1 without the Workgroups update, the 386SX profile, Standard mode, and real hardware; the S3 800 by 600 display was only started, not exercised; the context-sensitive `HELP_CONTEXT` call is still unverified (see M9); the face list comes from WIN.INI's `[fonts]` and not `EnumFontFamilies`; the Win32 build has not yet moved onto `quill_app::view` (D95). The first suggestion in Spelling for "smal" is "Sal" before "Small", which is the spelling core's ranking, not the Win16 shell.
 
+### The next preset and the format at a paragraph's start (CORE-39, CORE-40)
+
+Enter at the end of a heading or title now starts a Normal paragraph, and text typed at a paragraph's start takes the format of the character at the caret.
+
+- **Behaviour.** `chrome::next_preset` (a `match`, no data) and `apply_preset` give the new paragraph its preset inside the Enter's undo step; the middle and the start of a heading keep the heading (an empty heading above, the caret below); Backspace joining an empty paragraph keeps the upper mark's formats, so Enter then Backspace round-trips.
+- **Tests.** `quill-host/tests/next_style.rs` (14 tests, two of them properties over every preset and caret position) and the `m14-heading-enter` scenario with `tests/docs/heading.rtf`. Every existing host, app, core and formats test and golden passes unchanged; the one golden that moved is the graphics scenario `g6-gfx`, which types at the start of a bold, underlined paragraph (CORE-40).
+- **Not done.** A paragraph that was changed after its preset (a centred heading) keeps the old behaviour until paragraph styles are stored; Undo does not restore the caret (a later step in the editing rules review).
+
 ### The Win16 data segment and pictures (experiment, D200)
 
 `docs/win16-data-segment.md` has the table of what fills the segment (65,240 of 65,536 bytes before), what moved (3.3 KB of statics to far memory, 2.2 KB of stack margin from the main frame: 3,838 to 6,042 bytes on Windows 3.11), what happens when it is pushed, and the picture path. Proven on Windows for Workgroups 3.11 under DOSBox-X: the `m1-edit` play-back equal to the golden 20 of 20 times (and 5 of 5 on the tree with its Startup group, on an earlier build), BMPs of 1, 8 and 24 bits from 64 by 48 to 1024 by 768 drawn on the page, and a clean grey box when `GlobalAlloc` refuses. Not proven: PNG (grey box), other displays, Windows 3.1 without the Workgroups update, real hardware, printing a picture.
