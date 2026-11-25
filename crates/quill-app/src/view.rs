@@ -25,6 +25,10 @@ pub const PAGE_PAD: i32 = 8;
 /// The grey gap between pages, and above the first line shown.
 pub const PAGE_GAP: i32 = 10;
 pub const PAGE_TOP: i32 = 8;
+/// What an arrow of the vertical scroll bar moves the page, a notch of the wheel three times, in pixels.
+pub const SCROLL_LINE: i32 = 16;
+/// How far a sheet's shadow reaches below and to the right of it.
+pub const SHEET_SHADOW: i32 = 5;
 /// Pixels per inch of the page view.
 pub const DPI: u16 = 96;
 /// Twips to a pixel at 96 dots per inch.
@@ -515,7 +519,7 @@ impl PageGeom {
 			margin_t: to_units(page.margin_t, DPI),
 			top: 0,
 		};
-		g.top = app.line_at(s, app.top_line()).map_or(0, |l| g.cum(&l));
+		g.top = app.line_at(s, app.top_line()).map_or(0, |l| g.cum(&l)) + app.vsub;
 		g
 	}
 
@@ -634,6 +638,75 @@ impl<M: Measure + Clone> App<M> {
 	/// Shows line `top` first (a scroll bar moved). The caret stays where it is until a key moves it.
 	pub fn scroll_to<S: ReadStore + ?Sized>(&mut self, s: &S, top: u32) {
 		self.top = top.min(self.line_count(s).saturating_sub(1));
+		self.vsub = 0;
+	}
+
+	/// Where the page is scrolled to in pixels: 0 with the first line at the top of the page area, and a pixel more for each the
+	/// pages have moved up past it. A vertical scroll bar of the page view stands on this, not on lines, so a page with one line
+	/// (an empty one) still scrolls and the whole of its sheet comes into view.
+	pub fn vscroll_pos<S: ReadStore + ?Sized>(&self, s: &S) -> i32 {
+		let g = PageGeom::of(self, s);
+		let first = self.line_at(s, 0).map_or(0, |l| g.cum(&l));
+		(g.top - first).max(0)
+	}
+
+	/// How far the page can scroll ([`App::vscroll_pos`]'s greatest value): until the bottom of the last sheet, with its shadow and
+	/// a little desk, is at the bottom of the page area. 0 when the page area's height is not known yet, and never less than where the
+	/// page is now (the caret can scroll past it, onto the desk).
+	pub fn vscroll_max<S: ReadStore + ?Sized>(&self, s: &S) -> i32 {
+		if self.view_h <= 0 {
+			return 0;
+		}
+		let g = PageGeom::of(self, s);
+		let first = self.line_at(s, 0).map_or(0, |l| g.cum(&l));
+		let pages = self.page_total(s).max(1) as i32;
+		let bottom = (pages - 1) * (g.page_h + PAGE_GAP) + g.page_h;
+		let end = bottom + SHEET_SHADOW + PAGE_TOP - (self.view_h - PAGE_TOP) - first;
+		end.max(g.top - first).max(0)
+	}
+
+	/// True when the page area is drawn in pixels (a window or the graphics screen), so the page scrolls by [`App::vscroll_pos`];
+	/// false on the text screen, which scrolls by lines.
+	pub fn pixel_view(&self) -> bool {
+		self.view_h > 0
+	}
+
+	/// How many pixels of the page area the thumb of a bar on [`App::vscroll_pos`] stands for: the page area's height.
+	pub fn vscroll_view(&self) -> i32 {
+		self.view_h.max(1)
+	}
+
+	/// Scrolls the page to `pos` pixels (see [`App::vscroll_pos`]), within 0 and [`App::vscroll_max`]: the first line shown is the last
+	/// one that starts at or above it and the rest is the pixels past that line's top. The caret stays where it is. Returns true when
+	/// the view moved.
+	pub fn set_vscroll_pos<S: ReadStore + ?Sized>(&mut self, s: &S, pos: i32) -> bool {
+		let pos = pos.clamp(0, self.vscroll_max(s));
+		let g = PageGeom::of(self, s);
+		let Some(l0) = self.line_at(s, 0) else {
+			return false;
+		};
+		let (before_top, before_sub) = (self.top, self.vsub);
+		let goal = g.cum(&l0) + pos;
+		// Start a page before the one the goal is on: checkpoints are per page.
+		let page = ((goal / (g.page_h + PAGE_GAP).max(1)) as u32).max(1);
+		let mut found = (0u32, g.cum(&l0));
+		self.lines_from_page(s, page, |i, l| {
+			let c = g.cum(l);
+			if c > goal {
+				return false;
+			}
+			found = (i, c);
+			true
+		});
+		self.top = found.0;
+		self.vsub = goal - found.1;
+		(self.top, self.vsub) != (before_top, before_sub)
+	}
+
+	/// Scrolls the page by `delta` pixels (negative up) as a bar does; true when it moved.
+	pub fn vscroll_by<S: ReadStore + ?Sized>(&mut self, s: &S, delta: i32) -> bool {
+		let at = self.vscroll_pos(s);
+		self.set_vscroll_pos(s, at.saturating_add(delta))
 	}
 
 	/// The line under the window's `y` in a page area whose top is `area_top`, as its index: the line `y` is in, the nearer of the two

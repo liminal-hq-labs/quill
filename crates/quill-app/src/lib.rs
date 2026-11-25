@@ -436,6 +436,11 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) doc: Doc,
 	pub(crate) caret: u32,
 	pub(crate) top: u32,
+	/// Pixels the page is scrolled past line `top`'s own top (0 unless a pixel scroll set it): what lets the paper under the last line
+	/// scroll into view.
+	pub(crate) vsub: i32,
+	/// True when a key scrolled the view and the caret could not move, so the scroll that follows must not bring the caret back.
+	pub(crate) view_hold: bool,
 	want_x: i32,
 	pub(crate) name: [u8; NAME_MAX],
 	pub(crate) name_len: usize,
@@ -517,6 +522,8 @@ impl<M: Measure + Clone> App<M> {
 			doc: Doc::new(),
 			caret: 0,
 			top: 0,
+			vsub: 0,
+			view_hold: false,
 			want_x: 0,
 			name: [0; NAME_MAX],
 			name_len: 0,
@@ -562,6 +569,7 @@ impl<M: Measure + Clone> App<M> {
 		self.spell_forget();
 		self.caret = 0;
 		self.top = 0;
+		self.vsub = 0;
 		self.hpos = 0;
 		self.name_len = 0;
 		self.modified = false;
@@ -986,6 +994,7 @@ impl<M: Measure + Clone> App<M> {
 		self.spell_forget();
 		self.caret = 0;
 		self.top = 0;
+		self.vsub = 0;
 		self.modified = false;
 		self.typing = false;
 		self.set_name(name);
@@ -1357,6 +1366,7 @@ impl<M: Measure + Clone> App<M> {
 			let (c, t) = self.saved_view;
 			self.caret = c;
 			self.top = t;
+			self.vsub = 0;
 		}
 		self.anchor = None;
 		self.view = 0;
@@ -1370,6 +1380,7 @@ impl<M: Measure + Clone> App<M> {
 			self.view = to;
 			self.caret = 0;
 			self.top = 0;
+			self.vsub = 0;
 		}
 	}
 
@@ -1826,6 +1837,7 @@ impl<M: Measure + Clone> App<M> {
 	pub fn key<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, k: Key) {
 		self.discarded = false;
 		self.msg.set("");
+		self.view_hold = false;
 		match self.mode {
 			Mode::Edit => self.key_edit(s, f, k),
 			Mode::Menu { menu, item } => self.key_menu(s, f, k, menu, item),
@@ -1910,7 +1922,18 @@ impl<M: Measure + Clone> App<M> {
 					_ => page,
 				};
 				let keep = self.want_x >= 0;
+				let before = self.caret_line(s).map(|(i, _)| i);
 				self.move_vertical(s, delta, keep);
+				// A screenful when the caret has nowhere to go (an empty page, the first or the last line): the view moves instead.
+				if matches!(d, Dir::PageUp | Dir::PageDown)
+					&& self.view_h > 0
+					&& self.caret_line(s).map(|(i, _)| i) == before
+				{
+					let step = (self.view_h - 2 * view::PAGE_TOP).max(1);
+					let by = if d == Dir::PageUp { -step } else { step };
+					self.vscroll_by(s, by);
+					self.view_hold = true;
+				}
 			}
 			Dir::Home | Dir::End => {
 				if let Some((_, l)) = self.caret_line(s) {
@@ -1991,11 +2014,22 @@ impl<M: Measure + Clone> App<M> {
 				} else {
 					self.anchor = None;
 				}
-				self.caret = if k == Key::CtrlHome {
+				let to = if k == Key::CtrlHome {
 					0
 				} else {
 					len.saturating_sub(1)
 				};
+				// Already there: the view goes to the top of the first sheet or the bottom of the last one.
+				if to == self.caret && self.view_h > 0 {
+					let at = if k == Key::CtrlHome {
+						0
+					} else {
+						self.vscroll_max(s)
+					};
+					self.set_vscroll_pos(s, at);
+					self.view_hold = true;
+				}
+				self.caret = to;
 				self.want_x = -1;
 			}
 			Key::Esc => {
@@ -2206,15 +2240,24 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Keeps the caret on the screen.
 	fn scroll<S: ReadStore + ?Sized>(&mut self, s: &S) {
+		if core::mem::take(&mut self.view_hold) {
+			return;
+		}
 		let Some((idx, caret_line)) = self.caret_line(s) else {
 			return;
 		};
 		let rows = self.rows as u32;
-		if idx < self.top {
+		if idx < self.top || (idx == self.top && self.vsub > view::PAGE_TOP) {
+			// The caret's line is above the window, or its top is: the pixel scroll gives way to it.
 			self.top = idx;
+			self.vsub = 0;
 		} else if self.view_h > 0 {
 			// A window that draws pages one under another: the caret's line must fit in the page area's pixels, gaps and all.
-			self.top = self.top_to_show(s, idx, &caret_line);
+			let top = self.top_to_show(s, idx, &caret_line);
+			if top != self.top {
+				self.vsub = 0;
+			}
+			self.top = top;
 		} else if self.measure.resolution().1 <= 6 {
 			// On the text screen a row is a unit of layout, so spacing and tall lines count: move down until the caret's line fits.
 			let page_rows = quill_core::layout::to_units(self.doc.page.text_h(), 6);

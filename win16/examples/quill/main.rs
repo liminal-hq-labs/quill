@@ -617,7 +617,6 @@ fn update_scroll_in(hwnd: u32, cw: i32, ch: i32) {
 		return;
 	}
 	let (app, s) = (app(), store());
-	let lines = app.line_total(s).saturating_sub(1).min(32000);
 	let hmax = view::hscroll_max(app, layout(cw, ch, false).page_w).min(32000);
 	let sh = sh();
 	sh.hscroll = sh.hscroll.clamp(0, hmax);
@@ -625,6 +624,11 @@ fn update_scroll_in(hwnd: u32, cw: i32, ch: i32) {
 	let changed = show_h != sh.hbar_on;
 	sh.hbar_on = show_h;
 	let l = layout(cw, ch, show_h);
+	// The vertical bar counts pixels of the page (a page with one line still scrolls), shrunk to fit a 16-bit range.
+	app.set_view_height(l.page_bottom - view::chrome_height(app));
+	let vmax = app.vscroll_max(s);
+	let k = vscroll_k(vmax);
+	let (lines, vpos) = (vmax / k, app.vscroll_pos(s) / k);
 	unsafe {
 		// The bars move and show only when the client area or the horizontal bar's visibility changed.
 		if cw as i16 != sh.sb_cw || ch as i16 != sh.sb_ch || u8::from(show_h) != sh.sb_h {
@@ -639,7 +643,7 @@ fn update_scroll_in(hwnd: u32, cw: i32, ch: i32) {
 			ShowWindow(sh.hbar, u32::from(show_h));
 		}
 		let range = [lines as u16, hmax as u16];
-		let pos = [app.top_line().min(lines) as u16, sh.hscroll as u16];
+		let pos = [vpos.min(lines) as u16, sh.hscroll as u16];
 		for (i, bar) in [sh.vbar, sh.hbar].into_iter().enumerate() {
 			let moved_range = range[i] != sh.sb_range[i];
 			if moved_range {
@@ -994,13 +998,13 @@ fn mouse_move(hwnd: u32, x: i32, y: i32) {
 	if !sh().selecting {
 		return;
 	}
-	// Dragging past the top or the bottom of the page scrolls a line at a time.
+	// Dragging past the top or the bottom of the page scrolls 16 pixels at a time.
 	let area = page_area(hwnd);
 	let (top, bottom) = (i32::from(area.top), i32::from(area.bottom));
-	if y < top && app.top_line() > 0 {
-		app.scroll_to(s, app.top_line() - 1);
+	if y < top {
+		app.vscroll_by(s, -LINE_PX);
 	} else if y >= bottom {
-		app.scroll_to(s, app.top_line() + 1);
+		app.vscroll_by(s, LINE_PX);
 	}
 	let y = y.clamp(top, bottom - 1);
 	if let Some((line, tx)) = gdi::hit(app, s, area, sh().hscroll, x, y) {
@@ -1026,24 +1030,33 @@ fn mouse_up(hwnd: u32, x: i32) {
 	invalidate_all(hwnd);
 }
 
+/// How many pixels of the page one step of the vertical bar stands for: the largest whole number that brings the range under 30,000
+/// (a Windows 3 bar holds 16 bits).
+fn vscroll_k(vmax: i32) -> i32 {
+	vmax / 30000 + 1
+}
+
+/// What an arrow of the vertical bar moves, in pixels.
+const LINE_PX: i32 = view::SCROLL_LINE;
+
 /// A scroll bar message: `code` is what the user did and `thumb` where the box is.
 fn scroll_bar(hwnd: u32, vertical: bool, code: u32, thumb: u32) {
 	let (app, s) = (app(), store());
 	if vertical {
-		let top = app.top_line() as i32;
 		let area = page_area(hwnd);
-		let page = (i32::from(area.bottom - area.top) / 18).max(1);
+		let page = (i32::from(area.bottom - area.top) - 2 * LINE_PX).max(LINE_PX);
+		let (now, vmax) = (app.vscroll_pos(s), app.vscroll_max(s));
 		let to = match code {
-			0 => top - 1,
-			1 => top + 1,
-			2 => top - page,
-			3 => top + page,
-			4 | 5 => thumb as i32,
+			0 => now - LINE_PX,
+			1 => now + LINE_PX,
+			2 => now - page,
+			3 => now + page,
+			4 | 5 => (thumb as i32).saturating_mul(vscroll_k(vmax)),
 			6 => 0,
-			7 => i32::MAX / 2,
+			7 => vmax,
 			_ => return,
 		};
-		app.scroll_to(s, to.max(0) as u32);
+		app.set_vscroll_pos(s, to);
 		update_scroll(hwnd);
 		invalidate_page(hwnd);
 	} else {
