@@ -87,40 +87,54 @@ run_scenario m12-confirm-50 - -
 # quill-paint's shell. QUILL.FNT on the disk is the committed test font, so a frame is the same bytes on both: every frame's CRC-32 must
 # equal the host's golden (tests/golden/gfx/g6-gfx.{16,256}.sums), equal the CRC-32 of the video memory read back (the presenter put
 # every changed row there), and the saved file must be the host's.
-run_gfx_scenario() { # <label> <machine> <arguments> <16|256>
-	local label="$1" machine="$2" args="$3" depth="$4"
+run_gfx_scenario() { # <label> <machine> <arguments> <16|256> [scenario, default g6-gfx]
+	local label="$1" machine="$2" args="$3" depth="$4" scen="${5:-g6-gfx}" pace="${6:-0.6}"
 	[ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = "$label" ] || return 0
-	local file="$ROOT/tests/scenarios/g6-gfx.keys"
+	local file="$ROOT/tests/scenarios/$scen.keys"
 	local disk="$WORK/disk-$label"
 	rm -rf "$disk" "$WORK/keep"
 	mkdir -p "$disk"
 	cp "$HERE/dist/QUILLDOS.EXE" "$disk/"
 	cp "$ROOT/tests/fonts/QUILLTST.FNT" "$disk/QUILL.FNT"
-	cp "$ROOT/tests/docs/letter.rtf" "$disk/LETTER.RTF"
+	local open=""
+	while read -r d a; do
+		case "$d" in
+		@copy) cp "$ROOT/tests/docs/$a" "$disk/$(echo "$a" | tr '[:lower:]' '[:upper:]')" ;;
+		@open) open="$a" ;;
+		esac
+	done < <(grep '^@' "$file" | sed 's/#.*//')
 	local keys
 	keys="$(grep -v '^@' "$file" | sed 's/#.*//' | tr -s ' \n\t' ' ' | sed 's/^ //; s/ $//')"
 	export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT\nQUILL_TIMES=D:\\TIMES.TXT'
 	export DOS_KEEP="$WORK/keep"
 	# A frame takes longer to draw than a text screen, and a busy host stretches it: the keys go in slowly enough that the BIOS buffer never fills.
-	export DOS_AUTOTYPE="-w 2 -p 0.6 $keys"
-	export DOS_TIMEOUT=400
+	export DOS_AUTOTYPE="-w 2 -p $pace $keys"
+	export DOS_TIMEOUT="${E2E_TIMEOUT:-600}"
 	local rc=0
-	DOS_MACHINE="$machine" "$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE $args LETTER.RTF" > "$WORK/$label.out" || rc=$?
+	DOS_MACHINE="$machine" "$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE $args $open" > "$WORK/$label.out" || rc=$?
 	[ "$rc" = 0 ] || fail "$label: QUILLDOS.EXE exited with $rc"
 	[ ! -s "$WORK/$label.out" ] || { cat "$WORK/$label.out" >&2; fail "$label: it printed something, so it did not stay in graphics"; }
 	tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/$label-frames.txt"
 	grep '^frame' "$WORK/$label-frames.txt" | sed 's/ video .*//' > "$WORK/$label-sums.txt"
-	diff -u "$ROOT/tests/golden/gfx/g6-gfx.$depth.sums" "$WORK/$label-sums.txt" > "$WORK/$label.diff" || { head -40 "$WORK/$label.diff" >&2; fail "$label: a frame differs from the host's"; }
+	diff -u "$ROOT/tests/golden/gfx/$scen.$depth.sums" "$WORK/$label-sums.txt" > "$WORK/$label.diff" || { head -40 "$WORK/$label.diff" >&2; fail "$label: a frame differs from the host's"; }
 	if awk '/^frame/ && $4 != $6 { bad = 1; print > "/dev/stderr" } END { exit bad }' "$WORK/$label-frames.txt"; then :; else
 		fail "$label: the video memory differs from the frame drawn (the presenter missed a row)"
 	fi
 	echo "e2e: $label: all $(grep -c '^frame' "$WORK/$label-frames.txt") frames equal the host's, and the video memory read back equals each frame"
-	cmp "$disk/LETTER.RTF" "$ROOT/tests/golden/files/g6-gfx.rtf" || fail "$label: the saved LETTER.RTF differs from the host's"
-	echo "e2e: $label: the saved LETTER.RTF is byte-identical to the host's"
+	if [ "$scen" = g6-gfx ]; then
+		cmp "$disk/LETTER.RTF" "$ROOT/tests/golden/files/g6-gfx.rtf" || fail "$label: the saved LETTER.RTF differs from the host's"
+		echo "e2e: $label: the saved LETTER.RTF is byte-identical to the host's"
+	fi
 }
 
 run_gfx_scenario g6-gfx-12h svga_s3 /G16 16
 run_gfx_scenario g6-gfx-vbe svga_s3 /G 256
+# G7: the pull-down menus and every dialog, drawn by the same painter.
+# The dialog frames take longer to draw than the menus, so these keys go in more slowly still.
+run_gfx_scenario g7-menus-12h svga_s3 /G16 16 g7-menus 0.8
+run_gfx_scenario g7-menus-vbe svga_s3 /G 256 g7-menus 0.8
+run_gfx_scenario g7-dialogs-12h svga_s3 /G16 16 g7-dialogs 0.9
+run_gfx_scenario g7-dialogs-vbe svga_s3 /G 256 g7-dialogs 0.9
 # A card whose VBE has no linear frame buffer gets mode 12h under /G, and with no QUILL.FNT graphics gives way to text with a note.
 run_gfx_scenario g6-gfx-nolfb vesa_nolfb /G 16
 if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = g6-gfx-nofont ]; then

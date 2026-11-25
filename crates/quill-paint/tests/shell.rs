@@ -50,8 +50,9 @@ impl Job for ScreenJob<'_> {
 }
 
 /// Plays the scenario as the DOS shell does: a frame at the start and after every key. Returns the frames of one mode and the saved file.
-fn play(mode: Mode) -> (Vec<Frame>, Vec<u8>) {
-	let text = std::fs::read_to_string(root().join("tests/scenarios/g6-gfx.keys")).unwrap();
+fn play(scenario: &str, mode: Mode) -> (Vec<Frame>, MemFiles) {
+	let text =
+		std::fs::read_to_string(root().join(format!("tests/scenarios/{scenario}.keys"))).unwrap();
 	let sc = parse_script(&text);
 	let mut files = MemFiles::default();
 	for name in &sc.copy {
@@ -89,38 +90,54 @@ fn play(mode: Mode) -> (Vec<Frame>, Vec<u8>) {
 			break;
 		}
 	}
-	(frames, files.files["LETTER.RTF"].clone())
+	(frames, files)
 }
 
-fn golden(mode: Mode) {
-	let (frames, saved) = play(mode);
+fn golden(scenario: &str, mode: Mode) -> Vec<Frame> {
+	let (frames, files) = play(scenario, mode);
 	let mut sums = String::new();
 	for (n, fr) in frames.iter().enumerate() {
 		writeln!(sums, "frame {} crc32 {:08x}", n + 1, crc32(&fr.native)).unwrap();
 	}
 	compare_bytes(
-		&format!("tests/golden/gfx/g6-gfx.{}.sums", mode.name()),
+		&format!("tests/golden/gfx/{scenario}.{}.sums", mode.name()),
 		sums.as_bytes(),
 	);
-	compare_bytes("tests/golden/files/g6-gfx.rtf", &saved);
-	for (label, n) in [("start", 0), ("end", frames.len() - 2)] {
-		let fr = &frames[n];
-		let png = encode_indexed(640, 480, mode.depth(), &mode.palette(), &fr.pixels);
-		compare_bytes(
-			&format!("tests/golden/gfx/g6-gfx.{}.{label}.png", mode.name()),
-			&png,
-		);
+	if scenario == "g6-gfx" {
+		compare_bytes("tests/golden/files/g6-gfx.rtf", &files.files["LETTER.RTF"]);
+		for (label, n) in [("start", 0), ("end", frames.len() - 2)] {
+			let fr = &frames[n];
+			let png = encode_indexed(640, 480, mode.depth(), &mode.palette(), &fr.pixels);
+			compare_bytes(
+				&format!("tests/golden/gfx/g6-gfx.{}.{label}.png", mode.name()),
+				&png,
+			);
+		}
 	}
+	// QUILL_FRAMES_DIR=dir writes every frame as a PNG there, for looking at.
+	if let Some(dir) = std::env::var_os("QUILL_FRAMES_DIR") {
+		let dir = std::path::PathBuf::from(dir);
+		std::fs::create_dir_all(&dir).unwrap();
+		for (n, fr) in frames.iter().enumerate() {
+			let png = encode_indexed(640, 480, mode.depth(), &mode.palette(), &fr.pixels);
+			std::fs::write(
+				dir.join(format!("{scenario}.{}.{:03}.png", mode.name(), n + 1)),
+				png,
+			)
+			.unwrap();
+		}
+	}
+	frames
 }
 
 #[test]
 fn the_scenario_at_16_colours() {
-	golden(Mode::C16);
+	golden("g6-gfx", Mode::C16);
 }
 
 #[test]
 fn the_scenario_at_256_colours() {
-	golden(Mode::C256);
+	golden("g6-gfx", Mode::C256);
 }
 
 #[test]
@@ -251,7 +268,7 @@ fn the_comparison_works_on_a_linear_shadow_with_a_pitch() {
 #[test]
 fn the_comparison_misses_no_changed_row_across_the_scenario() {
 	for mode in [Mode::C16, Mode::C256] {
-		let (frames, _) = play(mode);
+		let (frames, _) = play("g6-gfx", mode);
 		for (n, pair) in frames.windows(2).enumerate() {
 			let set = if mode == Mode::C16 {
 				damage::planar(&pair[0].native, &pair[1].native)
@@ -311,4 +328,24 @@ fn the_graphics_setting_reads_the_settings_text_and_the_command_line() {
 	assert_eq!(Graphics::from_arg("/t"), Some(Graphics::Text));
 	assert_eq!(Graphics::from_arg("/mono"), None);
 	assert_eq!(Graphics::from_arg("LETTER.RTF"), None);
+}
+
+#[test]
+fn the_menus_at_16_colours() {
+	golden("g7-menus", Mode::C16);
+}
+
+#[test]
+fn the_menus_at_256_colours() {
+	golden("g7-menus", Mode::C256);
+}
+
+#[test]
+fn the_dialogs_at_16_colours() {
+	golden("g7-dialogs", Mode::C16);
+}
+
+#[test]
+fn the_dialogs_at_256_colours() {
+	golden("g7-dialogs", Mode::C256);
 }

@@ -349,6 +349,7 @@ On Windows 95, 98 and Me the Win32 build names the system exactly and shows free
 
 - **Fonts.** Font families map to Desk's faces: roman to Desk Serif, swiss to Desk Sans, modern to Desk Mono, others to Desk Sans. Each comes as bitmap strikes at 8, 10, 12, 14, 18, 24, 36 and 48 points at 96 dots per inch, in regular, bold, italic and bold italic; other sizes use the nearest strike and say so in the status line. Underline and strikethrough are drawn.
 - **Layout** uses those faces' widths, so lines break where Desk's fonts put them, not where Arial or Times New Roman would. The document is unchanged; only line breaks differ.
+- **Menus and dialogs** are drawn as Windows 3.1 controls: pull-downs with check marks, greyed items, accelerator text and underlined mnemonics; dialogs as windows with a title bar, buttons, check boxes, radio buttons, text fields with a caret and list boxes. One control has the visible focus (a dotted rectangle or the caret), and the keys do what they do in text mode.
 - Pictures are dithered to the 16 colours, or to the halftone palette in 256 colours. Everything else is as in text mode, drawn in graphics.
 
 ### Build differences
