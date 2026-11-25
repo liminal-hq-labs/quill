@@ -50,6 +50,8 @@ path = "examples/icontest/main.rs"
 noalias = []
 # Quill's picture-slot and stack-alias checks and the /BADSLOT test switch (examples/quill/diag.rs); off in the shipped build.
 diag = []
+# A build that counts every Win16 import call in far memory and runs the windowed `/BENCH` driver (examples/quill/bench.rs); it is built as QUILLB.EXE and never shipped.
+bench = []
 
 [[bin]]
 name = "stackprobe"

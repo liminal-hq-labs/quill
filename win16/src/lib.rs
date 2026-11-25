@@ -11,7 +11,13 @@
 use core::arch::{asm, global_asm};
 use core::ptr::addr_of_mut;
 
+#[cfg(not(feature = "bench"))]
 #[rustfmt::skip]
+pub mod imports;
+/// The counting stubs of a `bench` build (`tools/gen_imports.py --count`): the same imports, each adding one to a counter in far memory.
+#[cfg(feature = "bench")]
+#[rustfmt::skip]
+#[path = "imports_count.rs"]
 pub mod imports;
 pub mod fault;
 pub mod probe;
@@ -259,6 +265,33 @@ global_asm!(
 	"pop eax",
 	".byte 0x66, 0xc3",
 );
+
+// The selector of the block of far memory the counting import stubs of a `bench` build add to; 0 until the program makes one, which
+// the stubs read as "do not count".
+#[cfg(feature = "bench")]
+global_asm!(
+	".code16",
+	".section .data.w16stack,\"aw\"",
+	".globl __w16_cnt_sel",
+	"__w16_cnt_sel: .word 0",
+);
+
+#[cfg(feature = "bench")]
+unsafe extern "C" {
+	static mut __w16_cnt_sel: u16;
+}
+
+/// The selector the counting stubs add to (0 when they are not counting).
+#[cfg(feature = "bench")]
+pub fn counter_selector() -> u32 {
+	unsafe { __w16_cnt_sel as u32 }
+}
+
+/// Points the counting stubs at the far block whose selector is `sel` (0 stops the count).
+#[cfg(feature = "bench")]
+pub fn set_counter_selector(sel: u32) {
+	unsafe { __w16_cnt_sel = sel as u16 };
+}
 
 // Ends the task with the exit code in the low byte of the argument: back to the 16-bit stack, the alias freed, INT 21h function 4Ch.
 global_asm!(
