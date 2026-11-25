@@ -587,32 +587,67 @@ fn press(hwnd: u32, k: Key) {
 
 /// Runs a command from the menu or the toolbar.
 /// Tells the editor today's date, written in the short date format of WIN.INI's `[intl]` section (`sShortDate`), for the Date field.
+/// The text of a Date field (3) or a Time field (5) as WIN.INI's `[intl]` section and the DOS clock say it now: `sShortDate`; or
+/// `iTime` (1 for the 24-hour clock), `sTime`, `s1159` and `s2359`. Everything is on the stack, so the data segment does not grow
+/// (the defaults are empty strings, and `datefmt` reads an empty setting as its default). Returns how many bytes of `out` it wrote.
 #[inline(never)]
-fn set_today() {
-	let (y, m, d) = w16::dos_date();
+pub fn clock_text(kind: u32, out: &mut [u8; 32]) -> usize {
 	let mut fmt = [0u8; 24];
-	let n = gdi::profile_string(
-		cs!("intl"),
-		Some(cs!("sShortDate")),
-		cs!("M/d/yy"),
-		&mut fmt,
+	let get = |key: u32, buf: &mut [u8; 24]| -> usize {
+		gdi::profile_string(cs!("intl"), Some(key), cs!(""), buf).min(23)
+	};
+	if kind == 3 {
+		let (y, m, d) = w16::dos_date();
+		let n = get(cs!("sShortDate"), &mut fmt);
+		return quill_app::datefmt::format(
+			fmt.get(..n).unwrap_or(&[]),
+			u32::from(y),
+			u32::from(m),
+			u32::from(d),
+			out,
+		);
+	}
+	let (h, m) = w16::dos_time();
+	let n = get(cs!("iTime"), &mut fmt);
+	let h24 = fmt.first() == Some(&b'1') && n > 0;
+	let mut sep = [0u8; 24];
+	let mut am = [0u8; 24];
+	let mut pm = [0u8; 24];
+	let (ns, na, np_) = (
+		get(cs!("sTime"), &mut sep),
+		get(cs!("s1159"), &mut am),
+		get(cs!("s2359"), &mut pm),
 	);
-	let mut out = [0u8; 24];
-	let k = quill_app::datefmt::format(
-		fmt.get(..n).unwrap_or(&[]),
-		u32::from(y),
+	quill_app::datefmt::format_time(
+		u32::from(h),
 		u32::from(m),
-		u32::from(d),
-		&mut out,
-	);
-	if let Ok(text) = core::str::from_utf8(out.get(..k).unwrap_or(&[])) {
-		app().set_print_date(text);
+		h24,
+		sep.get(..ns).unwrap_or(&[]),
+		am.get(..na).unwrap_or(&[]),
+		pm.get(..np_).unwrap_or(&[]),
+		out,
+	)
+}
+
+/// Gives the editor today's date and the time, for the fields it prints and shows (the window draws a field from `clock_text`).
+#[inline(never)]
+pub fn set_clock() {
+	let mut buf = [0u8; 32];
+	for kind in [3u32, 5] {
+		let n = clock_text(kind, &mut buf);
+		if let Ok(text) = core::str::from_utf8(buf.get(..n).unwrap_or(&[])) {
+			if kind == 3 {
+				app().set_print_date(text);
+			} else {
+				app().set_print_time(text);
+			}
+		}
 	}
 }
 
 fn run_command(hwnd: u32, c: Command) {
-	if matches!(c, Command::Field(3)) {
-		set_today();
+	if matches!(c, Command::Field(3 | 5)) {
+		set_clock();
 	}
 	let before = view::signature(app(), store());
 	if c == Command::PrintSetup {
@@ -1412,6 +1447,7 @@ fn save_settings() {
 
 #[inline(never)]
 fn open_file(name: &[u8]) {
+	set_clock();
 	if let Err(e) = app().open(store(), &mut Win16Files, name) {
 		unsafe { picture::OPEN_FAILED = Some(e) };
 	} else if unsafe { store::REFUSALS } > 0 {
@@ -1530,7 +1566,7 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 	unsafe { USE_HERE = gridview };
 	load_settings();
 	if !gridview {
-		set_today();
+		set_clock();
 	}
 	app().set_about(if gridview {
 		"Host test run"

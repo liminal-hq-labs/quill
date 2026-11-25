@@ -22,6 +22,8 @@
 # ~/.cache/quill16-launch, first). The tree is the owner's and is never committed, so this is a manual test; it exits 0 with a note when
 # the tree is missing. DOSBox-X runs in a container of its own (quill16-launch-w31, W31_LAUNCH_CONTAINER) on a virtual X server of its
 # own, started on a free display number and stopped by its process id, so nothing here reads or types into the desktop.
+# FIELDS=1 also types a line, inserts a Date and a Time field with Insert > Date and Insert > Time (and types on after each, so the caret
+# shows where it landed), and keeps launch-fields.png; the exit then answers the save question with No.
 # SHOTS=DIR keeps launch-open.png (while the window is open), launch-exit.png (after File > Exit) and the logs the program wrote.
 set -euo pipefail
 
@@ -151,6 +153,28 @@ done
 [ "$(docker inspect -f '{{.State.Running}}' "$NAME")" = true ] || fail "DOSBox-X is not running"
 shot launch-open
 
+# Insert > Date and Insert > Time, then text after them: the fields must show their value and the caret must land after the room made for it.
+if [ -n "${FIELDS:-}" ]; then
+	xdotool mousemove 400 300
+	sleep 0.5
+	xdotool click 1
+	sleep 0.5
+	xdotool type --delay 150 "Sent "
+	xdotool key alt+i
+	sleep 1
+	shot launch-insert-menu
+	xdotool key d
+	sleep 1
+	xdotool type --delay 150 " at "
+	xdotool key alt+i
+	sleep 1
+	xdotool key t
+	sleep 1
+	xdotool type --delay 150 " ok"
+	sleep 2
+	shot launch-fields
+fi
+
 # File > Exit.
 xdotool mousemove 400 300
 sleep 0.5
@@ -164,9 +188,11 @@ xdotool key alt+f
 sleep 1
 shot launch-menu
 xdotool key x
-# The Date field changed the document: answer "Save the changes?" with No.
-sleep 2
-xdotool key n
+if [ -n "${FIELDS:-}" ]; then
+	sleep 2
+	shot launch-save-question
+	xdotool key n
+fi
 t=0
 while [ "$t" -lt 20 ] && [ ! -f "$WORK/d/STACK.LOG" ]; do
 	sleep 1

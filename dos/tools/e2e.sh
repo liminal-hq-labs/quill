@@ -82,6 +82,13 @@ run_scenario m11-recent - -
 run_scenario m12-confirm - -
 run_scenario m12-confirm-mono - -
 run_scenario m12-confirm-50 - -
+# The clock (tests/scenarios/m13-clock.keys): a header with a Date and a Time field is printed to OUT.PRN. The host has no clock, so the
+# screens are compared as usual and the printed line is checked here, by its shape: the date, the typed " at ", the time.
+run_scenario m13-clock - -
+if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = m13-clock ]; then
+	grep -Eq '[0-9]+[/.-][0-9]+[/.-][0-9]+ at [0-9]+:[0-9][0-9]' "$WORK/disk-m13-clock/OUT.PRN" || { cat -v "$WORK/disk-m13-clock/OUT.PRN" >&2; fail "m13-clock: the printed header has no date and time"; }
+	echo "e2e: m13-clock: the printed header shows the DOS date and time: $(grep -E ' at ' "$WORK/disk-m13-clock/OUT.PRN" | tr -s ' ' | tr -d '\r')"
+fi
 
 # With the mouse driver taken away (DOSBox's built-in one off) nothing breaks: the keyboard scenarios give the host's screens.
 export DOS_CONF=$'[mouse]\nbuiltin_dos_mouse_driver = off'
