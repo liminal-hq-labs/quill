@@ -185,3 +185,169 @@ fn menu_marks_follow_the_document() {
 	app.command(&mut s, &mut f, Command::Chrome(1));
 	assert!(!m(&app, &s, Command::Chrome(1)).checked);
 }
+
+use quill_app::view::TOOLBAR;
+use quill_app::{CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR};
+use quill_paint::layout::{Layout, BAR};
+use quill_paint::scroll::{self, Part};
+use quill_paint::toolbar::{box_at, box_rect, button_at, button_rect, Box3};
+
+fn overlaps(a: quill_paint::Rect, b: quill_paint::Rect) -> bool {
+	!a.intersect(b).is_empty()
+}
+
+fn parts_of(l: &Layout) -> Vec<quill_paint::Rect> {
+	let mut v = vec![l.menu, l.page, l.vbar];
+	v.extend(l.tool);
+	v.extend(l.format);
+	v.extend(l.ruler);
+	v.extend(l.hbar);
+	v.extend(l.corner);
+	v.extend(l.status);
+	v
+}
+
+#[test]
+fn the_parts_of_the_screen_never_overlap_and_cover_all_of_it_for_every_choice_of_bars() {
+	for bits in 0..16u8 {
+		let (mut app, mut s, mut f) = open_doc("letter.rtf");
+		let _ = (&mut s, &mut f);
+		for bit in [CHROME_TOOLBAR, CHROME_RULER, CHROME_STATUS, CHROME_FORMAT] {
+			if bits & bit == 0 {
+				app.toggle_chrome(bit);
+			}
+		}
+		let l = Layout::of(&app);
+		let parts = parts_of(&l);
+		let mut area = 0;
+		for (i, a) in parts.iter().enumerate() {
+			assert!(
+				a.left >= 0 && a.top >= 0 && a.right <= SCREEN_W && a.bottom <= SCREEN_H,
+				"bits {bits}: part {i} is on the screen"
+			);
+			area += a.width() * a.height();
+			for b in &parts[i + 1..] {
+				assert!(!overlaps(*a, *b), "bits {bits}: {a:?} and {b:?} overlap");
+			}
+		}
+		assert_eq!(
+			area,
+			SCREEN_W * SCREEN_H,
+			"bits {bits}: the parts tile the screen"
+		);
+		assert_eq!(l.tool.is_some(), bits & CHROME_TOOLBAR != 0);
+		assert_eq!(l.format.is_some(), bits & CHROME_FORMAT != 0);
+		assert_eq!(l.ruler.is_some(), bits & CHROME_RULER != 0);
+		assert_eq!(l.status.is_some(), bits & CHROME_STATUS != 0);
+		assert_eq!(l.vbar.width(), BAR);
+	}
+}
+
+#[test]
+fn quill_ini_chooses_the_bars() {
+	let (mut app, _s, mut f) = new_app();
+	f.files.insert(
+		"QUILL.INI".into(),
+		b"[Quill]\r\nToolbar=0\r\nFormattingBar=0\r\nRuler=1\r\nStatusBar=0\r\n".to_vec(),
+	);
+	app.load_settings(&mut f);
+	let l = Layout::of(&app);
+	assert!(l.tool.is_none() && l.format.is_none() && l.status.is_none());
+	assert!(l.ruler.is_some());
+	// The page takes the rows the bars gave up: below the menu and the ruler, down to the horizontal bar.
+	assert_eq!(l.page.top, MENU_H + 22);
+	assert_eq!(l.page.bottom, SCREEN_H - BAR);
+}
+
+#[test]
+fn every_toolbar_button_and_box_is_hit_by_its_own_centre() {
+	let (app, _s, _f) = open_doc("letter.rtf");
+	let l = Layout::of(&app);
+	for i in 0..TOOLBAR.buttons.len() {
+		let r = button_rect(&l, i).expect("both rows show");
+		assert_eq!(r.width(), 24);
+		assert!(r.right <= SCREEN_W - BAR + 16);
+		assert_eq!(
+			button_at(&l, (r.left + r.right) / 2, (r.top + r.bottom) / 2),
+			Some(i)
+		);
+	}
+	for b in [Box3::Style, Box3::Face, Box3::Size] {
+		let r = box_rect(&l, b).unwrap();
+		assert_eq!(
+			box_at(&l, (r.left + r.right) / 2, (r.top + r.bottom) / 2),
+			Some(b)
+		);
+	}
+	assert_eq!(button_at(&l, 600, l.tool.unwrap().top + 10), None);
+}
+
+#[test]
+fn a_hidden_row_has_no_buttons() {
+	let (mut app, _s, _f) = open_doc("letter.rtf");
+	app.toggle_chrome(CHROME_TOOLBAR);
+	let l = Layout::of(&app);
+	let first_row = TOOLBAR.buttons.iter().position(|b| b.row == 0).unwrap();
+	assert!(button_rect(&l, first_row).is_none());
+	assert!(
+		box_rect(&l, Box3::Face).is_some(),
+		"the formatting bar still shows"
+	);
+}
+
+#[test]
+fn a_scroll_bar_has_its_parts_in_order_and_the_thumb_follows_the_position() {
+	let bar = quill_paint::Rect::new(624, 98, 640, 444);
+	let mut last_top = 0;
+	for pos in [0, 10, 50, 100] {
+		let p = scroll::parts(bar, true, pos, 200, 100);
+		assert_eq!(p.up.bottom, p.track.top);
+		assert_eq!(p.track.bottom, p.down.top);
+		assert!(p.thumb.top >= p.track.top && p.thumb.bottom <= p.track.bottom);
+		assert!(
+			p.thumb.top >= last_top,
+			"the thumb moves down as the position grows"
+		);
+		last_top = p.thumb.top;
+		assert_eq!(
+			scroll::hit(
+				&p,
+				(p.thumb.left + p.thumb.right) / 2,
+				(p.thumb.top + p.thumb.bottom) / 2
+			),
+			Some(Part::Thumb)
+		);
+		assert_eq!(
+			scroll::pos_at(&p, p.thumb.top, 100),
+			pos,
+			"dragging the thumb back gives the position"
+		);
+	}
+	let p = scroll::parts(bar, true, 0, 200, 100);
+	assert_eq!(scroll::hit(&p, 630, p.up.top + 2), Some(Part::LineUp));
+	assert_eq!(
+		scroll::hit(&p, 630, p.down.bottom - 2),
+		Some(Part::LineDown)
+	);
+	assert_eq!(
+		scroll::hit(&p, 630, p.thumb.bottom + 3),
+		Some(Part::PageDown)
+	);
+	let p = scroll::parts(bar, true, 100, 200, 100);
+	assert_eq!(scroll::hit(&p, 630, p.thumb.top - 3), Some(Part::PageUp));
+	assert_eq!(scroll::hit(&p, 100, 100), None);
+	// Nothing to scroll: the thumb is the whole track and there is nowhere to drag.
+	let p = scroll::parts(bar, true, 0, 50, 50);
+	assert_eq!(p.travel, 0);
+	assert_eq!(scroll::pos_at(&p, 300, 0), 0);
+	// A horizontal bar is the same with the axes swapped.
+	let h = scroll::parts(
+		quill_paint::Rect::new(0, 444, 624, 460),
+		false,
+		100,
+		400,
+		200,
+	);
+	assert_eq!(h.up.right, h.track.left);
+	assert!(h.thumb.left > h.track.left && h.thumb.right < h.track.right);
+}

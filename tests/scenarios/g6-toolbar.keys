@@ -1,0 +1,28 @@
+# G6b: the toolbar, the formatting bar and the scroll bars. Select a word and switch Bold, Italic and Underline on through the
+# Character menu (the buttons sink with a checkered face), centre the paragraph and turn bullets on, move into other paragraphs (the
+# style, face and size boxes follow), then hide and show the toolbar, the formatting bar, the ruler and the status bar through the
+# View menu (the page takes the rows and gives them back), page down and up (the scroll thumb moves) and leave.
+@copy letter.rtf
+@open LETTER.RTF
+f8 right right right right right
+f10 right right right right down enter
+f10 right right right right down down enter
+f10 right right right right down down down enter
+esc
+f10 right right right right right down enter
+f10 right right right right right down down down down down down down enter
+down down down down
+f10 right right right right right right right enter
+f10 right right right right right right right down enter
+f10 right right right right right right right down down enter
+f10 right right right right right right right down down down enter
+f10 right right right right right right right enter
+f10 right right right right right right right down enter
+f10 right right right right right right right down down enter
+f10 right right right right right right right down down down enter
+pagedown pagedown
+pageup
+home
+f10 end enter
+right
+enter

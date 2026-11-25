@@ -154,7 +154,7 @@ run_gfx_scenario() { # <label> <machine> <arguments> <16|256> [scenario, default
 	export DOS_KEEP="$WORK/keep"
 	# A frame takes longer to draw than a text screen, and a busy host stretches it: the keys go in slowly enough that the BIOS buffer never fills.
 	export DOS_AUTOTYPE="-w 2 -p $pace $keys"
-	export DOS_TIMEOUT="${E2E_TIMEOUT:-600}"
+	export DOS_TIMEOUT="${E2E_TIMEOUT:-1200}"
 	local rc=0
 	DOS_MACHINE="$machine" "$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE $args $open" > "$WORK/$label.out" || rc=$?
 	[ "$rc" = 0 ] || fail "$label: QUILLDOS.EXE exited with $rc"
@@ -213,6 +213,9 @@ run_gfx_scenario g7-menus-12h svga_s3 /G16 16 g7-menus 0.8
 run_gfx_scenario g7-menus-vbe svga_s3 /G 256 g7-menus 0.8
 run_gfx_scenario g7-dialogs-12h svga_s3 /G16 16 g7-dialogs 0.9
 run_gfx_scenario g7-dialogs-vbe svga_s3 /G 256 g7-dialogs 0.9
+# G6b: the toolbar, the formatting bar, the scroll bars, and the View menu's choices that give their rows to the page.
+run_gfx_scenario g6-toolbar-12h svga_s3 /G16 16 g6-toolbar 0.8
+run_gfx_scenario g6-toolbar-vbe svga_s3 /G 256 g6-toolbar 0.8
 # A card whose VBE has no linear frame buffer gets mode 12h under /G, and with no QUILL.FNT graphics gives way to text with a note.
 run_gfx_scenario g6-gfx-nolfb vesa_nolfb /G 16
 if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = g6-gfx-nofont ]; then

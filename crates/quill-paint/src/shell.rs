@@ -3,9 +3,10 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-//! Plain Windows 3.1 chrome around [`paint_page`]. The layout is fixed: a 20-pixel menu bar, the 22-pixel ruler of `view.rs`, the page
-//! area (the page is scrolled sideways so the 6.5-inch text column fits, because a Letter sheet is 816 pixels wide) and a 20-pixel
-//! status line. Menus and dialogs are not drawn yet: while one is open the status line says so.
+//! Windows 3.1 chrome around [`paint_page`]: a 20-pixel menu bar, the toolbar and the formatting bar (28 pixels each), the 22-pixel
+//! ruler of `view.rs`, the page area, scroll bars 16 pixels wide, and a 20-pixel status line. Which of them show is the View menu's
+//! and `QUILL.INI`'s choice ([`Layout`]); a Letter sheet is 816 pixels wide, so the page is scrolled sideways until the 6.5-inch text
+//! column fills the area beside the vertical bar.
 
 use quill_app::mouse::{PageHit, PointerTarget};
 use quill_app::picture::WINDOW;
@@ -17,9 +18,11 @@ use quill_app::{status_text, App, Overlay};
 use quill_core::layout::{to_units, Measure};
 use quill_core::store::Store;
 
+use crate::layout::Layout;
 use crate::page::{paint_page, PageInfo, PageView};
+use crate::scroll;
 use crate::ui::{bevel, Ui, FACE, INK, LIGHT, SHADOW};
-use crate::{dialog, menu};
+use crate::{dialog, menu, toolbar};
 use crate::{Rect, Surface};
 
 /// The screen's width.
@@ -30,25 +33,20 @@ pub const SCREEN_H: i32 = 480;
 pub const MENU_H: i32 = 20;
 /// The height of the status line.
 pub const STATUS_H: i32 = 20;
-/// The top of the ruler.
-pub const RULER_TOP: i32 = MENU_H;
-/// The part of the screen the page takes.
-pub const PAGE_AREA: Rect = Rect::new(0, MENU_H + RULER_H, SCREEN_W, SCREEN_H - STATUS_H);
 
-/// How the app is to be told the page area's size, so scrolling keeps the caret in view.
-pub fn view_height() -> i32 {
-	PAGE_AREA.height()
+/// Tells the app how big the page area is, so scrolling keeps the caret in view and Page Up and Page Down move a screenful. The page
+/// area changes with the View menu (a hidden toolbar gives its rows to the page), so the shell calls this after every key.
+pub fn sync_view<M: Measure + Clone>(app: &mut App<M>) {
+	let page = Layout::of(app).page;
+	app.set_view_height(page.height());
+	app.set_rows((page.height() / 16).max(1) as usize);
 }
 
-/// How many lines of body text the page area shows at once, for Page Up and Page Down.
-pub fn view_rows() -> usize {
-	(PAGE_AREA.height() / 16).max(1) as usize
-}
-
-/// How far the page is scrolled sideways: until the text column starts at the page padding, or as far as the page can go.
-pub fn hscroll<M: Measure + Clone>(app: &App<M>) -> i32 {
+/// How far the page is scrolled sideways in a page area `client_w` wide: until the text column starts at the left edge, or as far as
+/// the page can go.
+pub fn hscroll<M: Measure + Clone>(app: &App<M>, client_w: i32) -> i32 {
 	let margin = to_units(app.doc().page.margin_l, 96);
-	margin.min(hscroll_max(app, SCREEN_W)).max(0)
+	(margin + PAGE_PAD).min(hscroll_max(app, client_w)).max(0)
 }
 
 fn tab_mark<Sf: Surface>(sf: &mut Sf, kind: u8, x: i32, y: i32) {
@@ -83,14 +81,15 @@ fn ruler<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	ui: &Ui<Sf::Font>,
 	app: &App<M>,
 	s: &St,
+	r: Rect,
+	client_w: i32,
 	hs: i32,
 ) {
-	let top = RULER_TOP;
-	let r = Rect::new(0, top, SCREEN_W, top + RULER_H);
+	let top = r.top;
 	sf.clip(Some(r));
 	sf.fill_rect(r, FACE);
 	sf.hline(0, SCREEN_W, top + RULER_H - 1, SHADOW);
-	let (text_left, text_w) = text_extent(app, SCREEN_W, hs);
+	let (text_left, text_w) = text_extent(app, client_w, hs);
 	// The scale: white over the text width, grey in the margins.
 	sf.fill_rect(
 		Rect::new(text_left, top + 8, text_left + text_w, top + 15),
@@ -135,8 +134,8 @@ fn status_line<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	ui: &Ui<Sf::Font>,
 	app: &App<M>,
 	s: &St,
+	r: Rect,
 ) {
-	let r = Rect::new(0, SCREEN_H - STATUS_H, SCREEN_W, SCREEN_H);
 	sf.clip(Some(r));
 	sf.fill_rect(r, FACE);
 	sf.hline(0, SCREEN_W, r.top, INK);
@@ -156,8 +155,31 @@ fn status_line<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	sf.clip(None);
 }
 
-/// Paints the whole screen: the page and its desk first, then the menu bar, the ruler and the status line over their strips. `m` is
-/// a measure for the interface font's metrics; `window` is the picture decoder's working memory.
+/// Draws the two scroll bars and the box where they meet.
+fn scroll_bars<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
+	sf: &mut Sf,
+	app: &App<M>,
+	s: &St,
+	lay: &Layout,
+	hs: i32,
+) {
+	let total = app.line_total(s) as i32;
+	let view = (app.page_rows() as i32).min(total);
+	let v = scroll::parts(lay.vbar, true, app.top_line() as i32, total, view);
+	scroll::draw(sf, &v, total > view);
+	if let Some(hbar) = lay.hbar {
+		let sheet = page_width(app) + 2 * PAGE_PAD;
+		let h = scroll::parts(hbar, false, hs, sheet, lay.page.width());
+		scroll::draw(sf, &h, sheet > lay.page.width());
+	}
+	if let Some(c) = lay.corner {
+		sf.fill_rect(c, FACE);
+	}
+}
+
+/// Paints the whole screen: the page and its desk first, then the bars, the ruler, the scroll bars and the status line over their
+/// strips, then an open menu or dialog. `m` is a measure for the interface font's metrics; `window` is the picture decoder's working
+/// memory.
 pub fn paint_screen<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me: Measure>(
 	sf: &mut Sf,
 	app: &App<M>,
@@ -165,13 +187,14 @@ pub fn paint_screen<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me: Mea
 	s: &St,
 	window: &mut [u8; WINDOW],
 ) -> PageInfo {
-	let hs = hscroll(app);
+	let lay = Layout::of(app);
+	let hs = hscroll(app, lay.page.width());
 	let info = paint_page(
 		sf,
 		app,
 		s,
 		&PageView {
-			area: PAGE_AREA,
+			area: lay.page,
 			hscroll: hs,
 		},
 		window,
@@ -179,8 +202,14 @@ pub fn paint_screen<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me: Mea
 	let ui = Ui::new(sf, m);
 	let open = app.menu_open();
 	menu::draw_bar(sf, &ui, open.map(|(m, _)| m));
-	ruler(sf, &ui, app, s, hs);
-	status_line(sf, &ui, app, s);
+	toolbar::draw(sf, &ui, app, s, &lay);
+	if let Some(r) = lay.ruler {
+		ruler(sf, &ui, app, s, r, lay.page.width(), hs);
+	}
+	scroll_bars(sf, app, s, &lay, hs);
+	if let Some(r) = lay.status {
+		status_line(sf, &ui, app, s, r);
+	}
 	if let Some((menu, item)) = open {
 		menu::draw_menu(sf, &ui, app, s, menu, item);
 	}
@@ -244,9 +273,9 @@ pub fn pos_at_pixel<M: Measure + Clone, St: quill_core::store::ReadStore + ?Size
 	x: i32,
 	y: i32,
 ) -> PageHit {
-	let area = PAGE_AREA;
+	let area = Layout::of(app).page;
 	let g = PageGeom::of(app, s);
-	let px = x - area.left - page_x0(area.width(), page_width(app), hscroll(app));
+	let px = x - area.left - page_x0(area.width(), page_width(app), hscroll(app, area.width()));
 	let py = y - area.top - PAGE_TOP + g.top;
 	let margin = to_units(app.doc().page.margin_l, 96);
 	PageHit {
@@ -255,11 +284,23 @@ pub fn pos_at_pixel<M: Measure + Clone, St: quill_core::store::ReadStore + ?Size
 	}
 }
 
-/// The graphics screen as a pointer space: pixels of the 640 by 480 screen. Only the page takes the pointer for now. The menus and
-/// dialogs are not drawn in graphics yet, so there are no hit tests for them here; when they are, this is where they go (the
+/// The graphics screen as a pointer space: pixels of the 640 by 480 screen. Only the page takes the pointer for now; its rectangle
+/// is where the View menu's bars leave it (`Layout::of`), so a `Pixels` is made from the app with [`Pixels::of`] before each
+/// event. The menus, dialogs and bars are drawn but have no pointer hit tests here yet; when they do, this is where they go (the
 /// `press_chrome`, `press_overlay` and `hover_overlay` methods of [`PointerTarget`]).
-#[derive(Copy, Clone, Debug, Default)]
-pub struct Pixels;
+#[derive(Copy, Clone, Debug)]
+pub struct Pixels {
+	page: Rect,
+}
+
+impl Pixels {
+	/// The pointer space for the screen as the app's chrome flags lay it out now.
+	pub fn of<M: Measure + Clone>(app: &App<M>) -> Pixels {
+		Pixels {
+			page: Layout::of(app).page,
+		}
+	}
+}
 
 impl<M: Measure + Clone> PointerTarget<M> for Pixels {
 	fn page_hit<St: quill_core::store::ReadStore + ?Sized>(
@@ -269,7 +310,7 @@ impl<M: Measure + Clone> PointerTarget<M> for Pixels {
 		x: i32,
 		y: i32,
 	) -> Option<PageHit> {
-		let a = PAGE_AREA;
+		let a = self.page;
 		(x >= a.left && x < a.right && y >= a.top && y < a.bottom)
 			.then(|| pos_at_pixel(app, s, x, y))
 	}
@@ -279,9 +320,9 @@ impl<M: Measure + Clone> PointerTarget<M> for Pixels {
 	}
 
 	fn edge(&self, y: i32) -> i32 {
-		if y < PAGE_AREA.top {
+		if y < self.page.top {
 			-1
-		} else if y >= PAGE_AREA.bottom {
+		} else if y >= self.page.bottom {
 			1
 		} else {
 			0
@@ -289,6 +330,6 @@ impl<M: Measure + Clone> PointerTarget<M> for Pixels {
 	}
 
 	fn clamp_y(&self, y: i32) -> i32 {
-		y.clamp(PAGE_AREA.top, PAGE_AREA.bottom - 1)
+		y.clamp(self.page.top, self.page.bottom - 1)
 	}
 }
