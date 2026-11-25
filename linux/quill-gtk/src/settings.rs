@@ -22,6 +22,8 @@ pub struct WindowSettings {
 	pub height: i32,
 	/// True when it was maximized; the size is then the one to restore to.
 	pub maximized: bool,
+	/// True when the classic menu bar shows under the header bar.
+	pub menu_bar: bool,
 }
 
 impl Default for WindowSettings {
@@ -30,6 +32,7 @@ impl Default for WindowSettings {
 			width: 900,
 			height: 700,
 			maximized: false,
+			menu_bar: true,
 		}
 	}
 }
@@ -65,6 +68,8 @@ impl WindowSettings {
 					s.height = num.unwrap_or(s.height);
 				} else if k.eq_ignore_ascii_case("Maximized") {
 					s.maximized = v == "1";
+				} else if k.eq_ignore_ascii_case("MenuBar") {
+					s.menu_bar = v != "0";
 				}
 			}
 		}
@@ -74,10 +79,11 @@ impl WindowSettings {
 	/// The text of the file.
 	pub fn text(&self) -> String {
 		format!(
-			"[Window]\nWidth={}\nHeight={}\nMaximized={}\n",
+			"[Window]\nWidth={}\nHeight={}\nMaximized={}\nMenuBar={}\n",
 			self.width,
 			self.height,
-			u8::from(self.maximized)
+			u8::from(self.maximized),
+			u8::from(self.menu_bar)
 		)
 	}
 
@@ -98,6 +104,7 @@ mod tests {
 			width: 1024,
 			height: 768,
 			maximized: true,
+			menu_bar: false,
 		};
 		assert!(s.save(&d.path().join("quill")));
 		assert_eq!(WindowSettings::load(&d.path().join("quill")), s);
@@ -113,5 +120,6 @@ mod tests {
 		assert_eq!(s.width, WindowSettings::default().width);
 		assert_eq!(s.height, WindowSettings::default().height);
 		assert!(s.maximized);
+		assert!(s.menu_bar, "the menu bar shows unless the file says not");
 	}
 }

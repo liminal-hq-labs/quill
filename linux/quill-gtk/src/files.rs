@@ -73,6 +73,14 @@ impl GuiFiles {
 		self.inner.dirs()
 	}
 
+	/// The path a name the editor holds stands for: a stand-in's own path, or the name read as a Linux path.
+	pub fn path_of(&self, name: &[u8]) -> PathBuf {
+		match self.aliases.iter().find(|(k, _)| k == name) {
+			Some((_, p)) => p.clone(),
+			None => PathBuf::from(cp1252::ansi_to_string(name)),
+		}
+	}
+
 	/// The name to give the editor for `path`.
 	pub fn name_for(&mut self, path: &Path) -> Vec<u8> {
 		let abs = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());

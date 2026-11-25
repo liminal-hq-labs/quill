@@ -36,6 +36,9 @@ check() {
 	local name="$1" frame="$2" tex="$3" log="$4" line x y w h
 	line="$(grep '^page-texture' "$log")"
 	read -r x y w h < <(awk '{print $4, $5, $10, $11}' <<<"$line")
+	# The scroll bars float over the page's right and bottom edges (as a scrolled window's do), so the 16 pixels they may cover are left out.
+	w=$((w - 16))
+	h=$((h - 16))
 	echo "== $name: $(awk '{print "scale " $13}' <<<"$line")"
 	python3 -I "$here/tools/check-frame.py" "$frame" "$tex" "$x" "$y" 0 "$w" "$h"
 }

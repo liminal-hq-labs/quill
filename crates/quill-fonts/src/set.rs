@@ -118,6 +118,14 @@ impl FontSet {
 		set
 	}
 
+	/// The family names of the faces, sorted and without repeats: what a font box lists.
+	pub fn families(&self) -> Vec<String> {
+		let mut names: Vec<String> = self.faces.iter().map(|f| f.family().to_string()).collect();
+		names.sort_by_key(|n| n.to_lowercase());
+		names.dedup();
+		names
+	}
+
 	/// Adds the faces of a font file's bytes; returns how many it held.
 	pub fn add(&mut self, data: Arc<[u8]>) -> usize {
 		let faces = Face::parse_all(&data);

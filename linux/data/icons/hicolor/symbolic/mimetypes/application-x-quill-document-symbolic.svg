@@ -1,0 +1,7 @@
+<!--
+	Quill document symbolic icon: a page with a folded corner, the Q ring and the nib, in one colour.
+
+	(c) Copyright 2026 Liminal HQ, Scott Morris
+	SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16"><path d="M2 1H10L14 5V15H2ZM3 2V14H13V6H9V2Z" fill="#2e3436" fill-rule="evenodd"/><path d="M7 7.25A2.75 2.75 0 1 1 7 12.75A2.75 2.75 0 1 1 7 7.25ZM7 8.5A1.5 1.5 0 1 0 7 11.5A1.5 1.5 0 1 0 7 8.5Z" fill="#2e3436" fill-rule="evenodd"/><path d="M10.08 11.52L10.93 13.93L8.52 13.08Z" fill="#2e3436"/></svg>

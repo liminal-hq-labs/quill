@@ -173,7 +173,7 @@ The first GTK work is a spike that answers what is not known: whether GTK4 shows
 - **Names.** The editor names a file by Windows-1252 bytes. A build with long names (the same `long-names` feature the Windows 95 build uses) keeps an absolute path up to 260 bytes, so the recent list opens it again next session. A path with a character Windows-1252 lacks gets a stand-in name for the session; it opens, but it cannot be reopened from the recent list in a later session. The title and the recent menu show the long UTF-8 name.
 - **Settings.** The window's size and whether it was maximized are in `$XDG_CONFIG_HOME/quill/gtk.ini`. The recent files (`[Recent32]`) and the zoom (`Zoom=`, `Width` for page width, which is the default) are in the editor's own `QUILL.INI` in the same folder, written through `App::save_settings`, so every client reads them.
 - **Full screen** with F11, and **Quit** with Ctrl+Q.
-- **Dark mode.** The desk follows GTK's colour scheme (`gtk-interface-color-scheme`, else the older dark-theme setting) and changes when it does. The paper is white in both. libadwaita arrives at G7.
+- **Dark mode.** The desk follows GTK's colour scheme (`gtk-interface-color-scheme`, else the older dark-theme setting) and changes when it does. The paper is white in both. Since G2a the scheme comes from libadwaita's `StyleManager` (see below).
 
 ### How it is built
 
@@ -184,7 +184,7 @@ The first GTK work is a spike that answers what is not known: whether GTK4 shows
 
 ### Command line
 
-`quill [FILE]`, `--help` and `--version`. For tests and screenshots: `--scale-120 N` draws at N/120 whatever the display says, `--zoom`, `--scroll`, `--size WxH`, `--dark` and `--light`, `--vendored-fonts` (the test fonts only, so a render is the same on every machine), `--no-settings`, `--open-dialog`, `--dump FILE` (write the page texture and say where it sits), `--screenshot FILE` (render the window's content with GTK's own renderer, then quit) and `--new-instance`.
+`quill [FILE]`, `--help` and `--version`. For tests and screenshots: `--scale-120 N` draws at N/120 whatever the display says, `--zoom`, `--scroll`, `--size WxH`, `--dark` and `--light`, `--vendored-fonts` (the test fonts only, so a render is the same on every machine), `--no-settings`, `--open-dialog`, `--dialog NAME` (find, replace, fonts, tabs, spelling or about), `--self-test-dialogs`, `--dump FILE` (write the page texture and say where it sits), `--screenshot FILE` (render the window's content with GTK's own renderer, then quit) and `--new-instance`.
 
 ### What was proved
 
@@ -203,9 +203,55 @@ The first GTK work is a spike that answers what is not known: whether GTK4 shows
 - **Drag and drop** from a file manager, **the recent menu**, **F11** (there was no window manager to honour it) and **the hand-off to a running window** (the tests ran with `--new-instance`) were not driven. Drop, recent and the command line share `Ui::open_path`.
 - **Moving the window between monitors of different scales,** maximize and full screen at a fractional scale.
 - **IME and Orca** are later steps (G2 and G7). Nothing here takes text input.
+- **The chrome around the page** (menus, bars, dialogs) arrived in G2a, below; the viewer sections above describe the page and the view as G1 built them.
 - **Smooth scrolling is in whole document pixels,** so at 200 % on a 2× display a notch of the wheel moves 4 device pixels at least.
 - **A page-width zoom while the window is resized** redraws on each size change; its cost on a very long document was not measured.
 - **Pictures are scaled by repetition** (D213), so a picture at 1.5 is blocky when it has hard edges.
+
+## The libadwaita shell and the chrome (G2a)
+
+The window now looks and behaves like a GNOME application, and carries the Windows build's information architecture: a menu bar, a toolbar, a formatting bar, a ruler, a status bar and the dialogs. It is built with libadwaita 1.10 (the `libadwaita` crate 0.9; the host has `libadwaita-1` 1.10 and GTK 4.24), `adw::Application`, `adw::ApplicationWindow`, `adw::ToolbarView`, `adw::HeaderBar`, `adw::StyleManager`, `adw::AlertDialog`, `adw::AboutDialog`, `adw::Dialog` and `adw::ToastOverlay`. The symbolic icons are Adwaita's own; none is bundled. Editing is not wired yet (keys, caret, mouse and typing are G2), but every command that the chrome runs goes through the shared `App`, so the ones that need no caret movement work now: Select All, a format applied to a selection, Undo and Redo, the bars, zoom, Open, Save, New, Find, the Fonts, Tabs and Spelling dialogs.
+
+![The window in the light scheme](media/gtk-chrome-light.png)
+
+![The window in the dark scheme, with the Character menu open](media/gtk-chrome-menu-character-dark.png)
+
+### The parts
+
+- **Header bar.** The document's name with a `*` before it when it has unsaved changes (D194), its folder under it (the home folder as `~`), Open and Save buttons, and a primary menu (New, Open, Save As, Zoom, Menu Bar, Full Screen, About).
+- **Menu bar.** A `gtk::PopoverMenuBar` under the header bar with File, Edit, Insert, Find, Character, Paragraph, Document, View and Help. Its tree, order, labels, mnemonics, groups and accelerators are read from the one table the DOS, Win16 and Win32 menus are made from (`quill_app::menu_items`), so a change there reaches this bar; the recent files sit before Exit, as on Windows. Check marks and greyed items come from `App::menu_mark`: each command is a stateful or plain `win.NAME` action, and `Ui::sync_actions` sets its state and sensitivity after every change. View > Menu Bar (Ctrl+Shift+M, and the primary menu) shows or hides the bar; it is on by default and remembered in `gtk.ini`.
+- **Toolbar.** The Windows toolbar's first row, in its order and groups: New, Open, Save, Print, Print Preview; Cut, Copy, Paste; Undo, Redo; Spelling. Flat buttons with Adwaita's symbolic icons and the tips of the shared `command_tip` table (with the accelerator).
+- **Formatting bar.** The paragraph style, font and size boxes (`gtk::DropDown`; the font box lists the families the renderer can draw and the document's own face when this machine lacks it), Bold, Italic and Underline, a text colour list (Automatic and the sixteen colours), the four alignments, and bullets and numbering, as toggle buttons on the same actions the menus use, so they follow the caret through the shared state.
+- **Ruler.** A custom widget (`QuillRuler`) drawn with `GtkSnapshot` in the widget's own foreground colour and the system accent, so it follows the scheme. It shares the Windows ruler's scale, markers, hit tests and drags from `quill_app::view`: the text area between the margins, a tick every eighth of an inch with the inches numbered, the first-line and left indent markers, the right indent and the tab stops. Dragging a marker sets the indents; clicking the scale sets a tab stop of the kind the button at the left chooses (L, C, R, D); clicking a stop removes it. It follows the sheet when the page scrolls sideways and the zoom.
+- **Status bar.** The editor's message, `Page X of N`, `Ln L, Col C`, the face and size at the caret, a `Mod` mark when there are unsaved changes, and the zoom as a menu button.
+- **Bars.** View > Toolbar, Formatting Bar, Ruler and Status Bar show or hide each bar; they are the editor's own `Toolbar`, `FormattingBar`, `Ruler` and `StatusBar` settings in `QUILL.INI`, so every client shares them and they come back next session.
+- **Dialogs.** `quill_dialogs` (the description in `assets/dialogs/dialogs.json` that the Windows resources are built from) is turned into rows by `dialogs::spec_of`, and `DialogView` builds `adw::Dialog` widgets from them and keeps each control by its control ID. Find and Replace, Fonts, Tabs and Spelling are wired to `App` (`find_text`, `set_font`, `set_tab` and `clear_tabs`, `spell_begin` and the spelling calls). About is an `adw::AboutDialog` with the Quill icon, filled from the description's texts. The unsaved-changes question is an `adw::AlertDialog` (Save, Don't Save, Cancel) whose verdict is `quill_app::session::end_session_allowed`, as on the Windows shells; it is asked on New, Open, Exit and closing the window, and when a file is dropped on or handed to a window that has changes. Insert Picture and Save As use `GtkFileDialog`; a Save As name with no extension gets `.qld` from `quill_app::savename::complete_name`.
+- **Toasts.** `Saved`, a failed save and the editor's other short messages show in an `adw::ToastOverlay`.
+- **Scroll bars** float over the page's edges and thin to an indicator until the pointer is near them, as a scrolled window's do. This is the one thing that overlaps the page texture, so `frames.sh` leaves out the 16 pixels at the right and bottom when it compares a frame with the texture.
+- **Icon and desktop entry.** `linux/data/icons/hicolor/scalable/apps/io.github.liminal_hq_labs.Quill.svg` (the Q-and-nib app icon, `assets/icon/quill.svg`), the document icons `application-x-quill-document` (scalable, and symbolic under `symbolic/mimetypes`) and `linux/data/io.github.liminal_hq_labs.Quill.desktop`. A build run from the source tree adds `linux/data/icons` to the icon search path, so the window, the About dialog and the task switcher show the icon before it is installed.
+
+### How it is built
+
+Each part is a module of `quill_gtk` with a plain-data half that needs no display and a widget half: `actions` (command to action name, accelerator and label conversion, and the `Commands` trait the chrome calls through), `menu` (the tree, `tree`, and its `gio::Menu`), `toolbar` (the buttons from `view::TOOLBAR`), `format_bar` (`FormatState`, `FormatEdit`, `apply`), `ruler` (`layout` from a `RulerState` and the sheet's place, `RulerEdit`, `apply`), `status` (`StatusInfo`) and `dialogs` (`spec_of`, `DialogView`, the controllers). `window.rs` only wires them: one action for every command of the tree, `Ui::run_command` routing (zoom and the bars here; Save, Open and New through the file dialogs; everything else to `Document::command` and the dialog it returns), and `Ui::refresh` bringing every bar up to date after a change.
+
+### Keys
+
+The menu tree's accelerators are registered as they are written (`Ctrl+N`, `Ctrl+Shift+=`, `F3`). Where GTK's habit and the Windows tree meet, the tree wins and the zoom moves: Ctrl+= is Subscript and Ctrl+Shift+= Superscript, so zoom in is Ctrl+numpad plus (and Ctrl+wheel); Ctrl+minus, Ctrl+0 and Ctrl+9 stay as G1 had them. Save As is also Ctrl+Shift+S. While a text field of a dialog has the focus, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+A, Ctrl+Z and Ctrl+Y are handed back to the field.
+
+### What was proved
+
+- **Tests** (`cargo test`, 61 in all): the action names round-trip for every command and none repeats; the Windows accelerators become GTK ones; the tree has the nine menus in order with the Windows items and groups, the recent files before Exit, and the View menu's bars; no accelerator is bound twice; the toolbar is the Windows toolbar's row 0; every dialog description lands in a spec (find, fonts, tabs and spelling checked by shape); the ruler's layout follows the sheet and the zoom; and over a real document: the check marks and greyed state of the commands, the bars' settings coming back in the next session, the dialogs the menus ask for, the formatting bar's state and its edits, the ruler's indent and tab edits, the status bar, Save As with the default extension, New and a recent file.
+- **Screenshots** (`linux/quill-gtk/tools/chrome-shots.sh`, a private Xvfb, X captures that were looked at): `gtk-chrome-light.png`, `gtk-chrome-dark.png`, the Character menu in dark (`gtk-chrome-menu-character-dark.png`) and the View menu in light (`gtk-chrome-menu-view-light.png`) with their check marks and accelerators, the font box open (`gtk-chrome-font-dropdown-dark.png`), the ruler with a centre and a decimal tab stop (`gtk-chrome-ruler-tabs-light.png`), the window with the bars hidden (`gtk-chrome-bars-hidden-light.png`), the Fonts, Tabs, Find and Spelling dialogs, About, and the unsaved-changes question after a change (`gtk-chrome-unsaved-alert-light.png`), which also shows the title's `*`, the `Mod` mark and the formatting bar following the selection.
+- **The page is still pixel-exact.** `frames.sh` gives 100.000 % equal and a largest channel difference of 0 in an X capture at scale 1 and at `GDK_SCALE=2` and in GTK's render at 1.0, 1.25, 1.5, 1.75 and 2.0, outside the 16 pixels the floating scroll bars may cover. The G1 pixel goldens and tests pass unchanged.
+- **A test hook for the dialogs.** `quill --self-test-dialogs` shows each of Find, Replace, Fonts, Tabs, Spelling and About, presses every button that does not close it and says what happened; `quill --dialog NAME` shows one. With a dictionary in `$XDG_DATA_HOME/quill` the Spelling dialog found a misspelling, listed suggestions and answered all five of its buttons.
+
+### Not proved
+
+- **A real GNOME session.** Everything was seen under Xvfb with Adwaita's default look and no window manager, so the header bar's window controls are libadwaita's own drawing, not the compositor's; the system accent colour, the `prefer-dark` setting from the desktop and a different icon theme were not tried (the accent in the shots is libadwaita's default). Weston and the portal dialogs were not rerun for this step.
+- **Mnemonics** (Alt and a letter on the menu bar) and the accelerators were exercised only through Ctrl+A; the rest of the table is tested as data.
+- **The ruler's drags** and the tab-kind button were checked by clicking the scale and the button, not by dragging a marker.
+- **Print, Print Preview, Print Setup and Help** show a toast that says they are not in this client yet (G6).
+- **Orca and keyboard navigation** of the new bars are G7.
 
 ## Desktop integration and packaging
 
@@ -246,7 +292,8 @@ Items marked *new files* touch only new files and one line of the root `Cargo.to
 | C2 | `view.rs` geometry from `Measure::resolution()` instead of 96 | Win16 golden still 12 of 12; Wine screenshots unchanged | The shared view |
 | G6 | Print preview; print by PDF through the portal | Preview equals the raster goldens; a PDF reaches the print dialog | P7b |
 | C3 | `Surface` and one shared painter extracted from `gdi.rs`, Win16's painter and `quill-raster` | All Windows and raster goldens unchanged | The open branches and G1 |
-| G7 | libadwaita style, dark mode, accessibility | Orca reads the line at the caret (manual) | G4 |
+| G2a | The libadwaita shell and the chrome: menu bar, toolbar, formatting bar, ruler, status bar, dialogs | Every bar and dialog shown and answered; the page still pixel-exact | G1. **Built**, see [The libadwaita shell and the chrome (G2a)](#the-libadwaita-shell-and-the-chrome-g2a) |
+| G7 | Accessibility (libadwaita itself moved to G2a) | Orca reads the line at the caret (manual) | G4 |
 | G8 | PKGBUILD, Flatpak manifest, a `linux` CI job, release workflow | `makepkg` and `flatpak-builder` succeed; Nautilus opens a `.QLD` | G3 |
 
 **Milestones.** L0, readable now: P2 and P3. L1, desktop integration: P4, P5, P6. L2, viewer: G0, G1. L3, editor: G2, G3, G4, C1, G5. L4, print and finish: P7, G6, G7, G8, C3.
