@@ -72,6 +72,15 @@ const PRESETS: [Preset; 8] = [
 	preset(0, 720, 0, -720, 0, 0, 24, 0),
 ];
 
+/// The preset a new paragraph takes when Enter is pressed at the end of one in preset `n` (CORE-39): the headings and the title go
+/// to Normal, and every other preset continues itself. A `match`, so it is code and costs no Win16 data.
+pub(crate) fn next_preset(n: usize) -> usize {
+	match n {
+		1..=4 => 0,
+		other => other,
+	}
+}
+
 /// The names of the built-in paragraph presets, in the order the style box lists them.
 pub const STYLE_NAMES: [&str; 8] = [
 	"Normal",
@@ -121,15 +130,12 @@ impl<M: Measure + Clone> App<M> {
 		self.chrome & bit != 0
 	}
 
-	/// The character format a toolbar shows: the typing format, or the one at the start of the selection or before the caret.
+	/// The character format a toolbar shows: the typing format, or the one at the start of the selection, or the one typing at the caret would take (CORE-40).
 	pub fn char_state<S: ReadStore + ?Sized>(&self, s: &S) -> CharState {
-		let at = self
-			.selection()
-			.map_or(self.caret.saturating_sub(1), |(lo, _)| lo);
-		let cur = self
-			.typing_fmt
-			.or_else(|| self.doc.body.cfmt_at(s, at))
-			.unwrap_or(0);
+		let cur = self.typing_fmt.unwrap_or_else(|| match self.selection() {
+			Some((lo, _)) => self.doc.body.cfmt_at(s, lo).unwrap_or(0),
+			None => self.typing_cfmt_at(s, self.caret),
+		});
 		let cf = self.doc.cfmts.get(s, cur).unwrap_or(CFmt {
 			font: 0,
 			size: 24,
@@ -274,13 +280,32 @@ impl<M: Measure + Clone> App<M> {
 	/// Applies preset `n` to every paragraph the selection touches, as one undo step: the paragraph format, and the size and the bold,
 	/// italic and underline bits of every character in the paragraphs. Tab stops, face and colour stay.
 	pub fn apply_style<S: Store + ?Sized>(&mut self, s: &mut S, n: usize) {
+		if PRESETS.get(n).is_none() {
+			return;
+		}
+		let (lo, hi) = self.selection().unwrap_or((self.caret, self.caret));
+		self.doc.body.begin_group(crate::label::PARA_FORMAT);
+		self.apply_preset(s, n, lo, hi);
+		self.doc.body.end_group();
+		self.typing_fmt = None;
+		self.modified = true;
+		self.sync_layout(s);
+	}
+
+	/// Applies preset `n` to every paragraph from the one holding `lo` to the one holding `hi`, inside the undo group the caller has
+	/// open (it opens none of its own).
+	pub(crate) fn apply_preset<S: Store + ?Sized>(
+		&mut self,
+		s: &mut S,
+		n: usize,
+		lo: u32,
+		hi: u32,
+	) {
 		let Some(p) = PRESETS.get(n) else {
 			return;
 		};
-		let (lo, hi) = self.selection().unwrap_or((self.caret, self.caret));
 		let total = self.doc.body.len();
 		let mut at = self.para_start(s, lo);
-		self.doc.body.begin_group(crate::label::PARA_FORMAT);
 		while let Some(mark) = self.para_mark(s, at) {
 			let old = self
 				.doc
@@ -344,10 +369,6 @@ impl<M: Measure + Clone> App<M> {
 				break;
 			}
 		}
-		self.doc.body.end_group();
-		self.typing_fmt = None;
-		self.modified = true;
-		self.sync_layout(s);
 	}
 
 	/// Shows or hides a part of the chrome (`CHROME_*`).

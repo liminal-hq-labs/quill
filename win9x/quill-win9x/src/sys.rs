@@ -212,6 +212,10 @@ extern "system" {
 	pub fn ReadFile(file: Handle, buf: *mut u8, len: u32, read: *mut u32, overlapped: *mut c_void) -> i32;
 	pub fn WriteFile(file: Handle, buf: *const u8, len: u32, written: *mut u32, overlapped: *mut c_void) -> i32;
 	pub fn CloseHandle(h: Handle) -> i32;
+	pub fn FlushFileBuffers(file: Handle) -> i32;
+	pub fn DeleteFileA(name: *const u8) -> i32;
+	pub fn MoveFileA(from: *const u8, to: *const u8) -> i32;
+	pub fn GetFileSize(file: Handle, high: *mut u32) -> u32;
 	pub fn GetTickCount() -> u32;
 	pub fn GetPrivateProfileStringA(
 		section: *const u8,

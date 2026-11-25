@@ -57,6 +57,7 @@ flows! {
 	save_documents => "save",
 	save_as_documents => "save-as",
 	save_as_that_fails => "save-as-fails",
+	save_that_fails_keeps_the_original => "save-fails-keeps-original",
 	exit_with_unsaved_changes => "exit",
 	exit_without_saving => "exit-discard",
 	exit_with_a_cancelled_save_as => "exit-cancelled",

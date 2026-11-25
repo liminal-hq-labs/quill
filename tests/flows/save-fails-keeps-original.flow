@@ -1,0 +1,19 @@
+# A save that fails (the disk is full, or the file is read-only) leaves the file on the disk as it was and the document unsaved; a retry on a disk with room saves.
+@file "FULL.TXT" "the original words"
+@file "LOCKED.TXT" "the locked words"
+@full FULL.TXT
+@locked LOCKED.TXT
+cmd Open
+expect file Open
+choose "FULL.TXT"
+type "!"
+cmd Save
+dump
+cmd Open
+expect ask default Yes
+answer No
+expect file Open
+choose "LOCKED.TXT"
+type "?"
+cmd Save
+dump

@@ -1,0 +1,36 @@
+> cmd Open
+< file Open folder="" name="" type="0"
+> choose "FULL.TXT"
+> type "!"
+> cmd Save
+> dump
+= state
+text: "!the original words"
+caret: 1  selection: none
+name: "FULL.TXT"
+modified: true
+status: "Quill cannot save; the disk may be full."
+recent: ["FULL.TXT"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Open
+< ask "Save the changes to FULL.TXT before another document opens?" buttons="YesNoCancel" default="Yes"
+> answer No
+< file Open folder="" name="" type="0"
+> choose "LOCKED.TXT"
+> type "?"
+> cmd Save
+> dump
+= state
+text: "?the locked words"
+caret: 1  selection: none
+name: "LOCKED.TXT"
+modified: true
+status: "Quill cannot save; the disk may be full."
+recent: ["LOCKED.TXT", "FULL.TXT"]
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false

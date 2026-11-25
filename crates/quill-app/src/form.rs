@@ -112,12 +112,11 @@ fn parse_inches(r: &Row) -> Option<i32> {
 
 impl<M: Measure + Clone> App<M> {
 	pub(crate) fn open_fonts<S: ReadStore + ?Sized>(&mut self, s: &S) {
-		let t = &self.doc.body;
-		let at = if self.caret > 0 { self.caret - 1 } else { 0 };
-		let cf = self
-			.typing_fmt
-			.or_else(|| t.cfmt_at(s, at))
-			.and_then(|i| self.doc.cfmts.get(s, i));
+		let cf = self.doc.cfmts.get(
+			s,
+			self.typing_fmt
+				.unwrap_or_else(|| self.typing_cfmt_at(s, self.caret)),
+		);
 		let c = cf.unwrap_or(CFmt {
 			font: 0,
 			size: 24,

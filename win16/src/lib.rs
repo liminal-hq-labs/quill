@@ -520,6 +520,103 @@ pub fn dos_mkdir(path: *const u8) -> u16 {
 	if cf == 0 { 0 } else { ax }
 }
 
+/// Deletes a file with DOS function 41h. `path` is a NUL-terminated name in the data segment. Returns 0 on success or the DOS error code.
+pub fn dos_delete(path: *const u8) -> u16 {
+	let ax: u16;
+	let cf: u8;
+	unsafe {
+		asm!(
+			"push ebx",
+			"push esi",
+			"push edi",
+			"mov ss, word ptr [__w16_ss16]",
+			"movzx esp, sp",
+			"int 0x21",
+			"setc cl",
+			".byte 0x66, 0xe8",
+			".long w16_sync_alias - . - 4",
+			"mov ss, word ptr [__w16_ss32]",
+			"movzx esp, sp",
+			"pop edi",
+			"pop esi",
+			"pop ebx",
+			"push ds",
+			"pop es",
+			inout("ax") 0x4100u16 => ax,
+			in("dx") path as u16,
+			out("cl") cf,
+			options(nostack),
+		);
+	}
+	if cf == 0 { 0 } else { ax }
+}
+
+/// Renames a file with DOS function 56h (both names NUL-terminated in the data segment, on one drive). DOS refuses a new name that is taken. Returns 0 on success or the DOS error code.
+pub fn dos_rename(old: *const u8, new: *const u8) -> u16 {
+	let ax: u16;
+	let cf: u8;
+	unsafe {
+		asm!(
+			"push ebx",
+			"push esi",
+			"push edi",
+			"push ds",
+			"pop es",
+			"mov ss, word ptr [__w16_ss16]",
+			"movzx esp, sp",
+			"int 0x21",
+			"setc cl",
+			".byte 0x66, 0xe8",
+			".long w16_sync_alias - . - 4",
+			"mov ss, word ptr [__w16_ss32]",
+			"movzx esp, sp",
+			"pop edi",
+			"pop esi",
+			"pop ebx",
+			"push ds",
+			"pop es",
+			inout("ax") 0x5600u16 => ax,
+			in("dx") old as u16,
+			in("di") new as u16,
+			out("cl") cf,
+			options(nostack),
+		);
+	}
+	if cf == 0 { 0 } else { ax }
+}
+
+/// Makes DOS write a file's buffers to the disk (function 68h) without closing it. Returns 0 on success or the DOS error code.
+pub fn dos_commit(handle: u32) -> u16 {
+	let ax: u16;
+	let cf: u16;
+	unsafe {
+		asm!(
+			"push ebx",
+			"push esi",
+			"push edi",
+			"mov bx, cx",
+			"mov ss, word ptr [__w16_ss16]",
+			"movzx esp, sp",
+			"int 0x21",
+			"setc cl",
+			".byte 0x66, 0xe8",
+			".long w16_sync_alias - . - 4",
+			"mov ss, word ptr [__w16_ss32]",
+			"movzx esp, sp",
+			"pop edi",
+			"pop esi",
+			"pop ebx",
+			"push ds",
+			"pop es",
+			inout("ax") 0x6800u16 => ax,
+			inout("cx") handle as u16 => cf,
+			options(nostack),
+		);
+	}
+	// SETC left 0 or 1 in CL; the handle's own high byte is zero.
+	if cf & 1 == 0 { 0 } else { ax }
+}
+
 /// Today's date from DOS (function 2Ah): year, month and day.
 pub fn dos_date() -> (u16, u8, u8) {
 	let mut out = [0u8; 4];

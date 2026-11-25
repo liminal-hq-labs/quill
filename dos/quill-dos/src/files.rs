@@ -6,7 +6,7 @@
 use alloc::boxed::Box;
 use alloc::vec;
 use alloc::vec::Vec;
-use quill_app::Files;
+use quill_app::{Files, SaveMode};
 use quill_formats::io::{Sink, Source};
 use quill_strike::{index_len, StrikeSource, Strikes, HEADER_LEN};
 use rt::dos::{File, Mode};
@@ -46,8 +46,27 @@ impl Files for DosFiles {
 	}
 
 	fn close(&mut self, w: DosSink) -> bool {
-		drop(w);
-		true
+		w.0.finish().is_ok()
+	}
+
+	fn save_mode(&self) -> SaveMode {
+		SaveMode::TempRename
+	}
+
+	fn remove(&mut self, name: &[u8]) -> bool {
+		core::str::from_utf8(name).is_ok_and(|n| rt::dos::remove(n).is_ok())
+	}
+
+	// DOS refuses a name that is taken, so a replace falls to `remove` and then `rename` (the provided `replace`).
+	fn rename(&mut self, from: &[u8], to: &[u8]) -> bool {
+		match (core::str::from_utf8(from), core::str::from_utf8(to)) {
+			(Ok(a), Ok(b)) => rt::dos::rename(a, b).is_ok(),
+			_ => false,
+		}
+	}
+
+	fn len(&mut self, name: &[u8]) -> Option<u32> {
+		File::open(core::str::from_utf8(name).ok()?, Mode::Read).ok()?.len().ok()
 	}
 }
 

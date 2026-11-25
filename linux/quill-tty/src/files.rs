@@ -20,7 +20,7 @@ use std::io::{Read, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
-use quill_app::Files;
+use quill_app::{Files, SaveMode};
 use quill_formats::io::{Sink, Source};
 
 use crate::cp1252;
@@ -248,6 +248,10 @@ impl Files for LinuxFiles {
 			let _ = fs::remove_file(&w.tmp);
 		}
 		done
+	}
+
+	fn save_mode(&self) -> SaveMode {
+		SaveMode::Atomic
 	}
 }
 

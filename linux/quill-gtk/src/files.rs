@@ -12,7 +12,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use quill_app::Files;
+use quill_app::{Files, SaveMode};
 use quill_formats::io::Source;
 use quill_tty::cp1252;
 use quill_tty::files::{Dirs, FileSink, FileSource, LinuxFiles};
@@ -129,6 +129,10 @@ impl Files for GuiFiles {
 
 	fn close(&mut self, w: FileSink) -> bool {
 		self.inner.close(w)
+	}
+
+	fn save_mode(&self) -> SaveMode {
+		self.inner.save_mode()
 	}
 }
 
