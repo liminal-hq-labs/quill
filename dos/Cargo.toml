@@ -19,6 +19,8 @@ publish = false
 desk-hal = { path = "hal/hal" }
 desk-hal-mock = { path = "hal/platform/mock" }
 desk-kbd = { path = "hal/drivers/kbd" }
+desk-pic = { path = "hal/drivers/pic" }
+desk-i8042 = { path = "hal/drivers/i8042" }
 
 [profile.release]
 opt-level = "s"

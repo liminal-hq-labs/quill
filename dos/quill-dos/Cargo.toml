@@ -27,6 +27,8 @@ quill-paint = { path = "../../crates/quill-paint" }
 quill-mouse = { path = "../../crates/quill-mouse" }
 desk-hal = { path = "../hal/hal" }
 desk-vga = { path = "../hal/drivers/vga" }
+desk-i8042 = { path = "../hal/drivers/i8042" }
+desk-pic = { path = "../hal/drivers/pic" }
 
 [package.metadata.quill]
 layer = "shell"
