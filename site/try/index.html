@@ -1,7 +1,8 @@
 <!doctype html>
 <!--
 	Try Quill: Quill's DOS build running on FreeDOS in the visitor's browser, with js-dos. Static, relative URLs only. The disk bundle
-	(quill.jsdos) is built by scripts/build-try.sh and is not committed.
+	(quill.<hash>.jsdos) and the manifest that names it (try-manifest.json) are built by scripts/build-try.sh and are not committed. This page is
+	kept tiny and is not cached for long: everything it loads is versioned (?v=) or named by content, so a returning visitor gets the new build.
 
 	(c) Copyright 2026 Liminal HQ, Scott Morris
 	SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -19,8 +20,8 @@
 		<link rel="icon" href="../favicon.ico" sizes="16x16 32x32 48x48">
 		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
 		<link rel="apple-touch-icon" href="../img/quill-256.png">
-		<link rel="stylesheet" href="../css/site.css">
-		<link rel="stylesheet" href="../css/try.css">
+		<link rel="stylesheet" href="../css/site.css?v=a4d3a119">
+		<link rel="stylesheet" href="../css/try.css?v=fc9dccd7">
 		<script>
 			// Apply a remembered theme before the first paint, so the page does not flash the other one.
 			try {
@@ -28,8 +29,8 @@
 				if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
 			} catch (e) {}
 		</script>
-		<script src="../js/site.js" defer></script>
-		<script src="try.js" defer></script>
+		<script src="../js/site.js?v=732915f9" defer></script>
+		<script src="try.js?v=e50161bb" defer></script>
 	</head>
 	<body>
 		<a class="skip-link" href="#main">Skip to the content</a>
@@ -72,9 +73,9 @@
 				<div class="wrap">
 					<p class="breadcrumb"><a href="../">&larr; Back to the Quill home page</a></p>
 					<h1 id="title">Try Quill</h1>
-					<p class="lede">A real DOS program, running in this page. Select <strong>Start Quill</strong> and FreeDOS boots, asks which display you want, then opens the sample document in Quill: a short pitch for what Quill is, with its icon inline.</p>
-					<p>This is <code>QUILLDOS.EXE</code>, the same Rust code as Quill's Windows builds, built for a 1990s PC and started on <a href="https://freedos.org/">FreeDOS</a> 1.3 inside <a href="https://js-dos.com/">js-dos</a>, a DOSBox that runs in the browser. Everything happens on your computer: nothing is uploaded, and the files you save stay on the emulated disk in this page until you reload or close it.</p>
-					<p>The default is DOS text mode, so you get the blue screen, the menu bar on the top row and the keyboard, not a mouse-driven window. FreeDOS's start-up menu also offers a graphics mode with real fonts: press <kbd>2</kbd> within four seconds of the menu appearing. Quill is experimental, and this is a demonstration, not a release.</p>
+					<p class="lede">A real DOS program, running in this page. Choose a display, select <strong>Start Quill</strong>, and FreeDOS boots and opens the sample document in Quill: a short pitch for what Quill is, with its icon inline.</p>
+					<p>This is <code>QUILLDOS.EXE</code>, the same Rust code as Quill's Windows builds, built for a 1990s PC and started on <a href="https://freedos.org/">FreeDOS</a> 1.3 inside <a href="https://js-dos.com/">js-dos</a>, a DOSBox that runs in the browser. Everything happens on your computer: nothing is uploaded, and the files you save stay on the emulated disk in this page until you restart or close it.</p>
+					<p>The graphics modes are the real thing: menus, dialogs, a toolbar and formatting bar, a ruler, scroll bars, and the mouse, all in a 640 by 480 picture with proportional fonts. Text mode is the blue DOS screen with its menu bar on the top row. Quill is experimental, and this is a demonstration, not a release.</p>
 				</div>
 			</section>
 
@@ -85,28 +86,58 @@
 					<noscript><p class="notice">The player needs JavaScript. With it off, the <a href="../#screenshots">screenshots</a> show what Quill looks like.</p></noscript>
 
 					<div class="player" data-player>
+						<fieldset class="modes" data-modes>
+							<legend>Display</legend>
+							<label><input type="radio" name="mode" value="gfx" checked> <span><strong>Graphics, 256 colours</strong> 640 by 480, VESA. The default.</span></label>
+							<label><input type="radio" name="mode" value="g16"> <span><strong>Graphics, 16 colours</strong> 640 by 480, the plain VGA mode (<code>/G16</code>).</span></label>
+							<label><input type="radio" name="mode" value="text"> <span><strong>Text mode</strong> 80 by 25, the blue DOS screen (<code>/T</code>).</span></label>
+						</fieldset>
 						<div class="player-controls">
 							<button class="button" type="button" data-start aria-describedby="player-status">Start Quill</button>
+							<button class="button button--alt" type="button" data-restart hidden>Restart</button>
 							<button class="button button--alt" type="button" data-fullscreen hidden>Full screen</button>
-							<button class="button button--alt" type="button" data-stop hidden>Stop and reset</button>
-							<p class="player-status" id="player-status" role="status" aria-live="polite">Not started. The player is about 2 MB and loads when you start it.</p>
+							<p class="player-status" id="player-status" role="status" aria-live="polite">Not started. The player is about 2 MB, and the disk about 1 MB; they load when you start it.</p>
 						</div>
 						<div class="stage" data-stage tabindex="-1" aria-label="Quill running on FreeDOS in an emulated PC">
 							<div class="stage-idle" data-idle>
-								<img src="../img/shots/dos-letter.png" width="720" height="400" alt="A still of Quill for DOS in text mode, showing a letter with coloured formatting.">
+								<img src="../img/shots/try-graphics.png" width="960" height="720" alt="A still of Quill for DOS in graphics mode: the sample document with its menu bar, toolbar, formatting bar and ruler.">
 							</div>
 							<div class="stage-dos" data-dos></div>
 						</div>
+						<p class="mouse-hint" data-mouse-hint aria-live="polite"></p>
+						<p class="speed" data-speed hidden>
+							<label for="pointer-speed">Pointer speed</label>
+							<input id="pointer-speed" type="range" min="0.5" max="2" step="0.1" value="1" data-speed-input>
+						</p>
+						<div class="keybar" data-keybar hidden role="group" aria-label="On-screen keys, for a phone or tablet">
+							<button class="button button--alt" type="button" data-key="f10">F10 menu</button>
+							<button class="button button--alt" type="button" data-key="esc">Esc</button>
+							<button class="button button--alt" type="button" data-key="enter">Enter</button>
+							<button class="button button--alt" type="button" data-key="tab">Tab</button>
+							<button class="button button--alt" type="button" data-key="up" aria-label="Up arrow">&uarr;</button>
+							<button class="button button--alt" type="button" data-key="down" aria-label="Down arrow">&darr;</button>
+							<button class="button button--alt" type="button" data-key="left" aria-label="Left arrow">&larr;</button>
+							<button class="button button--alt" type="button" data-key="right" aria-label="Right arrow">&rarr;</button>
+						</div>
 					</div>
 
+					<h3 id="mouse-title">Mouse and touch</h3>
+					<p>In the graphics modes Quill has a pointer of its own: click the menus, the toolbar and the formatting bar, drag in the page to select, drag the scroll bars and the ruler's markers, and use the dialogs. Text mode takes the mouse too, a cell at a time.</p>
+					<ul class="plain-list">
+						<li><strong>With a mouse:</strong> click the screen once and the browser hands it your pointer; Quill's pointer then follows your mouse. <kbd>Esc</kbd> gives your pointer back (inside a Quill menu or dialog, press it again to close that). Selecting the screen again captures it again. If the pointer feels slow or fast, the <em>Pointer speed</em> slider under the screen changes it.</li>
+						<li><strong>On a phone or tablet:</strong> the screen works like a laptop's trackpad. Drag a finger to move Quill's pointer, tap to click where the pointer is, and hold a finger still for a moment and then drag to hold the button down (to select text or drag a scroll bar). The row of keys under the screen stands in for the keyboard; turn the phone sideways, or use <strong>Full screen</strong>, for a bigger picture.</li>
+					</ul>
+					<p>The disk carries FreeDOS's <a href="https://freedos.org/">CuteMouse</a> driver, which Quill reads as it would on a real PC: a disk booted in DOSBox has no mouse driver of its own.</p>
 					<h3 id="keys-title">Keys</h3>
-					<p>Select the screen first, so the emulated PC has the keyboard. The screen is a picture of an 80 by 25 text display, so it scales with the page.</p>
+					<p>Select the screen first, so the emulated PC has the keyboard. The screen keeps a 4 by 3 shape and scales with the page. <strong>Full screen</strong> fills the display with it; press <kbd>Esc</kbd> or use your browser's way out to come back (inside Quill, <kbd>Esc</kbd> closes a menu or dialog, so a second press leaves full screen).</p>
 					<dl class="keys" aria-labelledby="keys-title">
 						<div><dt><kbd>F10</kbd></dt><dd>Open the menus; the arrow keys and <kbd>Enter</kbd> choose.</dd></div>
 						<div><dt><kbd>Alt</kbd> + a letter</dt><dd>Open a menu by its underlined letter, such as <kbd>Alt</kbd> + <kbd>F</kbd> for File.</dd></div>
 						<div><dt><kbd>Ctrl</kbd> + <kbd>F10</kbd></dt><dd>Open the notes list.</dd></div>
 						<div><dt><kbd>F7</kbd></dt><dd>Check the spelling, in Canadian English.</dd></div>
-						<div><dt>File &gt; Exit</dt><dd>Leave Quill for the FreeDOS prompt. Type <code>QUILLDOS</code> to start it again, or <code>QUILLDOS /G</code> for the graphics mode.</dd></div>
+						<div><dt><kbd>Tab</kbd> and <kbd>Esc</kbd></dt><dd>Move between the controls of a dialog, and close a menu or dialog.</dd></div>
+						<div><dt>File &gt; Exit</dt><dd>Leave Quill for the FreeDOS prompt. Type <code>QUILLDOS</code> to start it again, with <code>/G</code> for 256 colours, <code>/G16</code> for 16 or <code>/T</code> for text.</dd></div>
+						<div><dt>Restart</dt><dd>Boots the emulated PC again in the display chosen above. Saved files are gone.</dd></div>
 					</dl>
 					<p>Your browser may keep a few keys for itself, such as <kbd>Alt</kbd> on its own or <kbd>F11</kbd>. If an <kbd>Alt</kbd> shortcut does nothing, open the menu with <kbd>F10</kbd> instead.</p>
 				</div>
@@ -114,11 +145,11 @@
 
 			<section class="section" aria-labelledby="displays-title">
 				<div class="wrap">
-					<h2 id="displays-title">The two displays</h2>
-					<p>Captured from this page, in Chromium, with the keyboard.</p>
+					<h2 id="displays-title">The displays</h2>
+					<p>Captured from this page, in Chromium.</p>
 					<ul class="displays">
-						<li><figure><img src="../img/shots/try-text.png" width="960" height="720" loading="lazy" alt="Quill in DOS text mode inside the page: blue screen, menu bar on top, the sample letter with a line typed at its start."><figcaption>Text mode, after typing a line. <span class="where">js-dos on FreeDOS 1.3</span></figcaption></figure></li>
-						<li><figure><img src="../img/shots/try-graphics.png" width="960" height="720" loading="lazy" alt="Quill in graphics mode inside the page: a white page with a ruler, the sample letter in a serif face with a bold title and dot leaders."><figcaption>Graphics mode, chosen with 2 at the FreeDOS menu. <span class="where">js-dos on FreeDOS 1.3</span></figcaption></figure></li>
+						<li><figure><img src="../img/shots/try-graphics.png" width="960" height="720" loading="lazy" alt="Quill in graphics mode inside the page: menu bar, toolbar, formatting bar and ruler above the white page with the sample document, a bold title and its icon."><figcaption>Graphics, 256 colours: the default. <span class="where">js-dos on FreeDOS 1.3</span></figcaption></figure></li>
+						<li><figure><img src="../img/shots/try-text.png" width="960" height="720" loading="lazy" alt="Quill in DOS text mode inside the page: blue screen, menu bar on top, the sample document."><figcaption>Text mode. <span class="where">js-dos on FreeDOS 1.3</span></figcaption></figure></li>
 					</ul>
 				</div>
 			</section>
@@ -127,7 +158,7 @@
 				<div class="wrap">
 					<h2 id="about-title">What is running</h2>
 					<ul class="plain-list">
-						<li><strong>Quill</strong> is <code>QUILLDOS.EXE</code>, built from this project's source for DOS, with the Canadian English dictionary, the sample documents and the fonts for the graphics mode. It carries its own DPMI host, so it needs nothing else.</li>
+						<li><strong>Quill</strong> is <code>QUILLDOS.EXE</code>, built from this project's source for DOS, with the Canadian English dictionary, the sample documents and the fonts for the graphics modes. It carries its own DPMI host, so it needs nothing else.</li>
 						<li><strong>FreeDOS 1.3</strong> is the operating system: its kernel and command shell, unchanged, on a small floppy disk image. FreeDOS is free software, mostly under the GNU General Public Licence.</li>
 						<li><strong>js-dos 8.5.3</strong> is the player: DOSBox compiled to WebAssembly. It is also under the GNU General Public Licence, version 2, and is served from this site, not from js-dos.com.</li>
 					</ul>
@@ -151,6 +182,7 @@
 					</ul>
 					<p>Quill is a Liminal HQ Labs experiment, licensed under Apache-2.0 OR MIT, at your option.</p>
 					<p>This page runs <a href="https://freedos.org/">FreeDOS</a> 1.3 (kernel and command shell, GPL), <a href="https://js-dos.com/">js-dos</a> 8.5.3 (GPL-2.0, DOSBox compiled to WebAssembly) and <a href="https://www.delorie.com/pub/djgpp/current/v2misc/">CWSDPMI</a> (DPMI host, redistributed with the notice of the right to its source). Each is a separate program under its own licence. See the <a href="licences.html">licences and sources</a>, <a href="js-dos/LICENSE-GPL-2.0.txt">the GPL-2.0 text</a> and <a href="https://github.com/liminal-hq-labs/quill/blob/main/site/try/js-dos/PROVENANCE.md">where the player came from</a>.</p>
+					<p class="build"><span data-build>Build: loading</span> · <a href="./" data-fresh>Force fresh copy</a></p>
 					<p>© 2026 Liminal HQ, Scott Morris. Windows and MS-DOS are trademarks of Microsoft; Quill is not affiliated with Microsoft.</p>
 				</div>
 			</div>

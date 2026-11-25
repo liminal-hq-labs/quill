@@ -9,7 +9,7 @@ The product page published at <http://labs.liminalhq.ca/quill/>. The organizatio
 | `index.html` | The page |
 | `404.html` | The page GitHub Pages shows for a missing path |
 | `css/site.css` | Styles, the light and dark themes (Quill's palette, D70) |
-| `try/` | The Try Quill page (`index.html`, `try.js`, `licences.html`), the vendored js-dos player in `try/js-dos/` (see its `PROVENANCE.md`) and, built and not committed, `quill.jsdos` |
+| `try/` | The Try Quill page (`index.html`, `try.js`, `licences.html`), the vendored js-dos player in `try/js-dos/` (see its `PROVENANCE.md`) and, built and not committed, `quill.<hash>.jsdos` and `try-manifest.json` |
 | `css/try.css` | The Try Quill page's styles |
 | `js/site.js` | The theme toggle and the screenshot lightbox; the page works without it |
 | `img/` | The icon (from `assets/icon/`), the link preview `social-card.png` (written by `tools/make_social_card.py`), and `shots/` |
@@ -19,7 +19,7 @@ Every URL in `index.html` is relative, so the page works from `http://labs.limin
 
 ## The Try Quill page
 
-`try/` runs `QUILLDOS.EXE` on FreeDOS 1.3 in the visitor's browser with js-dos (SITE-1). The disk bundle `try/quill.jsdos` is a build output, ignored by git: `bash scripts/build-try.sh --build` makes it (the Pages workflow runs the same command), and without `--build` it packs the programs named by `QUILLDOS_EXE`, `QUILL_FNT` and `QUILL_DICT`. It needs mtools and, with `--build`, the pinned Rust toolchain. Without the bundle the page loads and Start reports that the disk could not be fetched.
+`try/` runs `QUILLDOS.EXE` on FreeDOS 1.3 in the visitor's browser with js-dos (SITE-1). The disk bundle `try/quill.<hash>.jsdos` and the manifest `try/try-manifest.json` that names it are build outputs, ignored by git (SITE-4: the bundle is named by its content, and the page asks the manifest for the current name): `bash scripts/build-try.sh --build` makes it (the Pages workflow runs the same command), and without `--build` it packs the programs named by `QUILLDOS_EXE`, `QUILL_FNT` and `QUILL_DICT`. It needs mtools and, with `--build`, the pinned Rust toolchain. `bash scripts/stamp-try.py` writes the `?v=` versions of the page's own files into `try/index.html` (a build does too), which is committed; `bash scripts/check-try.sh` tests the scheme. Without the bundle the page loads and Start reports that the disk could not be fetched.
 
 The player is loaded only when Start is selected, and makes no request outside the site. After updating `try/js-dos/`, open the page with the network panel open and start it. `scripts/check-site.py` does not scan the vendored player.
 

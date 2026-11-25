@@ -11,7 +11,7 @@
 #
 # mtools makes the file system. The boot sector keeps the BIOS parameter block mtools wrote and takes its jump and code from FreeDOS,
 # as FreeDOS's own SYS command would. The volume serial number is fixed and every file carries the same time, so the same inputs give
-# the same files (folders are stamped when they are made). A floppy is used, not a hard disk, because DOSBox boots one without a
+# the same files (mtools stamps the folders it makes with SOURCE_DATE_EPOCH, set here to the same time). A floppy is used, not a hard disk, because DOSBox boots one without a
 # partition table and loads FreeDOS's boot sector as a BIOS would. Needs mformat, mcopy and mmd from mtools.
 
 import os
@@ -28,7 +28,7 @@ def main():
 	out, fd_boot, tree = sys.argv[1:4]
 	if os.path.exists(out):
 		os.remove(out)
-	env = dict(os.environ, MTOOLS_SKIP_CHECK="1", TZ="UTC")
+	env = dict(os.environ, MTOOLS_SKIP_CHECK="1", TZ="UTC", SOURCE_DATE_EPOCH=str(STAMP))
 
 	def run(*args):
 		subprocess.run(args, check=True, env=env)
