@@ -1,0 +1,31 @@
+# G8 (graphics): the mouse on the toolbars and the ruler in graphics. Select a word with a double click, then Bold by a click, Italic by holding the
+# button (it shows sunk until the release), a tip after a rest and gone when the pointer leaves, the size list, the colour list and the face
+# list, a tab stop set, moved and dragged off the ruler, and the first-line marker dragged. Every frame's CRC-32 must equal the host's.
+@copy letter.rtf
+@open LETTER.RTF
+@dclick 45 146
+@click 324 62           # Bold
+@down 348 62            # Italic held
+@move 2 2               # raised while the pointer is off it
+@move 348 62
+@up 348 62              # runs on release
+@move 372 62            # rests on Underline
+@wait 12                # its tip shows
+@move 300 300           # and goes
+@click 280 62           # the size list opens
+@move 280 138           # lit
+@click 280 138          # chosen
+@click 396 62           # the colour list opens when the button is up
+@click 440 175
+@click 182 62           # the face list
+@click 182 120          # Courier New
+@click 56 62            # the style list
+@click 56 102           # Heading 1
+@click 100 88           # a tab stop on the scale
+@drag 100 88 160 88     # moved along the ruler
+@drag 160 88 160 200    # dragged off: cleared
+@drag 0 79 48 79        # the first-line marker
+@wheel 2
+@wheel -2
+f10 down down enter     # File > Save
+f10 end enter           # File > Exit

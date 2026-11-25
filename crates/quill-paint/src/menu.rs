@@ -148,7 +148,7 @@ pub fn menu_geom(
 }
 
 /// Draws the bar's titles; the one whose menu is open (`open`) is lit.
-pub fn draw_bar<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, open: Option<u8>) {
+pub fn draw_bar<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, open: Option<u8>) {
 	let bar = Rect::new(0, 0, SCREEN_W, MENU_H);
 	sf.clip(Some(bar));
 	sf.fill_rect(bar, FACE);
@@ -172,7 +172,7 @@ pub fn draw_bar<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, open: Option<u8>) {
 }
 
 /// A check mark, 7 by 7, with its left top corner at (`x`, `y`).
-fn check_mark<Sf: Surface>(sf: &mut Sf, x: i32, y: i32, c: Rgb) {
+fn check_mark<Sf: Surface + ?Sized>(sf: &mut Sf, x: i32, y: i32, c: Rgb) {
 	for i in 0..3 {
 		sf.hline(x + i, x + i + 2, y + 3 + i, c);
 	}
@@ -181,16 +181,13 @@ fn check_mark<Sf: Surface>(sf: &mut Sf, x: i32, y: i32, c: Rgb) {
 	}
 }
 
-/// Draws an open menu: `item` is the lit place. Greyed items and check marks come from the app.
-pub fn draw_menu<Sf: Surface, M: Measure + Clone, S: ReadStore + ?Sized>(
-	sf: &mut Sf,
-	ui: &Ui<Sf::Font>,
+/// The geometry of menu `menu` as `app` shows it now (its recent files included), from the width of a character in the interface
+/// font. This is what [`draw_menu`] draws with and what a pointer hits, so the two cannot disagree.
+pub fn geom_of<M: Measure + Clone>(
 	app: &App<M>,
-	s: &S,
 	menu: u8,
-	item: u8,
-) {
-	let text = true;
+	mut adv: impl FnMut(u8) -> i32,
+) -> Option<MenuGeom> {
 	let mut names: [&[u8]; 4] = [&[]; 4];
 	let mut count = 0;
 	if menu == 0 {
@@ -200,11 +197,33 @@ pub fn draw_menu<Sf: Surface, M: Measure + Clone, S: ReadStore + ?Sized>(
 		}
 	}
 	let recents = names.get(..count).unwrap_or(&[]);
-	let titles = title_rects(|c| sf.advance(ui.font, c));
-	let Some(title) = titles.get(usize::from(menu)).copied() else {
+	let titles = title_rects(&mut adv);
+	let title = titles.get(usize::from(menu)).copied()?;
+	Some(menu_geom(menu, true, title, recents, adv))
+}
+
+/// Draws an open menu: `item` is the lit place. Greyed items and check marks come from the app.
+pub fn draw_menu<Sf: Surface + ?Sized, M: Measure + Clone, S: ReadStore + ?Sized>(
+	sf: &mut Sf,
+	ui: &Ui<Sf::Font>,
+	app: &App<M>,
+	s: &S,
+	menu: u8,
+	item: u8,
+) {
+	let text = true;
+	let Some(g) = geom_of(app, menu, |c| sf.advance(ui.font, c)) else {
 		return;
 	};
-	let g = menu_geom(menu, text, title, recents, |c| sf.advance(ui.font, c));
+	let mut names: [&[u8]; 4] = [&[]; 4];
+	let mut count = 0;
+	if menu == 0 {
+		for (slot, name) in names.iter_mut().zip(app.recent_files()) {
+			*slot = name;
+			count += 1;
+		}
+	}
+	let recents = names.get(..count).unwrap_or(&[]);
 	sf.clip(None);
 	sf.fill_rect(g.rect, FACE);
 	crate::ui::outline(sf, g.rect, INK);

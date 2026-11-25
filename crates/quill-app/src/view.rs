@@ -27,8 +27,8 @@ pub const PAGE_GAP: i32 = 10;
 pub const PAGE_TOP: i32 = 8;
 /// Pixels per inch of the page view.
 pub const DPI: u16 = 96;
-/// A pixel at 96 dots per inch is 15 twips.
-const TWIPS_PX: i32 = 15;
+/// Twips to a pixel at 96 dots per inch.
+pub const TWIPS_PX: i32 = 15;
 
 /// What a toolbar button does.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -399,11 +399,25 @@ pub fn ruler_hit(
 	text_w: i32,
 	st: &RulerState,
 ) -> Option<Hit> {
+	ruler_hit_with(x, y, top, text_left, text_w, st, 22)
+}
+
+/// [`ruler_hit`] for a ruler whose tab-kind button is `kind_w` pixels wide at the left end (0 when the shell draws none, so the
+/// markers and the scale are reachable from the first pixel).
+pub fn ruler_hit_with(
+	x: i32,
+	y: i32,
+	top: i32,
+	text_left: i32,
+	text_w: i32,
+	st: &RulerState,
+	kind_w: i32,
+) -> Option<Hit> {
 	let y = y - top;
 	if !(0..RULER_H).contains(&y) {
 		return None;
 	}
-	if x < 22 {
+	if x < kind_w {
 		return Some(Hit::Kind);
 	}
 	let near = |a: i32, b: i32| (a - b).abs() <= 4;

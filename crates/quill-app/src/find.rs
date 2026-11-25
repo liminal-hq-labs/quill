@@ -57,7 +57,7 @@ impl FindState {
 		}
 	}
 
-	fn order(&self) -> &'static [Focus] {
+	pub(crate) fn order(&self) -> &'static [Focus] {
 		if self.replace {
 			&[
 				Focus::Find,

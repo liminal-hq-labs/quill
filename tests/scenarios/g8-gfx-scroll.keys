@@ -1,0 +1,19 @@
+# G8 (graphics): the vertical scroll bar and the wheel in graphics, on a document of sixty lines: the arrows, the track above and below the thumb, the
+# thumb dragged, held, the horizontal bar and the wheel. Every frame's CRC-32 must equal the host's.
+@copy scroll.rtf
+@open SCROLL.RTF
+@click 632 436          # down one line
+@click 632 436
+@click 632 436
+@click 632 104          # up one line
+@click 632 300          # a page down
+@drag 632 260 632 200   # the thumb dragged up
+@down 632 190           # the thumb held
+@move 632 250
+@up 632 250
+@click 300 452          # the horizontal bar has nothing to scroll
+@click 632 410          # the track below the thumb
+@wheel 3
+@wheel -2
+@click 100 200          # the caret goes where the page was clicked
+f10 end enter

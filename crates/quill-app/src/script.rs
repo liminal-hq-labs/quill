@@ -38,7 +38,8 @@ pub fn parse_token(t: &str) -> Option<Key> {
 
 /// One step of a scenario that has a pointer: a key, or a pointer action at a place. The place is a cell on the text screen and a
 /// pixel in graphics. `@click x y`, `@shiftclick x y`, `@dclick x y`, `@tclick x y`, `@drag x1 y1 x2 y2` and `@wheel n` are the
-/// directives that spell them.
+/// directives that spell them; `@move x y`, `@down x y` and `@up x y` are the parts of a click on their own (to hold a button down
+/// for a frame, or to hover), and `@wait n` lets `n` ticks pass with the pointer where it is (a tip shows after about nine).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Step {
 	/// A typed key.
@@ -53,6 +54,14 @@ pub enum Step {
 	Drag { x1: i32, y1: i32, x2: i32, y2: i32 },
 	/// Turn the wheel; positive is towards the user.
 	Wheel(i32),
+	/// Move the pointer with no button down.
+	Move { x: i32, y: i32 },
+	/// Move to the place and press the button, and keep it down.
+	Down { x: i32, y: i32 },
+	/// Move to the place and let the button go.
+	Up { x: i32, y: i32 },
+	/// Let this many ticks pass.
+	Wait(i32),
 }
 
 /// Reads the pointer directive `name` and its numbers from `rest`. `None` when `name` is not one; a missing or bad number is `Err`.
@@ -90,6 +99,15 @@ pub fn parse_pointer<'a>(
 				Step::Drag { x1, y1, x2, y2 }
 			}
 			"@wheel" => Step::Wheel(num()?),
+			"@wait" => Step::Wait(num()?),
+			"@move" | "@down" | "@up" => {
+				let (x, y) = two(&mut num)?;
+				match name {
+					"@move" => Step::Move { x, y },
+					"@down" => Step::Down { x, y },
+					_ => Step::Up { x, y },
+				}
+			}
 			_ => return Err(""),
 		})
 	})())
@@ -173,6 +191,33 @@ impl Step {
 					tick: at,
 				},
 			),
+			Step::Move { x, y } | Step::Down { x, y } | Step::Up { x, y } => {
+				let ctx = crate::mouse::Ctx {
+					shift: false,
+					tick: at,
+				};
+				f(Ev::Move { x, y }, ctx);
+				match *self {
+					Step::Down { .. } => f(Ev::Down { x, y }, ctx),
+					Step::Up { .. } => f(Ev::Up { x, y }, ctx),
+					_ => {}
+				}
+				// These are parts of one gesture: the next is a tick later, not a double click's distance away.
+				*tick = at.wrapping_add(1);
+				return;
+			}
+			Step::Wait(n) => {
+				let now = at.wrapping_add(n.max(0) as u32);
+				f(
+					Ev::Tick,
+					crate::mouse::Ctx {
+						shift: false,
+						tick: now,
+					},
+				);
+				*tick = now;
+				return;
+			}
 		}
 		*tick = at.wrapping_add(100);
 	}

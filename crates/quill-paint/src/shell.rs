@@ -20,9 +20,10 @@ use quill_core::store::Store;
 
 use crate::layout::Layout;
 use crate::page::{paint_page, PageInfo, PageView};
+use crate::pointer::View;
 use crate::scroll;
 use crate::ui::{bevel, Ui, FACE, INK, LIGHT, SHADOW};
-use crate::{dialog, menu, toolbar};
+use crate::{dialog, drop, menu, tip, toolbar};
 use crate::{Rect, Surface};
 
 /// The screen's width.
@@ -49,7 +50,7 @@ pub fn hscroll<M: Measure + Clone>(app: &App<M>, client_w: i32) -> i32 {
 	(margin + PAGE_PAD).min(hscroll_max(app, client_w)).max(0)
 }
 
-fn tab_mark<Sf: Surface>(sf: &mut Sf, kind: u8, x: i32, y: i32) {
+fn tab_mark<Sf: Surface + ?Sized>(sf: &mut Sf, kind: u8, x: i32, y: i32) {
 	// A left tab is an L, centred a T, right a mirrored L, decimal a T with a dot.
 	sf.vline(x, y - 5, y + 1, INK);
 	match kind {
@@ -59,7 +60,7 @@ fn tab_mark<Sf: Surface>(sf: &mut Sf, kind: u8, x: i32, y: i32) {
 	}
 }
 
-fn marker_down<Sf: Surface>(sf: &mut Sf, x: i32, top: i32) {
+fn marker_down<Sf: Surface + ?Sized>(sf: &mut Sf, x: i32, top: i32) {
 	// The first-line indent: a white triangle pointing down, outlined.
 	for i in 0..5 {
 		sf.hline(x - 4 + i, x + 5 - i, top + i, LIGHT);
@@ -69,21 +70,21 @@ fn marker_down<Sf: Surface>(sf: &mut Sf, x: i32, top: i32) {
 	sf.vline(x + 5, top - 1, top + 1, INK);
 }
 
-fn marker_up<Sf: Surface>(sf: &mut Sf, x: i32, top: i32) {
+fn marker_up<Sf: Surface + ?Sized>(sf: &mut Sf, x: i32, top: i32) {
 	for i in 0..5 {
 		sf.hline(x - i, x + i + 1, top + i, LIGHT);
 	}
 	sf.hline(x - 4, x + 5, top + 5, LIGHT);
 }
 
-fn ruler<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
+fn ruler<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 	sf: &mut Sf,
 	ui: &Ui<Sf::Font>,
 	app: &App<M>,
 	s: &St,
 	r: Rect,
-	client_w: i32,
-	hs: i32,
+	(client_w, hs): (i32, i32),
+	state: Option<RulerState>,
 ) {
 	let top = r.top;
 	sf.clip(Some(r));
@@ -118,7 +119,7 @@ fn ruler<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 			}
 		}
 	}
-	let st = RulerState::of(app, s);
+	let st = state.unwrap_or_else(|| RulerState::of(app, s));
 	for (pos, kind) in st.stops() {
 		tab_mark(sf, *kind, tab_x(*pos, text_left), top + 15);
 	}
@@ -129,7 +130,7 @@ fn ruler<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	sf.clip(None);
 }
 
-fn status_line<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
+fn status_line<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 	sf: &mut Sf,
 	ui: &Ui<Sf::Font>,
 	app: &App<M>,
@@ -156,7 +157,7 @@ fn status_line<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 }
 
 /// Draws the two scroll bars and the box where they meet.
-fn scroll_bars<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
+fn scroll_bars<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 	sf: &mut Sf,
 	app: &App<M>,
 	s: &St,
@@ -187,6 +188,19 @@ pub fn paint_screen<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me: Mea
 	s: &St,
 	window: &mut [u8; WINDOW],
 ) -> PageInfo {
+	paint_screen_view(sf, app, m, s, window, &View::default())
+}
+
+/// [`paint_screen`] with a gesture in progress shown: the button the pointer holds, an open drop-down list, a tip, the ruler as a
+/// drag has it.
+pub fn paint_screen_view<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me: Measure>(
+	sf: &mut Sf,
+	app: &App<M>,
+	m: &mut Me,
+	s: &St,
+	window: &mut [u8; WINDOW],
+	view: &View,
+) -> PageInfo {
 	let lay = Layout::of(app);
 	let hs = hscroll(app, lay.page.width());
 	let info = paint_page(
@@ -199,25 +213,73 @@ pub fn paint_screen<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me: Mea
 		},
 		window,
 	);
+	// The chrome is drawn through a trait object: the two surfaces share a font type, so one copy of it serves both modes, and a
+	// call through the table costs nothing next to the pixels it fills.
+	chrome(sf, app, m, s, &lay, hs, view);
+	info
+}
+
+#[inline(never)]
+fn chrome<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me: Measure>(
+	sf: &mut Sf,
+	app: &App<M>,
+	m: &mut Me,
+	s: &St,
+	lay: &Layout,
+	hs: i32,
+	view: &View,
+) {
 	let ui = Ui::new(sf, m);
-	let open = app.menu_open();
-	menu::draw_bar(sf, &ui, open.map(|(m, _)| m));
-	toolbar::draw(sf, &ui, app, s, &lay);
+	toolbar::draw(sf, &ui, app, s, lay, view.button);
 	if let Some(r) = lay.ruler {
-		ruler(sf, &ui, app, s, r, lay.page.width(), hs);
+		ruler(sf, &ui, app, s, r, (lay.page.width(), hs), view.ruler);
 	}
-	scroll_bars(sf, app, s, &lay, hs);
+	rest(sf, app, s, lay, hs, view, &ui);
+}
+
+/// The bars that are not the toolbar, and what is drawn over them: through a trait object, so the two surfaces share one copy.
+#[inline(never)]
+fn rest<F: Copy, M: Measure + Clone, St: Store + ?Sized>(
+	sf: &mut dyn Surface<Font = F>,
+	app: &App<M>,
+	s: &St,
+	lay: &Layout,
+	hs: i32,
+	view: &View,
+	ui: &Ui<F>,
+) {
+	let open = app.menu_open();
+	menu::draw_bar(sf, ui, open.map(|(m, _)| m));
+	scroll_bars(sf, app, s, lay, hs);
 	if let Some(r) = lay.status {
-		status_line(sf, &ui, app, s, r);
+		status_line(sf, ui, app, s, r);
 	}
-	if let Some((menu, item)) = open {
-		menu::draw_menu(sf, &ui, app, s, menu, item);
+	over(sf, app, s, lay, view, ui);
+}
+
+/// What is drawn over the bars: an open menu, a list, a tip, a dialog. Only one of them is there on most frames, so it is drawn through
+/// a trait object and the two surfaces share one copy.
+fn over<F: Copy, M: Measure + Clone, St: Store + ?Sized>(
+	sf: &mut dyn Surface<Font = F>,
+	app: &App<M>,
+	s: &St,
+	lay: &Layout,
+	view: &View,
+	ui: &Ui<F>,
+) {
+	if let Some((menu, item)) = app.menu_open() {
+		menu::draw_menu(sf, ui, app, s, menu, item);
+	}
+	if let Some((pop, hot)) = view.drop {
+		drop::draw(sf, ui, lay, pop, hot);
+	}
+	if let (Some(t), true) = (view.tip, app.editing()) {
+		tip::draw(sf, ui, lay, t);
 	}
 	let mut ov = Overlay::default();
 	if app.overlay(s, &mut ov) {
-		dialog::draw_dialog(sf, &ui, &ov);
+		dialog::draw_dialog_held(sf, ui, &ov, view.widget);
 	}
-	info
 }
 
 /// What `[Quill] Graphics=` and the command line ask for.
@@ -284,10 +346,11 @@ pub fn pos_at_pixel<M: Measure + Clone, St: quill_core::store::ReadStore + ?Size
 	}
 }
 
-/// The graphics screen as a pointer space: pixels of the 640 by 480 screen. Only the page takes the pointer for now; its rectangle
-/// is where the View menu's bars leave it (`Layout::of`), so a `Pixels` is made from the app with [`Pixels::of`] before each
-/// event. The menus, dialogs and bars are drawn but have no pointer hit tests here yet; when they do, this is where they go (the
-/// `press_chrome`, `press_overlay` and `hover_overlay` methods of [`PointerTarget`]).
+/// The graphics screen's page as a pointer space: pixels of the 640 by 480 screen. Its rectangle is where the View menu's bars leave
+/// it (`Layout::of`), so a `Pixels` is made from the app with [`Pixels::of`] before each event. Only the page is here: the menus,
+/// dialogs, bars, lists, ruler and scroll bars are worked by [`crate::pointer::Gfx`], which needs the release and the held state that
+/// the `press_chrome`, `press_overlay` and `hover_overlay` hooks of [`PointerTarget`] cannot carry, and hands the page's events to the
+/// app's `Pointer` with this as the target.
 #[derive(Copy, Clone, Debug)]
 pub struct Pixels {
 	page: Rect,

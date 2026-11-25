@@ -16,7 +16,7 @@
 use quill_core::layout::{to_units, Measure};
 use quill_core::store::{ReadStore, Store};
 use quill_grid::COLS;
-use quill_mouse::Ev;
+pub use quill_mouse::Ev;
 
 use crate::paint::{self, MENU_COUNT};
 use crate::{App, Files, Grain, Key, Mode};
@@ -166,6 +166,7 @@ impl Pointer {
 					app.scroll_to(s, top.clamp(0, i64::from(u32::MAX)) as u32);
 				}
 			}
+			Ev::Tick => {}
 		}
 	}
 

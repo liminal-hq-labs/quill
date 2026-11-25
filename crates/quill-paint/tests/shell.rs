@@ -13,8 +13,9 @@ use quill_host::png::encode_indexed;
 use quill_host::script::{parse_script, MemFiles};
 use quill_paint::damage::{self, RowSet, PLANAR_ROW};
 use quill_paint::layout::Layout;
+use quill_paint::pointer::{Gfx, View};
 use quill_paint::raster::{Planar4, PLANAR_BYTES, PLANE_BYTES};
-use quill_paint::shell::{self, paint_screen, Graphics};
+use quill_paint::shell::{self, paint_screen, paint_screen_view, Graphics};
 use quill_paint::{crc32, Surface};
 use quill_strike::{SliceSource, StrikeMeasure};
 
@@ -41,12 +42,13 @@ struct ScreenJob<'a> {
 	app: &'a TApp,
 	s: &'a quill_host::HostStore,
 	window: Box<[u8; WINDOW]>,
+	view: View,
 }
 
 impl Job for ScreenJob<'_> {
 	fn run<Sf: Surface>(&mut self, sf: &mut Sf) {
 		let mut m = StrikeMeasure::new(strikes());
-		paint_screen(sf, self.app, &mut m, self.s, &mut self.window);
+		paint_screen_view(sf, self.app, &mut m, self.s, &mut self.window, &self.view);
 	}
 }
 
@@ -79,16 +81,20 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 			app: &app,
 			s: &s,
 			window: Box::new([0; WINDOW]),
+			view: View::default(),
 		},
 	)];
-	let mut pointer = quill_app::mouse::Pointer::default();
+	let mut gfx = Gfx::new(&mut StrikeMeasure::new(strikes()));
 	let mut tick = 0;
 	for step in &sc.steps {
 		match step {
-			quill_app::script::Step::Key(k) => app.key(&mut s, &mut files, *k),
+			quill_app::script::Step::Key(k) => {
+				if !gfx.key(&mut app, &mut s, *k) {
+					app.key(&mut s, &mut files, *k)
+				}
+			}
 			other => other.play(&mut tick, |ev, ctx| {
-				let space = shell::Pixels::of(&app);
-				pointer.handle(&mut app, &mut s, &mut files, &space, ev, ctx)
+				gfx.handle(&mut app, &mut s, &mut files, ev, ctx);
 			}),
 		}
 		shell::sync_view(&mut app);
@@ -98,6 +104,7 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 				app: &app,
 				s: &s,
 				window: Box::new([0; WINDOW]),
+				view: gfx.view(),
 			},
 		));
 		if app.quit() {
@@ -122,9 +129,12 @@ fn golden_of(mode: Mode, name: &str) -> Vec<Frame> {
 		sums.as_bytes(),
 	);
 	if !name.starts_with("g7-") {
+		let text =
+			std::fs::read_to_string(root().join(format!("tests/scenarios/{name}.keys"))).unwrap();
+		let opened = parse_script(&text).open.unwrap().to_ascii_uppercase();
 		compare_bytes(
 			&format!("tests/golden/files/{name}.rtf"),
-			&files.files["LETTER.RTF"],
+			&files.files[&opened],
 		);
 		for (label, n) in [("start", 0), ("end", frames.len() - 2)] {
 			let fr = &frames[n];
@@ -216,6 +226,7 @@ fn the_chrome_is_drawn_over_its_strips_only() {
 			app: &app,
 			s: &s,
 			window: Box::new([0; WINDOW]),
+			view: View::default(),
 		},
 	);
 	// The status line is silver at its left edge, and the page area is not all silver.
@@ -415,4 +426,44 @@ fn the_toolbar_and_the_scroll_bars_at_16_colours() {
 #[test]
 fn the_toolbar_and_the_scroll_bars_at_256_colours() {
 	golden_of(Mode::C256, "g6-toolbar");
+}
+
+#[test]
+fn the_pointer_on_the_menus_at_16_colours() {
+	golden_of(Mode::C16, "g8-gfx-menus");
+}
+
+#[test]
+fn the_pointer_on_the_menus_at_256_colours() {
+	golden_of(Mode::C256, "g8-gfx-menus");
+}
+
+#[test]
+fn the_pointer_in_the_dialogs_at_16_colours() {
+	golden_of(Mode::C16, "g8-gfx-dialogs");
+}
+
+#[test]
+fn the_pointer_in_the_dialogs_at_256_colours() {
+	golden_of(Mode::C256, "g8-gfx-dialogs");
+}
+
+#[test]
+fn the_pointer_on_the_toolbars_at_16_colours() {
+	golden_of(Mode::C16, "g8-gfx-toolbar");
+}
+
+#[test]
+fn the_pointer_on_the_toolbars_at_256_colours() {
+	golden_of(Mode::C256, "g8-gfx-toolbar");
+}
+
+#[test]
+fn the_pointer_on_the_scroll_bar_at_16_colours() {
+	golden_of(Mode::C16, "g8-gfx-scroll");
+}
+
+#[test]
+fn the_pointer_on_the_scroll_bar_at_256_colours() {
+	golden_of(Mode::C256, "g8-gfx-scroll");
 }

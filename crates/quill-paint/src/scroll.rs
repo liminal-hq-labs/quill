@@ -111,7 +111,7 @@ pub fn pos_at(p: &Parts, coord: i32, range: i32) -> i32 {
 	((coord - start).clamp(0, p.travel) * range + p.travel / 2) / p.travel
 }
 
-fn arrow<Sf: Surface>(sf: &mut Sf, r: Rect, dir: u8) {
+fn arrow<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, dir: u8) {
 	sf.fill_rect(r, FACE);
 	outline(sf, r, INK);
 	bevel(
@@ -132,7 +132,7 @@ fn arrow<Sf: Surface>(sf: &mut Sf, r: Rect, dir: u8) {
 }
 
 /// Draws a bar: a striped track (white and silver in a checker), the thumb raised, the arrows on their buttons.
-pub fn draw<Sf: Surface>(sf: &mut Sf, p: &Parts, enabled: bool) {
+pub fn draw<Sf: Surface + ?Sized>(sf: &mut Sf, p: &Parts, enabled: bool) {
 	sf.clip(None);
 	let t = p.track;
 	// The track is white and silver in lines one pixel wide along its length, which reads as the grey of Windows 3.1's dither but takes
