@@ -16,6 +16,11 @@ pub struct FakeInt33 {
 	pub present: bool,
 	/// True for a driver with the CuteMouse wheel API.
 	pub wheel_api: bool,
+	/// True when the mouse has a wheel: with the API but no wheel, CuteMouse answers 574Dh and CX = 0 (as it does on a PS/2 mouse it
+	/// has not probed for a wheel).
+	pub has_wheel: bool,
+	/// The mickey ratio last set by function 000Fh, across and down per eight pixels (the driver's default is 8 and 16).
+	pub mickeys: (u16, u16),
 	/// Horizontal and vertical range as set by functions 0007h and 0008h.
 	pub range: ((i32, i32), (i32, i32)),
 	/// The driver's position, always inside the range.
@@ -38,6 +43,8 @@ impl Default for FakeInt33 {
 		FakeInt33 {
 			present: true,
 			wheel_api: true,
+			has_wheel: true,
+			mickeys: (8, 16),
 			range: ((0, 639), (0, 199)),
 			pos: (320, 100),
 			hidden: 1,
@@ -105,7 +112,12 @@ impl Int33 for FakeInt33 {
 			func::POSITION => {
 				let w = (self.wheel.clamp(-128, 127) as i8 as u8 as u16) << 8;
 				self.wheel = 0;
-				r.bx = u16::from(self.left) | if self.wheel_api { w } else { 0 };
+				r.bx = u16::from(self.left)
+					| if self.wheel_api && self.has_wheel {
+						w
+					} else {
+						0
+					};
 				r.cx = self.pos.0 as u16;
 				r.dx = self.pos.1 as u16;
 			}
@@ -127,6 +139,7 @@ impl Int33 for FakeInt33 {
 				self.range.0 = (a.min(b), a.max(b));
 				self.move_to(self.pos.0, self.pos.1);
 			}
+			func::MICKEYS => self.mickeys = (r.cx, r.dx),
 			func::RANGE_Y => {
 				let (a, b) = (i32::from(r.cx as i16), i32::from(r.dx as i16));
 				self.range.1 = (a.min(b), a.max(b));
@@ -134,7 +147,7 @@ impl Int33 for FakeInt33 {
 			}
 			func::WHEEL_API if self.wheel_api => {
 				r.ax = WHEEL_API_SIGNATURE;
-				r.cx = 1;
+				r.cx = u16::from(self.has_wheel);
 			}
 			_ => {}
 		}
@@ -169,8 +182,10 @@ mod tests {
 			d.hidden, 2,
 			"reset leaves it hidden once and the hide call adds one"
 		);
+		assert_eq!(d.mickeys, (8, 8), "as far down as across");
 		for f in [
 			func::RESET,
+			func::MICKEYS,
 			func::RANGE_X,
 			func::RANGE_Y,
 			func::HIDE,
@@ -271,6 +286,24 @@ mod tests {
 		assert!(!plain.has_wheel());
 		plain.driver().turn(3);
 		assert_eq!(events(&mut plain), vec![]);
+	}
+
+	#[test]
+	fn a_driver_with_the_api_and_no_wheel_has_no_wheel() {
+		// CuteMouse on a PS/2 mouse it was not told to probe: 574Dh, CX = 0, and the counter in BH stays 0.
+		let mut m = Mouse::open(
+			FakeInt33 {
+				has_wheel: false,
+				..FakeInt33::default()
+			},
+			640,
+			480,
+			(1, 1),
+		)
+		.unwrap();
+		assert!(!m.has_wheel());
+		m.driver().turn(2);
+		assert_eq!(events(&mut m), vec![]);
 	}
 
 	#[test]

@@ -7,12 +7,15 @@
 //! mouse driver behind INT 33h; [`Mouse`] reads it through the [`Int33`] trait, so the same code runs against the real driver in
 //! `QUILLDOS.EXE` and against [`fake::FakeInt33`] in host tests.
 //!
+//! With no driver the shell reads a PS/2 mouse itself and [`ps2::Ps2Pointer`] makes the same events from its packets.
+//!
 //! The driver is polled, and a click can start and end between two polls. Functions 0005h and 0006h count presses and releases, so
 //! a poll that sees the button up before and after, with a press counted, reports the press and the release it would have missed.
 #![no_std]
 
 #[cfg(any(test, feature = "fake"))]
 pub mod fake;
+pub mod ps2;
 
 /// A pointer event, in the shell's units. Only the left button is reported; the others are ignored.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -49,7 +52,11 @@ pub mod func {
 	pub const RELEASES: u16 = 0x0006;
 	pub const RANGE_X: u16 = 0x0007;
 	pub const RANGE_Y: u16 = 0x0008;
-	/// The CuteMouse wheel API: AX = 574Dh when the driver reports a wheel (the counter in BH of function 0003h stays 0 without one).
+	/// Sets how many mickeys (the driver's counts of motion) make eight pixels, across and down. A driver starts with 8 across and 16
+	/// down, so a pointer that moves as far down as across needs 8 and 8.
+	pub const MICKEYS: u16 = 0x000F;
+	/// The CuteMouse wheel API: AX = 574Dh when the driver has the API, and bit 0 of CX when the mouse has a wheel (the counter in BH of
+	/// function 0003h stays 0 without one).
 	pub const WHEEL_API: u16 = 0x0011;
 }
 
@@ -85,7 +92,8 @@ impl<D: Int33> Mouse<D> {
 			ax: func::WHEEL_API,
 			..Regs::default()
 		};
-		let wheel = d.call(&mut r) && r.ax == WHEEL_API_SIGNATURE;
+		// CuteMouse answers 574Dh whether or not the mouse has a wheel; CX bit 0 says it does.
+		let wheel = d.call(&mut r) && r.ax == WHEEL_API_SIGNATURE && r.cx & 1 != 0;
 		let div = (div.0.max(1), div.1.max(1));
 		let mut set = |ax: u16, lo: i32, hi: i32| {
 			let mut r = Regs {
@@ -98,6 +106,14 @@ impl<D: Int33> Mouse<D> {
 		};
 		set(func::RANGE_X, 0, w * div.0 - 1);
 		set(func::RANGE_Y, 0, h * div.1 - 1);
+		// A pointer moves as far down as across for the same push of the mouse (the driver's default is half as far down).
+		let mut r = Regs {
+			ax: func::MICKEYS,
+			cx: 8,
+			dx: 8,
+			..Regs::default()
+		};
+		d.call(&mut r);
 		let mid = (w / 2, h / 2);
 		let mut r = Regs {
 			ax: func::SET_POSITION,
