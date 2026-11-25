@@ -167,6 +167,8 @@ const RUNS: &[(&str, &[(&str, &str)])] = &[
 	("m2-headers", &[]),
 	("m2-dialogs", &[]),
 	("m2-mono", &[]),
+	("m12-confirm", &[]),
+	("m12-confirm-mono", &[]),
 	(
 		"m4-about",
 		&[("QUILL.INI", "tests/golden/files/m4-quill.ini")],

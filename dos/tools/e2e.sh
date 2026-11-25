@@ -79,6 +79,9 @@ run_scenario m2-headers - -
 run_scenario m2-lists - -
 run_scenario m10-menus - -
 run_scenario m11-recent - -
+run_scenario m12-confirm - -
+run_scenario m12-confirm-mono - -
+run_scenario m12-confirm-50 - -
 
 # The graphics shell (tests/scenarios/g6-gfx.keys): the same keys are played into QUILLDOS.EXE in graphics mode and on the host through
 # quill-paint's shell. QUILL.FNT on the disk is the committed test font, so a frame is the same bytes on both: every frame's CRC-32 must

@@ -1,0 +1,10 @@
+# M12: the Save changes question on the 50-row screen: Yes has the focus, then Cancel with Left.
+@rows 50
+@copy plain.qld
+@open PLAIN.QLD
+x
+f10 end enter                     # File > Exit asks to save
+left                              # Cancel (the focus wraps)
+esc                               # back to the document
+f10 end enter
+n                                 # No: exit without saving
