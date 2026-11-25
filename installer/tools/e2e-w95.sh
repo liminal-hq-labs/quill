@@ -257,14 +257,14 @@ for f in XCOPY.TXT MENU1.TXT MENU2.TXT DIR2.TXT QLD1.REG PROGID1.REG UNINST1.REG
 done
 INST="$out/INST"
 for f in QUILL32.EXE QUILL.HLP EN_CA.DIC EN_GB.DIC EN_US.DIC README.TXT LICENCE.TXT INSTALL.LIR UNINST.EXE UNINST.DAT \
-	SAMPLES/LETTER.QLD SAMPLES/LETTER.RTF SAMPLES/PICTURES.RTF SAMPLES/PLAIN.QLD; do
+	SAMPLES/DEMO.QLD SAMPLES/DEMO.RTF SAMPLES/PICTURES.RTF SAMPLES/PLAIN.QLD; do
 	[ -f "$INST/$f" ] || { find "$INST" -type f | sort >&2; fail "Quill\\$f was not installed"; }
 done
 cmp "$INST/QUILL32.EXE" "$DIST/windows-x86/QUILL32.EXE" || fail "QUILL32.EXE differs from the staged program"
 cmp "$INST/QUILL.HLP" "$DIST/help/QUILL.HLP" || fail "QUILL.HLP differs from the staged help"
 for f in EN_CA.DIC EN_GB.DIC EN_US.DIC; do cmp "$INST/$f" "$DIST/dict/$f" || fail "$f differs from the staged file"; done
 cmp "$INST/LICENCE.TXT" "$DIST/common/LICENCE.TXT" || fail "LICENCE.TXT differs"
-for f in LETTER.QLD LETTER.RTF PICTURES.RTF PLAIN.QLD; do cmp "$INST/SAMPLES/$f" "$DIST/samples/$f" || fail "SAMPLES/$f differs"; done
+for f in DEMO.QLD DEMO.RTF PICTURES.RTF PLAIN.QLD; do cmp "$INST/SAMPLES/$f" "$DIST/samples/$f" || fail "SAMPLES/$f differs"; done
 echo "e2e-w95: install: C:\\Program Files\\Quill holds the files, byte-equal to the staged files"
 reg() { tr -d '\r' <"$out/$1"; }
 reg QLD1.REG | grep -qx '@="hq.liminal.quill.qld"' || fail ".qld does not name hq.liminal.quill.qld: $(reg QLD1.REG)"

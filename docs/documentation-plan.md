@@ -107,7 +107,7 @@ installer/
 |---|---|---|
 | Quill | `QUILL.EXE`, `QUILL32.EXE` or `QUILLDOS.EXE` for the target; `QUILL.HLP` or `QUILL.HLX`; `QUILL.FNT` on DOS | Yes |
 | Spelling dictionaries | `EN_CA.DIC`, with `EN_US.DIC` and `EN_GB.DIC` chosen on the Language page | `EN_CA.DIC` yes, the others no |
-| Sample documents | `SAMPLES\LETTER.QLD`, `SAMPLES\LETTER.RTF`, `SAMPLES\WELCOME.QLD` | No |
+| Sample documents | `SAMPLES\DEMO.QLD`, `SAMPLES\DEMO.RTF` | No |
 | Read me | `README.TXT` | Yes |
 
 On Windows the installer creates a Program Manager group (or a Start menu folder on Windows 95), associates `.QLD` with Quill in the registration database and adds `QUILL.EXE /P` as the print command. On DOS it copies the files and offers to add the directory to `PATH`. Both write the installer's receipt so the uninstaller removes exactly what was installed.
