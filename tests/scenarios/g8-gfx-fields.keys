@@ -1,0 +1,28 @@
+# G8 (graphics): the caret in a dialog's text field. A click puts the caret between two characters and the keys edit there (Delete,
+# Backspace, Left, Right, Home, End), a drag selects and typing replaces the selection, a double click selects a word; the same in
+# the file name prompt. Every frame's CRC-32 must equal the host's.
+@copy letter.rtf
+@open LETTER.RTF
+@click 145 9            # Find menu
+@click 215 32           # Find...
+@click 336 204          # the field
+q u i c k space b r o w n space f o x
+@click 232 204          # the caret between two letters
+delete delete
+left left bspace
+home x
+end y
+@drag 218 204 268 204   # a selection
+z                       # typing replaces it
+@dclick 236 204         # a word selected
+@click 336 292          # Close is out of the way: the dialog stays
+@click 2 2
+esc
+f10 enter               # File > Open: the file name prompt
+l e t t e r period r t f
+@click 296 226          # the caret in the name
+left left x
+@drag 220 226 300 226
+delete
+esc
+f10 end enter

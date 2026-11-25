@@ -37,7 +37,7 @@ pub fn parse_token(t: &str) -> Option<Key> {
 }
 
 /// One step of a scenario that has a pointer: a key, or a pointer action at a place. The place is a cell on the text screen and a
-/// pixel in graphics. `@click x y`, `@shiftclick x y`, `@dclick x y`, `@tclick x y`, `@drag x1 y1 x2 y2` and `@wheel n` are the
+/// pixel in graphics. `@click x y`, `@shiftclick x y`, `@dclick x y`, `@tclick x y`, `@drag x1 y1 x2 y2`, `@wheel n` and `@shiftwheel n` are the
 /// directives that spell them; `@move x y`, `@down x y` and `@up x y` are the parts of a click on their own (to hold a button down
 /// for a frame, or to hover), and `@wait n` lets `n` ticks pass with the pointer where it is (a tip shows after about nine).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -54,6 +54,8 @@ pub enum Step {
 	Drag { x1: i32, y1: i32, x2: i32, y2: i32 },
 	/// Turn the wheel; positive is towards the user.
 	Wheel(i32),
+	/// Turn the wheel with Shift held, which scrolls sideways.
+	ShiftWheel(i32),
 	/// Move the pointer with no button down.
 	Move { x: i32, y: i32 },
 	/// Move to the place and press the button, and keep it down.
@@ -99,6 +101,7 @@ pub fn parse_pointer<'a>(
 				Step::Drag { x1, y1, x2, y2 }
 			}
 			"@wheel" => Step::Wheel(num()?),
+			"@shiftwheel" => Step::ShiftWheel(num()?),
 			"@wait" => Step::Wait(num()?),
 			"@move" | "@down" | "@up" => {
 				let (x, y) = two(&mut num)?;
@@ -184,10 +187,10 @@ impl Step {
 				f(Ev::Move { x: x2, y: y2 }, ctx);
 				f(Ev::Up { x: x2, y: y2 }, ctx);
 			}
-			Step::Wheel(n) => f(
+			Step::Wheel(n) | Step::ShiftWheel(n) => f(
 				Ev::Wheel(n),
 				crate::mouse::Ctx {
-					shift: false,
+					shift: matches!(*self, Step::ShiftWheel(_)),
 					tick: at,
 				},
 			),

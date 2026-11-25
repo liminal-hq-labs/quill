@@ -16,11 +16,11 @@ use quill_app::view::{
 };
 use quill_app::{status_text, App, Overlay};
 use quill_core::layout::{to_units, Measure};
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 
 use crate::layout::Layout;
 use crate::page::{paint_page, PageInfo, PageView};
-use crate::pointer::View;
+use crate::pointer::{View, KIND_W};
 use crate::scroll;
 use crate::ui::{bevel, Ui, FACE, INK, LIGHT, SHADOW};
 use crate::{dialog, drop, menu, tip, toolbar};
@@ -35,19 +35,92 @@ pub const MENU_H: i32 = 20;
 /// The height of the status line.
 pub const STATUS_H: i32 = 20;
 
-/// Tells the app how big the page area is, so scrolling keeps the caret in view and Page Up and Page Down move a screenful. The page
-/// area changes with the View menu (a hidden toolbar gives its rows to the page), so the shell calls this after every key.
-pub fn sync_view<M: Measure + Clone>(app: &mut App<M>) {
+/// Tells the app how big the page area is, so scrolling keeps the caret in view and Page Up and Page Down move a screenful, and
+/// brings the sideways scroll back inside what the content needs. The page area changes with the View menu (a hidden toolbar gives
+/// its rows to the page) and the content with every edit, so the shell calls this after every key.
+pub fn sync_view<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s: &S) {
 	let page = Layout::of(app).page;
 	app.set_view_height(page.height());
 	app.set_rows((page.height() / 16).max(1) as usize);
+	hclamp(app, s);
 }
 
-/// How far the page is scrolled sideways in a page area `client_w` wide: until the text column starts at the left edge, or as far as
-/// the page can go.
-pub fn hscroll<M: Measure + Clone>(app: &App<M>, client_w: i32) -> i32 {
+/// The text column's left edge is at the left edge of a page area `client_w` wide: where the page is scrolled sideways when nothing is
+/// wider than the area.
+fn hbase<M: Measure + Clone>(app: &App<M>, client_w: i32) -> i32 {
 	let margin = to_units(app.doc().page.margin_l, 96);
 	(margin + PAGE_PAD).min(hscroll_max(app, client_w)).max(0)
+}
+
+/// How far the page is scrolled sideways in a page area `client_w` wide: the text column at the left edge, plus the app's sideways
+/// position (the scroll bar's, the wheel's and the caret's).
+pub fn hscroll<M: Measure + Clone>(app: &App<M>, client_w: i32) -> i32 {
+	hbase(app, client_w) + app.hscroll_pos().max(0)
+}
+
+/// The sideways scroll's range in pixels, from what the lines shown reach: the text column, or a picture or a tab stop that goes past
+/// it, against the width of the area. 0 when nothing is wider, and when the whole sheet fits (the page is then centred).
+pub fn hrange<M: Measure + Clone, S: ReadStore + ?Sized>(
+	app: &App<M>,
+	s: &S,
+	client_w: i32,
+) -> i32 {
+	if client_w >= page_width(app) + 2 * PAGE_PAD {
+		return 0;
+	}
+	let ml = to_units(app.doc().page.margin_l, 96);
+	let col = to_units(app.doc().page.text_w(), 96);
+	let lines = (app.page_rows() as u32).max(1) * 3;
+	let content = col.max(app.content_right(s, lines));
+	(ml + PAGE_PAD - hbase(app, client_w) + content - client_w).max(0)
+}
+
+/// Brings the app's sideways position inside 0 to [`hrange`] for the page area as it is now.
+pub fn hclamp<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s: &S) {
+	let w = Layout::of(app).page.width();
+	let to = app.hscroll_pos().clamp(0, hrange(app, s, w));
+	app.set_hscroll_pos(to);
+}
+
+/// Scrolls sideways by `dx` pixels (negative is left), as far as the content allows. True when the view moved.
+pub fn hscroll_by<M: Measure + Clone, S: ReadStore + ?Sized>(
+	app: &mut App<M>,
+	s: &S,
+	dx: i32,
+) -> bool {
+	let w = Layout::of(app).page.width();
+	let before = app.hscroll_pos();
+	app.set_hscroll_pos(before.saturating_add(dx).clamp(0, hrange(app, s, w)));
+	app.hscroll_pos() != before
+}
+
+/// Scrolls sideways until the caret is in view, when the caret or the text has changed since the last time: a key, or a press in the
+/// page. A scroll bar moves the view away from the caret and nothing here brings it back.
+pub fn follow_caret<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s: &S) {
+	if !app.caret_moved_since_follow() {
+		return;
+	}
+	app.mark_followed();
+	if !app.editing() {
+		return;
+	}
+	let w = Layout::of(app).page.width();
+	let Some((_, _, x)) = app.caret_xy(s) else {
+		return;
+	};
+	let margin = to_units(app.doc().page.margin_l, 96);
+	// The caret's column in the area, as the page is scrolled now.
+	let at = PAGE_PAD + margin + x - hscroll(app, w);
+	let slack = 32.min(w / 4);
+	let pos = app.hscroll_pos();
+	let to = if at < slack {
+		pos - (slack - at)
+	} else if at > w - slack {
+		pos + (at - (w - slack))
+	} else {
+		pos
+	};
+	app.set_hscroll_pos(to.clamp(0, hrange(app, s, w)));
 }
 
 fn tab_mark<Sf: Surface + ?Sized>(sf: &mut Sf, kind: u8, x: i32, y: i32) {
@@ -56,6 +129,10 @@ fn tab_mark<Sf: Surface + ?Sized>(sf: &mut Sf, kind: u8, x: i32, y: i32) {
 	match kind {
 		1 => sf.hline(x - 2, x + 3, y, INK),
 		2 => sf.hline(x - 4, x + 1, y, INK),
+		3 => {
+			sf.hline(x - 2, x + 3, y, INK);
+			sf.hline(x + 2, x + 3, y - 3, INK);
+		}
 		_ => sf.hline(x, x + 5, y, INK),
 	}
 }
@@ -84,7 +161,7 @@ fn ruler<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 	s: &St,
 	r: Rect,
 	(client_w, hs): (i32, i32),
-	state: Option<RulerState>,
+	(state, kind): (Option<RulerState>, u8),
 ) {
 	let top = r.top;
 	sf.clip(Some(r));
@@ -120,8 +197,14 @@ fn ruler<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 		}
 	}
 	let st = state.unwrap_or_else(|| RulerState::of(app, s));
-	for (pos, kind) in st.stops() {
-		tab_mark(sf, *kind, tab_x(*pos, text_left), top + 15);
+	// The button at the left end that sets the kind of tab a click on the scale makes, showing the kind. The text column starts at
+	// the left edge, so the markers and the tab stops are drawn over the button (and take a press before it does).
+	let b = Rect::new(0, top, KIND_W, top + RULER_H - 1);
+	sf.fill_rect(b, FACE);
+	bevel(sf, Rect::new(2, top + 2, 20, top + 20), true);
+	tab_mark(sf, kind, 8 + i32::from(kind == 2) * 3, top + 14);
+	for (pos, k) in st.stops() {
+		tab_mark(sf, *k, tab_x(*pos, text_left), top + 15);
 	}
 	let (fx, lx, rx) = ruler_marks(&st, text_left, text_w);
 	marker_down(sf, fx, top + 1);
@@ -162,16 +245,17 @@ fn scroll_bars<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 	app: &App<M>,
 	s: &St,
 	lay: &Layout,
-	hs: i32,
 ) {
 	let total = app.line_total(s) as i32;
-	let view = (app.page_rows() as i32).min(total);
+	let view = (app.lines_in_view(s) as i32).min(total);
 	let v = scroll::parts(lay.vbar, true, app.top_line() as i32, total, view);
 	scroll::draw(sf, &v, total > view);
 	if let Some(hbar) = lay.hbar {
-		let sheet = page_width(app) + 2 * PAGE_PAD;
-		let h = scroll::parts(hbar, false, hs, sheet, lay.page.width());
-		scroll::draw(sf, &h, sheet > lay.page.width());
+		// The thumb is the width of the area over the width of what it can show, and sits at the sideways scroll.
+		let w = lay.page.width();
+		let range = hrange(app, s, w);
+		let h = scroll::parts(hbar, false, app.hscroll_pos(), range + w, w);
+		scroll::draw(sf, &h, range > 0);
 	}
 	if let Some(c) = lay.corner {
 		sf.fill_rect(c, FACE);
@@ -232,9 +316,17 @@ fn chrome<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me: Measure>(
 	let ui = Ui::new(sf, m);
 	toolbar::draw(sf, &ui, app, s, lay, view.button);
 	if let Some(r) = lay.ruler {
-		ruler(sf, &ui, app, s, r, (lay.page.width(), hs), view.ruler);
+		ruler(
+			sf,
+			&ui,
+			app,
+			s,
+			r,
+			(lay.page.width(), hs),
+			(view.ruler, view.kind),
+		);
 	}
-	rest(sf, app, s, lay, hs, view, &ui);
+	rest(sf, app, s, lay, view, &ui);
 }
 
 /// The bars that are not the toolbar, and what is drawn over them: through a trait object, so the two surfaces share one copy.
@@ -244,13 +336,12 @@ fn rest<F: Copy, M: Measure + Clone, St: Store + ?Sized>(
 	app: &App<M>,
 	s: &St,
 	lay: &Layout,
-	hs: i32,
 	view: &View,
 	ui: &Ui<F>,
 ) {
 	let open = app.menu_open();
 	menu::draw_bar(sf, ui, open.map(|(m, _)| m));
-	scroll_bars(sf, app, s, lay, hs);
+	scroll_bars(sf, app, s, lay);
 	if let Some(r) = lay.status {
 		status_line(sf, ui, app, s, r);
 	}

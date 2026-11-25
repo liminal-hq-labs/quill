@@ -18,6 +18,7 @@ panic-handler = []
 
 [dependencies]
 desk-hal = { path = "../hal/hal" }
+desk-pic = { path = "../hal/drivers/pic" }
 
 [package.metadata.quill]
 layer = "shell"

@@ -1,0 +1,22 @@
+# G8 (graphics): the horizontal scroll bar. A page with half-inch margins is wider than the screen gives it, so the bar has a thumb:
+# the arrows, the arrow held (it repeats after a delay and stops on release), the track, the thumb dragged, Shift and the wheel, the
+# caret scrolled into view by End, and a click that leaves the view where it is. Every frame's CRC-32 must equal the host's.
+@copy wide.rtf
+@open WIDE.RTF
+@click 616 452          # the right arrow: sixteen pixels
+@click 616 452
+@down 616 452           # held: nothing until the delay
+@wait 3
+@wait 6                 # the first repeat, then one a tick
+@wait 4
+@up 616 452             # released: it stops
+@wait 20
+@click 8 452            # the left arrow
+@click 400 452          # the track right of the thumb: a page
+@drag 300 452 40 452    # the thumb dragged back to the left
+@shiftwheel 1           # three arrow steps
+@wheel 1                # the wheel alone is the page's
+@click 300 300          # a click in the page does not scroll
+home end                # the caret at the end of the line is scrolled into view
+@click 100 120
+f10 end enter

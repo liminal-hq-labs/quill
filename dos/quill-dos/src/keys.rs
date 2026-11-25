@@ -11,6 +11,9 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use quill_app::{Dir, Key};
 
+/// Pixels Ctrl+Left and Ctrl+Right scroll the page sideways.
+const SCROLL_STEP: i32 = 48;
+
 /// Set when a key was typed while Alt was held, so that letting Alt go afterwards is the end of a chord and not a tap.
 static ALT_USED: AtomicBool = AtomicBool::new(false);
 
@@ -20,6 +23,8 @@ pub enum Wait {
 	Key(Option<Key>),
 	/// The caller's check asked to stop waiting.
 	Break,
+	/// Ctrl+Left or Ctrl+Right: scroll the page sideways by this many pixels (the app has no key for either).
+	Scroll(i32),
 }
 
 /// Waits for the next key and decodes it; keys Quill has no use for come back as `Key(None)`. Alt pressed and let go with no key between
@@ -54,6 +59,9 @@ pub fn wait_until(check: &mut dyn FnMut() -> bool) -> Wait {
 	let ax: u32;
 	// SAFETY: INT 16h is a BIOS service with register arguments only.
 	unsafe { asm!("int 0x16", inout("eax") 0u32 => ax) };
+	if ax as u8 == 0 && matches!((ax >> 8) as u8, 0x73 | 0x74) {
+		return Wait::Scroll(if (ax >> 8) as u8 == 0x73 { -SCROLL_STEP } else { SCROLL_STEP });
+	}
 	let Some(key) = quill_app::bios::decode(ax as u8, (ax >> 8) as u8) else {
 		return Wait::Key(None);
 	};

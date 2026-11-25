@@ -541,6 +541,43 @@ impl<M: Measure + Clone> App<M> {
 		self.view_h = pixels.max(0);
 	}
 
+	/// How far the page is scrolled sideways past the text column at the left edge, in pixels.
+	pub fn hscroll_pos(&self) -> i32 {
+		self.hpos
+	}
+
+	/// Sets the sideways scroll (never negative); the shell keeps it within what the content needs.
+	pub fn set_hscroll_pos(&mut self, pos: i32) {
+		self.hpos = pos.max(0);
+	}
+
+	/// True when the caret or the text has changed since the sideways scroll last followed the caret.
+	pub fn caret_moved_since_follow(&self) -> bool {
+		self.hseen != (self.caret, self.doc.body.revision())
+	}
+
+	/// Records that the sideways scroll has followed the caret as it is now.
+	pub fn mark_followed(&mut self) {
+		self.hseen = (self.caret, self.doc.body.revision());
+	}
+
+	/// The furthest right any of the `count` lines from the first one shown reaches, from the left margin, in pixels: a picture or a
+	/// tab wider than the column pushes it past the column's width.
+	pub fn content_right<S: ReadStore + ?Sized>(&self, s: &S, count: u32) -> i32 {
+		let first = self.top;
+		let mut right = 0;
+		self.for_each_line_from(s, first, |i, l| {
+			if i >= first.saturating_add(count) {
+				return false;
+			}
+			if i >= first {
+				right = right.max(l.x + l.width);
+			}
+			true
+		});
+		right
+	}
+
 	/// The first line to show so that line `idx` (`l`), at or after the current first line, fits in the page area: the current one when
 	/// it already does.
 	pub(crate) fn top_to_show<S: ReadStore + ?Sized>(&self, s: &S, idx: u32, l: &Line) -> u32 {
@@ -571,6 +608,27 @@ impl<M: Measure + Clone> App<M> {
 	/// How many lines the body has, laid out for the app's device.
 	pub fn line_total<S: ReadStore + ?Sized>(&self, s: &S) -> u32 {
 		self.line_count(s)
+	}
+
+	/// How many lines, from the first one shown, fit whole in the page area (at least one): what a vertical scroll bar's thumb stands
+	/// for. A heading, a picture or a larger type makes a line taller than the text screen's row, so this is fewer than the rows the
+	/// shell set; a bar that used the rows would call a document of a few tall lines "nothing to scroll".
+	pub fn lines_in_view<S: ReadStore + ?Sized>(&self, s: &S) -> u32 {
+		let g = PageGeom::of(self, s);
+		let room = self.view_h - PAGE_TOP;
+		let first = self.top;
+		let mut n = 0u32;
+		self.lines_from(s, first, |i, l| {
+			if i < first {
+				return true;
+			}
+			if g.cum(l) + (l.ascent + l.descent).max(1) - g.top > room {
+				return false;
+			}
+			n += 1;
+			true
+		});
+		n.max(1)
 	}
 
 	/// Shows line `top` first (a scroll bar moved). The caret stays where it is until a key moves it.

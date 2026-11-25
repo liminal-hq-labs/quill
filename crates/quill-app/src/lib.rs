@@ -19,6 +19,7 @@ pub mod bios;
 mod chrome;
 pub mod cmdline;
 pub mod datefmt;
+mod edit;
 mod find;
 pub mod flow;
 mod form;
@@ -45,6 +46,7 @@ use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
 use quill_core::layout::{Line, Measure};
 use quill_core::store::{ReadStore, Store};
 use quill_core::Error;
+use quill_dlg::widgets::Caret;
 use quill_formats::io::{Sink, Source};
 use quill_formats::{qld, rtf, text, FormatError};
 use quill_grid::GridMeasure;
@@ -409,6 +411,7 @@ pub(crate) enum Mode {
 		kind: Prompt,
 		buf: [u8; NAME_MAX],
 		len: usize,
+		caret: Caret,
 	},
 	/// The Save changes question: the command waiting, and the focused button (0 Yes, 1 No, 2 Cancel).
 	Confirm(Command, u8),
@@ -426,6 +429,10 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) rows: usize,
 	/// The height in pixels of a window's page area, which scrolling keeps the caret inside; 0 on the text screen.
 	pub(crate) view_h: i32,
+	/// How far the page is scrolled sideways past the text column at the left edge, in pixels (the shell clamps it; 0 on the text screen).
+	pub(crate) hpos: i32,
+	/// The caret and the body revision the sideways scroll last followed.
+	pub(crate) hseen: (u32, u32),
 	pub(crate) doc: Doc,
 	pub(crate) caret: u32,
 	pub(crate) top: u32,
@@ -505,6 +512,8 @@ impl<M: Measure + Clone> App<M> {
 			measure,
 			rows: paint::TEXT_ROWS,
 			view_h: 0,
+			hpos: 0,
+			hseen: (0, 0),
 			doc: Doc::new(),
 			caret: 0,
 			top: 0,
@@ -553,6 +562,7 @@ impl<M: Measure + Clone> App<M> {
 		self.spell_forget();
 		self.caret = 0;
 		self.top = 0;
+		self.hpos = 0;
 		self.name_len = 0;
 		self.modified = false;
 		self.mode = Mode::Edit;
@@ -1396,6 +1406,7 @@ impl<M: Measure + Clone> App<M> {
 					kind: Prompt::Open,
 					buf: [0; NAME_MAX],
 					len: 0,
+					caret: Caret::new(),
 				};
 			}
 			Command::Save => {
@@ -1404,6 +1415,7 @@ impl<M: Measure + Clone> App<M> {
 						kind: Prompt::SaveAs,
 						buf: [0; NAME_MAX],
 						len: 0,
+						caret: Caret::new(),
 					};
 				} else {
 					self.do_save(s, f);
@@ -1414,6 +1426,7 @@ impl<M: Measure + Clone> App<M> {
 					kind: Prompt::SaveAs,
 					buf: [0; NAME_MAX],
 					len: 0,
+					caret: Caret::new(),
 				};
 			}
 			Command::Exit => {
@@ -1584,6 +1597,7 @@ impl<M: Measure + Clone> App<M> {
 					kind: Prompt::Picture,
 					buf: [0; NAME_MAX],
 					len: 0,
+					caret: Caret::new(),
 				}
 			}
 			Command::Chrome(bit) => self.chrome ^= bit,
@@ -1604,6 +1618,7 @@ impl<M: Measure + Clone> App<M> {
 					kind: Prompt::Print,
 					buf: [0; NAME_MAX],
 					len: 0,
+					caret: Caret::new(),
 				}
 			}
 			Command::Recent(n) => {
@@ -1814,7 +1829,12 @@ impl<M: Measure + Clone> App<M> {
 		match self.mode {
 			Mode::Edit => self.key_edit(s, f, k),
 			Mode::Menu { menu, item } => self.key_menu(s, f, k, menu, item),
-			Mode::Prompt { kind, buf, len } => self.key_prompt(s, f, k, kind, buf, len),
+			Mode::Prompt {
+				kind,
+				buf,
+				len,
+				caret,
+			} => self.key_prompt(s, f, k, kind, (buf, len, caret)),
 			Mode::About => {
 				if matches!(k, Key::Enter | Key::Esc | Key::Char(b' ')) {
 					self.mode = Mode::Edit;
@@ -1848,6 +1868,7 @@ impl<M: Measure + Clone> App<M> {
 								kind: Prompt::SaveAs,
 								buf: [0; NAME_MAX],
 								len: 0,
+								caret: Caret::new(),
 							};
 						} else {
 							self.do_save(s, f);
@@ -2131,8 +2152,7 @@ impl<M: Measure + Clone> App<M> {
 		f: &mut F,
 		k: Key,
 		kind: Prompt,
-		mut buf: [u8; NAME_MAX],
-		mut len: usize,
+		(mut buf, mut len, mut caret): ([u8; NAME_MAX], usize, Caret),
 	) {
 		match k {
 			Key::Esc => {
@@ -2140,13 +2160,13 @@ impl<M: Measure + Clone> App<M> {
 				self.pending = None;
 				return;
 			}
-			Key::Char(c) if len < NAME_MAX - 1 && c > 0x20 => {
-				if let Some(slot) = buf.get_mut(len) {
-					*slot = c.to_ascii_uppercase();
-					len += 1;
-				}
-			}
-			Key::Backspace => len = len.saturating_sub(1),
+			k if crate::edit::field_key(
+				k,
+				buf.get_mut(..NAME_MAX - 1).unwrap_or(&mut []),
+				&mut len,
+				&mut caret,
+				&|c| (c > 0x20).then(|| c.to_ascii_uppercase()),
+			) => {}
 			Key::Enter if len > 0 => {
 				self.mode = Mode::Edit;
 				let name = buf.get(..len).unwrap_or(&[]);
@@ -2176,7 +2196,12 @@ impl<M: Measure + Clone> App<M> {
 			}
 			_ => {}
 		}
-		self.mode = Mode::Prompt { kind, buf, len };
+		self.mode = Mode::Prompt {
+			kind,
+			buf,
+			len,
+			caret,
+		};
 	}
 
 	/// Keeps the caret on the screen.

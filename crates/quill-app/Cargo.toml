@@ -8,6 +8,7 @@ description = "Quill's editor controller: keys, commands, menus and the text-mod
 
 [dependencies]
 quill-core = { path = "../quill-core" }
+quill-dlg = { path = "../quill-dlg" }
 quill-formats = { path = "../quill-formats" }
 quill-grid = { path = "../quill-grid" }
 quill-image = { path = "../quill-image" }

@@ -11,9 +11,16 @@
 @down 632 190           # the thumb held
 @move 632 250
 @up 632 250
-@click 300 452          # the horizontal bar has nothing to scroll
+@click 300 452          # the horizontal bar has nothing to scroll: drawn disabled
 @click 632 410          # the track below the thumb
 @wheel 3
 @wheel -2
+@down 632 436           # the arrow held: it repeats after the delay
+@wait 10
+@wait 8
+@up 632 436
+@down 632 420           # the track below the thumb held: pages until the thumb reaches the pointer
+@wait 60
+@up 632 420
 @click 100 200          # the caret goes where the page was clicked
 f10 end enter

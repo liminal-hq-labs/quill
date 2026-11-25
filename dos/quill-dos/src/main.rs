@@ -22,6 +22,7 @@ mod gfx;
 mod keys;
 mod measure;
 mod mouse;
+mod ps2;
 mod video;
 
 use alloc::boxed::Box;
@@ -280,7 +281,7 @@ fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 				app.key(&mut store, &mut files, k);
 				show::<ROWS>(&app, &store, &mut dump, &mut n, at, true);
 			}
-			keys::Wait::Key(None) => {}
+			keys::Wait::Key(None) | keys::Wait::Scroll(_) => {}
 			keys::Wait::Break => show::<ROWS>(&app, &store, &mut dump, &mut n, at, clicked),
 		}
 	}
@@ -334,7 +335,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 		gfx::leave();
 		return Err("there is not enough memory");
 	}
-	shell::sync_view(&mut app);
+	shell::sync_view(&mut app, &store);
 	open_arguments(&mut app, &mut store, &mut files);
 	clock::set(&mut app);
 	let mut window = Box::new([0u8; WINDOW]);
@@ -468,6 +469,11 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 				match waited {
 					keys::Wait::Key(k) => k,
 					keys::Wait::Break => None,
+					keys::Wait::Scroll(dx) => {
+						// Ctrl+Left and Ctrl+Right: the page sideways, with the caret left where it is.
+						repaint |= shell::hscroll_by(&mut app, &store, dx);
+						None
+					}
 				}
 			}
 		};
@@ -478,7 +484,8 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 				app.key(&mut store, &mut files, k);
 			}
 			// The View menu can hide the bars, which changes how much page there is.
-			shell::sync_view(&mut app);
+			shell::sync_view(&mut app, &store);
+			shell::follow_caret(&mut app, &store);
 			repaint = true;
 		}
 	}

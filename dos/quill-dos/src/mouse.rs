@@ -9,8 +9,10 @@
 
 use core::arch::asm;
 
-use quill_mouse::{Int33, Mouse, Regs};
+use quill_mouse::{Ev, Int33, Mouse, Regs};
 use rt::dpmi;
+
+use crate::ps2::Ps2Mouse;
 
 /// INT 33h as a software interrupt from protected mode: the host reflects it to the real-mode driver, and these functions take only
 /// registers.
@@ -58,13 +60,52 @@ impl Int33 for DosInt33 {
 	}
 }
 
+/// The mouse the program has: a driver's, or the PS/2 mouse read directly when there is no driver.
+pub enum Mice {
+	Int33(Mouse<DosInt33>),
+	Ps2(Ps2Mouse),
+}
+
+impl Mice {
+	/// Turns what the mouse did since the last call into events.
+	pub fn poll(&mut self, emit: impl FnMut(Ev)) {
+		match self {
+			Mice::Int33(m) => m.poll(emit),
+			Mice::Ps2(m) => m.poll(emit),
+		}
+	}
+
+	/// Where the pointer is, in shell units.
+	pub fn at(&self) -> (i32, i32) {
+		match self {
+			Mice::Int33(m) => m.at(),
+			Mice::Ps2(m) => m.at(),
+		}
+	}
+
+	/// Gives the mouse back to whatever runs next.
+	pub fn close(self) {
+		match self {
+			Mice::Int33(m) => m.close(),
+			Mice::Ps2(m) => m.close(),
+		}
+	}
+}
+
 /// Finds the driver and limits it to `w` by `h` units, `div` driver units to each (8 by 8 in text, where a cell is eight of the driver's
-/// virtual pixels; 1 by 1 in graphics). `None` when there is no mouse.
-pub fn open(w: i32, h: i32, div: (i32, i32)) -> Option<Mouse<DosInt33>> {
-	if !DosInt33::present() {
+/// virtual pixels; 1 by 1 in graphics); with no driver, the PS/2 mouse itself. `None` when there is no mouse.
+pub fn open(w: i32, h: i32, div: (i32, i32)) -> Option<Mice> {
+	if DosInt33::present() {
+		if let Some(m) = Mouse::open(DosInt33, w, h, div) {
+			return Some(Mice::Int33(m));
+		}
+	}
+	// A test run (`QUILL_DUMP`) plays keys through the emulator's keyboard controller, which answers the PS/2 mouse's commands in its own
+	// way and loses typed keys while it does, so the runs that must match the host's screens leave the controller alone.
+	if rt::env::var("QUILL_DUMP").is_some() {
 		return None;
 	}
-	Mouse::open(DosInt33, w, h, div)
+	Ps2Mouse::open(w, h, div).map(Mice::Ps2)
 }
 
 /// The BIOS tick count at 0040:006C, which counts at 18.2 Hz: the clock for double clicks.

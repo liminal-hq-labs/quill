@@ -30,6 +30,7 @@ pub mod env;
 pub mod fpu;
 pub mod heap;
 pub mod io;
+pub mod irq;
 mod mem;
 #[cfg(feature = "panic-handler")]
 mod panic;

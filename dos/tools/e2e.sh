@@ -211,7 +211,7 @@ run_gfx_scenario g6-gfx-vbe svga_s3 /G 256
 run_mouse_gfx g8-mouse-12h svga_s3 /G16 16
 run_mouse_gfx g8-mouse-vbe svga_s3 /G 256
 # G8 (graphics): the pointer on the menus, the dialogs, the toolbars and the scroll bar, in both graphics modes (the same frames as the host's).
-for scen in menus dialogs toolbar scroll; do
+for scen in menus dialogs toolbar scroll hscroll fields ruler; do
 	run_mouse_gfx "g8-gfx-$scen-12h" svga_s3 /G16 16 "g8-gfx-$scen"
 	run_mouse_gfx "g8-gfx-$scen-vbe" svga_s3 /G 256 "g8-gfx-$scen"
 done

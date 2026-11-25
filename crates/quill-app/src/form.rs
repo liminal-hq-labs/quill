@@ -8,6 +8,8 @@ use quill_core::store::{ReadStore, Store};
 
 use quill_core::layout::Measure;
 
+use quill_dlg::widgets::Caret;
+
 use crate::{label, App, Command, Key, Mode};
 
 pub(crate) const FONT_NAMES: [&str; 3] = ["Times New Roman", "Arial", "Courier New"];
@@ -30,6 +32,7 @@ pub(crate) struct Row {
 	pub kind: u8,
 	pub text: [u8; 12],
 	pub len: usize,
+	pub caret: Caret,
 	pub val: u8,
 	pub names: &'static [&'static str],
 }
@@ -39,6 +42,7 @@ const EMPTY: Row = Row {
 	kind: 3,
 	text: [0; 12],
 	len: 0,
+	caret: Caret::new(),
 	val: 0,
 	names: &[],
 };
@@ -62,6 +66,7 @@ fn text_row(label: &'static str, t: &[u8]) -> Row {
 		*d = *s;
 	}
 	r.len = t.len().min(12);
+	r.caret = Caret::at_end(r.len);
 	r
 }
 
@@ -224,21 +229,12 @@ impl<M: Measure + Clone> App<M> {
 				return;
 			}
 			Key::Tab => f.focus = (f.focus + 1) % n,
-			Key::Char(c) if row.kind == 0 => {
-				if let Some(r) = f.rows.get_mut(f.focus) {
-					if r.len < 12 && (c.is_ascii_digit() || c == b'.') {
-						if let Some(slot) = r.text.get_mut(r.len) {
-							*slot = c;
-							r.len += 1;
-						}
-					}
-				}
-			}
-			Key::Backspace if row.kind == 0 => {
-				if let Some(r) = f.rows.get_mut(f.focus) {
-					r.len = r.len.saturating_sub(1);
-				}
-			}
+			k if row.kind == 0
+				&& f.rows.get_mut(f.focus).is_some_and(|r| {
+					crate::edit::field_key(k, &mut r.text, &mut r.len, &mut r.caret, &|c| {
+						(c.is_ascii_digit() || c == b'.').then_some(c)
+					})
+				}) => {}
 			Key::Char(b' ') | Key::Down | Key::Up if row.kind == 1 || row.kind == 2 => {
 				if let Some(r) = f.rows.get_mut(f.focus) {
 					let m = if r.kind == 1 { r.names.len() as u8 } else { 2 };
