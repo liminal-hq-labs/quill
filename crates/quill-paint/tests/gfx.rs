@@ -184,3 +184,41 @@ fn a_frame_is_the_same_every_time() {
 	let b = frame(Mode::C16, &mut PageJob::new(&app, &s));
 	assert!(a.native == b.native);
 }
+
+/// The first picture selected (its frame and eight handles), and the same picture inside a larger selection (a navy border).
+fn selected_picture_golden(mode: Mode) {
+	let (mut app, s, _) = open_doc("pictures.rtf");
+	app.set_view_height(AREA.height());
+	let pos = (0..app.doc().body.len())
+		.find(|p| app.doc().body.object_at(&s, *p).is_some())
+		.unwrap();
+	app.select_picture(&s, pos);
+	let alone = frame(mode, &mut PageJob::new(&app, &s));
+	app.select_range(&s, 0, pos + 12);
+	let inside = frame(mode, &mut PageJob::new(&app, &s));
+	let mut sums = String::new();
+	for (n, (label, fr)) in [("alone", alone), ("inside", inside)]
+		.into_iter()
+		.enumerate()
+	{
+		writeln!(sums, "frame {n} crc32 {:08x} {label}", crc32(&fr.native)).unwrap();
+		let png = encode_indexed(640, 480, mode.depth(), &mode.palette(), &fr.pixels);
+		compare_bytes(
+			&format!("tests/golden/gfx/pictures-selected.{}.{n}.png", mode.name()),
+			&png,
+		);
+	}
+	compare_bytes(
+		&format!("tests/golden/gfx/pictures-selected.{}.sums", mode.name()),
+		sums.as_bytes(),
+	);
+}
+
+#[test]
+fn a_selected_picture_at_16_colours() {
+	selected_picture_golden(Mode::C16);
+}
+#[test]
+fn a_selected_picture_at_256_colours() {
+	selected_picture_golden(Mode::C256);
+}

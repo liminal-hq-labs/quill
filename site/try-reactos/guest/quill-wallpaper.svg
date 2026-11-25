@@ -1,0 +1,102 @@
+<!--
+	Quill desktop wallpaper (dusk): night navy sky stepping down to a violet dusk glow, the gold Q ring low in the right third and the nib writing the horizon.
+
+	(c) Copyright 2026 Liminal HQ, Scott Morris
+	SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3840 2160" width="3840" height="2160" role="img">
+	<title>Quill wallpaper, dusk</title>
+	<defs>
+		<!-- Brand ring gradient from quill-document.svg (qd-brand), in emblem units. -->
+		<linearGradient id="qw-brand" x1="200" y1="860" x2="840" y2="170" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#b8893a"/>
+			<stop offset=".55" stop-color="#f0a830"/>
+			<stop offset="1" stop-color="#e9dcb0"/>
+		</linearGradient>
+		<!-- Nib gradient from quill-setup.svg (qs-nib). -->
+		<linearGradient id="qw-nib" x1="0" y1="1" x2="1" y2="0">
+			<stop offset="0" stop-color="#e9dcb0"/>
+			<stop offset=".5" stop-color="#fff4d6"/>
+			<stop offset="1" stop-color="#ffffff"/>
+		</linearGradient>
+		<!-- Icon bloom (qd-bloom): a soft white lift behind the ring. -->
+		<radialGradient id="qw-bloom" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(470 466) scale(900)">
+			<stop offset="0" stop-color="#ffffff" stop-opacity=".05"/>
+			<stop offset=".55" stop-color="#ffffff" stop-opacity=".015"/>
+			<stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+		</radialGradient>
+		<!-- Ink trail, as on the classic setup sidebar (sb-ink): gold at the nib, fading to nothing. -->
+		<linearGradient id="qw-ink" x1="3223" y1="0" x2="300" y2="0" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#f0a830"/>
+			<stop offset=".45" stop-color="#f0a830" stop-opacity=".55"/>
+			<stop offset="1" stop-color="#f0a830" stop-opacity="0"/>
+		</linearGradient>
+		<!-- Nib slit and breather hole from quill-setup.svg (qs-mq). -->
+		<mask id="qw-slit" maskUnits="userSpaceOnUse" x="-200" y="-520" width="400" height="540">
+			<path d="M0 0C-40 -110 -170 -250 -170 -360L-170 -460Q-170 -500 -130 -500L130 -500Q170 -500 170 -460L170 -360C170 -250 40 -110 0 0Z" fill="#ffffff"/>
+			<path d="M0 -10V-270" stroke="#000000" stroke-width="22" stroke-linecap="round"/>
+			<circle cx="0" cy="-310" r="44" fill="#000000"/>
+		</mask>
+		<path id="qw-nib-shape" d="M0 0C-40 -110 -170 -250 -170 -360L-170 -460Q-170 -500 -130 -500L130 -500Q170 -500 170 -460L170 -360C170 -250 40 -110 0 0Z"/>
+	</defs>
+
+	<!-- Sky: flat night navy with two darker steps at the top. -->
+	<rect width="3840" height="2160" fill="#0a1230"/>
+	<path d="M0 0H3840V560C3000 640 1900 600 1000 540C600 515 250 520 0 540Z" fill="#090f2c"/>
+	<path d="M0 0H3840V250C3000 300 1900 280 1000 240C600 225 250 230 0 240Z" fill="#070d24"/>
+
+	<!-- Dusk glow: stepped flat ellipses rising from the horizon under the ring (no smooth gradient, so no banding). -->
+	<g transform="translate(3000 1990)">
+		<ellipse rx="4200" ry="1900" fill="#0b1434"/>
+		<ellipse rx="3600" ry="1620" fill="#0c1738"/>
+		<ellipse rx="3050" ry="1380" fill="#0e1a3e"/>
+		<ellipse rx="2600" ry="1170" fill="#111e45"/>
+		<ellipse rx="2200" ry="990" fill="#15224d"/>
+		<ellipse rx="1850" ry="830" fill="#1a2755"/>
+		<ellipse rx="1550" ry="690" fill="#212c5d"/>
+		<ellipse rx="1290" ry="570" fill="#2a3164"/>
+		<ellipse rx="1060" ry="465" fill="#35366a"/>
+		<ellipse rx="860" ry="375" fill="#42396c"/>
+		<ellipse rx="690" ry="300" fill="#523d6c"/>
+		<ellipse rx="540" ry="235" fill="#643f68"/>
+		<ellipse rx="400" ry="170" fill="#7a4562"/>
+	</g>
+
+	<!-- Stars: a few, small, kept to the upper edges. -->
+	<g fill="#e9dcb0">
+		<circle cx="2380" cy="150" r="3.5" fill-opacity=".55"/>
+		<circle cx="2910" cy="300" r="2.5" fill-opacity=".4"/>
+		<circle cx="3260" cy="120" r="4" fill-opacity=".6"/>
+		<circle cx="3560" cy="410" r="3" fill-opacity=".45"/>
+		<circle cx="3720" cy="210" r="2.5" fill-opacity=".4"/>
+		<circle cx="3420" cy="700" r="2.5" fill-opacity=".3"/>
+		<circle cx="1820" cy="90" r="2.5" fill-opacity=".35"/>
+		<circle cx="1240" cy="200" r="3" fill-opacity=".4"/>
+		<circle cx="760" cy="110" r="2.5" fill-opacity=".3"/>
+		<circle cx="3700" cy="860" r="2" fill-opacity=".25"/>
+	</g>
+
+	<!-- Layered paper horizons, back to front; each crest has a faint paper-edge highlight. -->
+	<path d="M0 1870C620 1815 1320 1855 1940 1835S3060 1790 3840 1845V2160H0Z" fill="#1c2152"/>
+	<path d="M0 1870C620 1815 1320 1855 1940 1835S3060 1790 3840 1845" fill="none" stroke="#4a4580" stroke-opacity=".55" stroke-width="3"/>
+	<path d="M0 1955C700 1900 1500 1948 2200 1925S3300 1885 3840 1935V2160H0Z" fill="#121741"/>
+	<path d="M0 1955C700 1900 1500 1948 2200 1925S3300 1885 3840 1935" fill="none" stroke="#33356f" stroke-opacity=".6" stroke-width="3"/>
+	<path d="M0 2040C800 2000 1700 2030 2450 2000S3100 1945 3223 1923C3420 1910 3660 1950 3840 1972V2160H0Z" fill="#090e2a"/>
+
+	<!-- The ink line the nib is writing: the front crest. -->
+	<path d="M300 2026C1000 2008 1720 2028 2450 2000S3100 1945 3223 1923" fill="none" stroke="url(#qw-ink)" stroke-width="7" stroke-linecap="round"/>
+
+	<!-- The Quill emblem from quill-document.svg, without its tile: the ring is the low sun, the nib is the tail of the Q. Emblem units are the icon's 1024 grid. -->
+	<g transform="translate(2900 1600) scale(0.85) translate(-470 -466)">
+		<circle cx="470" cy="466" r="900" fill="url(#qw-bloom)"/>
+		<circle cx="470" cy="466" r="268" fill="none" stroke="#090e2a" stroke-opacity=".35" stroke-width="80" transform="translate(0 10)"/>
+		<circle cx="470" cy="466" r="268" fill="none" stroke="url(#qw-brand)" stroke-width="64"/>
+		<!-- Inner highlight on the ring's upper right, as light catching gilt. -->
+		<path d="M470 222A244 244 0 0 1 714 466" fill="none" stroke="#fff4d6" stroke-opacity=".35" stroke-width="6" stroke-linecap="round"/>
+		<g transform="translate(850 846) rotate(-45) scale(0.78)">
+			<use href="#qw-nib-shape" fill="none" stroke="#0a1230" stroke-width="64" stroke-linejoin="round"/>
+			<use href="#qw-nib-shape" fill="url(#qw-nib)" mask="url(#qw-slit)"/>
+			<path d="M-150 -470L-150 -380C-150 -290 -60 -170 -18 -60" fill="none" stroke="#ffffff" stroke-opacity=".5" stroke-width="10" stroke-linecap="round"/>
+		</g>
+	</g>
+</svg>

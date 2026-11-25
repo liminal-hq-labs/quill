@@ -1,0 +1,11 @@
+# Served images and measurement output stay out of git.
+/images/
+/out/
+node_modules/
+
+# v86 is fetched by tools/fetch-v86.sh (pinned and checked), not committed. Its licences and provenance stay.
+/v86/libv86.mjs
+/v86/v86.wasm
+/v86/v86-fallback.wasm
+/v86/bios/seabios.bin
+/v86/bios/vgabios.bin

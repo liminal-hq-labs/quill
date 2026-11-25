@@ -43,6 +43,7 @@ pub fn map_key(ev: &KeyEvent) -> Option<Key> {
 			.map(Key::Char),
 		KeyCode::Enter => Some(Key::Enter),
 		KeyCode::Tab if !ctrl => Some(Key::Tab),
+		KeyCode::BackTab => Some(Key::BackTab),
 		KeyCode::Backspace => Some(Key::Backspace),
 		KeyCode::Delete => Some(Key::Delete),
 		KeyCode::Esc => Some(Key::Esc),

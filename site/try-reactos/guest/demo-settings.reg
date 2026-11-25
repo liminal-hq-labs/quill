@@ -1,0 +1,67 @@
+Windows Registry Editor Version 5.00
+
+; Quill demo settings for the ReactOS guest. Applied once, inside the guest, by apply-settings.cmd.
+; The system colour scheme is deliberately not touched: apps keep ReactOS's cream face colours.
+;
+; (c) Copyright 2026 Liminal HQ, Scott Morris
+; SPDX-License-Identifier: Apache-2.0 OR MIT
+
+; Display: 1024 x 768 on the Bochs-style adapter v86 and QEMU provide (bochsmp). The driver offers 32 bits only (the Settings page
+; lists "True Color (32 Bit)" at every size), so a 16-bit default cannot be set; a value of 16 here is ignored.
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\bochsmp\Device0]
+"DefaultSettings.BitsPerPel"=dword:00000020
+"DefaultSettings.XResolution"=dword:00000400
+"DefaultSettings.YResolution"=dword:00000300
+"DefaultSettings.VRefresh"=dword:00000001
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\bochsmp\Device1]
+"DefaultSettings.BitsPerPel"=dword:00000020
+"DefaultSettings.XResolution"=dword:00000400
+"DefaultSettings.YResolution"=dword:00000300
+"DefaultSettings.VRefresh"=dword:00000001
+
+; Wallpaper: the Quill dusk wallpaper, stretched (it is already 1024 x 768). No screensaver, no display power-off.
+[HKEY_CURRENT_USER\Control Panel\Desktop]
+"Wallpaper"="C:\\ReactOS\\Web\\Wallpaper\\Quill.bmp"
+"WallpaperStyle"="2"
+"TileWallpaper"="0"
+"ScreenSaveActive"="0"
+"ScreenSaveTimeOut"="0"
+"PowerOffActive"="0"
+"LowPowerActive"="0"
+
+; Desktop icons at 48 px, so the detailed Quill icon shows (QUILLDESK.ICO has the master at 48). The small icons (menus, taskbar) stay 16 px.
+[HKEY_CURRENT_USER\Control Panel\Desktop\WindowMetrics]
+"Shell Icon Size"="48"
+
+; No balloon notifications; hide the stock desktop icons so only the demo shortcuts remain.
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced]
+"EnableBalloonTips"=dword:00000000
+"ShowInfoTip"=dword:00000000
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel]
+"{20D04FE0-3AEA-1069-A2D8-08002B30309D}"=dword:00000001
+"{450D8FBA-AD25-11D0-98A8-0800361B1103}"=dword:00000001
+"{208D2C60-3AEA-1069-A2D7-08002B30309D}"=dword:00000001
+"{645FF040-5081-101B-9F08-00AA002F954E}"=dword:00000001
+"{871C5380-42A0-1069-A2EA-08002B30309D}"=dword:00000001
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu]
+"{20D04FE0-3AEA-1069-A2D8-08002B30309D}"=dword:00000001
+"{450D8FBA-AD25-11D0-98A8-0800361B1103}"=dword:00000001
+"{208D2C60-3AEA-1069-A2D7-08002B30309D}"=dword:00000001
+"{645FF040-5081-101B-9F08-00AA002F954E}"=dword:00000001
+"{871C5380-42A0-1069-A2EA-08002B30309D}"=dword:00000001
+
+; No crash or error-reporting prompts.
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\PCHealth\ErrorReporting]
+"DoReport"=dword:00000000
+"ShowUI"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\Windows Error Reporting]
+"DontShowUI"=dword:00000001
+"Disabled"=dword:00000001
+
+; Cold boot: open the demo letter when the shell starts.
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run]
+"Quill"="\"C:\\Quill\\QUILL32.EXE\" \"C:\\Quill\\DEMO.QLD\""

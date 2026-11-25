@@ -1,0 +1,12 @@
+# Batch 3: unused visual styles (the guest runs the classic look, ThemeActive is 0) and start menu entries for programs removed above.
+d ReactOS/Resources/Themes/Lautus
+d ReactOS/Resources/Themes/Lunar
+d ReactOS/Resources/Themes/Mizu
+d ReactOS/Resources/Themes/Modern
+d Documents and Settings/Administrator/Start Menu/Programs/Games
+f Documents and Settings/Administrator/Start Menu/Programs/Wine Internet Explorer.lnk
+f Documents and Settings/Administrator/Start Menu/Programs/ReactOS Applications Manager.lnk
+f Documents and Settings/Administrator/Start Menu/Programs/Accessories/Paint.lnk
+f Documents and Settings/Administrator/Start Menu/Programs/Accessories/WordPad.lnk
+f Documents and Settings/Administrator/Start Menu/Programs/Accessories/Calculator.lnk
+f Documents and Settings/Administrator/Recent/LETTER.RTF.lnk

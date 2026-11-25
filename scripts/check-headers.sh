@@ -18,6 +18,7 @@ is_candidate() {
 	case "$1" in
 	# Third-party files served as they came (see their PROVENANCE.md), not ours to put a header on.
 	site/try/js-dos/*) return 1 ;;
+	site/try-reactos/v86/*) return 1 ;;
 	*/Cargo.toml | Cargo.toml | *.lock | *-lock.yaml | *.json | *.jsonc | *.md) return 1 ;;
 	*.rs | *.sh | *.py | *.js | *.ts | *.mjs | *.css | *.html | *.yml | *.yaml | *.toml | *.svg | *.xml | *.ui) return 0 ;;
 	*/Dockerfile | Dockerfile | */Makefile | Makefile) return 0 ;;
