@@ -3,7 +3,7 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-.PHONY: installer disks installer-dos installer-w31 dos validate fmt clippy test headers floats layers goldens wasm
+.PHONY: installer disks installer-dos installer-w31 installer-w95 dos validate fmt clippy test headers floats layers goldens wasm
 
 validate: fmt clippy test headers floats layers magic wasm
 	@echo "validate: ok"
@@ -54,6 +54,10 @@ installer-dos:
 # Needs a Windows 3.11 tree: W31_TREE, or the play harness's base.
 installer-w31:
 	bash installer/tools/e2e-w31.sh
+
+# Needs the Windows 95 base image of Liminal Installer's test bed (W95_BASE_DIR).
+installer-w95:
+	bash installer/tools/e2e-w95.sh
 
 dos:
 	bash dos/tools/fetch-tools.sh

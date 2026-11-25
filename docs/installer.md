@@ -62,3 +62,37 @@ To run it again:
 bash installer/tools/stage.sh --build && bash installer/tools/build-disks.sh
 SHOTS=docs/media bash installer/tools/e2e-w31.sh    # leave SHOTS out to run without screenshots
 ```
+
+## Windows 95
+
+`installer/tools/e2e-w95.sh` installs from `QUILL-W95.IMG` onto Windows 95 OSR2.5 in DOSBox-X, using Liminal Installer's Windows 95 test bed scripts (`scripts/win95/lib.sh` and `mouse.sh`, from the checkout `installer/liminst.rev` pins, or `LIMINAL_INSTALLER`). The base image comes from the owner's CD, is only read (it is linked from `W95_BASE_DIR`, default `/mnt/games/media/win95-testbed`), and each run boots a sparse copy. The test bed folder (`~/.cache/quill16-w95`), the Xvfb display and the container (`quill16-install-w95`) are the script's own, so the play harness is never touched. `W95_BASE_KIND=ie4` boots the Internet Explorer 4 base instead (not run here).
+
+It is one boot. WIN.INI's `run=` line starts `D:\SETUP.EXE`; Return is Next on every page, and one mouse click accepts the licence, because the wizard's radio buttons take no keys. The same boot then copies the install to `D:` and checks it against `installer/dist/`, opens Start > Programs > Quill and Add/Remove Programs (`control appwiz.cpl`), writes the registry keys out with `regedit /e` and reads them back, starts Quill from the Start menu, and runs `UNINST.EXE /U` as Add/Remove Programs would. After that the keys, the Start menu folder and the files are checked again, and `.txt` and `.rtf` must be as they were before the install.
+
+| | |
+|---|---|
+| ![Welcome](media/install-w95-wizard-welcome.png) | ![Licence](media/install-w95-wizard-licence.png) |
+| ![Licence accepted](media/install-w95-wizard-licence-accepted.png) | ![Folder](media/install-w95-wizard-folder.png) |
+| ![Components](media/install-w95-wizard-components.png) | ![Ready](media/install-w95-wizard-ready.png) |
+| ![Copying](media/install-w95-wizard-copying.png) | ![Done](media/install-w95-wizard-done.png) |
+| ![Start, Programs, Quill](media/install-w95-start-programs-quill.png) | ![Add/Remove Programs with Quill](media/install-w95-add-remove-programs.png) |
+| ![Quill started from the Start menu](media/install-w95-quill-running.png) | ![Quill closed](media/install-w95-quill-closed.png) |
+| ![Uninstall](media/install-w95-uninstall-confirm.png) | ![Uninstall: done](media/install-w95-uninstall-done.png) |
+| ![Start menu without Quill](media/install-w95-start-programs-after.png) | ![Add/Remove Programs without Quill](media/install-w95-add-remove-after.png) |
+
+What the registry holds after the install (read back from `regedit /e`): `HKCR\.qld` is `hq.liminal.quill.qld`, whose value is "Quill document", with `DefaultIcon` `C:\Program Files\Quill\QUILL32.EXE,0` and `shell\open\command` `"C:\Program Files\Quill\QUILL32.EXE" "%1"`; `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\hq.liminal.quill` has `DisplayName`, `DisplayVersion`, `Publisher`, `InstallLocation` and `UninstallString`.
+
+What the run showed, beyond passing:
+
+- The optional components start ticked, so `.txt` and `.rtf` are given to Quill (`hq.liminal.quill.txt` and `.rtf`) and the uninstall gives `txtfile` and `rtffile` back.
+- The uninstall leaves the empty folder `C:\Program Files\Quill`. The script says so and does not fail on it.
+- The welcome page draws only its heading: its body text is missing in the Windows 95 wizard (the Windows 3.x one shows it). The done page of the uninstall shows the install's wording and "Launch Quill".
+- The Start menu has "Quill" and "Quill Help" only; the Read Me item the plan listed is not made.
+- The mouse is the unreliable part (the guest lags the host's clicks on a busy machine), so the script waits for the pointer, checks that Next became enabled and tries three times. Without that, one run in three stayed on the licence page.
+
+To run it again:
+
+```sh
+bash installer/tools/stage.sh --build && bash installer/tools/build-disks.sh
+SHOTS=docs/media bash installer/tools/e2e-w95.sh    # leave SHOTS out to run without screenshots
+```
