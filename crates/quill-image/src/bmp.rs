@@ -45,6 +45,17 @@ fn skip<S: Source>(r: &mut S, mut n: usize) -> Option<()> {
 	Some(())
 }
 
+impl BmpInfo {
+	/// The colour of palette entry `i`. An index past the table, which writers that count `biClrUsed` by the colours in use leave in
+	/// their pixels, is black, as Windows draws it, and not a reason to refuse the picture.
+	fn colour(&self, i: usize) -> [u8; 3] {
+		if i >= self.colours {
+			return [0; 3];
+		}
+		self.palette.get(i).copied().unwrap_or([0; 3])
+	}
+}
+
 /// Reads the file header, the info header and the palette, leaving `r` at the first row of pixels.
 pub fn read_info<S: Source>(r: &mut S) -> Result<BmpInfo, ImageError> {
 	let bad = ImageError::BadFile;
@@ -103,6 +114,12 @@ pub fn read_info<S: Source>(r: &mut S) -> Result<BmpInfo, ImageError> {
 			used.min(1 << bpp)
 		};
 		let entry = if hsize == 12 { 3 } else { 4 };
+		// The pixels start where the file header says. A writer that puts them right after a shorter table than the header declares
+		// (an 8-bit bitmap with 16 colours and no `biClrUsed`) has a palette of the size it wrote; reading the declared size would
+		// swallow the first rows.
+		if data_at >= consumed {
+			colours = colours.min((data_at - consumed) / entry);
+		}
 		for i in 0..colours {
 			let mut e = [0u8; 4];
 			let n = e.get_mut(..entry).ok_or(bad)?;
@@ -151,26 +168,17 @@ pub fn decode_rows<S: Source>(
 				},
 				8 => {
 					let i = usize::from(*line.get(x).ok_or(ImageError::BadFile)?);
-					if i >= info.colours {
-						return Err(ImageError::BadFile);
-					}
-					info.palette.get(i).copied().unwrap_or([0; 3])
+					info.colour(i)
 				}
 				4 => {
 					let b = *line.get(x / 2).ok_or(ImageError::BadFile)?;
 					let i = usize::from(if x % 2 == 0 { b >> 4 } else { b & 15 });
-					if i >= info.colours {
-						return Err(ImageError::BadFile);
-					}
-					info.palette.get(i).copied().unwrap_or([0; 3])
+					info.colour(i)
 				}
 				_ => {
 					let b = *line.get(x / 8).ok_or(ImageError::BadFile)?;
 					let i = usize::from((b >> (7 - x % 8)) & 1);
-					if i >= info.colours {
-						return Err(ImageError::BadFile);
-					}
-					info.palette.get(i).copied().unwrap_or([0; 3])
+					info.colour(i)
 				}
 			};
 			let o = rgb.get_mut(x * 3..x * 3 + 3).ok_or(ImageError::BadFile)?;
