@@ -145,6 +145,7 @@ GDI 29 PatBlt wwwwwl w
 GDI 34 BitBlt wwwwwwwwl w
 GDI 36 Polygon wpw w
 GDI 51 CreateCompatibleBitmap www w
+GDI 13 SetViewportOrg www l
 GDI 52 CreateCompatibleDC w w
 GDI 57 CreateFontIndirect p w
 GDI 68 DeleteDC w w

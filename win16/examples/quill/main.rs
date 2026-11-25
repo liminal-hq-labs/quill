@@ -84,6 +84,14 @@ static mut USE_HERE: bool = false;
 /// A memory device context compatible with the screen: the editor measures text with it, for the life of the program.
 pub static mut MEASURE_DC: u32 = 0;
 
+/// The off-screen bitmap covers the whole client area, a band of rows that is painted band by band, or could not be made (the window
+/// is painted directly, inside the damaged rectangle only).
+const BACK_FULL: u8 = 0;
+const BACK_BAND: u8 = 1;
+const BACK_NONE: u8 = 2;
+/// The rows of the band bitmap, and the smallest band tried.
+const BAND_ROWS: i32 = 64;
+
 /// What the window keeps between messages.
 struct Shell {
 	/// The test mode: the DOS text grid in the OEM font, for the golden frames.
@@ -93,8 +101,22 @@ struct Shell {
 	back_dc: u32,
 	back_bmp: u32,
 	back_old: u32,
+	/// The bitmap's width, which is the client width, and its height: the client height, or a band of rows when the whole window did not fit.
 	back_w: i32,
 	back_h: i32,
+	/// The client height the bitmap was last asked for, so a failed attempt is retried only after the window changes size.
+	back_ch: i16,
+	/// How the bitmap is now (`BACK_FULL`, `BACK_BAND` or `BACK_NONE`) and the worst it has been, for STACK.LOG.
+	back_state: u8,
+	back_worst: u8,
+	/// What the caption and the scroll bars were last given, so a key that changes none of it calls nothing that repaints a bar or the
+	/// title (the caption's hash; the client size and the bar's visibility; the ranges and positions, 0xFFFF until first set).
+	title_hash: u16,
+	sb_cw: i16,
+	sb_ch: i16,
+	sb_h: u8,
+	sb_range: [u16; 2],
+	sb_pos: [u16; 2],
 	/// How far the page is scrolled sideways, in pixels; zero unless the window is narrower than the page.
 	hscroll: i32,
 	/// The kind of tab stop a click on the ruler makes: 0 left, 1 centre, 2 right, 3 decimal.
@@ -116,6 +138,15 @@ static mut SH: Shell = Shell {
 	back_old: 0,
 	back_w: 0,
 	back_h: 0,
+	back_ch: 0,
+	back_state: BACK_FULL,
+	back_worst: BACK_FULL,
+	title_hash: 0,
+	sb_cw: -1,
+	sb_ch: -1,
+	sb_h: 0,
+	sb_range: [0xFFFF; 2],
+	sb_pos: [0xFFFF; 2],
 	hscroll: 0,
 	ruler_kind: 0,
 	drag: None,
@@ -304,10 +335,15 @@ fn page_w(hwnd: u32) -> i32 {
 	layout(w, h, false).page_w
 }
 
-/// Makes (or remakes, after the window changed size) the off-screen bitmap. True when it is new and holds nothing yet.
+/// Makes (or remakes, after the window changed size) the off-screen bitmap: the whole client area if the system will give it, else a
+/// band of rows across the window (the paint then goes band by band), else nothing. A failure is not tried again until the window
+/// changes size. True when the bitmap is new, covers the whole window and holds nothing yet.
 fn ensure_back(wdc: u32, w: i32, h: i32) -> bool {
 	let sh = sh();
-	if sh.back_dc != 0 && sh.back_w == w && sh.back_h == h {
+	if sh.back_w == w
+		&& i32::from(sh.back_ch) == h
+		&& (sh.back_dc != 0 || sh.back_state == BACK_NONE)
+	{
 		return false;
 	}
 	unsafe {
@@ -317,22 +353,39 @@ fn ensure_back(wdc: u32, w: i32, h: i32) -> bool {
 			DeleteDC(sh.back_dc);
 			sh.back_dc = 0;
 		}
-		let dc = CreateCompatibleDC(wdc);
-		if dc == 0 {
-			return true;
-		}
-		let bmp = CreateCompatibleBitmap(wdc, w.max(1) as u32, h.max(1) as u32);
-		if bmp == 0 {
-			DeleteDC(dc);
-			return true;
-		}
-		sh.back_old = SelectObject(dc, bmp);
-		sh.back_dc = dc;
-		sh.back_bmp = bmp;
 		sh.back_w = w;
-		sh.back_h = h;
+		sh.back_ch = h as i16;
+		sh.back_state = BACK_NONE;
+		let dc = CreateCompatibleDC(wdc);
+		if dc != 0 {
+			let tries = [h.max(1), BAND_ROWS, BAND_ROWS / 4];
+			for (i, bh) in tries.iter().copied().enumerate() {
+				if i > 0 && bh >= h {
+					continue;
+				}
+				let bmp = CreateCompatibleBitmap(wdc, w.max(1) as u32, bh as u32);
+				if bmp == 0 {
+					continue;
+				}
+				let old = SelectObject(dc, bmp);
+				if old == 0 {
+					DeleteObject(bmp);
+					continue;
+				}
+				sh.back_old = old;
+				sh.back_dc = dc;
+				sh.back_bmp = bmp;
+				sh.back_h = bh;
+				sh.back_state = if i == 0 { BACK_FULL } else { BACK_BAND };
+				break;
+			}
+			if sh.back_dc == 0 {
+				DeleteDC(dc);
+			}
+		}
+		sh.back_worst = sh.back_worst.max(sh.back_state);
 	}
-	true
+	sh.back_state == BACK_FULL
 }
 
 /// Handles WM_PAINT: draws the damaged part of the window off screen, then copies it to the window with one `BitBlt`, so the steps
@@ -357,20 +410,35 @@ fn paint(hwnd: u32) {
 		if ensure_back(wdc, w, h) {
 			damage = Rect16::new(0, 0, w, h);
 		}
-		let back = sh().back_dc;
-		paint_into(if back != 0 { back } else { wdc }, damage, w, h);
-		if back != 0 {
-			BitBlt(
-				wdc,
-				damage.left as u32,
-				damage.top as u32,
-				(damage.right - damage.left) as u32,
-				(damage.bottom - damage.top) as u32,
-				back,
-				damage.left as u32,
-				damage.top as u32,
-				gdi::SRCCOPY,
-			);
+		let (back, bh) = (sh().back_dc, sh().back_h);
+		if back == 0 {
+			paint_into(wdc, damage, w, h);
+		} else {
+			// One pass for a whole-window bitmap; a band bitmap is moved down the damage a band at a time.
+			let (mut y, end) = (i32::from(damage.top), i32::from(damage.bottom));
+			while y < end {
+				let y1 = if bh >= h { end } else { (y + bh).min(end) };
+				let band = Rect16::new(i32::from(damage.left), y, i32::from(damage.right), y1);
+				if bh < h {
+					SetViewportOrg(back, 0, (-y) as u32);
+				}
+				paint_into(back, band, w, h);
+				BitBlt(
+					wdc,
+					band.left as u32,
+					y as u32,
+					(band.right - band.left) as u32,
+					(y1 - y) as u32,
+					back,
+					band.left as u32,
+					y as u32,
+					gdi::SRCCOPY,
+				);
+				y = y1;
+			}
+			if bh < h {
+				SetViewportOrg(back, 0, 0);
+			}
 		}
 		EndPaint(hwnd, np(&ps));
 	}
@@ -485,16 +553,31 @@ fn update_scroll(hwnd: u32) {
 	sh.hbar_on = show_h;
 	let l = layout(cw, ch, show_h);
 	unsafe {
-		let (x, y, w, h) = l.vbar;
-		MoveWindow(sh.vbar, x as u32, y as u32, w as u32, h.max(0) as u32, 1);
-		if let Some((x, y, w, h)) = l.hbar {
-			MoveWindow(sh.hbar, x as u32, y as u32, w as u32, h as u32, 1);
+		// The bars move and show only when the client area or the horizontal bar's visibility changed.
+		if cw as i16 != sh.sb_cw || ch as i16 != sh.sb_ch || u8::from(show_h) != sh.sb_h {
+			sh.sb_cw = cw as i16;
+			sh.sb_ch = ch as i16;
+			sh.sb_h = u8::from(show_h);
+			let (x, y, w, h) = l.vbar;
+			MoveWindow(sh.vbar, x as u32, y as u32, w as u32, h.max(0) as u32, 1);
+			if let Some((x, y, w, h)) = l.hbar {
+				MoveWindow(sh.hbar, x as u32, y as u32, w as u32, h as u32, 1);
+			}
+			ShowWindow(sh.hbar, u32::from(show_h));
 		}
-		ShowWindow(sh.hbar, u32::from(show_h));
-		SetScrollRange(sh.vbar, SB_CTL, 0, lines, 0);
-		SetScrollPos(sh.vbar, SB_CTL, app.top_line().min(lines), 1);
-		SetScrollRange(sh.hbar, SB_CTL, 0, hmax as u32, 0);
-		SetScrollPos(sh.hbar, SB_CTL, sh.hscroll as u32, 1);
+		let range = [lines as u16, hmax as u16];
+		let pos = [app.top_line().min(lines) as u16, sh.hscroll as u16];
+		for (i, bar) in [sh.vbar, sh.hbar].into_iter().enumerate() {
+			let moved_range = range[i] != sh.sb_range[i];
+			if moved_range {
+				sh.sb_range[i] = range[i];
+				SetScrollRange(bar, SB_CTL, 0, u32::from(range[i]), 0);
+			}
+			if moved_range || pos[i] != sh.sb_pos[i] {
+				sh.sb_pos[i] = pos[i];
+				SetScrollPos(bar, SB_CTL, u32::from(pos[i]), 1);
+			}
+		}
 	}
 	if changed {
 		invalidate_all(hwnd);
@@ -552,7 +635,16 @@ fn retitle(hwnd: u32) {
 		n += 1;
 	}
 	t[n] = 0;
-	unsafe { SetWindowText(hwnd, np(t.as_ptr())) };
+	// The caption is repainted by every `SetWindowText`, even for the same text, so it is set only when it changed.
+	let mut hash = 0x811Cu16;
+	for b in t.iter().take(n) {
+		hash = (hash ^ u16::from(*b)).wrapping_mul(0x0193);
+	}
+	hash |= 1;
+	if hash != sh().title_hash {
+		sh().title_hash = hash;
+		unsafe { SetWindowText(hwnd, np(t.as_ptr())) };
+	}
 }
 
 /// After a key or a command: dialogs the editor asked for, help, the title, the scroll bars, and a repaint of what changed.
@@ -1138,6 +1230,17 @@ fn write_stack_log() {
 		.s(" low ")
 		.hex(u32::from(low), 4)
 		.nl();
+	let sh = sh();
+	log.s("back ")
+		.s(match sh.back_worst {
+			BACK_FULL => "full ",
+			BACK_BAND => "band ",
+			_ => "none ",
+		})
+		.dec(sh.back_w as u32)
+		.s("x")
+		.dec(sh.back_h as u32)
+		.nl();
 	let mut buf = [0u8; 128];
 	c_name(b"STACK.LOG", &mut buf);
 	write_file(buf.as_ptr(), log.bytes());
@@ -1292,6 +1395,8 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				0
 			}
 			WM_VSCROLL | WM_HSCROLL => {
+				// The control moved its own thumb, so what the bars were last given may no longer be what they show.
+				sh().sb_pos = [0xFFFF; 2];
 				scroll_bar(hwnd, msg == WM_VSCROLL, wparam & 0xFFFF, lparam & 0xFFFF);
 				// The bars are controls that take the focus when clicked; the keys belong to the page.
 				if wparam & 0xFFFF != 4 {
