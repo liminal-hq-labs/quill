@@ -23,6 +23,7 @@ use desk_hal::{Bios, BiosRegs, PortIo, Rgb6};
 use desk_vga::vbe::Vbe;
 use desk_vga::{dac, regs};
 use quill_paint::crc32_update;
+use quill_paint::cursor;
 use quill_paint::damage::{self, RowSet, LINEAR_ROW, PLANAR_ROW, ROWS};
 use quill_paint::palette::{rgb256, WINDOWS16};
 use quill_paint::raster::{PLANAR_BYTES, PLANE_BYTES};
@@ -57,6 +58,8 @@ pub struct Screen {
 	video: *mut u8,
 	pitch: usize,
 	ports: RawPorts,
+	/// Where the mouse arrow is drawn on the card (not in the shadow), or `None` when it is not shown.
+	pointer: Option<(i32, i32)>,
 }
 
 fn int10(ax: u32, bx: u32) -> BiosRegs {
@@ -122,6 +125,7 @@ fn try_12h() -> Result<Screen, &'static str> {
 		video: dpmi::linear_to_ptr::<u8>(0xA0000),
 		pitch: PLANAR_ROW,
 		ports: p,
+		pointer: None,
 	})
 }
 
@@ -153,6 +157,7 @@ fn try_vbe() -> Option<Screen> {
 		video: dpmi::linear_to_ptr::<u8>(linear),
 		pitch: usize::from(mode.pitch),
 		ports: p,
+		pointer: None,
 	})
 }
 
@@ -253,6 +258,58 @@ impl Screen {
 				});
 				self.fresh = false;
 				n
+			}
+		}
+	}
+
+	/// Draws the mouse arrow with its tip at `at` over what the card shows, taking it from where it was. The arrow never enters the
+	/// shadow: what is under it is put back from the shadow, and nothing is read from video memory. Call it after `present`, which
+	/// writes whole rows over the arrow.
+	pub fn show_pointer(&mut self, at: (i32, i32)) {
+		self.hide_pointer();
+		self.blit_pointer(at, true);
+		self.pointer = Some(at);
+	}
+
+	/// Takes the arrow off the card, leaving the shadow's picture.
+	pub fn hide_pointer(&mut self) {
+		if let Some(at) = self.pointer.take() {
+			self.blit_pointer(at, false);
+		}
+	}
+
+	/// Where the arrow is shown now, if it is.
+	pub fn pointer(&self) -> Option<(i32, i32)> {
+		self.pointer
+	}
+
+	fn blit_pointer(&self, at: (i32, i32), show: bool) {
+		match self.kind {
+			Kind::Planar16 => {
+				// Every byte the arrow touches, then plane by plane, so the map mask is set four times and not for each byte.
+				let mut writes = [(0u8, 0u16, 0u8); 16 * 4 * 3];
+				let mut n = 0;
+				cursor::planar(&self.shadow, at.0, at.1, show, |plane, offset, byte| {
+					if let Some(w) = writes.get_mut(n) {
+						*w = (plane as u8, offset as u16, byte);
+						n += 1;
+					}
+				});
+				for plane in 0..4u8 {
+					regs::sequencer_write(&self.ports, regs::seq::MAP_MASK, 1 << plane);
+					for (_, offset, byte) in writes.iter().take(n).filter(|w| w.0 == plane) {
+						// SAFETY: the offset is inside the 38,400 bytes of the plane at A0000h that the map mask selects.
+						unsafe { self.video.add(usize::from(*offset)).write_volatile(*byte) };
+					}
+				}
+				regs::sequencer_write(&self.ports, regs::seq::MAP_MASK, 0x0F);
+			}
+			Kind::Linear256 => {
+				cursor::linear(&self.shadow, at.0, at.1, show, |offset, byte| {
+					let (row, col) = (offset / LINEAR_ROW, offset % LINEAR_ROW);
+					// SAFETY: a pixel of the 640 by 480 mapping, `pitch` bytes to a row.
+					unsafe { self.video.add(row * self.pitch + col).write_volatile(byte) };
+				});
 			}
 		}
 	}

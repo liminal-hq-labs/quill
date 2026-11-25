@@ -83,6 +83,44 @@ run_scenario m12-confirm - -
 run_scenario m12-confirm-mono - -
 run_scenario m12-confirm-50 - -
 
+# With the mouse driver taken away (DOSBox's built-in one off) nothing breaks: the keyboard scenarios give the host's screens.
+export DOS_CONF=$'[mouse]\nbuiltin_dos_mouse_driver = off'
+run_scenario m1-edit PLAIN.QLD m1-edit.qld
+run_scenario m10-menus - -
+unset DOS_CONF
+
+# The mouse (tests/scenarios/g8-mouse.keys, g8-mouse-gfx.keys): AUTOTYPE cannot drive a pointer, so the scenario itself goes onto the disk as
+# MOUSE.TXT and QUILLDOS.EXE plays it (QUILL_MOUSE) in place of the keyboard and the INT 33h driver: keys and `@click`, `@dclick`, `@drag`,
+# `@wheel` lines in order, the same steps the host plays. Text mode compares every screen with the host's; graphics compares the CRC-32 of
+# every frame with the host's and with the video memory read back (the arrow is on the card and never in the shadow, so the read-back
+# takes it off first).
+run_mouse_text() { # <name> <arguments>
+	local name="$1" args="$2"
+	[ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = "$name" ] || return 0
+	local file="$ROOT/tests/scenarios/$name.keys"
+	local disk="$WORK/disk-$name"
+	rm -rf "$disk" "$WORK/keep"
+	mkdir -p "$disk"
+	cp "$HERE/dist/QUILLDOS.EXE" "$disk/"
+	cp "$file" "$disk/MOUSE.TXT"
+	while read -r d a; do
+		case "$d" in
+		@copy) cp "$ROOT/tests/docs/$a" "$disk/$(echo "$a" | tr '[:lower:]' '[:upper:]')" ;;
+		esac
+	done < <(grep '^@copy' "$file" | sed 's/#.*//')
+	export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT\nQUILL_MOUSE=MOUSE.TXT'
+	export DOS_KEEP="$WORK/keep"
+	unset DOS_AUTOTYPE
+	export DOS_TIMEOUT=240
+	local rc=0
+	"$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE $args" > "$WORK/$name.out" || rc=$?
+	[ "$rc" = 0 ] || fail "$name: QUILLDOS.EXE exited with $rc"
+	tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/$name-frames.txt"
+	diff -u "$ROOT/tests/golden/screens/$name.frames.txt" "$WORK/$name-frames.txt" > "$WORK/$name.diff" || { head -60 "$WORK/$name.diff" >&2; fail "$name: the screens differ from the host's"; }
+	echo "e2e: $name: every screen matches the host's, with the mouse played from a file"
+}
+run_mouse_text g8-mouse "LETTER.RTF"
+
 # The graphics shell (tests/scenarios/g6-gfx.keys): the same keys are played into QUILLDOS.EXE in graphics mode and on the host through
 # quill-paint's shell. QUILL.FNT on the disk is the committed test font, so a frame is the same bytes on both: every frame's CRC-32 must
 # equal the host's golden (tests/golden/gfx/g6-gfx.{16,256}.sums), equal the CRC-32 of the video memory read back (the presenter put
@@ -119,8 +157,41 @@ run_gfx_scenario() { # <label> <machine> <arguments> <16|256>
 	echo "e2e: $label: the saved LETTER.RTF is byte-identical to the host's"
 }
 
+# The graphics mouse scenario, on both depths: same frames as the host, and the saved file after a double click and typing over the word.
+run_mouse_gfx() { # <label> <machine> <arguments> <16|256>
+	local label="$1" machine="$2" args="$3" depth="$4"
+	[ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = "$label" ] || return 0
+	local file="$ROOT/tests/scenarios/g8-mouse-gfx.keys"
+	local disk="$WORK/disk-$label"
+	rm -rf "$disk" "$WORK/keep"
+	mkdir -p "$disk"
+	cp "$HERE/dist/QUILLDOS.EXE" "$disk/"
+	cp "$ROOT/tests/fonts/QUILLTST.FNT" "$disk/QUILL.FNT"
+	cp "$ROOT/tests/docs/letter.rtf" "$disk/LETTER.RTF"
+	cp "$file" "$disk/MOUSE.TXT"
+	export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT\nQUILL_MOUSE=MOUSE.TXT'
+	export DOS_KEEP="$WORK/keep"
+	unset DOS_AUTOTYPE
+	export DOS_TIMEOUT=400
+	local rc=0
+	DOS_MACHINE="$machine" "$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE $args LETTER.RTF" > "$WORK/$label.out" || rc=$?
+	[ "$rc" = 0 ] || fail "$label: QUILLDOS.EXE exited with $rc"
+	[ ! -s "$WORK/$label.out" ] || { cat "$WORK/$label.out" >&2; fail "$label: it printed something, so it did not stay in graphics"; }
+	tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/$label-frames.txt"
+	grep '^frame' "$WORK/$label-frames.txt" | sed 's/ video .*//' > "$WORK/$label-sums.txt"
+	diff -u "$ROOT/tests/golden/gfx/g8-mouse-gfx.$depth.sums" "$WORK/$label-sums.txt" > "$WORK/$label.diff" || { head -40 "$WORK/$label.diff" >&2; fail "$label: a frame differs from the host's"; }
+	if awk '/^frame/ && $4 != $6 { bad = 1; print > "/dev/stderr" } END { exit bad }' "$WORK/$label-frames.txt"; then :; else
+		fail "$label: the video memory differs from the frame drawn"
+	fi
+	echo "e2e: $label: all $(grep -c '^frame' "$WORK/$label-frames.txt") frames equal the host's, and the video memory read back equals each frame"
+	cmp "$disk/LETTER.RTF" "$ROOT/tests/golden/files/g8-mouse-gfx.rtf" || fail "$label: the saved LETTER.RTF differs from the host's"
+	echo "e2e: $label: the saved LETTER.RTF is byte-identical to the host's"
+}
+
 run_gfx_scenario g6-gfx-12h svga_s3 /G16 16
 run_gfx_scenario g6-gfx-vbe svga_s3 /G 256
+run_mouse_gfx g8-mouse-12h svga_s3 /G16 16
+run_mouse_gfx g8-mouse-vbe svga_s3 /G 256
 # A card whose VBE has no linear frame buffer gets mode 12h under /G, and with no QUILL.FNT graphics gives way to text with a note.
 run_gfx_scenario g6-gfx-nolfb vesa_nolfb /G 16
 if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = g6-gfx-nofont ]; then

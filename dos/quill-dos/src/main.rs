@@ -20,6 +20,7 @@ mod files;
 mod gfx;
 mod keys;
 mod measure;
+mod mouse;
 mod video;
 
 use alloc::boxed::Box;
@@ -27,10 +28,13 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use measure::ScreenMeasure;
+use quill_app::mouse::{Ctx, Pointer, TextCells};
 use quill_app::picture::WINDOW;
+use quill_app::script::Step;
 use quill_app::{App, Key, Scheme};
 use quill_grid::{Grid, GridMeasure};
 use quill_heap::HeapStore;
+use quill_mouse::Ev;
 use quill_paint::raster::{Linear8, Planar4};
 use quill_paint::shell::{self, Graphics};
 use quill_strike::{StrikeMeasure, Strikes};
@@ -39,7 +43,16 @@ use rt::env;
 
 rt::entry!(main);
 
-fn show<const ROWS: usize>(app: &App<ScreenMeasure>, s: &HeapStore, dump: &mut Option<File>, n: &mut u32) {
+/// Draws the screen. `frame` writes it to the dump as a golden frame; the pointer's cell goes on after the dump, so the frames are the
+/// host's.
+fn show<const ROWS: usize>(
+	app: &App<ScreenMeasure>,
+	s: &HeapStore,
+	dump: &mut Option<File>,
+	n: &mut u32,
+	pointer: Option<(i32, i32)>,
+	frame: bool,
+) {
 	let mut g = Grid::<ROWS>::new(0);
 	let cursor = quill_app::draw(app, s, &mut g);
 	video::present(&g);
@@ -47,12 +60,25 @@ fn show<const ROWS: usize>(app: &App<ScreenMeasure>, s: &HeapStore, dump: &mut O
 	if cursor.is_some() {
 		video::cursor_shape(app.overtype());
 	}
-	if let Some(f) = dump {
-		let mut text = String::new();
-		*n += 1;
-		let _ = video::read_back::<ROWS>().dump(*n, &mut text);
-		let _ = f.write_all(text.as_bytes());
+	if frame {
+		if let Some(f) = dump {
+			let mut text = String::new();
+			*n += 1;
+			let _ = video::read_back::<ROWS>().dump(*n, &mut text);
+			let _ = f.write_all(text.as_bytes());
+		}
 	}
+	if let Some(at) = pointer {
+		video::pointer(at, ROWS);
+	}
+}
+
+/// The test script `QUILL_MOUSE` names: keys and pointer actions in order, played in place of the keyboard and the mouse driver. A
+/// run that holds (`QUILL_HOLD`) goes on to the keyboard when the script ends, which is how a screenshot is taken of its last frame.
+fn script_text() -> Option<String> {
+	let path = env::var("QUILL_MOUSE")?;
+	let bytes = File::open(&path, Mode::Read).ok()?.read_to_vec(0).ok()?;
+	String::from_utf8(bytes).ok()
 }
 
 /// The rows `QUILL.INI` asks for (`Rows=` under `[Quill]`), or 25.
@@ -191,12 +217,61 @@ fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 	open_arguments(&mut app, &mut store, &mut files);
 	let mut dump = env::var("QUILL_DUMP").and_then(|p| File::open(&p, Mode::Create).ok());
 	let mut n = 0;
-	show::<ROWS>(&app, &store, &mut dump, &mut n);
-	while !app.quit() {
-		if let Some(k) = keys::wait() {
-			app.key(&mut store, &mut files, k);
-			show::<ROWS>(&app, &store, &mut dump, &mut n);
+	let target = TextCells { rows: (ROWS - 2) as i32 };
+	let mut ptr = Pointer::default();
+	let mut mouse = mouse::open(80, ROWS as i32, (8, 8));
+	let script = script_text();
+	let mut at = None;
+	show::<ROWS>(&app, &store, &mut dump, &mut n, at, true);
+	// A test script plays first, in place of the keyboard and the driver; the steps are the host's (`quill_host::script::play`).
+	let mut hold = false;
+	if let Some(text) = &script {
+		let mut tick = 0;
+		for step in quill_app::script::steps(text) {
+			match step {
+				Step::Key(k) => app.key(&mut store, &mut files, k),
+				other => other.play(&mut tick, |ev, ctx| {
+					ptr.handle(&mut app, &mut store, &mut files, &target, ev, ctx);
+					at = Some(ptr.at());
+				}),
+			}
+			show::<ROWS>(&app, &store, &mut dump, &mut n, at, true);
+			if app.quit() {
+				break;
+			}
 		}
+		hold = env::var("QUILL_HOLD").is_some() && !app.quit();
+	}
+	while (script.is_none() || hold) && !app.quit() {
+		let mut clicked = false;
+		let waited = keys::wait_until(&mut || {
+			let Some(m) = mouse.as_mut() else {
+				return false;
+			};
+			let mut any = false;
+			m.poll(|ev| {
+				any = true;
+				clicked |= !matches!(ev, Ev::Move { .. });
+				let ctx = Ctx {
+					shift: keys::shift_down(),
+					tick: mouse::ticks(),
+				};
+				ptr.handle(&mut app, &mut store, &mut files, &target, ev, ctx);
+			});
+			any
+		});
+		at = mouse.as_ref().map(|m| m.at()).or(at);
+		match waited {
+			keys::Wait::Key(Some(k)) => {
+				app.key(&mut store, &mut files, k);
+				show::<ROWS>(&app, &store, &mut dump, &mut n, at, true);
+			}
+			keys::Wait::Key(None) => {}
+			keys::Wait::Break => show::<ROWS>(&app, &store, &mut dump, &mut n, at, clicked),
+		}
+	}
+	if let Some(m) = mouse {
+		m.close();
 	}
 	app.save_settings(&mut files);
 	// `save_settings` writes only the keys the app knows, so what the shell keeps goes back at the end of `[Quill]`.
@@ -258,43 +333,81 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 	let script = env::var("QUILL_KEYS");
 	let mut played = 0;
 	let mut n = 0u32;
+	// QUILL_MOUSE names a script of keys and pointer actions (places in pixels), played in place of the keyboard and the driver.
+	let steps: Option<Vec<Step>> = script_text().map(|t| quill_app::script::steps(&t).collect());
+	let hold = steps.is_some() && env::var("QUILL_HOLD").is_some();
+	let mut step = 0;
+	let mut tick = 0;
+	let mut mouse = mouse::open(shell::SCREEN_W, shell::SCREEN_H, (1, 1));
+	let mut ptr = Pointer::default();
+	let mut at: Option<(i32, i32)> = None;
+	let mut repaint = true;
 	loop {
-		// A pass over the laid-out lines is what the painter does several times a screen; timing one shows what layout costs.
-		let layout = times.as_ref().map(|_| {
-			let a = gfx::clocks();
-			let mut lines = 0u32;
-			app.for_each_line(&store, |_, _| lines += 1);
-			(gfx::clocks().wrapping_sub(a), lines)
-		});
-		let t0 = gfx::clocks();
-		paint(&mut scr, &mut fnt, strikes, &app, &store, &mut window);
-		let t1 = gfx::clocks();
-		let rows = scr.present();
-		let t2 = gfx::clocks();
-		n += 1;
-		if let Some(f) = &mut dump {
-			let line = format!(
-				"frame {n} crc32 {:08x} video {:08x}\n",
-				quill_paint::crc32(&scr.shadow),
-				scr.read_back_crc()
-			);
-			let _ = f.write_all(line.as_bytes());
-		}
-		if let Some(f) = &mut times {
-			let line = format!(
-				"frame {n} paint_us {} present_us {} rows {rows} layout_pass_us {} lines {}\n",
-				gfx::micros(t1.wrapping_sub(t0)),
-				gfx::micros(t2.wrapping_sub(t1)),
-				gfx::micros(layout.map_or(0, |l| l.0)),
-				layout.map_or(0, |l| l.1)
-			);
-			let _ = f.write_all(line.as_bytes());
+		if repaint {
+			// A pass over the laid-out lines is what the painter does several times a screen; timing one shows what layout costs.
+			let layout = times.as_ref().map(|_| {
+				let a = gfx::clocks();
+				let mut lines = 0u32;
+				app.for_each_line(&store, |_, _| lines += 1);
+				(gfx::clocks().wrapping_sub(a), lines)
+			});
+			let t0 = gfx::clocks();
+			paint(&mut scr, &mut fnt, strikes, &app, &store, &mut window);
+			let t1 = gfx::clocks();
+			let rows = scr.present();
+			let t2 = gfx::clocks();
+			n += 1;
+			if let Some(f) = &mut dump {
+				// The arrow is on the card and not in the shadow: it comes off for the read-back, so a frame's two sums compare.
+				scr.hide_pointer();
+				let line = format!(
+					"frame {n} crc32 {:08x} video {:08x}\n",
+					quill_paint::crc32(&scr.shadow),
+					scr.read_back_crc()
+				);
+				let _ = f.write_all(line.as_bytes());
+			}
+			if let Some(f) = &mut times {
+				let line = format!(
+					"frame {n} paint_us {} present_us {} rows {rows} layout_pass_us {} lines {}\n",
+					gfx::micros(t1.wrapping_sub(t0)),
+					gfx::micros(t2.wrapping_sub(t1)),
+					gfx::micros(layout.map_or(0, |l| l.0)),
+					layout.map_or(0, |l| l.1)
+				);
+				let _ = f.write_all(line.as_bytes());
+			}
+			if let Some(p) = at {
+				scr.show_pointer(p);
+			}
+			repaint = false;
+		} else if let Some(p) = at {
+			if scr.pointer() != Some(p) {
+				scr.show_pointer(p);
+			}
 		}
 		if app.quit() {
 			break;
 		}
-		let key = match &script {
-			Some(text) => match text.as_bytes().get(played) {
+		let key = match (&steps, &script) {
+			(Some(list), _) if step < list.len() => {
+				let this = list.get(step).copied();
+				step += 1;
+				match this {
+					Some(Step::Key(k)) => Some(k),
+					Some(other) => {
+						other.play(&mut tick, |ev, ctx| {
+							ptr.handle(&mut app, &mut store, &mut files, &shell::Pixels, ev, ctx);
+							at = Some(ptr.at());
+						});
+						repaint = true;
+						None
+					}
+					None => None,
+				}
+			}
+			(Some(_), _) if !hold => break,
+			(None, Some(text)) => match text.as_bytes().get(played) {
 				Some(b) => {
 					played += 1;
 					Some(match b {
@@ -305,11 +418,41 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 				}
 				None => break,
 			},
-			None => keys::wait(),
+			_ => {
+				let mut moved = false;
+				let waited = keys::wait_until(&mut || {
+					let Some(m) = mouse.as_mut() else {
+						return false;
+					};
+					let mut any = false;
+					m.poll(|ev| {
+						any = true;
+						// A press, a release, the wheel, or a move that drags a selection changes the page; a plain move is the arrow's.
+						let drags = ptr.dragging() || matches!(ev, Ev::Down { .. });
+						moved |= !matches!(ev, Ev::Move { .. }) || drags;
+						let ctx = Ctx {
+							shift: keys::shift_down(),
+							tick: mouse::ticks(),
+						};
+						ptr.handle(&mut app, &mut store, &mut files, &shell::Pixels, ev, ctx);
+					});
+					any
+				});
+				at = mouse.as_ref().map(|m| m.at()).or(at);
+				repaint |= moved;
+				match waited {
+					keys::Wait::Key(k) => k,
+					keys::Wait::Break => None,
+				}
+			}
 		};
 		if let Some(k) = key {
 			app.key(&mut store, &mut files, k);
+			repaint = true;
 		}
+	}
+	if let Some(m) = mouse {
+		m.close();
 	}
 	app.save_settings(&mut files);
 	kept.put_back();
