@@ -37,6 +37,7 @@ pub mod session;
 mod spell_live;
 mod spelling;
 pub mod view;
+pub mod widgets;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
 use quill_core::layout::{Line, Measure};

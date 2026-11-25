@@ -44,7 +44,7 @@ fn palette(n: usize) -> Rgb {
 }
 
 /// Draws glyph `k` (16 by 15) with its top left corner at (`x`, `y`), leaving palette entry 0 undrawn.
-fn glyph<Sf: Surface>(sf: &mut Sf, k: i32, x: i32, y: i32, transparent: bool) {
+fn glyph<Sf: Surface + ?Sized>(sf: &mut Sf, k: i32, x: i32, y: i32, transparent: bool) {
 	let off = le32(10);
 	let (w, h) = (le32(18), le32(22));
 	let stride = (w * 4).div_ceil(32) * 4;
@@ -131,7 +131,7 @@ pub fn box_at(lay: &Layout, x: i32, y: i32) -> Option<Box3> {
 	})
 }
 
-fn face_of<Sf: Surface>(sf: &mut Sf, r: Rect, down: bool, on: bool) {
+fn face_of<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, down: bool, on: bool) {
 	if down && on {
 		// The checkered face of a switched-on toggle: white and silver, a pixel each.
 		sf.fill_rect(r, Rgb::WHITE);
@@ -155,17 +155,19 @@ fn face_of<Sf: Surface>(sf: &mut Sf, r: Rect, down: bool, on: bool) {
 	);
 }
 
-fn button<Sf: Surface, M: Measure + Clone, S: ReadStore + ?Sized>(
+fn button<Sf: Surface + ?Sized, M: Measure + Clone, S: ReadStore + ?Sized>(
 	sf: &mut Sf,
 	app: &App<M>,
 	s: &S,
 	b: &Button,
 	r: Rect,
+	held: bool,
 ) {
 	let on = is_on(app, s, b.toggle);
-	// The inner face is inside the outline and the bevel: draw it first, then the glyph on top.
-	face_of(sf, r, on, on);
-	let off = i32::from(on);
+	// A button the pointer holds down is sunk, with a silver face unless it is a toggle that is on (its face stays checkered).
+	let down = on || held;
+	face_of(sf, r, down, on);
+	let off = i32::from(down);
 	glyph(sf, b.glyph, r.left + 4 + off, r.top + 4 + off, on);
 	if b.act == Act::Colour {
 		if let Some((cr, cg, cb)) = app.char_state(s).colour {
@@ -182,7 +184,7 @@ fn button<Sf: Surface, M: Measure + Clone, S: ReadStore + ?Sized>(
 	}
 }
 
-fn combo<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, text: &[u8]) {
+fn combo<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, text: &[u8]) {
 	sf.fill_rect(r, Rgb::WHITE);
 	bevel(sf, r, false);
 	sf.hline(r.left + 1, r.right - 1, r.top + 1, INK);
@@ -207,13 +209,15 @@ fn combo<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, text: &[u8]) {
 	sf.clip(None);
 }
 
-/// Draws the rows that show: the standard toolbar and the formatting bar.
-pub fn draw<Sf: Surface, M: Measure + Clone, S: ReadStore + ?Sized>(
+/// Draws the rows that show: the standard toolbar and the formatting bar. `held` is the button the pointer has pressed (an index into
+/// `TOOLBAR.buttons`), which shows sunk.
+pub fn draw<Sf: Surface + ?Sized, M: Measure + Clone, S: ReadStore + ?Sized>(
 	sf: &mut Sf,
 	ui: &Ui<Sf::Font>,
 	app: &App<M>,
 	s: &S,
 	lay: &Layout,
+	held: Option<usize>,
 ) {
 	for (row, strip) in [(0u8, lay.tool), (1u8, lay.format)] {
 		let Some(strip) = strip else { continue };
@@ -238,7 +242,7 @@ pub fn draw<Sf: Surface, M: Measure + Clone, S: ReadStore + ?Sized>(
 			}
 			prev_end = Some(b.x + BTN_W);
 			if let Some(r) = button_rect(lay, i) {
-				button(sf, app, s, b, r);
+				button(sf, app, s, b, r, held == Some(i));
 			}
 		}
 		sf.clip(None);

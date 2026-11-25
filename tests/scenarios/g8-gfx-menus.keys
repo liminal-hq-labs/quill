@@ -1,0 +1,25 @@
+# G8 (graphics): the mouse on the menus in graphics. Places are pixels of the 640 by 480 screen (the titles and items are where the painter's
+# geometry puts them with the test font). Open a menu, hover its items, hover another title to switch, click a greyed item (nothing),
+# run an item with a click, drag from the View title through to Ruler and release (it runs), click away to close, hold the button on a
+# title and slide to an item, then the keys on a menu the pointer opened. Played on the host through quill-paint's Gfx, and into
+# QUILLDOS.EXE from a QUILL_MOUSE file, so every frame's CRC-32 must be equal in both graphics modes.
+@copy letter.rtf
+@open LETTER.RTF
+@click 57 9             # Edit opens
+@move 113 148           # Select All lit
+@move 145 9             # hovering the Find title switches menus
+@click 57 9             # back to Edit
+@click 113 80           # Cut is greyed: nothing, the menu stays
+@click 113 148          # Select All runs
+@drag 387 9 428 72      # View title through to Ruler, release: the ruler goes
+@drag 387 9 428 72      # and comes back
+@click 57 9
+@click 500 300          # a click away closes the menu and does nothing else
+@down 387 9             # held on a title: its menu shows
+@move 428 54            # slid to Toolbar, lit
+@up 387 30              # let go on the menu's frame: nothing runs, the menu stays
+@click 600 300          # closed by a click outside
+@click 57 9
+down down
+esc
+f10 end enter

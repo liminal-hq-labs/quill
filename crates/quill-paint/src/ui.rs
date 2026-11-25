@@ -46,7 +46,7 @@ pub struct Ui<F: Copy> {
 
 impl<F: Copy> Ui<F> {
 	/// The interface font on `sf`, measured with `m`.
-	pub fn new<Sf: Surface<Font = F>, Me: Measure>(sf: &mut Sf, m: &mut Me) -> Self {
+	pub fn new<Sf: Surface<Font = F> + ?Sized, Me: Measure>(sf: &mut Sf, m: &mut Me) -> Self {
 		let fr = ui_font();
 		let met = m.metrics(&fr);
 		Ui {
@@ -57,7 +57,7 @@ impl<F: Copy> Ui<F> {
 	}
 
 	/// Draws `text` with its top at `y`; returns the x after it.
-	pub fn text<Sf: Surface<Font = F>>(
+	pub fn text<Sf: Surface<Font = F> + ?Sized>(
 		&self,
 		sf: &mut Sf,
 		x: i32,
@@ -82,12 +82,12 @@ impl<F: Copy> Ui<F> {
 	}
 
 	/// The width of `text`.
-	pub fn width<Sf: Surface<Font = F>>(&self, sf: &mut Sf, text: &[u8]) -> i32 {
+	pub fn width<Sf: Surface<Font = F> + ?Sized>(&self, sf: &mut Sf, text: &[u8]) -> i32 {
 		text.iter().map(|c| sf.advance(self.font, *c)).sum()
 	}
 
 	/// The width of a label written with an `&` before its mnemonic, the `&` not counted.
-	pub fn label_width<Sf: Surface<Font = F>>(&self, sf: &mut Sf, label: &[u8]) -> i32 {
+	pub fn label_width<Sf: Surface<Font = F> + ?Sized>(&self, sf: &mut Sf, label: &[u8]) -> i32 {
 		label
 			.iter()
 			.filter(|c| **c != b'&')
@@ -96,7 +96,7 @@ impl<F: Copy> Ui<F> {
 	}
 
 	/// Draws a label with its mnemonic underlined (the letter after the `&`); returns the x after it.
-	pub fn label<Sf: Surface<Font = F>>(
+	pub fn label<Sf: Surface<Font = F> + ?Sized>(
 		&self,
 		sf: &mut Sf,
 		x: i32,
@@ -123,7 +123,7 @@ impl<F: Copy> Ui<F> {
 }
 
 /// A one-pixel bevel inside `r`: light on the top and left and dark on the bottom and right when `raised`, the other way round when not.
-pub fn bevel<Sf: Surface>(sf: &mut Sf, r: Rect, raised: bool) {
+pub fn bevel<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, raised: bool) {
 	let (tl, br) = if raised {
 		(LIGHT, SHADOW)
 	} else {
@@ -136,7 +136,7 @@ pub fn bevel<Sf: Surface>(sf: &mut Sf, r: Rect, raised: bool) {
 }
 
 /// A one-pixel outline of `r` in `c`.
-pub fn outline<Sf: Surface>(sf: &mut Sf, r: Rect, c: Rgb) {
+pub fn outline<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, c: Rgb) {
 	sf.hline(r.left, r.right, r.top, c);
 	sf.hline(r.left, r.right, r.bottom - 1, c);
 	sf.vline(r.left, r.top, r.bottom, c);
@@ -144,7 +144,7 @@ pub fn outline<Sf: Surface>(sf: &mut Sf, r: Rect, c: Rgb) {
 }
 
 /// A dotted outline of `r` (every other pixel), which marks the control that has the keyboard focus.
-pub fn dotted<Sf: Surface>(sf: &mut Sf, r: Rect, c: Rgb) {
+pub fn dotted<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, c: Rgb) {
 	let mut x = r.left;
 	while x < r.right {
 		sf.fill_rect(Rect::new(x, r.top, x + 1, r.top + 1), c);

@@ -10,8 +10,8 @@ use quill_core::layout::Measure;
 
 use crate::{label, App, Command, Key, Mode};
 
-const FONT_NAMES: [&str; 3] = ["Times New Roman", "Arial", "Courier New"];
-const FONT_FAMILY: [u8; 3] = [1, 2, 3];
+pub(crate) const FONT_NAMES: [&str; 3] = ["Times New Roman", "Arial", "Courier New"];
+pub(crate) const FONT_FAMILY: [u8; 3] = [1, 2, 3];
 const KINDS: [&str; 4] = ["Left", "Centre", "Right", "Decimal"];
 const LEADERS: [&str; 4] = ["None", "Dots", "Hyphens", "Underline"];
 

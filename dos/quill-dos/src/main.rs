@@ -36,6 +36,7 @@ use quill_app::{App, Key, Scheme};
 use quill_grid::{Grid, GridMeasure};
 use quill_heap::HeapStore;
 use quill_mouse::Ev;
+use quill_paint::pointer::{Gfx, View};
 use quill_paint::raster::{Linear8, Planar4};
 use quill_paint::shell::{self, Graphics};
 use quill_strike::{StrikeMeasure, Strikes};
@@ -205,6 +206,14 @@ fn open_arguments(app: &mut App<ScreenMeasure>, store: &mut HeapStore, files: &m
 	}
 }
 
+/// A press or a release can run a command (a menu item, a toolbar button) that puts a Date or Time field in the document, which reads
+/// the clock the app was last given; so the clock is read before every one, as it is before every key.
+fn clock_for(app: &mut App<ScreenMeasure>, ev: Ev) {
+	if matches!(ev, Ev::Down { .. } | Ev::Up { .. }) {
+		clock::set(app);
+	}
+}
+
 fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 	let mut store = HeapStore::new();
 	let mut app = Box::new(App::with_measure(ScreenMeasure::Grid(GridMeasure)));
@@ -233,6 +242,7 @@ fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 			match step {
 				Step::Key(k) => app.key(&mut store, &mut files, k),
 				other => other.play(&mut tick, |ev, ctx| {
+					clock_for(&mut app, ev);
 					ptr.handle(&mut app, &mut store, &mut files, &target, ev, ctx);
 					at = Some(ptr.at());
 				}),
@@ -258,6 +268,7 @@ fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 					shift: keys::shift_down(),
 					tick: mouse::ticks(),
 				};
+				clock_for(&mut app, ev);
 				ptr.handle(&mut app, &mut store, &mut files, &target, ev, ctx);
 			});
 			any
@@ -294,17 +305,18 @@ fn paint(
 	app: &App<ScreenMeasure>,
 	store: &HeapStore,
 	window: &mut [u8; WINDOW],
+	view: &View,
 ) {
 	let mut ui = StrikeMeasure::new(strikes);
 	match scr.kind {
 		gfx::Kind::Planar16 => {
 			if let Some(mut sf) = Planar4::new(&mut scr.shadow, *strikes, fnt) {
-				shell::paint_screen(&mut sf, app, &mut ui, store, window);
+				shell::paint_screen_view(&mut sf, app, &mut ui, store, window, view);
 			}
 		}
 		gfx::Kind::Linear256 => {
 			if let Some(mut sf) = Linear8::new(&mut scr.shadow, 640, 480, 640, *strikes, fnt) {
-				shell::paint_screen(&mut sf, app, &mut ui, store, window);
+				shell::paint_screen_view(&mut sf, app, &mut ui, store, window, view);
 			}
 		}
 	}
@@ -342,7 +354,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 	let mut step = 0;
 	let mut tick = 0;
 	let mut mouse = mouse::open(shell::SCREEN_W, shell::SCREEN_H, (1, 1));
-	let mut ptr = Pointer::default();
+	let mut gfx = Gfx::new(&mut StrikeMeasure::new(strikes));
 	let mut at: Option<(i32, i32)> = None;
 	let mut repaint = true;
 	loop {
@@ -355,7 +367,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 				(gfx::clocks().wrapping_sub(a), lines)
 			});
 			let t0 = gfx::clocks();
-			paint(&mut scr, &mut fnt, strikes, &app, &store, &mut window);
+			paint(&mut scr, &mut fnt, strikes, &app, &store, &mut window, &gfx.view());
 			let t1 = gfx::clocks();
 			let rows = scr.present();
 			let t2 = gfx::clocks();
@@ -400,9 +412,9 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 					Some(Step::Key(k)) => Some(k),
 					Some(other) => {
 						other.play(&mut tick, |ev, ctx| {
-							let space = shell::Pixels::of(&app);
-							ptr.handle(&mut app, &mut store, &mut files, &space, ev, ctx);
-							at = Some(ptr.at());
+							clock_for(&mut app, ev);
+							gfx.handle(&mut app, &mut store, &mut files, ev, ctx);
+							at = Some(gfx.at());
 						});
 						repaint = true;
 						None
@@ -431,16 +443,24 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 					let mut any = false;
 					m.poll(|ev| {
 						any = true;
-						// A press, a release, the wheel, or a move that drags a selection changes the page; a plain move is the arrow's.
-						let drags = ptr.dragging() || matches!(ev, Ev::Down { .. });
-						moved |= !matches!(ev, Ev::Move { .. }) || drags;
 						let ctx = Ctx {
 							shift: keys::shift_down(),
 							tick: mouse::ticks(),
 						};
-						let space = shell::Pixels::of(&app);
-						ptr.handle(&mut app, &mut store, &mut files, &space, ev, ctx);
+						clock_for(&mut app, ev);
+						// A press, a release, the wheel, a drag, a lit menu item, a held button: whatever the pointer changed on the
+						// screen. A plain move is the arrow's.
+						moved |= gfx.handle(&mut app, &mut store, &mut files, ev, ctx);
 					});
+					// A pointer at rest lets a tip's time run out.
+					let ctx = Ctx {
+						shift: false,
+						tick: mouse::ticks(),
+					};
+					if gfx.handle(&mut app, &mut store, &mut files, Ev::Tick, ctx) {
+						moved = true;
+						any = true;
+					}
 					any
 				});
 				at = mouse.as_ref().map(|m| m.at()).or(at);
@@ -452,8 +472,11 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 			}
 		};
 		if let Some(k) = key {
-			clock::set(&mut app);
-			app.key(&mut store, &mut files, k);
+			// An open drop-down list takes its own keys; every other key goes to the app.
+			if !gfx.key(&mut app, &mut store, k) {
+				clock::set(&mut app);
+				app.key(&mut store, &mut files, k);
+			}
 			// The View menu can hide the bars, which changes how much page there is.
 			shell::sync_view(&mut app);
 			repaint = true;

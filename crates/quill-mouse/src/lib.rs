@@ -25,6 +25,9 @@ pub enum Ev {
 	Up { x: i32, y: i32 },
 	/// The wheel turned by this many notches; positive is towards the user, which scrolls the page down.
 	Wheel(i32),
+	/// Time passed with nothing else to report: the shell's clock (`Ctx::tick`) has moved on, so a pointer that rests on a button can
+	/// show its tip. The driver never makes one; a shell or a script sends it.
+	Tick,
 }
 
 /// The registers an INT 33h call takes and gives.

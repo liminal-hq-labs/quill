@@ -13,6 +13,10 @@
 #   <document>      the file QUILLDOS.EXE opens (a name from the scenario's @copy lines), or - for none
 #   [keys]          the keys to type instead of the scenario's, so the screen stops where the picture should be
 #
+# With SHOT_MOUSE_LINES=N the first N lines of the scenario are played as a QUILL_MOUSE script instead of being typed (pointer
+# directives and keys alike, played by QUILLDOS.EXE in place of the driver), and the program holds on the last frame for the picture:
+# a menu open under the pointer, a button held down, a tip, a thumb mid-drag. SHOT_MOUSE_WAIT_S says how long to wait for it (default 30).
+#
 # The X server is started here on a free display number, its PID recorded and only that PID stopped at the end; no other display
 # or emulator is touched, and nothing is captured from the desktop. DOSBox draws into a window of exactly 640 by 480, so the picture
 # is the card's frame pixel for pixel. The program is left waiting for a key, and the run's own time limit ends it.
@@ -55,10 +59,16 @@ done
 echo "shot: Xvfb on :$n, pid $XPID"
 
 wait_s=$((6 + count * ${SHOT_PACE_S:-2}))
+[ -z "${SHOT_MOUSE_LINES:-}" ] || wait_s="${SHOT_MOUSE_WAIT_S:-30}"
 export DISPLAY=":$n" DOS_X11=1 DOS_MACHINE="$MACHINE" DOS_TIMEOUT=$((wait_s + 4))
 export DOS_CONF=$'[sdl]\nwindow_size = 640x480\nwindowresolution = 640x480\n[render]\naspect = false\ninteger_scaling = off\nviewport_resolution = fit'
 export DOS_ENV='QUILL_DUMP=D:\DUMP.TXT'
 export DOS_AUTOTYPE="-w 2 -p 0.6 $KEYS"
+if [ -n "${SHOT_MOUSE_LINES:-}" ]; then
+	head -n "$SHOT_MOUSE_LINES" "$file" > "$disk/MOUSE.TXT"
+	export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT\nQUILL_MOUSE=MOUSE.TXT\nQUILL_HOLD=1'
+	unset DOS_AUTOTYPE
+fi
 args="QUILLDOS.EXE $ARGS"
 [ "$DOC" = - ] || args="$args $DOC"
 "$HERE/tools/dosrun.sh" "$disk" "$args" > /dev/null 2>&1 &

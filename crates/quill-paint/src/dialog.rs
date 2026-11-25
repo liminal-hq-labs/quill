@@ -68,9 +68,17 @@ pub fn hit(o: &Overlay, x: i32, y: i32) -> Option<usize> {
 	})
 }
 
-fn button<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
+fn button<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid, down: bool) {
 	sf.fill_rect(r, FACE);
-	if w.default || w.focus {
+	if down {
+		// Held by the pointer: one outline, the bevel sunk, and the label a pixel down and right.
+		outline(sf, r, INK);
+		bevel(
+			sf,
+			Rect::new(r.left + 1, r.top + 1, r.right - 1, r.bottom - 1),
+			false,
+		);
+	} else if w.default || w.focus {
 		outline(sf, r, INK);
 		let inner = Rect::new(r.left + 1, r.top + 1, r.right - 1, r.bottom - 1);
 		outline(sf, inner, INK);
@@ -93,8 +101,9 @@ fn button<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
 		);
 	}
 	let tw = ui.label_width(sf, w.bytes());
-	let x = r.left + (r.width() - tw) / 2;
-	let y = r.top + (r.height() - ui.height) / 2;
+	let off = i32::from(down);
+	let x = r.left + (r.width() - tw) / 2 + off;
+	let y = r.top + (r.height() - ui.height) / 2 + off;
 	ui.label(sf, x, y, w.bytes(), INK);
 	if w.focus {
 		dotted(
@@ -105,7 +114,7 @@ fn button<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
 	}
 }
 
-fn edit<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
+fn edit<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
 	sf.fill_rect(r, LIGHT);
 	bevel(sf, r, false);
 	sf.hline(r.left + 1, r.right - 1, r.top + 1, INK);
@@ -131,7 +140,7 @@ fn edit<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
 	sf.clip(None);
 }
 
-fn check<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
+fn check<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
 	let by = r.top + (r.height() - BOX) / 2;
 	let b = Rect::new(r.left, by, r.left + BOX, by + BOX);
 	sf.fill_rect(b, LIGHT);
@@ -152,7 +161,7 @@ fn check<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
 /// The rows of a 13-pixel circle: the half width at each row.
 const CIRCLE: [i32; 13] = [2, 4, 5, 5, 6, 6, 6, 6, 6, 5, 5, 4, 2];
 
-fn radio<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
+fn radio<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
 	let by = r.top + (r.height() - BOX) / 2;
 	let cx = r.left + 6;
 	for (i, half) in CIRCLE.iter().enumerate() {
@@ -180,7 +189,7 @@ fn radio<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
 }
 
 /// A check or radio label, with the dotted focus rectangle round it when it has the focus.
-fn label_of<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid, x: i32) {
+fn label_of<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid, x: i32) {
 	let y = r.top + (r.height() - ui.height) / 2;
 	let end = ui.label(sf, x, y, w.bytes(), INK);
 	if w.focus {
@@ -189,7 +198,17 @@ fn label_of<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid, x: i3
 }
 
 /// Draws the dialog over whatever is on the screen.
-pub fn draw_dialog<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, o: &Overlay) {
+pub fn draw_dialog<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, o: &Overlay) {
+	draw_dialog_held(sf, ui, o, None);
+}
+
+/// Draws the dialog with the button `held` (an index into `o.widgets()`) shown pressed.
+pub fn draw_dialog_held<Sf: Surface + ?Sized>(
+	sf: &mut Sf,
+	ui: &Ui<Sf::Font>,
+	o: &Overlay,
+	held: Option<usize>,
+) {
 	sf.clip(None);
 	let win = window_rect(o);
 	sf.fill_rect(win, FACE);
@@ -223,7 +242,7 @@ pub fn draw_dialog<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, o: &Overlay) {
 		sf.fill_rect(b, LIGHT);
 		bevel(sf, b, false);
 	}
-	for w in o.widgets() {
+	for (i, w) in o.widgets().iter().enumerate() {
 		let r = widget_rect(o, w);
 		match w.kind {
 			Wk::Label => {
@@ -233,7 +252,7 @@ pub fn draw_dialog<Sf: Surface>(sf: &mut Sf, ui: &Ui<Sf::Font>, o: &Overlay) {
 			Wk::Edit => edit(sf, ui, r, w),
 			Wk::Check => check(sf, ui, r, w),
 			Wk::Radio => radio(sf, ui, r, w),
-			Wk::Button => button(sf, ui, r, w),
+			Wk::Button => button(sf, ui, r, w, held == Some(i)),
 			Wk::ListItem => {
 				let r = Rect::new(r.left, r.top + 1, r.right, r.bottom - 1);
 				let y = r.top + (r.height() - ui.height) / 2;

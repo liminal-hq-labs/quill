@@ -1,0 +1,26 @@
+# G8 (graphics): the mouse in the dialogs in graphics. Find opened from its menu, a field, a held button (pressed, raised when the pointer leaves it,
+# pressed again, run on release), a check box, the title bar and the space outside (nothing), the Close button; then the Fonts dialog's
+# radio buttons and check boxes and its OK; the About box. Every frame's CRC-32 must equal the host's in both graphics modes.
+@copy letter.rtf
+@open LETTER.RTF
+@click 145 9            # Find menu
+@click 215 32           # Find...
+@click 336 204          # the field
+d e a r
+@down 140 292           # Find Next held: pressed
+@move 2 2               # the pointer leaves it: raised
+@move 140 292           # back: pressed again
+@up 140 292             # released over it: it runs
+@click 132 248          # Match case
+@click 320 177          # the title bar: nothing
+@click 2 2              # outside the dialog: nothing
+@click 236 292          # Close
+@click 199 9            # Character menu
+@click 263 196          # Fonts...
+@click 347 193          # Arial
+@click 111 237          # Bold
+@click 112 303          # OK
+@click 425 9            # Help menu
+@click 425 30           # its first item
+f10 down down enter     # File > Save
+f10 end enter           # File > Exit
