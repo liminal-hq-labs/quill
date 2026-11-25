@@ -21,6 +21,9 @@
 #   QUILL_COMMIT the commit the Quill builds came from, recorded in the manifest (default: unknown)
 #   GOLDEN_IMG   skip the install and start from this golden disk (read only)
 #   CI_DIR, DL_DIR, ACCEL, STAGE_TIMEOUT   as install-golden.sh; PORT (default 18086) for the harness server; CHROMIUM (default /usr/bin/chromium)
+#   AFTERGLOW    1 (default) builds the Afterglow theme from the pinned source (afterglow.pin; prepare-afterglow.sh needs the network, numpy,
+#                llvm-rc, lld-link, rsvg-convert and ImageMagick); 0 keeps ReactOS's classic look. AFTERGLOW_DIR (a folder made by
+#                prepare-afterglow.sh) is used as it is instead of building
 #   BOOT_WAIT    as build-image.sh; STATE_TIMEOUT seconds for the state build (default 1500; 7200 without KVM)
 set -euo pipefail
 
@@ -73,8 +76,16 @@ for pair in DEMO.QLD:demo.qld DEMO.RTF:demo.rtf DEMO16.QLD:demo16.qld DEMO16.RTF
 done
 WALL=$WORK/quill-1024x768.bmp
 bash "$HERE/make-wallpaper.sh" "$HERE/quill-wallpaper.svg" "$WALL"
+AGDIR=
+if [ -n "${AFTERGLOW_DIR:-}" ]; then
+	AGDIR=$AFTERGLOW_DIR
+elif [ "${AFTERGLOW:-1}" != 0 ]; then
+	AGDIR=$WORK/afterglow
+	bash "$HERE/prepare-afterglow.sh" "$AGDIR"
+fi
 HASHES=
 for f in "$QSRC/QUILL.EXE" "$QSRC/QUILL32.EXE" "$DEMO"/DEMO*.*; do HASHES="$HASHES${HASHES:+,}$(basename "$f")=$(sha256sum "$f" | cut -d' ' -f1)"; done
+[ -z "$AGDIR" ] || HASHES="$HASHES,afterglow.msstyles=$(sha256sum "$AGDIR/afterglow.msstyles" | cut -d' ' -f1)"
 stage_end inputs "$S"
 
 # 1. The golden disk.
@@ -87,10 +98,18 @@ else
 fi
 stage_end install-golden "$S"
 
+# 1b. The Afterglow pointers: patch a copy of the golden disk's user32.dll (the demo disk only; never published).
+if [ -n "$AGDIR" ] && [ -d "$AGDIR/cursors" ] && [ ! -f "$AGDIR/user32-afterglow.dll" ]; then
+	S=$(date +%s)
+	bash "$HERE/prepare-pointers.sh" "$GOLDEN" "$AGDIR"
+	stage_end pointers "$S"
+fi
+[ -z "$AGDIR" ] || [ ! -f "$AGDIR/user32-afterglow.dll" ] || HASHES="$HASHES,afterglow-user32.dll=$(sha256sum "$AGDIR/user32-afterglow.dll" | cut -d' ' -f1)"
+
 # 2. Trim, put Quill and the settings on it, in a build VM.
 S=$(date +%s)
 IMG=$WORK/images/reactos16-trim.img
-VMDIR=$WORK/vm bash "$HERE/build-image.sh" "$GOLDEN" "$IMG" "$QSRC" "$DEMO" "$WALL"
+VMDIR=$WORK/vm AFTERGLOW_DIR=$AGDIR bash "$HERE/build-image.sh" "$GOLDEN" "$IMG" "$QSRC" "$DEMO" "$WALL"
 stage_end build-image "$S"
 
 # 3. Zero the free space, make the file sparse again.
