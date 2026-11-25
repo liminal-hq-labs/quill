@@ -15,6 +15,7 @@
 // directory: it keeps its own folder and returns full paths. The chunks are freed as soon as the dialog ends, by `Accept`,
 // `Cancel` or `close`.
 
+use crate::filelayout::{default_button, text, type_label};
 use crate::focus::{Control, Focus, Nav};
 use crate::fs::{
 	DriveKind, FileSystem, Found, FsError, ATTR_DIR, ATTR_HIDDEN, ATTR_READONLY, ATTR_SYSTEM,
@@ -436,22 +437,15 @@ impl FileDlg {
 		};
 		let mut focus = Focus::<9>::new();
 		for (c, label) in [
-			(Control::Field, &b"File &name:"[..]),
-			(Control::Combo, b"Files of &type:"),
-			(
-				Control::Button,
-				if kind == Kind::SaveAs {
-					&b"Save"[..]
-				} else {
-					b"Open"
-				},
-			),
-			(Control::Button, b"Cancel"),
-			(Control::Combo, b"Look &in:"),
-			(Control::Button, b"&Up"),
-			(Control::Button, b"New &folder"),
-			(Control::List, b"&Places:"),
-			(Control::List, b"Fi&les:"),
+			(Control::Field, text::NAME),
+			(Control::Combo, type_label(kind)),
+			(Control::Button, default_button(kind)),
+			(Control::Button, text::CANCEL),
+			(Control::Combo, text::LOOK_IN),
+			(Control::Button, text::UP),
+			(Control::Button, text::NEW_FOLDER),
+			(Control::List, text::PLACES),
+			(Control::List, text::LIST),
 		] {
 			focus.add(c, label);
 		}

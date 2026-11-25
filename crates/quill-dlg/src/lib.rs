@@ -12,6 +12,8 @@
 //! - [`savename`]: the name and type Save As starts with, the extension swap when the type changes, and the default extension.
 //! - [`key`], [`widgets`] and [`focus`]: the keys a dialog understands, the state of its widgets (text field, list, drop-down, check
 //!   box, radio group) and the focus ring with mnemonics and the default button. None of them draws.
+//! - [`filelayout`]: the file dialog as rectangles in cells for the text screen and the graphics screen, with `hit`, the strings,
+//!   their mnemonics and the CP437 glyphs of the file types, so both painters and both pointers share one description.
 //! - [`fs`] and [`filedlg`]: the file system the dialog needs (a trait the shells implement) and the file dialog itself: a state
 //!   machine that takes keys and answers with what to do next. Its lists live in `Store` chunks and are freed when it closes.
 //!
@@ -30,6 +32,7 @@ pub mod fake;
 pub mod filedlg;
 #[cfg(test)]
 mod filedlg_tests;
+pub mod filelayout;
 pub mod focus;
 pub mod fs;
 pub mod key;
