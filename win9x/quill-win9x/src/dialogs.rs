@@ -108,6 +108,44 @@ unsafe fn lookup(module: &[u8], name: &[u8]) -> Option<*const u8> {
 	}
 }
 
+/// Sets (`on`) or clears the reason Windows Vista and later shows when something blocks a shutdown, and remembers which in
+/// `sh.blocked`. `ShutdownBlockReasonCreate` and `ShutdownBlockReasonDestroy` are looked up in USER32 at run time, so nothing is
+/// imported and Windows 95, 98, Me and NT 4, which lack them, start as before.
+///
+/// # Safety
+/// `hwnd` must be the main window.
+pub unsafe fn shutdown_block(hwnd: Handle, sh: &mut Shell, on: bool) {
+	if on == sh.blocked {
+		return;
+	}
+	sh.blocked = on;
+	if on {
+		if let Some(p) = lookup(b"user32.dll\0", b"ShutdownBlockReasonCreate\0") {
+			// The reason is UTF-16, built on the stack.
+			let mut w = [0u16; 32];
+			for (d, s) in w.iter_mut().zip(b"Quill has unsaved changes") {
+				*d = u16::from(*s);
+			}
+			let f: unsafe extern "system" fn(Handle, *const u16) -> i32 = core::mem::transmute(p);
+			f(hwnd, w.as_ptr());
+		}
+	} else if let Some(p) = lookup(b"user32.dll\0", b"ShutdownBlockReasonDestroy\0") {
+		let f: unsafe extern "system" fn(Handle) -> i32 = core::mem::transmute(p);
+		f(hwnd);
+	}
+}
+
+/// The temporary folder, ending in a backslash, written at the start of `out`; its length. `GetTempPathA` is looked up at run time.
+///
+/// # Safety
+/// None beyond the call it makes.
+pub unsafe fn temp_dir(out: &mut [u8]) -> Option<usize> {
+	let p = lookup(b"kernel32.dll\0", b"GetTempPathA\0")?;
+	let f: unsafe extern "system" fn(u32, *mut u8) -> u32 = core::mem::transmute(p);
+	let n = f(out.len() as u32, out.as_mut_ptr()) as usize;
+	(n > 0 && n < out.len()).then_some(n)
+}
+
 /// The About box's platform line: the product name from the platform id and version, and Wine's version when it is Wine.
 ///
 /// `GetVersionEx` tells a program without a manifest that it runs on Windows 8 (6.2) from Windows 8.1 on, so on NT the real

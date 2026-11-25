@@ -37,6 +37,8 @@ export_proc!(QuillWndProc, wnd_proc_checked);
 
 const WM_SIZE: u32 = 0x0005;
 const WM_CLOSE: u32 = 0x0010;
+const WM_QUERYENDSESSION: u32 = 0x0011;
+const WM_ENDSESSION: u32 = 0x0016;
 const WM_ERASEBKGND: u32 = 0x0014;
 const WM_KEYDOWN: u32 = 0x0100;
 const WM_SYSKEYDOWN: u32 = 0x0104;
@@ -759,6 +761,21 @@ fn run_command(hwnd: u32, c: Command) {
 	after_edit(hwnd, before);
 }
 
+/// Writes the document to QUILL.RCV in the program's directory when it has unsaved work (the path is built on the stack).
+#[inline(never)]
+pub(crate) fn write_recovery() {
+	if !app().unsaved_work() {
+		return;
+	}
+	let mut path = [0u8; 128];
+	let here = unsafe { &*core::ptr::addr_of!(HERE) };
+	let hl = unsafe { HERE_LEN }.min(here.len());
+	path[..hl].copy_from_slice(&here[..hl]);
+	let name = b"QUILL.RCV";
+	path[hl..hl + name.len()].copy_from_slice(name);
+	app().save_recovery(store(), &mut Win16Files, &path[..hl + name.len()]);
+}
+
 /// Shows the dialogs the editor asked for (`dialogs.rs`).
 fn handle_dialogs(hwnd: u32) {
 	dialogs::handle(hwnd);
@@ -1473,6 +1490,17 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 					DestroyWindow(hwnd);
 				} else {
 					run_command(hwnd, Command::Exit);
+				}
+				0
+			}
+			WM_QUERYENDSESSION => {
+				// Windows is about to end the session: a modified document asks like File > Exit, and a cancel stops it.
+				u32::from(sh().grid || dialogs::end_session_query(hwnd)) as _
+			}
+			WM_ENDSESSION => {
+				// The session is ending for real: no more questions, only a copy of the unsaved text beside the program.
+				if wparam & 0xFFFF != 0 && !sh().grid {
+					write_recovery();
 				}
 				0
 			}
