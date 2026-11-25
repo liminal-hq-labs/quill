@@ -33,7 +33,10 @@ def main():
 	def run(*args):
 		subprocess.run(args, check=True, env=env)
 
-	run("mformat", "-C", "-f", str(KIB), "-i", out, "-N", SERIAL, "-v", "QUILL", "::")
+	# A zeroed file first, not mformat -C: some mtools versions leave stray bytes in the last sector of the image they create.
+	with open(out, "wb") as f:
+		f.write(bytes(KIB * 1024))
+	run("mformat", "-f", str(KIB), "-i", out, "-N", SERIAL, "-v", "QUILL", "::")
 
 	# The FreeDOS boot code replaces mtools': keep the jump and the BIOS parameter block (bytes 3 to 61) and take the rest of the sector.
 	with open(fd_boot, "rb") as f:
