@@ -1,0 +1,24 @@
+{
+	"$schema": "https://liminal-hq.github.io/installer/schema/layout.json",
+	"version": 1,
+	"id": "stage",
+	"root": {
+		"kind": "backdrop",
+		"props": {
+			"style": "text-mode",
+			"charset": "cp437",
+			"fill": "░",
+			"title": "{product.name}  Setup",
+			"credit": "Liminal Installer",
+			"label": "Quill setup"
+		},
+		"children": [
+			{
+				"kind": "slot",
+				"props": {
+					"label": "Page"
+				}
+			}
+		]
+	}
+}

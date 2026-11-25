@@ -1,0 +1,48 @@
+{
+	"$schema": "https://liminal-hq.github.io/installer/schema/flow.json",
+	"version": 1,
+	"id": "install",
+	"steps": [
+		{
+			"id": "welcome",
+			"type": "page",
+			"layout": "welcome",
+			"next": "licence"
+		},
+		{
+			"id": "licence",
+			"type": "page",
+			"layout": "licence",
+			"next": "folder"
+		},
+		{
+			"id": "folder",
+			"type": "page",
+			"layout": "folder",
+			"next": "components"
+		},
+		{
+			"id": "components",
+			"type": "page",
+			"layout": "components",
+			"next": "ready"
+		},
+		{
+			"id": "ready",
+			"type": "page",
+			"layout": "ready",
+			"next": "copying"
+		},
+		{
+			"id": "copying",
+			"type": "commit",
+			"layout": "copying",
+			"next": "done"
+		},
+		{
+			"id": "done",
+			"type": "finish",
+			"layout": "done"
+		}
+	]
+}

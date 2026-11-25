@@ -1,0 +1,65 @@
+{
+	"$schema": "https://liminal-hq.github.io/installer/schema/layout.json",
+	"version": 1,
+	"id": "stage",
+	"root": {
+		"kind": "backdrop",
+		"props": {
+			"style": "classic",
+			"title": "{product.name}",
+			"subtitle": "Setup",
+			"credit": "Setup powered by Liminal Installer",
+			"taskbar": "{product.name} Setup",
+			"label": "Lieutenant Fizz — Episode One setup"
+		},
+		"children": [
+			{
+				"kind": "meter",
+				"bind": "engine.meter.file",
+				"props": {
+					"label": "Current file",
+					"source": "file",
+					"caption": "{progress.file}",
+					"region": "status",
+					"hide_on": [
+						"finish"
+					]
+				}
+			},
+			{
+				"kind": "meter",
+				"bind": "engine.meter.total",
+				"props": {
+					"label": "Overall progress",
+					"source": "total",
+					"caption": "{progress.percent}%",
+					"region": "status",
+					"hide_on": [
+						"finish"
+					]
+				}
+			},
+			{
+				"kind": "meter",
+				"bind": "engine.meter.free_space",
+				"props": {
+					"label": "Free space after install",
+					"source": "free_space",
+					"warn_label": "Low",
+					"low_below": 0.05,
+					"caption": "{system.free_space_after}",
+					"region": "status",
+					"hide_on": [
+						"finish"
+					]
+				}
+			},
+			{
+				"kind": "slot",
+				"props": {
+					"label": "Page"
+				}
+			}
+		]
+	}
+}

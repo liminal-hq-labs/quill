@@ -1,0 +1,149 @@
+{
+	"$schema": "https://liminal-hq.github.io/installer/schema/layout.json",
+	"version": 1,
+	"id": "confirm-uninstall",
+	"root": {
+		"kind": "window",
+		"props": {
+			"title": "Quill Setup",
+			"label": "Remove",
+			"style": "neutral"
+		},
+		"children": [
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "column",
+					"gap": 12
+				},
+				"children": [
+					{
+						"kind": "text",
+						"props": {
+							"text": "Remove Quill?",
+							"role": "heading"
+						}
+					},
+					{
+						"kind": "text",
+						"props": {
+							"text": "Setup will undo each change it recorded, in reverse order.",
+							"role": "body"
+						}
+					},
+					{
+						"kind": "checklist",
+						"bind": "uninstall.options",
+						"props": {
+							"label": "Uninstall options",
+							"options": [
+								{
+									"id": "keep_data",
+									"label": "Keep my settings and documents"
+								}
+							]
+						}
+					}
+				]
+			},
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "row",
+					"gap": 8,
+					"align": "end"
+				},
+				"children": [
+					{
+						"kind": "button",
+						"props": {
+							"label": "Remove",
+							"action": "commit",
+							"default": true
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Cancel",
+							"action": "cancel"
+						}
+					}
+				]
+			}
+		],
+		"overrides": {
+			"tui": {
+				"kind": "window",
+				"props": {
+					"title": "Quill — Remove",
+					"label": "Remove",
+					"border": "rounded"
+				},
+				"children": [
+					{
+						"kind": "stack",
+						"props": {
+							"direction": "column",
+							"gap": 1
+						},
+						"children": [
+							{
+								"kind": "text",
+								"props": {
+									"text": "Remove Quill?",
+									"role": "heading"
+								}
+							},
+							{
+								"kind": "text",
+								"props": {
+									"text": "Setup will undo each change it recorded, in reverse order.",
+									"role": "body"
+								}
+							},
+							{
+								"kind": "checklist",
+								"bind": "uninstall.options",
+								"props": {
+									"label": "Uninstall options",
+									"options": [
+										{
+											"id": "keep_data",
+											"label": "Keep my settings and documents"
+										}
+									]
+								}
+							}
+						]
+					},
+					{
+						"kind": "stack",
+						"props": {
+							"direction": "row",
+							"gap": 8,
+							"align": "end"
+						},
+						"children": [
+							{
+								"kind": "button",
+								"props": {
+									"label": "Remove",
+									"action": "commit",
+									"default": true
+								}
+							},
+							{
+								"kind": "button",
+								"props": {
+									"label": "Cancel",
+									"action": "cancel"
+								}
+							}
+						]
+					}
+				]
+			}
+		}
+	}
+}

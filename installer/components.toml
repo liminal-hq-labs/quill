@@ -1,0 +1,91 @@
+# Quill's installer: what each build installs.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# Install names are upper-case 8.3 on DOS and Windows 3.x. `tools/stage.sh` fills `dist/` with the built programs.
+#
+# Windows 3.x puts "Quill" in a Program Manager group, with the icon in `QUILL.EXE`, and keeps `UNINST.EXE` in the install folder.
+# Windows 95 and later gets Start menu items and an Add/Remove Programs entry, and keeps `UNINST.EXE` too. DOS gets a `QUILLDOS.BAT`
+# launcher and is removed by `SETUP /U` from the disk.
+
+[[component]]
+id       = "appdos"
+name     = "Quill"
+required = true
+targets  = ["dos-x86"]
+files    = [{ from = "dist/{target}/QUILLDOS.EXE", to = "{install}/" }]
+shortcut = [{ name = "Quill", target = "{install}/QUILLDOS.EXE", in = "start_menu" }]
+
+# `.QLD` is the one file type Quill registers by default: `SETUP` writes it to `WIN.INI` on Windows 3.x and to the registry on
+# Windows 95 and later, and puts the previous owner back on uninstall. DOS has no file types.
+[[component]]
+id         = "app16"
+name       = "Quill"
+required   = true
+targets    = ["win16-x86"]
+files      = [{ from = "dist/{target}/QUILL.EXE", to = "{install}/" }]
+shortcut   = [{ name = "Quill", target = "{install}/QUILL.EXE", in = "start_menu" }]
+file_types = [{ extension = ".qld", name = "Quill document", open_with = "{install}/QUILL.EXE" }]
+
+[[component]]
+id         = "app32"
+name       = "Quill"
+required   = true
+targets    = ["windows-x86"]
+files      = [{ from = "dist/{target}/QUILL32.EXE", to = "{install}/" }]
+shortcut   = [{ name = "Quill", target = "{install}/QUILL32.EXE", in = "start_menu" }]
+file_types = [{ extension = ".qld", name = "Quill document", open_with = "{install}/QUILL32.EXE" }]
+
+[[component]]
+id       = "help"
+name     = "Quill Help"
+targets  = ["win16-x86", "windows-x86"]
+files    = [{ from = "dist/help/QUILL.HLP", to = "{install}/" }]
+shortcut = [{ name = "Quill Help", target = "{install}/QUILL.HLP", in = "start_menu" }]
+
+[[component]]
+id       = "readme"
+name     = "Read Me and licence"
+required = true
+files    = [{ from = "dist/common/README.TXT", to = "{install}/" }, { from = "dist/common/LICENCE.TXT", to = "{install}/" }]
+
+[[component]]
+id      = "dicts"
+name    = "Spelling dictionaries (English: Canada, US, UK)"
+files   = [{ from = "dist/dict/*.DIC", to = "{install}/" }]
+
+[[component]]
+id      = "samples"
+name    = "Sample documents"
+files   = [{ from = "dist/samples/*", to = "{install}/SAMPLES/" }]
+
+# The two optional file types are components that start unticked (`default = false`). The installer has no such field yet, so
+# today they start ticked like any optional component; the field is the planned "unticked components" change.
+[[component]]
+id         = "assoc-rtf16"
+name       = "Open .RTF files with Quill"
+default    = false
+targets    = ["win16-x86"]
+file_types = [{ extension = ".rtf", name = "Rich Text Format", open_with = "{install}/QUILL.EXE" }]
+
+[[component]]
+id         = "assoc-txt16"
+name       = "Open .TXT files with Quill"
+default    = false
+targets    = ["win16-x86"]
+file_types = [{ extension = ".txt", name = "Text document", open_with = "{install}/QUILL.EXE" }]
+
+[[component]]
+id         = "assoc-rtf32"
+name       = "Open .RTF files with Quill"
+default    = false
+targets    = ["windows-x86"]
+file_types = [{ extension = ".rtf", name = "Rich Text Format", open_with = "{install}/QUILL32.EXE" }]
+
+[[component]]
+id         = "assoc-txt32"
+name       = "Open .TXT files with Quill"
+default    = false
+targets    = ["windows-x86"]
+file_types = [{ extension = ".txt", name = "Text document", open_with = "{install}/QUILL32.EXE" }]

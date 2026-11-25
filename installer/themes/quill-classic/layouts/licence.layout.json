@@ -1,0 +1,170 @@
+{
+	"$schema": "https://liminal-hq.github.io/installer/schema/layout.json",
+	"version": 1,
+	"id": "licence",
+	"root": {
+		"kind": "dialog",
+		"props": {
+			"title": "Software License Agreement",
+			"label": "Software License Agreement",
+			"style": "win32-classic",
+			"width": 64
+		},
+		"children": [
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "column",
+					"gap": 0,
+					"region": "side"
+				},
+				"children": [
+					{
+						"kind": "image",
+						"props": {
+							"label": "Product",
+							"alt": "Product",
+							"art": {
+								"width": 14,
+								"height": 14,
+								"scale": 8,
+								"rects": [
+									[
+										1,
+										4,
+										12,
+										9,
+										"#c0c0c0"
+									],
+									[
+										1,
+										4,
+										12,
+										1,
+										"#ffffff"
+									],
+									[
+										1,
+										12,
+										12,
+										1,
+										"#404040"
+									],
+									[
+										1,
+										8,
+										12,
+										1,
+										"#808080"
+									],
+									[
+										5,
+										1,
+										4,
+										3,
+										"#ffff55"
+									],
+									[
+										4,
+										4,
+										6,
+										1,
+										"#dfdfdf"
+									],
+									[
+										11,
+										5,
+										2,
+										2,
+										"#00aaaa"
+									]
+								]
+							},
+							"panel": "#008080",
+							"ground": "#004040"
+						}
+					}
+				]
+			},
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "column",
+					"gap": 1
+				},
+				"children": [
+					{
+						"kind": "text",
+						"props": {
+							"text": "Please read the following license agreement. Press the PAGE DOWN key to see the rest of the agreement.",
+							"role": "body"
+						}
+					},
+					{
+						"kind": "text",
+						"props": {
+							"text": "",
+							"role": "document",
+							"source": "LICENCE.TXT",
+							"scroll": true,
+							"label": "Licence text"
+						}
+					},
+					{
+						"kind": "radio",
+						"bind": "licence.accepted",
+						"props": {
+							"label": "Licence acceptance",
+							"options": [
+								{
+									"id": "yes",
+									"label": "I accept the agreement"
+								},
+								{
+									"id": "no",
+									"label": "I do not accept the agreement"
+								}
+							]
+						}
+					}
+				]
+			},
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "row",
+					"gap": 1,
+					"align": "end",
+					"region": "footer"
+				},
+				"children": [
+					{
+						"kind": "button",
+						"props": {
+							"label": "Back",
+							"action": "back",
+							"hotkey": "B"
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Next",
+							"action": "next",
+							"default": true,
+							"hotkey": "N",
+							"enabled_when": "state.licence.accepted == 'yes'"
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Cancel",
+							"action": "cancel"
+						}
+					}
+				]
+			}
+		]
+	}
+}

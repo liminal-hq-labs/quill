@@ -1,0 +1,128 @@
+{
+	"$schema": "https://liminal-hq.github.io/installer/schema/layout.json",
+	"version": 1,
+	"id": "folder",
+	"root": {
+		"kind": "window",
+		"props": {
+			"title": "{product.name} Setup",
+			"label": "Location",
+			"style": "neutral"
+		},
+		"children": [
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "column",
+					"gap": 1
+				},
+				"children": [
+					{
+						"kind": "stack",
+						"props": {
+							"direction": "column",
+							"gap": 0,
+							"group": "lead"
+						},
+						"children": [
+							{
+								"kind": "text",
+								"props": {
+									"text": "Where should {product.name} go?",
+									"role": "heading",
+									"icon": {
+										"viewBox": [
+											24,
+											24
+										],
+										"shapes": [
+											{
+												"path": "M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10",
+												"stroke": "#1d4ed8",
+												"width": 1.6,
+												"join": "round"
+											}
+										]
+									}
+								}
+							},
+							{
+								"kind": "text",
+								"props": {
+									"text": "Setup installs into this folder. You can change it.",
+									"role": "body"
+								}
+							}
+						]
+					},
+					{
+						"kind": "path",
+						"bind": "install.path",
+						"props": {
+							"label": "Destination folder",
+							"mode": "directory",
+							"browse": "Browse…"
+						}
+					},
+					{
+						"kind": "radio",
+						"bind": "install.scope",
+						"props": {
+							"label": "Install for",
+							"options": [
+								{
+									"id": "user",
+									"label": "Only me"
+								},
+								{
+									"id": "machine",
+									"label": "Everyone on this computer"
+								}
+							]
+						}
+					}
+				]
+			},
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "row",
+					"gap": 2,
+					"align": "end",
+					"region": "footer"
+				},
+				"children": [
+					{
+						"kind": "text",
+						"props": {
+							"text": "Space required: {install.size} · Free: {system.free_space}",
+							"role": "note"
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Back",
+							"action": "back"
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Next",
+							"action": "next",
+							"default": true
+						}
+					},
+					{
+						"kind": "button",
+						"props": {
+							"label": "Cancel",
+							"action": "cancel"
+						}
+					}
+				]
+			}
+		]
+	}
+}

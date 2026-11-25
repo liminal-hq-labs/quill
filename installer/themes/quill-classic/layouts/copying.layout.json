@@ -1,0 +1,146 @@
+{
+	"$schema": "https://liminal-hq.github.io/installer/schema/layout.json",
+	"version": 1,
+	"id": "copying",
+	"root": {
+		"kind": "dialog",
+		"props": {
+			"title": "Setup Status",
+			"label": "Setup Status",
+			"style": "win32-classic",
+			"width": 64
+		},
+		"children": [
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "column",
+					"gap": 0,
+					"region": "side"
+				},
+				"children": [
+					{
+						"kind": "image",
+						"props": {
+							"label": "Product",
+							"alt": "Product",
+							"art": {
+								"width": 14,
+								"height": 14,
+								"scale": 8,
+								"rects": [
+									[
+										1,
+										4,
+										12,
+										9,
+										"#c0c0c0"
+									],
+									[
+										1,
+										4,
+										12,
+										1,
+										"#ffffff"
+									],
+									[
+										1,
+										12,
+										12,
+										1,
+										"#404040"
+									],
+									[
+										1,
+										8,
+										12,
+										1,
+										"#808080"
+									],
+									[
+										5,
+										1,
+										4,
+										3,
+										"#ffff55"
+									],
+									[
+										4,
+										4,
+										6,
+										1,
+										"#dfdfdf"
+									],
+									[
+										11,
+										5,
+										2,
+										2,
+										"#00aaaa"
+									]
+								]
+							},
+							"panel": "#008080",
+							"ground": "#004040"
+						}
+					}
+				]
+			},
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "column",
+					"gap": 1
+				},
+				"children": [
+					{
+						"kind": "text",
+						"props": {
+							"text": "{product.name} Setup is performing the requested operations. Copying {progress.file}",
+							"role": "body"
+						}
+					},
+					{
+						"kind": "billboard",
+						"props": {
+							"label": "Product highlights",
+							"slides": [
+								"billboard-1",
+								"billboard-2"
+							],
+							"captions": [
+								{
+									"title": "Welcome to {product.name}",
+									"text": "A few moments while Setup copies everything into place."
+								},
+								{
+									"title": "You stay in control",
+									"text": "Everything Setup changes is recorded, so you can remove it cleanly later."
+								}
+							],
+							"interval_seconds": 6
+						}
+					}
+				]
+			},
+			{
+				"kind": "stack",
+				"props": {
+					"direction": "row",
+					"gap": 1,
+					"align": "end",
+					"region": "footer"
+				},
+				"children": [
+					{
+						"kind": "button",
+						"props": {
+							"label": "Cancel",
+							"action": "cancel"
+						}
+					}
+				]
+			}
+		]
+	}
+}
