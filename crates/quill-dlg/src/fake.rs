@@ -6,7 +6,7 @@
 //
 // This module uses `std`, so it exists only in tests and behind the `fake` feature; the dialog itself never allocates.
 
-use crate::fs::{FileSystem, FsError, ATTR_DIR};
+use crate::fs::{DriveKind, FileSystem, Found, FsError, ATTR_DIR};
 use crate::name83::PathBuf;
 use std::string::String;
 use std::vec::Vec;
@@ -14,8 +14,10 @@ use std::vec::Vec;
 /// A tree of folders and files on up to 26 drives.
 #[derive(Clone, Debug, Default)]
 pub struct FakeFs {
-	/// (full upper-case path, attributes); drive roots are not listed
-	nodes: Vec<(String, u8)>,
+	/// (full upper-case path, attributes, size, date, time); drive roots are not listed
+	nodes: Vec<(String, u8, u32, u16, u16)>,
+	/// The kind of each drive that is not a fixed disk
+	kinds: Vec<(u8, DriveKind)>,
 	drive_mask: u32,
 	cwd: Vec<(u8, String)>,
 	/// Drives that answer `NotReady`, as a bit mask
@@ -55,12 +57,17 @@ impl FakeFs {
 			}
 		}
 		if !self.has(&path) {
-			self.nodes.push((path, ATTR_DIR));
+			self.nodes.push((path, ATTR_DIR, 0, 0, 0));
 		}
 	}
 
 	/// Adds a file with attributes `attr` (and any missing parents).
 	pub fn add_file(&mut self, path: &str, attr: u8) {
+		self.add_file_info(path, attr, 0, 0, 0);
+	}
+
+	/// Adds a file with attributes, size and DOS date and time (and any missing parents).
+	pub fn add_file_info(&mut self, path: &str, attr: u8, size: u32, date: u16, time: u16) {
 		let path = path.to_ascii_uppercase();
 		if let Some((parent, _)) = path.rsplit_once('\\') {
 			if parent.len() > 2 {
@@ -68,10 +75,17 @@ impl FakeFs {
 			}
 		}
 		if let Some(n) = self.nodes.iter_mut().find(|n| n.0 == path) {
-			n.1 = attr;
+			(n.1, n.2, n.3, n.4) = (attr, size, date, time);
 		} else {
-			self.nodes.push((path, attr));
+			self.nodes.push((path, attr, size, date, time));
 		}
+	}
+
+	/// Says what kind `drive` is (the default is a fixed disk).
+	pub fn set_kind(&mut self, drive: u8, kind: DriveKind) {
+		let d = drive.to_ascii_uppercase();
+		self.kinds.retain(|k| k.0 != d);
+		self.kinds.push((d, kind));
 	}
 
 	fn has(&self, path: &str) -> bool {
@@ -94,19 +108,19 @@ impl FakeFs {
 		self.nodes.is_empty()
 	}
 
-	/// The entries directly in `dir`, as (name, attributes).
-	pub fn children(&self, dir: &str) -> Vec<(String, u8)> {
-		let mut v: Vec<(String, u8)> = self
+	/// The entries directly in `dir`, as (name, attributes, size, date, time).
+	pub fn children(&self, dir: &str) -> Vec<(String, u8, u32, u16, u16)> {
+		let mut v: Vec<(String, u8, u32, u16, u16)> = self
 			.nodes
 			.iter()
-			.filter_map(|(p, a)| {
+			.filter_map(|(p, a, size, date, time)| {
 				let (parent, name) = p.rsplit_once('\\')?;
 				let parent = if parent.len() == 2 {
 					std::format!("{parent}\\")
 				} else {
 					parent.into()
 				};
-				(parent == dir).then(|| (name.into(), *a))
+				(parent == dir).then(|| (name.into(), *a, *size, *date, *time))
 			})
 			.collect();
 		if self.reversed {
@@ -135,7 +149,7 @@ fn text(b: &[u8]) -> String {
 }
 
 impl FileSystem for FakeFs {
-	fn list(&mut self, dir: &[u8], each: &mut dyn FnMut(&[u8], u8)) -> Result<(), FsError> {
+	fn list(&mut self, dir: &[u8], each: &mut dyn FnMut(Found<'_>)) -> Result<(), FsError> {
 		self.lists += 1;
 		self.drive_ok(dir)?;
 		let dir = text(dir);
@@ -144,22 +158,43 @@ impl FileSystem for FakeFs {
 			return Err(FsError::NoPath);
 		}
 		if self.dots && !is_root {
-			each(b".", ATTR_DIR);
-			each(b"..", ATTR_DIR);
+			for dots in [&b"."[..], b".."] {
+				each(Found {
+					name: dots,
+					attr: ATTR_DIR,
+					size: 0,
+					date: 0,
+					time: 0,
+				});
+			}
 		}
-		for (name, attr) in self.children(&dir) {
+		for (name, attr, size, date, time) in self.children(&dir) {
 			let name = if self.lower {
 				name.to_ascii_lowercase()
 			} else {
 				name
 			};
-			each(name.as_bytes(), attr);
+			each(Found {
+				name: name.as_bytes(),
+				attr,
+				size,
+				date,
+				time,
+			});
 		}
 		Ok(())
 	}
 
 	fn drives(&mut self) -> u32 {
 		self.drive_mask
+	}
+
+	fn drive_kind(&mut self, letter: u8) -> DriveKind {
+		let d = letter.to_ascii_uppercase();
+		self.kinds
+			.iter()
+			.find(|k| k.0 == d)
+			.map_or(DriveKind::Fixed, |k| k.1)
 	}
 
 	fn current_dir(&mut self, drive: u8, out: &mut PathBuf) -> Result<(), FsError> {
@@ -190,6 +225,21 @@ impl FileSystem for FakeFs {
 			return Some(ATTR_DIR);
 		}
 		self.nodes.iter().find(|n| n.0 == p).map(|n| n.1)
+	}
+
+	fn mkdir(&mut self, path: &[u8]) -> Result<(), FsError> {
+		self.drive_ok(path)?;
+		let p = text(path);
+		if self.has(&p) {
+			return Err(FsError::Denied);
+		}
+		match p.rsplit_once('\\') {
+			Some((parent, _)) if parent.len() == 2 || self.has(parent) => {
+				self.nodes.push((p, ATTR_DIR, 0, 0, 0));
+				Ok(())
+			}
+			_ => Err(FsError::NoPath),
+		}
 	}
 
 	fn rename(&mut self, from: &[u8], to: &[u8]) -> Result<(), FsError> {

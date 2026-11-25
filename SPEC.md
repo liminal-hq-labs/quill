@@ -108,7 +108,7 @@ Everything in this table is v1 unless the last column says otherwise. When time 
 - **Quill spell** (`quill-spell`): the dictionary reader, word checking and suggestions.
 - **Quill app** (`quill-app`): the platform-neutral editor controller: commands, the menu tree and its state, status text, and the painting of the page and chrome through a drawing trait.
 - **Quill grid** (`quill-grid`): the text-mode screen renderer for DOS text mode and the host's golden screens.
-- **Quill dialogs** (`quill-dlg`): the logic of the file dialogs, apart from drawing: DOS 8.3 names and paths, the file types, the name Save As starts with, the state of the widgets the text dialogs share, and the file dialog's state machine over a file system trait.
+- **Quill dialogs** (`quill-dlg`): the logic of the file dialogs, apart from drawing: DOS 8.3 names and paths, the file types, the name Save As starts with and the one default-extension rule (CORE-64), the state of the widgets the text dialogs share, and the file dialog's state machine over a file system trait: one list of `..`, folders and files with size and date, sortable by each column, with places (drives, named folders, recent files), a Look in path, prefix type-ahead and a 2,000-entry cap (DOS-32).
 - **Help compiler** (`quill-help`, command `hlpc`): a host tool that compiles Quill's help sources into a WinHelp 3.1 `.HLP` file (and a DOS help file), with a reader (`hlpdump`) for tests. Built to be lifted out into its own repository later.
 - **Dictionary builder** (`quill-dict`): a host tool that builds `.DIC` files from SCOWL word lists.
 - **Quill fonts** (`quill-fonts`): `OutlineMeasure`, a layout `Measure` over outline font files with no hinting, the font fallback table and the Quill test fonts.
