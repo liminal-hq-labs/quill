@@ -1,0 +1,16 @@
+Windows Registry Editor Version 5.00
+
+; Mouse settings for the demo guest, so one PS/2 count is one guest pixel with no pointer acceleration: the page can then predict the
+; guest pointer's position exactly (?cursor=local in try-reactos.js) and the pointer speed is set in one place, the page's ?speed.
+; ReactOS 0.4.16 ships with MouseSpeed 1 and thresholds 6 and 10 but did not accelerate in v86 when measured (a single count of 1 to 64
+; moved the pointer 1 to 64 pixels, and 16 counts of 2 moved it as far as one count of 32); these values make that explicit.
+; SmoothMouseXCurve and SmoothMouseYCurve are not set: ReactOS's win32k does not read them.
+;
+; (c) Copyright 2026 Liminal HQ, Scott Morris
+; SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[HKEY_CURRENT_USER\Control Panel\Mouse]
+"MouseSpeed"="0"
+"MouseThreshold1"="0"
+"MouseThreshold2"="0"
+"MouseSensitivity"="10"

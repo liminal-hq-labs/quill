@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+	Quill on ReactOS: a local experiment that boots ReactOS in v86, an x86 emulator in WebAssembly. Static, relative URLs only; the
+	disk and CD images are served by harness/serve.ts from /images/ and are never committed. Nothing here is published.
+
+	(c) Copyright 2026 Liminal HQ, Scott Morris
+	SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
+<html lang="en-CA">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Quill on ReactOS</title>
+		<meta name="description" content="Quill, a word processor written in Rust, running on ReactOS in an emulated PC inside your browser.">
+		<meta name="robots" content="noindex">
+		<meta name="color-scheme" content="light dark">
+		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
+		<link rel="stylesheet" href="../css/site.css">
+		<link rel="stylesheet" href="../css/try.css">
+		<link rel="stylesheet" href="try-reactos.css">
+		<script src="try-reactos.js" type="module"></script>
+	</head>
+	<body>
+		<main id="main">
+			<section class="section" aria-labelledby="title">
+				<div class="wrap">
+					<h1 id="title">Quill on ReactOS</h1>
+					<p class="lede">Quill is a small word processor written in Rust, and the same code runs on MS-DOS, Windows 3.1, Windows 9x and Linux. Here it runs on ReactOS, an open-source Windows, inside a PC that is emulated in this tab. Type in the letter, change the fonts and try the menus.</p>
+					<p class="caption">A Liminal HQ Labs experiment, running only on this computer. Nothing is uploaded.</p>
+					<p id="nowasm" class="notice" role="alert" hidden>This browser can't run WebAssembly, which the emulator needs.</p>
+
+					<div class="player" data-player>
+						<div class="player-controls">
+							<button class="button" type="button" data-start aria-describedby="player-status">Start</button>
+							<button class="button button--alt" type="button" data-fullscreen disabled>Full screen</button>
+							<button class="button button--alt" type="button" data-reset disabled>Reset</button>
+							<button class="button button--alt" type="button" data-stop disabled>Stop</button>
+							<p class="player-status" id="player-status" role="status" aria-live="polite" data-status>Not started. The first start downloads about 16 MB, then the desktop is up in a second or two.</p>
+						</div>
+						<div class="stage stage--reactos" data-stage tabindex="0" aria-label="ReactOS running in an emulated PC">
+							<div class="screen" data-screen>
+								<div class="screen-text"></div>
+								<canvas class="screen-canvas"></canvas>
+							</div>
+							<svg class="local-cursor" data-local-cursor width="12" height="19" viewBox="0 0 12 19" aria-hidden="true" hidden><path d="M0.5 0.5V15.2L4.1 11.9L6.7 18L9 17L6.4 11H11.2Z" fill="#fff" stroke="#000" stroke-linejoin="round"/></svg>
+						</div>
+						<ul class="hint-list" data-hints>
+							<li>Select the screen to give it the keyboard and the mouse. Press <kbd>Esc</kbd> to let the mouse go.</li>
+							<li><strong>Full screen</strong> gives the biggest picture. Add <code>?scale=int</code> (whole-number sizes), <code>?scale=crisp</code> (sharp pixels) or <code>?scale=smooth</code> (smoothed) to the address to choose how the screen is scaled.</li>
+							<li>The <strong>Windows 3.x, slow</strong> icon runs inside WineVDM: that is emulation inside emulation, so it takes a few seconds to appear and types more slowly. The 32-bit build is the fast one.</li>
+							<li><strong>Reset</strong> loads the saved desktop again. Nothing you type is kept.</li>
+						</ul>
+					</div>
+
+					<details class="diag" data-diag>
+						<summary>Builder and diagnostics</summary>
+						<form class="diag-form" data-config autocomplete="off">
+							<label>RAM (MB) <input name="ram" type="number" min="32" max="2048" step="32" value="256"></label>
+							<label>VGA memory (MB) <input name="vga" type="number" min="2" max="64" value="8"></label>
+							<label>ACPI <input name="acpi" type="checkbox" checked></label>
+							<label>JIT <input name="jit" type="checkbox" checked></label>
+							<label>cpuid level <input name="cpuid" type="text" placeholder="default" size="6"></label>
+							<label>Boot order
+								<select name="boot">
+									<option value="auto">auto</option>
+									<option value="cd">CD, floppy, disk</option>
+									<option value="hd">disk, CD, floppy</option>
+								</select>
+							</label>
+							<label>Disk URL <input name="disk" type="text" placeholder="/images/disk.img" size="40"></label>
+							<label>Disk chunk (bytes, blank = whole file) <input name="chunk" type="text" placeholder="1048576" size="8"></label>
+							<label>CD URL <input name="cdrom" type="text" placeholder="/images/cd.iso" size="40"></label>
+							<label>State URL <input name="state" type="text" placeholder="/images/state.bin.zst" size="40"></label>
+							<label>Pointer speed <input name="speed" type="number" min="0.25" max="6" step="0.25" value="1.5" size="4"></label>
+							<label>Pointer lock
+								<select name="lock">
+									<option value="os">with the system's pointer settings</option>
+									<option value="raw">raw counts (no acceleration)</option>
+								</select>
+							</label>
+							<label>Cursor
+								<select name="cursor">
+									<option value="guest">drawn by the guest</option>
+									<option value="local">local overlay (predicted)</option>
+								</select>
+							</label>
+							<label>Run id <input name="run" type="text" size="14"></label>
+						</form>
+						<dl class="diag-readout" data-readout aria-live="off"></dl>
+						<p class="diag-buttons">
+							<button class="button button--alt" type="button" data-shot>Screenshot (PNG)</button>
+							<button class="button button--alt" type="button" data-save-state>Save state</button>
+						</p>
+					</details>
+				</div>
+			</section>
+		</main>
+	</body>
+</html>
