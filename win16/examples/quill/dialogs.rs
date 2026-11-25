@@ -591,6 +591,24 @@ fn save_current(owner: u32) -> bool {
 	!app().modified()
 }
 
+/// WM_QUERYENDSESSION: true when Windows may end the session. A document with unsaved work gets File > Exit's question; Save
+/// must work and Cancel stops the shutdown (`quill_app::session::end_session_allowed`, CORE-7).
+pub fn end_session_query(owner: u32) -> bool {
+	if !app().unsaved_work() {
+		return true;
+	}
+	let mut text = [0u8; 120];
+	let n = crate::confirm_text(Command::Exit, &mut text);
+	let answer = message(owner, &text[..n], MB_ICONQUESTION_YNC);
+	let saved = answer == quill_app::session::ANSWER_SAVE && save_current(owner);
+	let allowed = quill_app::session::end_session_allowed(true, answer, saved);
+	if !allowed {
+		// ReactOS goes on to shut down whatever the answer, so the text is copied aside before it is refused.
+		crate::write_recovery();
+	}
+	allowed
+}
+
 /// The 50-byte LOGFONT inside CHOOSEFONT.
 #[repr(C)]
 struct LogFont {

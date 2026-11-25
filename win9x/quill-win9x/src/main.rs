@@ -254,6 +254,8 @@ struct Shell {
 	bar_info: [Option<(i32, u32, i32)>; 2],
 	/// The title the window has now.
 	title: Vec<u8>,
+	/// A shutdown block reason is set on the window (Windows Vista and later), because the document has unsaved work.
+	blocked: bool,
 }
 
 /// An off-screen bitmap, and the memory device context that holds it, the size of the window's client area.
@@ -595,7 +597,29 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			}
 			0
 		}
+		0x0011 => {
+			// WM_QUERYENDSESSION: Windows is about to log off or shut down. A modified document asks like File > Exit; a cancel or a
+			// failed save answers FALSE, which stops the shutdown.
+			match shell() {
+				Some(sh) if !sh.grid => isize::from(end_session_query(hwnd, sh)),
+				_ => 1,
+			}
+		}
+		0x0016 => {
+			// WM_ENDSESSION: when wParam is TRUE the session really ends, so no more questions: a copy of the unsaved text goes aside.
+			if wparam != 0 {
+				if let Some(sh) = shell() {
+					if !sh.grid {
+						write_recovery(sh);
+					}
+				}
+			}
+			0
+		}
 		WM_DESTROY => {
+			if let Some(sh) = shell() {
+				dialogs::shutdown_block(hwnd, sh, false);
+			}
 			if let Some(sh) = shell() {
 				if !sh.grid {
 					ui::ini_save(sh);
@@ -987,6 +1011,50 @@ unsafe fn save_current(hwnd: Handle, sh: &mut Shell) -> bool {
 	}
 	sh.app.command(&mut sh.store, &mut sh.files, Command::Save);
 	!sh.app.modified()
+}
+
+/// WM_QUERYENDSESSION: true when Windows may end the session (`quill_app::session::end_session_allowed`, CORE-7).
+unsafe fn end_session_query(hwnd: Handle, sh: &mut Shell) -> bool {
+	if !sh.app.unsaved_work() {
+		return true;
+	}
+	let name = sh.app.name().to_vec();
+	let answer = dialogs::confirm_save(hwnd, &name, Command::Exit) as u32;
+	let saved = answer == quill_app::session::ANSWER_SAVE && save_current(hwnd, sh);
+	if saved {
+		retitle(hwnd, sh);
+	}
+	let allowed = quill_app::session::end_session_allowed(true, answer, saved);
+	if !allowed {
+		// ReactOS goes on to shut down whatever the answer, and sends no WM_ENDSESSION, so the text is copied aside before it is refused.
+		write_recovery(sh);
+	}
+	allowed
+}
+
+/// Writes the document to QUILL.RCV beside the program, or in the temporary folder when that folder refuses it.
+unsafe fn write_recovery(sh: &mut Shell) {
+	if !sh.app.unsaved_work() {
+		return;
+	}
+	let mut path = [0u8; 300];
+	// SAFETY: `path` holds 300 bytes and the call is told 260.
+	let n = GetModuleFileNameA(null_mut(), path.as_mut_ptr(), 260) as usize;
+	let dir = path
+		.get(..n)
+		.and_then(|p| p.iter().rposition(|b| *b == b'\\'))
+		.map_or(0, |i| i + 1);
+	let name = b"QUILL.RCV";
+	path[dir..dir + name.len()].copy_from_slice(name);
+	if sh.app.save_recovery(&mut sh.store, &mut sh.files, &path[..dir + name.len()]) {
+		return;
+	}
+	if let Some(t) = dialogs::temp_dir(&mut path[..280]) {
+		if t + name.len() <= path.len() {
+			path[t..t + name.len()].copy_from_slice(name);
+			sh.app.save_recovery(&mut sh.store, &mut sh.files, &path[..t + name.len()]);
+		}
+	}
 }
 
 /// Opens QUILL.HLP (beside the program) in WinHelp at its contents.
@@ -1460,6 +1528,11 @@ unsafe fn sync_chrome(hwnd: Handle, sh: &mut Shell) {
 
 /// Puts the document's name in the title bar when it is not there already.
 unsafe fn retitle(hwnd: Handle, sh: &mut Shell) {
+	// Every command and key comes through here, so the shutdown block follows the dirty flag; it calls only when that changes.
+	let dirty = sh.app.unsaved_work();
+	if dirty != sh.blocked {
+		dialogs::shutdown_block(hwnd, sh, dirty);
+	}
 	let mut t = b"Quill - ".to_vec();
 	if sh.app.name().is_empty() {
 		t.extend_from_slice(b"(Untitled)");
@@ -2082,6 +2155,7 @@ pub extern "C" fn start() -> ! {
 		bar_placed: [None; 2],
 		bar_info: [None; 2],
 		title: Vec::new(),
+		blocked: false,
 	});
 	// SAFETY: single-threaded start-up; the boxes live for the whole process.
 	unsafe {

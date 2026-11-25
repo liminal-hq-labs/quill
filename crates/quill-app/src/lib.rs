@@ -33,6 +33,7 @@ pub mod recent;
 mod reflow;
 pub mod savename;
 pub mod script;
+pub mod session;
 mod spell_live;
 mod spelling;
 pub mod view;
