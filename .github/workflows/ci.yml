@@ -89,6 +89,28 @@ jobs:
       - name: Check the bundle name, the manifest and the page's versions
         run: bash scripts/check-try.sh
 
+  reactos-guest:
+    name: ReactOS demo scripts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install the render tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends librsvg2-bin imagemagick shellcheck
+
+      # The Afterglow pin, the fetch script (on a local tarball, no network) and the Quillify overlay (a synthetic wallpaper).
+      - name: Test the Afterglow pin, fetch and Quillify
+        run: python3 -I -m unittest discover -s site/try-reactos/guest -p 'test_afterglow.py'
+
+      - name: Check the guest scripts
+        run: shellcheck site/try-reactos/guest/fetch-afterglow.sh site/try-reactos/guest/prepare-afterglow.sh
+
   layers:
     name: Layers
     runs-on: ubuntu-24.04

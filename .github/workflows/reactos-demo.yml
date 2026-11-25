@@ -92,7 +92,7 @@ jobs:
       - name: Install the tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends qemu-system-x86 mtools xorriso zstd imagemagick librsvg2-bin curl unzip python3
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 mtools xorriso zstd imagemagick librsvg2-bin curl unzip python3 python3-numpy llvm lld
 
       # Hosted runners expose /dev/kvm to root only; this is the usual udev rule that opens it to everyone. Without it (a runner with no
       # nested virtualization) the build falls back to QEMU's software emulation, which the 300-minute limit allows but is far slower.
@@ -135,6 +135,9 @@ jobs:
       - name: Fetch v86
         run: bash site/try-reactos/tools/fetch-v86.sh
 
+      # The Afterglow theme is not committed: build-all.sh fetches the commit named in guest/afterglow.pin (checked by SHA-256), builds the
+      # ReactOS style from it with llvm-rc and lld-link (installed above) and puts the Quill emblem on its dusk wallpaper (guest/quillify.py).
+      # The style's hash is checked against the pin, so a toolchain that builds different bytes fails here. AFTERGLOW=0 would skip it.
       # install-golden.sh is skipped inside when the unpacked disk's stamp matches.
       - name: Build the demo image
         env:

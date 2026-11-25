@@ -10,6 +10,7 @@
 #   QUILL_ISO       CD, or a folder, with QUILL.EXE and QUILL32.EXE (the newest builds)
 #   DEMO_DIR        folder with DEMO.QLD, DEMO.RTF, DEMO16.QLD, DEMO16.RTF
 #   WALLPAPER_BMP   1024 x 768 BMP from make-wallpaper.sh
+# Optional: AFTERGLOW_DIR, the folder prepare-afterglow.sh writes (the Afterglow theme and its Quillified wallpaper); see below.
 # Needs mtools, xorriso, QEMU (KVM when available; ACCEL=tcg to force the slow path), python3 and ImageMagick. VMDIR (default ~/.cache/reactos/web/p2) holds
 # the VM's socket and serial log. BOOT_WAIT (seconds, default 60 with KVM and 400 without) is the wait for the guest's desktop before the first Run box.
 set -eu
@@ -40,6 +41,8 @@ mmd -i "$D" ::/Quill
 for f in "$VMDIR/stage/QUILL.EXE" "$VMDIR/stage/QUILL32.EXE" "$DEMO/DEMO.QLD" "$DEMO/DEMO.RTF" "$DEMO/DEMO16.QLD" "$DEMO/DEMO16.RTF" "$HERE/../demo/QUILL.HLP"; do
 	[ -f "$f" ] && mcopy -i "$D" "$f" "::/Quill/$(basename "$f")"
 done
+# With the Afterglow theme (below) the wallpaper is the Quillified one it ships with, not WALLPAPER_BMP.
+[ -n "${AFTERGLOW_DIR:-}" ] && [ -f "$AFTERGLOW_DIR/afterglow.msstyles" ] && [ -f "$AFTERGLOW_DIR/quill-wallpaper.bmp" ] && WALL=$AFTERGLOW_DIR/quill-wallpaper.bmp
 mcopy -i "$D" "$WALL" ::/ReactOS/Web/Wallpaper/Quill.bmp
 python3 -I "$HERE/make-lnk.py" "$VMDIR/lnk/Quill.lnk" 'C:\Quill\QUILL32.EXE' --args 'C:\Quill\DEMO.QLD' --cwd 'C:\Quill' --desc 'Quill, 32-bit build, opening the demo letter'
 python3 -I "$HERE/make-lnk.py" "$VMDIR/lnk/Quill16.lnk" 'C:\Quill\QUILL.EXE' --args 'C:\Quill\DEMO16.QLD' --cwd 'C:\Quill' --desc 'Quill, Windows 3.x build, opening the demo letter. Slow: WineVDM inside the emulator is emulation inside emulation' --show 1
@@ -55,9 +58,9 @@ cp "$HERE/apply-settings.cmd" "$VMDIR/cd/APPLY.CMD"
 cp "$HERE/polish/apply-mouse.cmd" "$VMDIR/cd/POLISH.CMD"
 for f in "$HERE"/polish/*.reg; do cp "$f" "$VMDIR/cd/PL_$(basename "$f" .reg | tr a-z A-Z).REG"; done
 # --- optional: the Afterglow theme ---
-# AFTERGLOW_DIR (default unset) is a folder of Afterglow release files from liminal-hq/afterglow-themes: `afterglow.msstyles` and any
-# `*.reg` files that select it. When it is unset or has no `afterglow.msstyles`, this step is skipped and the demo keeps ReactOS's
-# classic look with the Quill wallpaper.
+# AFTERGLOW_DIR (default unset) is a folder made by prepare-afterglow.sh from the pinned liminal-hq/afterglow-themes source:
+# `afterglow.msstyles`, the `*.reg` files that select it and, optionally, `quill-wallpaper.bmp` (used instead of WALLPAPER_BMP). When it is
+# unset or has no `afterglow.msstyles`, this step is skipped and the demo keeps ReactOS's classic look with the Quill wallpaper.
 if [ -n "${AFTERGLOW_DIR:-}" ] && [ -f "$AFTERGLOW_DIR/afterglow.msstyles" ]; then
 	echo "   Afterglow theme from $AFTERGLOW_DIR"
 	mmd -i "$D" ::/ReactOS/Resources/Themes/Afterglow 2>/dev/null || true

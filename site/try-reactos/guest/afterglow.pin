@@ -1,0 +1,16 @@
+# The Afterglow desktop theme source the demo image is built from. Read by fetch-afterglow.sh and prepare-afterglow.sh (plain KEY=VALUE).
+# To move to a newer Afterglow: set the commit, fetch once, and copy the two sums that fetch-afterglow.sh and prepare-afterglow.sh print.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+AFTERGLOW_REPO=liminal-hq/afterglow-themes
+# The commit that holds desktop/ (the ReactOS style, eight colour schemes) and the wallpapers. Not yet in a tag or release.
+AFTERGLOW_COMMIT=f861434dddc28f6cd55f76dcc7214f7c9ce50404
+# SHA-256 of the uncompressed tar that GitHub serves for that commit (not of the .tar.gz: GitHub may recompress an archive).
+AFTERGLOW_TAR_SHA256=cabb91173570d94f24629bce835ebecc93b1e856b260c69bcfbde5dcd1cbb539
+# SHA-256 of the default build of desktop/style/build.sh (classic scroll bars), as recorded in desktop/SHA256SUMS at that commit.
+AFTERGLOW_MSSTYLES_SHA256=2a40fecc9ccaa054f6725d3626cd37e513f2413f9d385c9702dc3b0b9a03902d
+# The wallpaper the Quill overlay goes on, and the colour scheme the apply file selects.
+AFTERGLOW_WALLPAPER=assets/wallpapers/afterglow-dusk-dark-stepped.svg
+AFTERGLOW_APPLY_REG=desktop/install/afterglow-original.reg
