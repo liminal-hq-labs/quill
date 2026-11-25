@@ -7,6 +7,7 @@
 //! ANSI or UTF-8. This crate holds every table those conversions need, in one place, with no allocation,
 //! no floating point and no panics.
 //!
+//! - [`codepage`]: the Windows code pages 1250, 1251, 1253, 1254 and 1257 (and 1252) to Unicode, for RTF's `\ansicpg` and `\fcharset`.
 //! - [`cp1252`]: a Windows-1252 byte to a Unicode character and back.
 //! - [`cp437`]: a CP437 byte to a Unicode character, and between CP437 and Windows-1252 bytes.
 //! - [`utf8`]: reading text as UTF-8 when it is valid and as Windows-1252 otherwise, and writing UTF-8.
@@ -22,6 +23,9 @@
 	clippy::todo
 )]
 
+pub mod codepage;
 pub mod cp1252;
 pub mod cp437;
 pub mod utf8;
+
+mod cpdata;

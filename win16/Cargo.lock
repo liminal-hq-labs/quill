@@ -18,12 +18,16 @@ dependencies = [
 [[package]]
 name = "quill-core"
 version = "0.0.0"
+dependencies = [
+ "quill-text",
+]
 
 [[package]]
 name = "quill-formats"
 version = "0.0.0"
 dependencies = [
  "quill-core",
+ "quill-text",
 ]
 
 [[package]]
@@ -58,6 +62,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-text"
+version = "0.0.0"
+
+[[package]]
 name = "quill-win16-rt"
 version = "0.0.0"
 dependencies = [
@@ -67,4 +75,5 @@ dependencies = [
  "quill-grid",
  "quill-image",
  "quill-inflate",
+ "quill-text",
 ]

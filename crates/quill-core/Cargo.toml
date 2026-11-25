@@ -6,6 +6,9 @@ license.workspace = true
 publish.workspace = true
 description = "Quill's document, piece table, undo and layout: no_std, no alloc, no floats"
 
+[dependencies]
+quill-text = { path = "../quill-text" }
+
 [dev-dependencies]
 quill-host = { path = "../quill-host" }
 proptest = { version = "1", default-features = false, features = ["std"] }
