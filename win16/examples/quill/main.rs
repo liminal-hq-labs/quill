@@ -24,6 +24,7 @@ mod tips;
 use core::mem::MaybeUninit;
 use gdi::{Gdi16, QApp, Rect16, np};
 use quill_app::accel::{self, Accel};
+use quill_app::cmdline;
 use quill_app::view::{self, Act, Hit};
 use quill_app::{Command, Dir, Files, Key, Scheme};
 use quill_formats::io::{Sink, Source};
@@ -1725,9 +1726,10 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		}
 		unsafe { USE_HERE = false };
 	}
-	let mut play_file: Option<([u8; 32], usize)> = None;
-	let mut dump_file: Option<([u8; 32], usize)> = None;
-	let mut open: Option<([u8; 32], usize)> = None;
+	// Each name is a range of `cmd`, so a long path costs no more than two numbers.
+	let mut play_file: Option<(usize, usize)> = None;
+	let mut dump_file: Option<(usize, usize)> = None;
+	let mut open: Option<(usize, usize)> = None;
 	let mut mono = false;
 	// `/EXIT [SECONDS]` closes the window, and ends Windows, after a while (for a test harness that reads the logs).
 	let mut exit_after: Option<u32> = None;
@@ -1736,34 +1738,30 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		&& cmd[..n]
 			.windows(8)
 			.any(|w| w.eq_ignore_ascii_case(b"/BADSLOT"));
-	let mut words = cmd[..n].split(|b| *b == b' ').filter(|w| !w.is_empty());
-	let take = |w: Option<&[u8]>| {
-		let w = w?;
-		let mut b = [0u8; 32];
-		let m = w.len().min(32);
-		b[..m].copy_from_slice(&w[..m]);
-		Some((b, m))
-	};
 	#[cfg(feature = "bench")]
-	let mut bench_file: Option<([u8; 32], usize)> = None;
-	while let Some(w) = words.next() {
+	let mut bench_file: Option<(usize, usize)> = None;
+	let mut at = 0;
+	while let Some((s, e)) = cmdline::next_word(&cmd[..n], &mut at) {
+		let w = &cmd[s..e];
 		#[cfg(feature = "bench")]
 		{
 			// `/BENCH SCRIPT.TXT [/END]` runs the paint benchmark (bench.rs); `/END` then ends Windows.
 			if w.eq_ignore_ascii_case(b"/BENCH") {
-				bench_file = take(words.next());
+				bench_file = cmdline::next_word(&cmd[..n], &mut at);
 				continue;
 			}
 			if w.eq_ignore_ascii_case(b"/END") {
-				#[cfg(feature = "bench")]
 				bench::set_end();
 				continue;
 			}
 		}
-		if w.eq_ignore_ascii_case(b"/PLAY") {
-			play_file = take(words.next());
+		if !cmdline::is_switch(&cmd[..n], s) {
+			// A plain file name, quoted or not. A switch's value is taken with it below.
+			open = Some((s, e));
+		} else if w.eq_ignore_ascii_case(b"/PLAY") {
+			play_file = cmdline::next_word(&cmd[..n], &mut at);
 		} else if w.eq_ignore_ascii_case(b"/DUMP") {
-			dump_file = take(words.next());
+			dump_file = cmdline::next_word(&cmd[..n], &mut at);
 		} else if w.eq_ignore_ascii_case(b"/FAULT") {
 			// Logs the registers of a General Protection Fault to FAULT.LOG (a ToolHelp handler).
 			w16::fault::install();
@@ -1771,8 +1769,6 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 			mono = true;
 		} else if w.eq_ignore_ascii_case(b"/EXIT") {
 			exit_after = Some(20);
-		} else if w[0] != b'/' {
-			open = take(Some(w));
 		}
 	}
 	let gridview = play_file.is_some();
@@ -1806,31 +1802,30 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		"Windows 3.x, Win16"
 	});
 	let mut script = None;
-	if let Some((name, len)) = &play_file {
-		if let Some((text, tlen, o, ol)) = load_script(&name[..*len]) {
+	// The file a script names with `@open` wins over one on the command line.
+	let mut script_open = ([0u8; 32], 0usize);
+	if let Some((s, e)) = play_file {
+		if let Some((text, tlen, o, ol)) = load_script(&cmd[s..e]) {
 			script = Some((text, tlen));
-			if ol > 0 {
-				open = Some((o, ol));
-			}
+			script_open = (o, ol);
 		}
 	}
 	#[cfg(feature = "bench")]
-	if let Some((name, len)) = &bench_file {
-		if let Some((text, tlen, o, ol)) = load_script(&name[..*len]) {
-			#[cfg(feature = "bench")]
+	if let Some((s, e)) = bench_file {
+		if let Some((text, tlen, o, ol)) = load_script(&cmd[s..e]) {
 			bench::set_script(text, tlen);
-			if ol > 0 {
-				open = Some((o, ol));
-			}
+			script_open = (o, ol);
 		}
 	}
-	if let Some((name, len)) = &open {
-		open_file(&name[..*len]);
+	if script_open.1 > 0 {
+		open_file(&script_open.0[..script_open.1]);
+	} else if let Some((s, e)) = open {
+		open_file(&cmd[s..e]);
 	}
 	unsafe {
-		if let (Some((name, len)), true) = (&dump_file, gridview) {
+		if let (Some((s, e)), true) = (dump_file, gridview) {
 			let mut buf = [0u8; 128];
-			c_name(&name[..*len], &mut buf);
+			c_name(&cmd[s..e], &mut buf);
 			let out = _lcreat(buf.as_ptr() as u32, 0);
 			if let Some((text, tlen)) = script {
 				PLAY = Some(Play {

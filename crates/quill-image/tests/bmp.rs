@@ -109,6 +109,61 @@ fn every_depth_and_direction_round_trips() {
 	}
 }
 
+/// An 8-bit bitmap as other writers make it: a palette of `ncol` entries (`biClrUsed` set to `used`), then the rows `idx`, bottom-up,
+/// each padded to four bytes.
+fn eight_bit(w: usize, idx: &[Vec<u8>], ncol: usize, used: u32) -> Vec<u8> {
+	let row_bytes = w.div_ceil(4) * 4;
+	let data_at = 14 + 40 + ncol * 4;
+	let mut out = b"BM".to_vec();
+	out.extend_from_slice(&((data_at + row_bytes * idx.len()) as u32).to_le_bytes());
+	out.extend_from_slice(&[0; 4]);
+	out.extend_from_slice(&(data_at as u32).to_le_bytes());
+	out.extend_from_slice(&40u32.to_le_bytes());
+	out.extend_from_slice(&(w as i32).to_le_bytes());
+	out.extend_from_slice(&(idx.len() as i32).to_le_bytes());
+	out.extend_from_slice(&1u16.to_le_bytes());
+	out.extend_from_slice(&8u16.to_le_bytes());
+	out.extend_from_slice(&[0; 16]);
+	out.extend_from_slice(&used.to_le_bytes());
+	out.extend_from_slice(&[0; 4]);
+	for i in 0..ncol {
+		out.extend_from_slice(&[i as u8, 0, 255 - i as u8, 0]);
+	}
+	for r in idx.iter().rev() {
+		let mut b = r.clone();
+		b.resize(row_bytes, 0);
+		out.extend_from_slice(&b);
+	}
+	out
+}
+
+#[test]
+fn eight_bit_pictures_with_a_short_or_overrun_palette_still_decode() {
+	// `biClrUsed` 16, indices into it and one past it: the stray index is black, and the picture is not refused.
+	let idx = vec![vec![0u8, 1, 15, 16, 200], vec![15, 15, 0, 0, 255]];
+	let (w, h, rows) = decode(&eight_bit(5, &idx, 16, 16)).unwrap();
+	assert_eq!((w, h), (5, 2));
+	let px = |i: u8| -> [u8; 3] {
+		if i < 16 {
+			[255 - i, 0, i]
+		} else {
+			[0; 3]
+		}
+	};
+	for (y, row) in idx.iter().enumerate() {
+		let want: Vec<u8> = row.iter().flat_map(|i| px(*i)).collect();
+		assert_eq!(rows[y], want, "row {y}");
+	}
+	// The same table with `biClrUsed` 0: the file header's pixel offset says the table has 16 entries, not 256.
+	let (_, _, rows) = decode(&eight_bit(5, &idx, 16, 0)).unwrap();
+	let want: Vec<u8> = idx[0].iter().flat_map(|i| px(*i)).collect();
+	assert_eq!(rows[0], want);
+	// A full table of 256 entries, as an 8-bit picture normally has, is read whole.
+	let full = vec![vec![0u8, 128, 255]];
+	let (_, _, rows) = decode(&eight_bit(3, &full, 256, 0)).unwrap();
+	assert_eq!(rows[0], vec![255, 0, 0, 127, 0, 128, 0, 0, 255]);
+}
+
 #[test]
 fn rle_and_other_depths_are_refused_and_big_pictures_too() {
 	let img = image(4, 4, &[[1, 2, 3], [4, 5, 6]], 0);
