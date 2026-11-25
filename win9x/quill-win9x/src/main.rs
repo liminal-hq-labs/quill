@@ -958,7 +958,20 @@ unsafe fn file_dialog(hwnd: Handle, sh: &mut Shell, kind: FileKind) -> Option<Ve
 	if ok == 0 {
 		return None;
 	}
-	let n = file.iter().position(|b| *b == 0).unwrap_or(0);
+	let mut n = file.iter().position(|b| *b == 0).unwrap_or(0);
+	if kind == FileKind::Save {
+		// The dialog adds the default extension itself, but a name that reaches here without one gets the chosen type's, and the
+		// overwrite prompt then asks about the name that will be written.
+		let typed = n;
+		n = quill_app::savename::complete_name(&mut file, n, ofn.filter_index);
+		if n != typed
+			&& file.get(..n).is_some_and(|f| sh.files.open(f).is_some())
+			// MB_YESNO | MB_ICONQUESTION
+			&& MessageBoxA(hwnd, b"That file already exists. Replace it?\0".as_ptr(), b"Quill\0".as_ptr(), 0x24) != 6
+		{
+			return None;
+		}
+	}
 	let path = file.get(..n).map(|f| f.to_vec())?;
 	sh.app.remember_folder(&path);
 	Some(path)

@@ -30,6 +30,7 @@ mod pointer;
 mod print;
 pub mod recent;
 mod reflow;
+pub mod savename;
 pub mod script;
 mod spell_live;
 mod spelling;
