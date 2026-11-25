@@ -102,7 +102,7 @@ jobs:
       - name: Install the render tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends librsvg2-bin imagemagick shellcheck
+          sudo apt-get install -y --no-install-recommends librsvg2-bin imagemagick shellcheck python3-numpy python3-pil
 
       # The Afterglow pin, the fetch script (on a local tarball, no network) and the Quillify overlay (a synthetic wallpaper).
       - name: Test the Afterglow pin, fetch and Quillify
