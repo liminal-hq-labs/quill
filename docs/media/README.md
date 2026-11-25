@@ -49,5 +49,7 @@ Real captures from Quill running on its target systems, small PNGs at native siz
 | `help-f1-win16-w311.png` | F1 in the Win16 `QUILL.EXE` on Windows for Workgroups 3.11: Help > Contents opens `QUILL.HLP` in the real WinHelp. | `QUILL.EXE` in DOSBox-X, `/PLAY` with the key `f1` |
 
 More arrive with the milestones: Windows 3.11 (from M5), the real GDI page (from M3's later half), print preview and the Win16 chrome.
-| `try-page-js-dos.png` | The Try Quill page with the player running Quill's graphics mode on FreeDOS, after a line was typed through the page's keyboard. | `site/try/` served locally, in headless Chromium (js-dos 8.5.3) |
+| `try-page-js-dos.png` | The Try Quill page with the display choices, the buttons and the player running Quill's 256-colour graphics mode on FreeDOS, the demo document open. | `site/try/` served locally, in headless Chromium (js-dos 8.5.3) |
 | `try-text-menu-js-dos.png` | Quill's DOS text mode in the page with its File menu open, one second after F10. | `site/try/` served locally, in headless Chromium, keys sent through the page |
+| `try-graphics-mouse-menu-js-dos.png` | Quill's graphics mode in the page with the Edit menu open and the pointer on it: the mouse, CuteMouse and the captured pointer working together. | Headed Chromium on a private Xvfb display, `xdotool` for the click (pointer lock needs real X events) |
+| `try-page-phone-js-dos.png` | The Try Quill page at 360 by 780 pixels with a device scale factor of 2.8 (shown at half size): the display choices, Restart and Full screen, the screen filling the width and the pointer speed slider above the row of on-screen keys. | `site/try/` in headless Chromium with a phone profile and touch |

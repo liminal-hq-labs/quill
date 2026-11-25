@@ -112,7 +112,7 @@
 					<div>
 						<h2 id="what-title">A word processor for the PCs of the 1990s</h2>
 						<p>The everyday things are here: fonts and sizes, bold, italic and underline, text colour, tab stops with dot leaders, lists, headers and footers with page numbers, find and replace, and a spelling checker that knows Canadian English. Quill saves its own <code>.QLD</code> files and RTF.</p>
-						<p>It comes as separate programs for separate machines. <code>QUILLDOS.EXE</code> runs on DOS in text mode; a graphics mode with real fonts is being built. <code>QUILL.EXE</code> targets Windows 3.1 and 3.11 and has a native interface with a menu bar, toolbars, a ruler, the system's common dialogs and a WinHelp help file. <code>QUILL32.EXE</code> targets Windows 95, 98 and Me, and has run on 95 and Me. They share one Rust core, so they read and write the same files with the same code.</p>
+						<p>It comes as separate programs for separate machines. <code>QUILLDOS.EXE</code> runs on DOS in text mode, and in graphics modes with real fonts, a toolbar, dialogs and a mouse. <code>QUILL.EXE</code> targets Windows 3.1 and 3.11 and has a native interface with a menu bar, toolbars, a ruler, the system's common dialogs and a WinHelp help file. <code>QUILL32.EXE</code> targets Windows 95, 98 and Me, and has run on 95 and Me. They share one Rust core, so they read and write the same files with the same code.</p>
 						<p>On Linux, <code>quill-tty</code> draws the DOS text screen in a terminal, and the <code>quill</code> command converts and inspects documents (<code>cat</code>, <code>convert</code> and <code>info</code>).</p>
 						<p>The programs are small. As built today, <code>QUILLDOS.EXE</code> is 224 KB with its DPMI host inside it, <code>QUILL.EXE</code> is 326 KB and <code>QUILL32.EXE</code> is 370 KB. The Canadian English dictionary adds 293 KB, so the largest program and its dictionary come to about 663 KB. Any one of them would fit on a 1.44 MB floppy; a built disk image is planned.</p>
 					</div>
@@ -133,8 +133,8 @@
 						<ul class="gallery">
 							<li>
 								<figure class="shot">
-									<a class="shot-button" href="img/shots/dos-letter.png" data-shot="dos"><img src="img/shots/dos-letter.png" width="720" height="400" loading="lazy" alt="Quill for DOS showing a letter in blue text mode, with coloured formatting and a price list with dot leaders."></a>
-									<figcaption>The test letter in text mode. Bold shows as bright white, italic as cyan, underline as magenta, and the price list keeps its dot leaders. Code page 437 has no curly quotes, so they show as shaded blocks. <span class="where">QUILLDOS.EXE LETTER.RTF in DOSBox-X</span></figcaption>
+									<a class="shot-button" href="img/shots/dos-letter.png" data-shot="dos"><img src="img/shots/dos-letter.png" width="720" height="400" loading="lazy" alt="Quill for DOS in blue text mode showing the demo document: a shaded box where the picture is, a title, a paragraph, a tab-aligned Runs on line and a bulleted list, in white, grey and cyan."></a>
+									<figcaption>The demo document in text mode. Bold shows as bright white and a picture as a shaded placeholder box; code page 437 has no &rsaquo;, so it shows as a shaded block. <span class="where">QUILLDOS.EXE /T in js-dos on FreeDOS 1.3</span></figcaption>
 								</figure>
 							</li>
 							<li>

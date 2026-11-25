@@ -12,3 +12,7 @@ https://github.com/liminal-hq-labs/quill. It carries CWSDPMI, Charles W. Sandman
 You have the right to receive the source code of CWSDPMI and updates to it: the source is
 at https://www.delorie.com/pub/djgpp/current/v2misc/csdpmi7s.zip. QUILL\QUILL.FNT is drawn from the Desk
 fonts, under the SIL Open Font Licence 1.1 (QUILL\OFL.TXT). QUILL\EN_CA.DIC is made from SCOWL.
+
+QUILL\CTMOUSE.EXE is CuteMouse 2.1 beta 4, FreeDOS's mouse driver, exactly as the FreeDOS 1.3 package repository
+ships it, under the GNU General Public Licence, version 2. Its package, which holds its source, is at
+https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/repositories/1.3/base/ctmouse.zip.

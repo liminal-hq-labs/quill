@@ -11,7 +11,7 @@
 #
 # mtools makes the file system. The boot sector keeps the BIOS parameter block mtools wrote and takes its jump and code from FreeDOS,
 # as FreeDOS's own SYS command would. The volume serial number is fixed and every file carries the same time, so the same inputs give
-# the same files (folders are stamped when they are made). A floppy is used, not a hard disk, because DOSBox boots one without a
+# the same files (the time of every directory entry, folders and the volume label too, is rewritten at the end, whatever mtools stamped). A floppy is used, not a hard disk, because DOSBox boots one without a
 # partition table and loads FreeDOS's boot sector as a BIOS would. Needs mformat, mcopy and mmd from mtools.
 
 import os
@@ -33,7 +33,10 @@ def main():
 	def run(*args):
 		subprocess.run(args, check=True, env=env)
 
-	run("mformat", "-C", "-f", str(KIB), "-i", out, "-N", SERIAL, "-v", "QUILL", "::")
+	# A zeroed file first, not mformat -C: some mtools versions leave stray bytes in the last sector of the image they create.
+	with open(out, "wb") as f:
+		f.write(bytes(KIB * 1024))
+	run("mformat", "-f", str(KIB), "-i", out, "-N", SERIAL, "-v", "QUILL", "::")
 
 	# The FreeDOS boot code replaces mtools': keep the jump and the BIOS parameter block (bytes 3 to 61) and take the rest of the sector.
 	with open(fd_boot, "rb") as f:
@@ -64,6 +67,56 @@ def main():
 			source = os.path.join(root, name)
 			os.utime(source, (STAMP, STAMP))
 			run("mcopy", "-m", "-i", out, source, dest)
+
+	set_times(out)
+
+
+def set_times(image):
+	"""Gives every directory entry the same creation, access and modification time, so that two builds of the same files are the same bytes."""
+	date = ((2026 - 1980) << 9) | (1 << 5) | 1  # 2026-01-01, as STAMP
+	with open(image, "r+b") as f:
+		data = bytearray(f.read())
+	bps = int.from_bytes(data[11:13], "little")
+	spc = data[13]
+	reserved = int.from_bytes(data[14:16], "little")
+	fats = data[16]
+	root_entries = int.from_bytes(data[17:19], "little")
+	per_fat = int.from_bytes(data[22:24], "little")
+	fat = data[reserved * bps : (reserved + per_fat) * bps]
+	root = (reserved + fats * per_fat) * bps
+	root_size = root_entries * 32
+	data_start = root + root_size
+
+	def next_cluster(c):
+		v = int.from_bytes(fat[c * 3 // 2 : c * 3 // 2 + 2], "little")
+		return (v >> 4) if c & 1 else (v & 0xFFF)
+
+	def stamp(start, size):
+		"""Stamps the entries in data[start:start + size], returning the clusters of the folders among them."""
+		folders = []
+		for off in range(start, start + size, 32):
+			if data[off] == 0:
+				break
+			if data[off] == 0xE5:
+				continue
+			data[off + 13] = 0
+			data[off + 14 : off + 16] = (0).to_bytes(2, "little")
+			for field in (16, 18, 24):
+				data[off + field : off + field + 2] = date.to_bytes(2, "little")
+			data[off + 22 : off + 24] = (0).to_bytes(2, "little")
+			if data[off + 11] & 0x10 and data[off] != 0x2E:
+				folders.append(int.from_bytes(data[off + 26 : off + 28], "little"))
+		return folders
+
+	pending = stamp(root, root_size)
+	while pending:
+		cluster = pending.pop()
+		while 2 <= cluster < 0xFF8:
+			start = data_start + (cluster - 2) * spc * bps
+			pending += stamp(start, spc * bps)
+			cluster = next_cluster(cluster)
+	with open(image, "wb") as f:
+		f.write(data)
 
 
 if __name__ == "__main__":

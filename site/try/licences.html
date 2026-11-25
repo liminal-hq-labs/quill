@@ -70,7 +70,7 @@
 				<div class="wrap">
 					<p class="breadcrumb"><a href="./">&larr; Back to Try Quill</a></p>
 					<h1 id="title">Licences and sources</h1>
-					<p class="lede">The Try Quill page runs four separate pieces of software. Each keeps its own licence, and the source of each is public.</p>
+					<p class="lede">The Try Quill page runs five separate pieces of software. Each keeps its own licence, and the source of each is public.</p>
 				</div>
 			</section>
 
@@ -91,6 +91,11 @@
 								<th scope="row">FreeDOS 1.3: the kernel (<code>KERNEL.SYS</code>, build 2043) and FreeCOM (<code>COMMAND.COM</code>)</th>
 								<td>GNU General Public Licence, version 2 or later. Both are exactly as FreeDOS 1.3 ships them.</td>
 								<td><a href="https://github.com/FDOS/kernel">github.com/FDOS/kernel</a>, <a href="https://github.com/FDOS/freecom">github.com/FDOS/freecom</a>, and <a href="https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/distributions/1.3/official/">the FreeDOS 1.3 distribution</a></td>
+							</tr>
+							<tr>
+								<th scope="row">CuteMouse 2.1 beta 4 (<code>QUILL\CTMOUSE.EXE</code>), the mouse driver, exactly as FreeDOS 1.3's package repository ships it</th>
+								<td>GNU General Public Licence, version 2. Nagy Daniel and others.</td>
+								<td><a href="https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/repositories/1.3/base/ctmouse.zip">ctmouse.zip</a> (the package holds the source)</td>
 							</tr>
 							<tr>
 								<th scope="row">CWSDPMI, the DPMI host inside <code>QUILLDOS.EXE</code></th>
@@ -114,7 +119,7 @@
 							</tr>
 						</tbody>
 					</table>
-					<p>The disk is a repeatable build, not a download: <code>scripts/build-try.sh</code> in the repository fetches the FreeDOS 1.3 floppy edition from a pinned address, checks it against a pinned SHA-256 sum, takes the kernel, the shell and the boot sector from its boot floppy without changing them, and adds Quill's files and a short <code>FDCONFIG.SYS</code>, <code>AUTOEXEC.BAT</code> and <code>QUILLG.BAT</code>. The GitHub Pages workflow runs it on every publish, so the disk on this site is always built from the source in the repository. Inside the PC, <code>FREEDOS.TXT</code> says the same.</p>
+					<p>The disk is a repeatable build, not a download: <code>scripts/build-try.sh</code> in the repository fetches the FreeDOS 1.3 floppy edition from a pinned address, checks it against a pinned SHA-256 sum, takes the kernel, the shell and the boot sector from its boot floppy without changing them, and fetches CuteMouse the same way, and adds Quill's files and a short <code>FDCONFIG.SYS</code> and one batch file for each display. The GitHub Pages workflow runs it on every publish, so the disk on this site is always built from the source in the repository. Inside the PC, <code>FREEDOS.TXT</code> says the same.</p>
 					<p>FreeDOS is a trademark or project name of its community; this page is not affiliated with the FreeDOS Project. js-dos and DOSBox belong to their authors.</p>
 					<p><a class="button button--alt" href="./">Back to Try Quill</a></p>
 				</div>
