@@ -65,6 +65,13 @@ impl Mapping {
 		(d(w), d(h))
 	}
 
+	/// The document pixel (rounded down) under a device pixel of the view: the inverse of [`Mapping::dev`] for a point.
+	pub fn to_doc(self, dev: i32) -> i32 {
+		let num = i64::from(dev) * 12_000;
+		let den = i64::from(self.scale_120) * i64::from(self.zoom_pct);
+		num.div_euclid(den.max(1)) as i32
+	}
+
 	/// The display scale as a number.
 	pub fn display_scale(self) -> f64 {
 		f64::from(self.scale_120) / 120.0
@@ -311,6 +318,33 @@ impl View {
 		page_x0(self.visible().0, self.geom.page_w, self.x)
 	}
 
+	/// Scrolls the least that brings a caret into view. `view_x` is the caret's left edge in document pixels from the view's left,
+	/// `content_y` its top in document pixels from the top of the content, and `h` its height. A margin of a line is kept
+	/// around it, so a caret that was just off the edge is not left against it. Returns true when the view moved.
+	pub fn reveal(&mut self, view_x: i32, content_y: i32, h: i32) -> bool {
+		const MARGIN: i32 = 24;
+		const TOP_SNAP: i32 = 120;
+		let (vw, vh) = self.visible();
+		let mut y = self.y;
+		if content_y < y {
+			// Near the top of the first sheet the view goes all the way up, so the paper's top edge shows.
+			y = if content_y - MARGIN < TOP_SNAP {
+				0
+			} else {
+				content_y - MARGIN
+			};
+		} else if content_y + h > y + vh {
+			y = content_y + h - vh + MARGIN;
+		}
+		let mut x = self.x;
+		if view_x < 8 {
+			x += view_x - MARGIN;
+		} else if view_x > vw - 8 {
+			x += view_x - vw + MARGIN;
+		}
+		self.scroll_to(x, y)
+	}
+
 	/// The sheets that are on screen. Each sheet is placed by `quill_app::view::page_x0`, so a page narrower than the window is
 	/// centred and a wider one scrolls from its padding.
 	pub fn slots(&self) -> Vec<Slot> {
@@ -415,6 +449,36 @@ mod tests {
 			..Geometry::default()
 		});
 		v
+	}
+
+	#[test]
+	fn a_device_pixel_maps_back_to_the_document_pixel_under_it() {
+		for (zoom, scale) in [(100, 120), (100, 180), (125, 150), (50, 240), (200, 120)] {
+			let m = Mapping::new(zoom, scale);
+			for px in [0, 1, 7, 100, 333, 1000] {
+				let dev = m.dev(px);
+				assert!((m.to_doc(dev) - px).abs() <= 1, "{zoom} {scale} {px}");
+			}
+		}
+	}
+
+	#[test]
+	fn revealing_a_caret_scrolls_the_least_and_keeps_a_margin() {
+		let mut v = View::new(Zoom::Percent(100));
+		v.set_viewport(800, 400, 120);
+		v.set_geometry(Geometry {
+			page_w: 816,
+			page_h: 1056,
+			pages: 2,
+		});
+		assert!(!v.reveal(100, 200, 20), "in view: nothing moves");
+		assert_eq!(v.scroll().1, 0);
+		assert!(v.reveal(100, 900, 20));
+		assert_eq!(v.scroll().1, 900 + 20 - 400 + 24);
+		assert!(v.reveal(100, 300, 20));
+		assert_eq!(v.scroll().1, 276);
+		assert!(v.reveal(100, 50, 20));
+		assert_eq!(v.scroll().1, 0, "near the top it goes all the way");
 	}
 
 	#[test]

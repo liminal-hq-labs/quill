@@ -17,11 +17,11 @@ use gtk::graphene;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 
-use quill_gtk::doc::{Document, Theme};
+use quill_gtk::doc::{Document, Overlay, Theme};
 use quill_gtk::view::{Mapping, View};
 
 /// What decides whether the texture on hand is still right.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Key {
 	revision: u64,
 	scroll: (i32, i32),
@@ -29,6 +29,7 @@ pub struct Key {
 	scale_120: u32,
 	device: (u32, u32),
 	dark: bool,
+	overlay: Overlay,
 }
 
 /// Where the texture sits, as `QuillPage::dump_texture` reports it.
@@ -88,6 +89,7 @@ mod imp {
 		pub view: RefCell<Option<Rc<RefCell<View>>>>,
 		pub cache: RefCell<Option<(Key, gdk::MemoryTexture)>>,
 		pub dark: Cell<bool>,
+		pub overlay: RefCell<Overlay>,
 		/// A scale to draw at whatever the surface says (for off-screen renders and tests).
 		pub scale_override: Cell<Option<u32>>,
 		/// The widget an off-screen render starts from, in place of the surface.
@@ -156,6 +158,7 @@ mod imp {
 					scale_120: v.scale_120(),
 					device: v.device(),
 					dark: self.dark.get(),
+					overlay: self.overlay.borrow().clone(),
 				};
 				(key, v.device())
 			};
@@ -163,10 +166,12 @@ mod imp {
 				return;
 			}
 			let mut cache = self.cache.borrow_mut();
-			if cache.as_ref().map(|(k, _)| *k) != Some(key) {
-				let buf = doc
-					.borrow_mut()
-					.render(&view.borrow(), Theme::of(self.dark.get()));
+			if cache.as_ref().map(|(k, _)| k) != Some(&key) {
+				let buf = doc.borrow_mut().render(
+					&view.borrow(),
+					Theme::of(self.dark.get()),
+					&key.overlay,
+				);
 				let bytes = glib::Bytes::from(buf.bytes());
 				let tex = gdk::MemoryTexture::new(
 					buf.width() as i32,
@@ -212,6 +217,14 @@ impl QuillPage {
 		page.imp().doc.replace(Some(doc));
 		page.imp().view.replace(Some(view));
 		page
+	}
+
+	/// Sets what is drawn over the sheets besides the text: the selection and caret, and any text being composed.
+	pub fn set_overlay(&self, overlay: Overlay) {
+		if *self.imp().overlay.borrow() != overlay {
+			self.imp().overlay.replace(overlay);
+			self.queue_draw();
+		}
 	}
 
 	/// Draws on a dark or a light desk.

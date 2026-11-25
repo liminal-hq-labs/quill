@@ -9,20 +9,24 @@
 
 use std::path::{Path, PathBuf};
 
+use quill_app::mouse::{Ctx, PageHit, Pointer, PointerTarget};
 use quill_app::picture::WINDOW;
-use quill_app::view::page_width;
-use quill_app::{App, Command, Dialog, Mark};
+use quill_app::view::{page_width, PAGE_GAP, PAGE_PAD, PAGE_TOP};
+use quill_app::{App, Command, Dialog, Key, Mark};
 use quill_core::doc::StoryKind;
 use quill_core::layout::{dump_story, to_units};
+use quill_core::store::ReadStore;
 use quill_fonts::{FontSet, MeasureGlyphs, OutlineMeasure};
 use quill_host::HostStore;
-use quill_paint::page::{paint_sheet, DESK};
+use quill_paint::page::{paint_sheet_editing, Editing, DESK};
 use quill_paint::pixel::{ByteOrder, PixelBuffer};
 use quill_paint::{Rect, Rgb, Surface};
 
+use crate::command::{self, Outcome, Typed};
 use crate::files::GuiFiles;
+use crate::keys::Mapped;
 use crate::names::{display_editor_name, display_name, heading, open_failure, subtitle, title};
-use crate::view::{Geometry, View, Zoom};
+use crate::view::{Geometry, Mapping, View, Zoom};
 
 /// The section of `QUILL.INI` that holds the recent files of a build with long names.
 const RECENT_SECTION: &str = "Recent32";
@@ -76,6 +80,85 @@ pub struct Document {
 	name: Option<String>,
 	revision: u64,
 	geometry: Geometry,
+	pointer: Pointer,
+	notice: Option<String>,
+}
+
+/// What an editing window draws over the sheets besides the text.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Overlay {
+	/// Show the selection and the caret (off for a viewer or while a dialog has the keyboard).
+	pub active: bool,
+	/// The caret's on phase.
+	pub caret: bool,
+	/// Text an input method is composing, in Windows-1252.
+	pub preedit: Vec<u8>,
+	/// The composing text's cursor, a byte offset into `preedit`.
+	pub preedit_cursor: usize,
+}
+
+/// Where the caret is in the view, in document pixels.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct CaretRect {
+	/// The left edge from the view's left.
+	pub view_x: i32,
+	/// The top from the top of the content (the scroll's own coordinates).
+	pub content_y: i32,
+	/// The height.
+	pub h: i32,
+}
+
+/// The status line's words for a character the document cannot hold.
+pub fn refusal(c: char) -> String {
+	format!("Quill keeps text in Windows-1252: {c}")
+}
+
+/// The page as a pointer space in device pixels of the view: what is under a point, found through the view's mapping.
+#[derive(Copy, Clone, Debug)]
+pub struct PixelTarget {
+	mapping: Mapping,
+	device: (u32, u32),
+	scroll_y: i32,
+	page_left: i32,
+	page_h: i32,
+}
+
+impl PixelTarget {
+	/// The target for a view as it is now.
+	pub fn of(view: &View) -> PixelTarget {
+		PixelTarget {
+			mapping: view.mapping(),
+			device: view.device(),
+			scroll_y: view.scroll().1,
+			page_left: view.page_left(),
+			page_h: view.geometry().page_h,
+		}
+	}
+}
+
+impl PointerTarget<OutlineMeasure> for PixelTarget {
+	fn page_hit<S: ReadStore + ?Sized>(
+		&self,
+		app: &App<OutlineMeasure>,
+		s: &S,
+		x: i32,
+		y: i32,
+	) -> Option<PageHit> {
+		if x < 0 || y < 0 || x >= self.device.0 as i32 || y >= self.device.1 as i32 {
+			return None;
+		}
+		let px = self.mapping.to_doc(x) - self.page_left;
+		let py = self.mapping.to_doc(y) + self.scroll_y - PAGE_TOP;
+		let margin = to_units(app.doc().page.margin_l, 96);
+		Some(PageHit {
+			pos: app.pos_at_point(s, px, py, self.page_h + PAGE_GAP),
+			margin: px < margin - 4 && px >= -PAGE_PAD,
+		})
+	}
+
+	fn slop(&self) -> i32 {
+		4
+	}
 }
 
 impl Document {
@@ -102,6 +185,8 @@ impl Document {
 			name: None,
 			revision: 0,
 			geometry: Geometry::default(),
+			pointer: Pointer::default(),
+			notice: None,
 		};
 		doc.geometry = doc.measure_geometry();
 		Ok(doc)
@@ -263,6 +348,141 @@ impl Document {
 		})
 	}
 
+	/// Turns the shell's own dialogs on or off. A test that replays the host's key scripts turns them off, so the editor's text
+	/// menus and prompts answer the keys as they do on the host.
+	pub fn set_native_dialogs(&mut self, on: bool) {
+		self.app.set_native_dialogs(on);
+	}
+
+	/// Does what a mapped key means (see `command::apply`), clearing the notice of the last refusal first and keeping a new one.
+	pub fn apply(&mut self, m: Mapped) -> Outcome {
+		self.notice = None;
+		let out = self.with(|app, s, f| command::apply(app, s, f, m));
+		if let Some(c) = out.typed.refused.last() {
+			self.notice = Some(refusal(*c));
+		}
+		out
+	}
+
+	/// Hands the editor a key of its own.
+	pub fn key(&mut self, k: Key) -> Option<Dialog> {
+		self.apply(Mapped::Edit(k)).dialog
+	}
+
+	/// Types a string as an input method commits it; what Windows-1252 cannot hold is refused with a notice naming it.
+	pub fn type_text(&mut self, text: &str) -> Typed {
+		self.notice = None;
+		let typed = self.with(|app, s, f| command::type_text(app, s, f, text));
+		if let Some(c) = typed.refused.last() {
+			self.notice = Some(refusal(*c));
+		}
+		typed
+	}
+
+	/// What the status line says besides the editor's own message: the refusal of the last typed character, until the next key.
+	pub fn notice(&self) -> Option<&str> {
+		self.notice.as_deref()
+	}
+
+	/// The selection, as an ordered range of positions.
+	pub fn selection(&self) -> Option<(u32, u32)> {
+		self.app.selection()
+	}
+
+	/// The caret's position.
+	pub fn caret(&self) -> u32 {
+		self.app.caret()
+	}
+
+	/// The text of the paragraph at the caret and the caret's byte offset in it, for an input method's surrounding text.
+	pub fn surrounding(&self) -> (String, usize) {
+		self.read(|app, s| {
+			let (lo, hi) = app.paragraph_range(s, app.caret());
+			let hi = hi.min(app.doc().body.len().saturating_sub(1));
+			let mut text = String::new();
+			let mut cursor = 0;
+			for p in lo..hi {
+				let b = app.doc().body.read_byte(s, p).unwrap_or(b' ');
+				if p == app.caret() {
+					cursor = text.len();
+				}
+				text.push(quill_tty::cp1252::decode(b));
+			}
+			if app.caret() >= hi {
+				cursor = text.len();
+			}
+			(text, cursor)
+		})
+	}
+
+	/// Deletes the characters an input method asked to remove around the caret: `offset` characters from it (negative is
+	/// before) and `n` of them. Only the two shapes a Backspace and a Delete make are honoured.
+	pub fn delete_surrounding(&mut self, offset: i32, n: u32) -> bool {
+		let key = if offset < 0 && i64::from(offset) + i64::from(n) == 0 {
+			Key::Backspace
+		} else if offset == 0 {
+			Key::Delete
+		} else {
+			return false;
+		};
+		self.with(|app, s, f| {
+			for _ in 0..n {
+				app.key(s, f, key);
+			}
+		});
+		true
+	}
+
+	/// Where the caret is in the view.
+	pub fn caret_rect(&self) -> Option<CaretRect> {
+		let stride = self.geometry.page_h + PAGE_GAP;
+		self.read(|app, s| {
+			app.point_of(s, app.caret(), stride)
+				.map(|(x, top, h)| CaretRect {
+					view_x: x,
+					content_y: PAGE_TOP + top,
+					h,
+				})
+		})
+	}
+
+	/// Scrolls the view the least that shows the caret. True when it moved.
+	pub fn reveal_caret(&self, view: &mut View) -> bool {
+		match self.caret_rect() {
+			Some(r) => view.reveal(view.page_left() + r.view_x, r.content_y, r.h),
+			None => false,
+		}
+	}
+
+	/// Hands the pointer an event in device pixels of the view. `shift` says whether Shift is held; `tick` is the clock in the
+	/// editor's double-click ticks (`quill_app::mouse::DOUBLE_TICKS` is the double-click time).
+	pub fn pointer(&mut self, view: &View, ev: quill_app::mouse::Ev, shift: bool, tick: u32) {
+		let target = PixelTarget::of(view);
+		let mut pointer = self.pointer;
+		self.notice = None;
+		self.with(|app, s, f| {
+			pointer.handle(app, s, f, &target, ev, Ctx { shift, tick });
+		});
+		self.pointer = pointer;
+	}
+
+	/// True when the point (device pixels of the view) is over a sheet, where the pointer is an I-beam.
+	pub fn over_sheet(&self, view: &View, x: i32, y: i32) -> bool {
+		let t = PixelTarget::of(view);
+		let (px, py) = (
+			t.mapping.to_doc(x) - t.page_left,
+			t.mapping.to_doc(y) + t.scroll_y,
+		);
+		let g = view.geometry();
+		let step = g.page_h + PAGE_GAP;
+		let off = py - PAGE_TOP;
+		x >= 0
+			&& y >= 0 && (0..g.page_w).contains(&px)
+			&& off >= 0
+			&& off.rem_euclid(step) < g.page_h
+			&& off / step < g.pages as i32
+	}
+
 	/// Runs a command and returns the dialog it asked for, if any.
 	pub fn command(&mut self, c: Command) -> Option<Dialog> {
 		self.with(|app, s, f| {
@@ -359,7 +579,7 @@ impl Document {
 	}
 
 	/// Draws the view: the desk, then every sheet that is on screen, into a buffer of exactly the view's device size.
-	pub fn render(&mut self, view: &View, theme: Theme) -> PixelBuffer {
+	pub fn render(&mut self, view: &View, theme: Theme, overlay: &Overlay) -> PixelBuffer {
 		let (dw, dh) = view.device();
 		let mut buf = PixelBuffer::new(dw.max(1), dh.max(1));
 		let (lw, lh) = view.visible();
@@ -371,8 +591,14 @@ impl Document {
 			MeasureGlyphs::new(&self.glyphs),
 		);
 		sf.fill_rect(area, theme.desk);
+		let edit = Editing {
+			active: overlay.active,
+			caret: overlay.caret,
+			preedit: &overlay.preedit,
+			preedit_cursor: overlay.preedit_cursor,
+		};
 		for s in view.slots() {
-			paint_sheet(
+			paint_sheet_editing(
 				&mut sf,
 				&self.app,
 				&mut self.layout,
@@ -383,6 +609,7 @@ impl Document {
 				pages,
 				area,
 				&mut self.window,
+				&edit,
 			);
 		}
 		drop(sf);

@@ -9,7 +9,7 @@
 use std::path::{Path, PathBuf};
 
 use quill_fonts::FontSet;
-use quill_gtk::doc::{Document, Theme};
+use quill_gtk::doc::{Document, Overlay, Theme};
 use quill_gtk::files::GuiFiles;
 use quill_gtk::view::{Geometry, View, Zoom};
 use quill_host::png::encode_rgb;
@@ -92,7 +92,7 @@ fn every_document_in_tests_docs_opens_and_draws() {
 		assert!(doc.geometry().pages >= 1);
 		for scale_120 in [120, 150, 180] {
 			let v = view_of(&doc, 640, 420, scale_120, 100);
-			let buf = doc.render(&v, Theme::LIGHT);
+			let buf = doc.render(&v, Theme::LIGHT, &Overlay::default());
 			let (dw, dh) = v.device();
 			assert_eq!(
 				(buf.width(), buf.height()),
@@ -153,8 +153,8 @@ fn a_page_draws_to_the_same_bytes_at_a_scale_of_one_and_of_one_and_a_half() {
 	doc.open(&docs("letter.rtf")).unwrap();
 	for (scale_120, file) in [(120, "1.00"), (180, "1.50")] {
 		let v = view_of(&doc, 640, 420, scale_120, 100);
-		let first = doc.render(&v, Theme::LIGHT);
-		let again = doc.render(&v, Theme::LIGHT);
+		let first = doc.render(&v, Theme::LIGHT, &Overlay::default());
+		let again = doc.render(&v, Theme::LIGHT, &Overlay::default());
 		assert!(first.bytes() == again.bytes());
 		let (w, h) = (first.width(), first.height());
 		compare_bytes(
@@ -170,7 +170,7 @@ fn a_zoomed_page_on_a_dark_desk_keeps_white_paper() {
 	let mut doc = document(cfg.path());
 	doc.open(&docs("lists.rtf")).unwrap();
 	let v = view_of(&doc, 640, 420, 150, 125);
-	let buf = doc.render(&v, Theme::DARK);
+	let buf = doc.render(&v, Theme::DARK, &Overlay::default());
 	let px = buf.bytes();
 	assert_eq!(&px[..4], &[46, 46, 50, 255], "the corner is the dark desk");
 	let mid = ((buf.height() / 2) * buf.width() + buf.width() / 2) as usize * 4;
@@ -194,10 +194,16 @@ fn scrolling_to_the_next_sheet_draws_it_and_changes_the_pixels() {
 	let g: Geometry = doc.geometry();
 	assert!(g.pages >= 2, "print3.rtf has {} sheets", g.pages);
 	let mut v = view_of(&doc, 640, 420, 120, 100);
-	let top = doc.render(&v, Theme::LIGHT).bytes().to_vec();
+	let top = doc
+		.render(&v, Theme::LIGHT, &Overlay::default())
+		.bytes()
+		.to_vec();
 	v.scroll_to(0, g.page_top(1) - 300);
 	assert_eq!(v.current_page(), 1);
-	let second = doc.render(&v, Theme::LIGHT).bytes().to_vec();
+	let second = doc
+		.render(&v, Theme::LIGHT, &Overlay::default())
+		.bytes()
+		.to_vec();
 	assert_ne!(top, second);
 	v.to_edge(true);
 	assert_eq!(v.current_page(), g.pages);

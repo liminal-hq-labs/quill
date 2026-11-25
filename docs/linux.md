@@ -167,7 +167,7 @@ The first GTK work is a spike that answers what is not known: whether GTK4 shows
 ### What it does
 
 - **Open.** From the command line (`quill letter.rtf`), from Ctrl+O or the Open button (`GtkFileDialog`, filters for `.qld`, `.rtf` and `.txt` matched without regard to case), from the Recent button (the editor's own four-name list), and by dropping a file on the window. A file that will not open leaves the open document alone and says why in an alert.
-- **Scrolling.** The wheel (48 document pixels a notch, Shift for sideways), the arrow keys, Page Up and Page Down (a view less a few lines), Space and Shift+Space, Home and End, and two scroll bars. The bars follow the view in both directions.
+- **Scrolling.** The wheel (48 document pixels a notch, Shift for sideways) and two scroll bars; the bars follow the view in both directions. (G1 also scrolled with the arrow keys, Page Up and Page Down, Space and Home and End; since G2 those keys move the caret and the view follows it.)
 - **Zoom.** Ctrl+wheel, Ctrl+plus, Ctrl+minus and Ctrl+0 (100 %), and Ctrl+9 for page width, over the editor's own range of 25 to 200 % (page width never goes above 100 %). The point under the pointer stays under it. The status line shows `Page X of N` and the zoom.
 - **Title.** `Name – Quill`, and `*Name – Quill` when there are unsaved changes (D194). The viewer never has any, but the title function is `quill_gtk::names::title` and is tested.
 - **Names.** The editor names a file by Windows-1252 bytes. A build with long names (the same `long-names` feature the Windows 95 build uses) keeps an absolute path up to 260 bytes, so the recent list opens it again next session. A path with a character Windows-1252 lacks gets a stand-in name for the session; it opens, but it cannot be reopened from the recent list in a later session. The title and the recent menu show the long UTF-8 name.
@@ -202,7 +202,7 @@ The first GTK work is a spike that answers what is not known: whether GTK4 shows
 - **A choice in the Open dialog.** The dialog was shown and the file filters checked, but picking a file in it was not driven (the portal and a window manager were absent, so it ran in GTK's own dialog under Weston and a private session bus).
 - **Drag and drop** from a file manager, **the recent menu**, **F11** (there was no window manager to honour it) and **the hand-off to a running window** (the tests ran with `--new-instance`) were not driven. Drop, recent and the command line share `Ui::open_path`.
 - **Moving the window between monitors of different scales,** maximize and full screen at a fractional scale.
-- **IME and Orca** are later steps (G2 and G7). Nothing here takes text input.
+- **IME and Orca:** G2 added the input method (below); Orca is G7. G1 took no text input.
 - **The chrome around the page** (menus, bars, dialogs) arrived in G2a, below; the viewer sections above describe the page and the view as G1 built them.
 - **Smooth scrolling is in whole document pixels,** so at 200 % on a 2× display a notch of the wheel moves 4 device pixels at least.
 - **A page-width zoom while the window is resized** redraws on each size change; its cost on a very long document was not measured.
@@ -210,7 +210,7 @@ The first GTK work is a spike that answers what is not known: whether GTK4 shows
 
 ## The libadwaita shell and the chrome (G2a)
 
-The window now looks and behaves like a GNOME application, and carries the Windows build's information architecture: a menu bar, a toolbar, a formatting bar, a ruler, a status bar and the dialogs. It is built with libadwaita 1.10 (the `libadwaita` crate 0.9; the host has `libadwaita-1` 1.10 and GTK 4.24), `adw::Application`, `adw::ApplicationWindow`, `adw::ToolbarView`, `adw::HeaderBar`, `adw::StyleManager`, `adw::AlertDialog`, `adw::AboutDialog`, `adw::Dialog` and `adw::ToastOverlay`. The symbolic icons are Adwaita's own; none is bundled. Editing is not wired yet (keys, caret, mouse and typing are G2), but every command that the chrome runs goes through the shared `App`, so the ones that need no caret movement work now: Select All, a format applied to a selection, Undo and Redo, the bars, zoom, Open, Save, New, Find, the Fonts, Tabs and Spelling dialogs.
+The window now looks and behaves like a GNOME application, and carries the Windows build's information architecture: a menu bar, a toolbar, a formatting bar, a ruler, a status bar and the dialogs. It is built with libadwaita 1.10 (the `libadwaita` crate 0.9; the host has `libadwaita-1` 1.10 and GTK 4.24), `adw::Application`, `adw::ApplicationWindow`, `adw::ToolbarView`, `adw::HeaderBar`, `adw::StyleManager`, `adw::AlertDialog`, `adw::AboutDialog`, `adw::Dialog` and `adw::ToastOverlay`. The symbolic icons are Adwaita's own; none is bundled. Every command that the chrome runs goes through the shared `App`. G2a had no keys, caret or pointer yet, so only the commands that need none worked (Select All, a format applied to a selection, Undo and Redo, the bars, zoom, Open, Save, New, Find, the Fonts, Tabs and Spelling dialogs); editing arrived with G2, below.
 
 ![The window in the light scheme](media/gtk-chrome-light.png)
 
@@ -253,6 +253,87 @@ The menu tree's accelerators are registered as they are written (`Ctrl+N`, `Ctrl
 - **Print, Print Preview, Print Setup and Help** show a toast that says they are not in this client yet (G6).
 - **Orca and keyboard navigation** of the new bars are G7.
 
+## Editing in the GTK client (G2)
+
+The page is now an editor: keys, an input method, the caret and its blink, the selection, the pointer, and Save. The commands the chrome already routed (cut, copy, paste, undo, redo, the character and paragraph formats, lists, fonts, find and replace, spelling, tabs, the ruler) work on a real caret and selection, and the status bar, formatting bar and ruler follow the caret. Recovery autosave is not part of it (the autosave plan covers that).
+
+![Typing: the caret, the changed mark in the title and the status bar](media/gtk-editor-typing-light.png)
+
+![A double click and a Shift click: the word, then the selection, with the bars following](media/gtk-editor-selection-light.png)
+
+![The formatting bar follows the caret: bold Times New Roman 12 in the bold word](media/gtk-editor-format-bar-bold-light.png)
+
+![The same bar in the centred Arial 16 title](media/gtk-editor-format-bar-heading-light.png)
+
+![The question on closing a changed document](media/gtk-editor-unsaved-alert-dark.png)
+
+![A character with no Windows-1252 form is refused with a toast and the status line's words](media/gtk-editor-refused-character-light.png)
+
+![Text an input method is composing, under the caret](media/gtk-editor-preedit-light.png)
+
+### The key map
+
+`quill_gtk::keys::map_key` turns a keyval and the modifiers into what the editor does. The editor's own `Key` is used wherever the other shells use it; the two rows marked *GTK layer* are movements the editor has no key for, done in `quill_gtk::command` over the editor's own caret calls.
+
+| Key | Does |
+|---|---|
+| Arrows, Home, End, Page Up, Page Down (and the keypad ones) | `Key::Left` and the rest: move the caret |
+| Shift with any of those | `Key::Select(dir)`: the same movement, extending the selection |
+| Ctrl+Home, Ctrl+End | `Key::CtrlHome`, `Key::CtrlEnd` |
+| Ctrl+Left, Ctrl+Right (with Shift: extend) | *GTK layer:* a word left or right (a word is what a double click takes, its letters and the spaces after) |
+| Ctrl+Shift+Home, Ctrl+Shift+End | *GTK layer:* select to the start or the end of the document |
+| Enter, Tab, Backspace, Delete, Esc, Insert | `Key::Enter`, `Tab`, `Backspace`, `Delete`, `Esc` (drops the selection), `Insert` (overtype) |
+| F1 to F12 | `Key::F(n)`: F1 Help, F3 Find Next, F5 Regular, F7 Spelling, F8 extend mode (F10 does nothing: the menus are the window's) |
+| Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+L, Ctrl+E, Ctrl+R, Ctrl+J | the menu tree's accelerators run Bold, Italic, Underline and the alignments (LNX-8) |
+| Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+A, Ctrl+Z, Ctrl+Y (Ctrl+Shift+Z) | Cut, Copy, Paste, Select All, Undo, Redo; the clipboard is the editor's own (below) |
+| Ctrl+S, Ctrl+Shift+S, Ctrl+N, Ctrl+O, Ctrl+Q | Save, Save As, New, Open, Exit |
+| A printable key | the input method commits it as text; if it does not filter the key, the key's character is typed |
+| Alt with anything | left to the menu bar's mnemonics |
+
+Key repeat is GTK's: each repeat is another key press through the same path.
+
+### Text, the input method and Windows-1252
+
+The page owns a `GtkIMMulticontext` (`EventControllerKey::set_im_context`), so a printable key reaches the document as the input method's `commit`, and dead keys and the compose key work through it. `commit` goes to `Document::type_text`: each character Windows-1252 has a form for is typed as the key for that byte, a line break is Enter, a tab is Tab, other control characters are dropped, and any other character is refused with a toast and a status line saying `Quill keeps text in Windows-1252:` and the character (D188). The rest of the string still goes in.
+
+While an engine composes, `preedit-changed` gives the text, which is drawn under the caret in the page's own painter with an underline, on white, over the text that follows it on the line (it is not in the document, and a character Windows-1252 cannot draw shows as `?`). `set_cursor_location` is given the caret's rectangle in the page's coordinates after every change, so a candidate window sits beside it; `retrieve-surrounding` gives the paragraph and the caret's byte offset; `delete-surrounding` is honoured for the two shapes a Backspace and a Delete make. `quill --commit TEXT` commits a string through the real `commit` signal and `quill --preedit TEXT` shows composing text, for tests and shots.
+
+**To try a real engine** (not proved here): in a session with IBus or Fcitx, run `GTK_IM_MODULE=ibus quill` (or `fcitx`; on GNOME under Wayland the text-input protocol is used and the variable can be left unset), switch to an engine such as Pinyin or Anthy and type: the underlined text should appear at the caret and the candidate window beside it, and committing a Chinese character should show the refusal toast. For dead keys, choose a layout such as "English (US, intl., with dead keys)" and type an apostrophe and `e`; an `é` should come in.
+
+### The caret
+
+The caret and the selection are drawn by the shared painter (`quill_paint::page::paint_sheet_editing` with an `Editing` value: the caret is two document pixels of black, the selection navy behind white text as on Windows), so they are in the texture, pixel-exact at every scale. The caret blinks on `gtk-cursor-blink` and `gtk-cursor-blink-time` (`quill_gtk::blink`, a clock-driven state machine): solid for one blink time after any key or pointer use (it stops blinking while typing), solid while the window is inactive, and solid always when `QUILL_NO_BLINK` is set (the tests and shots set it). Each phase redraws the visible sheets, which is cheap at window size and was not measured on a very large page. After a key, an edit or a pointer event the view scrolls the least that shows the caret (`View::reveal`, with a margin of a line; near the top of the first sheet it goes all the way up).
+
+### The pointer
+
+A press, move and release in the page become the editor's `quill_app::mouse::Ev` in device pixels of the view, through the editor's own `Pointer` and a `PixelTarget` that maps a device pixel back through the view's `Mapping` to a point on the sheet and asks `pos_at_point`. So a click places the caret, a drag selects (and the page scrolls on a timer while the pointer is past its edge), Shift extends, a double click takes a word, a triple click a paragraph, and a click in the white space left of the text takes a line. The double-click time is GTK's `gtk-double-click-time`. The pointer is an I-beam over a sheet and an arrow over the desk. The wheel still scrolls and Ctrl+wheel zooms.
+
+### Saving, closing and opening
+
+Ctrl+S saves under the document's name, or asks for one in a `GtkFileDialog` Save As (Ctrl+Shift+S always asks); a name with no extension gets `.qld` from `quill_app::savename::complete_name`; a save shows a `Saved` toast. The title and the header bar show `*` before the name while there are unsaved changes (D194). Closing the window, Exit, New and Open ask Save, Don't Save or Cancel when `App::unsaved_work` is true, with the verdict from `quill_app::session::end_session_allowed`, as on the Windows shells. Open goes into the same window (LNX-11): the Open dialog, a recent file, a drop and a file handed to a running window all ask first when there are changes.
+
+### The clipboard
+
+Cut, Copy and Paste use the editor's own clipboard (its 2,048-byte text buffer, shared by the commands), not the system one: that is G5 and needs the clipboard crate's `copy_rtf` and `paste_rtf`. Nothing is wired to GTK's clipboard.
+
+### What was proved
+
+- **The host's editing scenarios save identical bytes.** `tests/replay.rs` sends every key of `m1-edit`, `m2-letter`, `m7-picture`, `m2-lists`, `m2-find` and `m12-confirm` through the GTK key press that gives it (`keys::events_for`), the mapping the window's key controller uses (`keys::map_key`) and the command layer the window calls (`command::apply`), with the shell's own dialogs off as the Windows golden runs have them, and compares the files saved (`plain.qld`, `out.rtf`, `out.qld`) with `tests/golden/files` byte for byte. They are played over the editor's text grid, because the bytes depend on where Down and Page Down go (`m2-letter` differs when the window's own pixel layout is used); `m1-edit`, `m7-picture` and the rest, which do not depend on it, are also replayed through a `Document`, the window's real layout, and give the same bytes.
+- **A display-driven smoke test.** `linux/quill-gtk/tools/smoke-edit.sh` (a private Xvfb, xdotool) opens a copy of `plain.qld` in the real window, clicks, presses Ctrl+End and Enter, types `Hello, Quill.`, Enter, `Caf`, the key `eacute` and `au lait` after a space, saves with Ctrl+S, and compares the file the window wrote (890 bytes) with the one a headless `Document` writes for the same keys: equal. A bare Xvfb does not show GTK's Save As dialog, so the smoke test saves under the document's own name.
+- **Tests** (`cargo test`, 83 in all): the key map (every key the scripts hold survives it, and every printable Windows-1252 character comes back as itself), the blink, `View::reveal` and the device-to-document mapping, typing and the refusal with its notice, a click, a Shift click, a drag, a double and a triple click (found through device pixels), the I-beam test, word movement and the document ends, the view following the caret, the input method's surrounding text and delete, the caret, selection and composing text in the drawn page, and Save As, New and the changed mark from G2a. The pixel goldens and the frames check of G1 are unchanged: with the editing overlay off a page is the same bytes.
+- **Input checks.** `linux/quill-gtk/tools/input-checks.sh` (own Xvfb) runs `quill --self-test-input` on a 159-paragraph document and asserts that the pointer is an I-beam over a sheet and an arrow over the desk (`gdk::Cursor::name` of the page), and that a drag that goes past the bottom of the page scrolled the view 562 pixels and grew the selection to 2,723 characters; then it holds a key for a second and a half under xdotool and asserts that the saved file grew by 24 bytes (key repeat is the server's and GTK's).
+- **The Save As dialog shows.** `quill --save-as-dialog` under a headless Weston (`--backend=headless --renderer=pixman`, `weston-screenshooter`) with a private session bus and `GTK_USE_PORTAL=0` showed GTK's own Save As chooser with the name `Untitled.qld` selected. (The shot lists the machine's home folder, so it is not kept.)
+- **In the real window** (Xvfb, xdotool, looked at): typing with a caret and the `*` and `Mod` marks, a drag selection, a double click on a word, a triple click on a paragraph and a Shift click, Ctrl+A and Ctrl+I, the format bar and ruler following the caret into the bold text, the title and the tabbed table, the Windows-1252 toast (through `--commit`), composing text (through `--preedit`) and the unsaved-changes question after an edit.
+
+### Not proved
+
+- **A real input method.** IBus, Fcitx, the compose key and dead keys were not run (no engine in the test sessions): the `GtkIMMulticontext` wiring, the preedit drawing and the cursor rectangle were exercised only through GTK's simple context (the typed keys, `é` by keysym) and the test hooks. The steps above are the manual check.
+- **Caret blink timing** was tested as a state machine, not watched.
+- **Answering the Save As dialog.** The dialog was shown (below) but not answered: a headless Weston has no input device and a bare Xvfb does not show it. The save itself is tested through `Document::save_as` and the smoke test.
+- **The system clipboard, Orca and a real compositor** are G5, G7 and later.
+- **Not yet live from the chrome** (they answer with a toast or have no effect on the page): Print, Print Preview, Print Setup and Help (toasts, G6); Check Spelling as You Type (the setting toggles and is saved, but the page draws no marks); Document > Header, Footer, First Page Header and Footer (the editor switches story, but the page paints the body, so the header's text is not shown while it is edited and no caret is drawn); Find Next with no search (opens Find).
+- **Text with a selection typed over, undo of typing, and every format command** run through the editor's own code, which the host tests; they were not each repeated here.
+
 ## Desktop integration and packaging
 
 - **Desktop entry:** `Type=Application`, `Name=Quill`, `GenericName=Word Processor`, `Exec=quill %F`, `MimeType=application/x-quill-document;application/rtf;text/rtf;text/plain;`, `Categories=Office;WordProcessor;`.
@@ -293,6 +374,7 @@ Items marked *new files* touch only new files and one line of the root `Cargo.to
 | G6 | Print preview; print by PDF through the portal | Preview equals the raster goldens; a PDF reaches the print dialog | P7b |
 | C3 | `Surface` and one shared painter extracted from `gdi.rs`, Win16's painter and `quill-raster` | All Windows and raster goldens unchanged | The open branches and G1 |
 | G2a | The libadwaita shell and the chrome: menu bar, toolbar, formatting bar, ruler, status bar, dialogs | Every bar and dialog shown and answered; the page still pixel-exact | G1. **Built**, see [The libadwaita shell and the chrome (G2a)](#the-libadwaita-shell-and-the-chrome-g2a) |
+| G2 | Editing: keys, input method, caret, pointer, Save | The host's editing scenarios replayed through the GTK command layer save identical bytes | G2a. **Built**, see [Editing in the GTK client (G2)](#editing-in-the-gtk-client-g2) |
 | G7 | Accessibility (libadwaita itself moved to G2a) | Orca reads the line at the caret (manual) | G4 |
 | G8 | PKGBUILD, Flatpak manifest, a `linux` CI job, release workflow | `makepkg` and `flatpak-builder` succeed; Nautilus opens a `.QLD` | G3 |
 
