@@ -48,6 +48,8 @@ path = "examples/icontest/main.rs"
 
 [features]
 noalias = []
+# Quill's picture-slot and stack-alias checks and the /BADSLOT test switch (examples/quill/diag.rs); off in the shipped build.
+diag = []
 
 [[bin]]
 name = "stackprobe"
