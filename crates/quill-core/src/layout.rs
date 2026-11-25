@@ -255,7 +255,7 @@ pub fn font_ref<S: ReadStore + ?Sized>(doc: &Doc, s: &S, cfmt: u16) -> (FontRef,
 	let size = if cf.vpos == 0 {
 		cf.size
 	} else {
-		(cf.size * 2).div_ceil(3)
+		cf.size.saturating_mul(2).div_ceil(3)
 	};
 	let fr = FontRef {
 		face: font.name,
