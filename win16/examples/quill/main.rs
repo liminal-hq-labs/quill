@@ -38,8 +38,10 @@ const WM_KEYDOWN: u32 = 0x0100;
 const WM_SYSKEYDOWN: u32 = 0x0104;
 const WM_CHAR: u32 = 0x0102;
 const WM_TIMER: u32 = 0x0113;
-/// The timer that `/EXIT` sets; timer 1 steps a `/PLAY` script.
-const EXIT_TIMER: u32 = 2;
+/// The timer that `/EXIT` sets; timer 1 steps a `/PLAY` script and `tips::TIMER` polls the pointer. Each needs an id of its own: when
+/// `/EXIT` and the tooltips shared one, the first tooltip tick closed the window a moment after it opened (W16-3).
+const EXIT_TIMER: u32 = 3;
+const _: () = assert!(EXIT_TIMER != 1 && EXIT_TIMER != tips::TIMER && tips::TIMER != 1);
 const WM_CTLCOLOR: u32 = 0x0019;
 const WM_INITMENU: u32 = 0x0116;
 const WM_HSCROLL: u32 = 0x0114;
