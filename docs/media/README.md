@@ -49,3 +49,5 @@ Real captures from Quill running on its target systems, small PNGs at native siz
 | `help-f1-win16-w311.png` | F1 in the Win16 `QUILL.EXE` on Windows for Workgroups 3.11: Help > Contents opens `QUILL.HLP` in the real WinHelp. | `QUILL.EXE` in DOSBox-X, `/PLAY` with the key `f1` |
 
 More arrive with the milestones: Windows 3.11 (from M5), the real GDI page (from M3's later half), print preview and the Win16 chrome.
+| `try-page-js-dos.png` | The Try Quill page with the player running Quill's graphics mode on FreeDOS, after a line was typed through the page's keyboard. | `site/try/` served locally, in headless Chromium (js-dos 8.5.3) |
+| `try-text-menu-js-dos.png` | Quill's DOS text mode in the page with its File menu open, one second after F10. | `site/try/` served locally, in headless Chromium, keys sent through the page |

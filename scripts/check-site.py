@@ -12,7 +12,7 @@
 # at the root of a server, and as a local file; it has to reach the same file in all three. Every image needs an alt attribute,
 # every page a lang, a title and a meta description, and headings may not skip a level. Files under site/img that nothing references
 # are reported. With --external, http(s) links are fetched too (a HEAD request, then GET if HEAD is refused); without it they are
-# listed only. Exits 1 on any problem.
+# listed only. Style sheets under VENDORED are third-party and not scanned. Exits 1 on any problem.
 
 import html.parser
 import os
@@ -26,6 +26,8 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "site")
 ROOT = os.path.normpath(ROOT)
 PROJECT = "/quill/"
 PUBLISHED = "http://labs.liminalhq.ca/quill/"
+# Third-party files served as they came (the js-dos player, see its PROVENANCE.md): their style sheets are not scanned for url() references.
+VENDORED = ("try/js-dos/",)
 
 
 class Page(html.parser.HTMLParser):
@@ -128,7 +130,7 @@ def main():
 			full = os.path.join(base, name)
 			if name.endswith(".html"):
 				pages.append(full)
-			elif name.endswith(".css"):
+			elif name.endswith(".css") and not os.path.relpath(full, ROOT).replace(os.sep, "/").startswith(VENDORED):
 				css.append(full)
 
 	for page in pages:

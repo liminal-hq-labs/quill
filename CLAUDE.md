@@ -27,6 +27,7 @@ bash scripts/check-headers.sh
 make goldens                     # rewrite goldens; review the diff
 bash scripts/check-banner.sh     # add --shots /tmp/shots for review frames
 python3 -I scripts/check-site.py # links and assets in site/, the GitHub Pages product page
+bash scripts/build-try.sh --build        # the Try Quill disk bundle, site/try/quill.jsdos (FreeDOS 1.3 + QUILLDOS.EXE for js-dos; needs mtools)
 python3 -I tools/test_icons.py   # the committed icons; bash tools/make-icons.sh rebuilds them
 docker run --rm -v "$PWD:/workdir" davidanson/markdownlint-cli2:v0.17.2 "**/*.md"
 ```

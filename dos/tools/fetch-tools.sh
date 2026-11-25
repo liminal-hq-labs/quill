@@ -4,7 +4,10 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# usage: dos/tools/fetch-tools.sh
+# usage: dos/tools/fetch-tools.sh [--stub-only]
+#
+# With --stub-only only CWSDPMI is fetched: `dos/build.sh` needs nothing else, and the browser demo's build (scripts/build-try.sh)
+# does not run DOSBox Staging.
 #
 # The tools go to $DOS_VENDOR (default: dos/vendor, which is not committed): dosbox/, cwsdpmi/ and dl/ for the downloads. The
 # downloads are cached and verified on every run, so a corrupt or tampered file is never unpacked. The same URLs and sums as Desk's
@@ -21,7 +24,10 @@ DOSBOX_SHA256=d3a94f7f1c3e68a47ec88d61145506c7904452adb0c9c5928cb8cfe2331d6c5c
 CWSDPMI_URL=https://www.delorie.com/pub/djgpp/current/v2misc/csdpmi7b.zip
 CWSDPMI_SHA256=deacda0488e1cdd7c4a9f32fab45662b34c0ed6b2d7d4d13bc07041b62004a8c
 
-if [ -n "$(ls "$VENDOR"/dosbox/*/dosbox 2> /dev/null)" ] && [ -f "$VENDOR/cwsdpmi/bin/CWSDSTUB.EXE" ]; then
+STUB_ONLY=0
+[ "${1:-}" = "--stub-only" ] && STUB_ONLY=1
+
+if [ -f "$VENDOR/cwsdpmi/bin/CWSDSTUB.EXE" ] && { [ "$STUB_ONLY" = 1 ] || [ -n "$(ls "$VENDOR"/dosbox/*/dosbox 2> /dev/null)" ]; }; then
 	echo "fetch-tools: tools already present in $VENDOR"
 	exit 0
 fi
@@ -35,9 +41,11 @@ fetch() { # <url> <sha256>: download into the cache if missing, then verify
 	printf '%s  %s\n' "$2" "$file" | sha256sum -c - > /dev/null || { rm -f "$file"; echo "fetch-tools: checksum mismatch for $file" >&2; return 1; }
 }
 
-fetch "$DOSBOX_URL" "$DOSBOX_SHA256" || { echo "fetch-tools: could not fetch DOSBox Staging" >&2; exit 1; }
+if [ "$STUB_ONLY" = 0 ]; then
+	fetch "$DOSBOX_URL" "$DOSBOX_SHA256" || { echo "fetch-tools: could not fetch DOSBox Staging" >&2; exit 1; }
+fi
 fetch "$CWSDPMI_URL" "$CWSDPMI_SHA256" || { echo "fetch-tools: could not fetch CWSDPMI" >&2; exit 1; }
 
-tar -xJf "${DOSBOX_URL##*/}" -C ../dosbox
+[ "$STUB_ONLY" = 0 ] && tar -xJf "${DOSBOX_URL##*/}" -C ../dosbox
 python3 -I -c "import sys,zipfile;zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "${CWSDPMI_URL##*/}" ../cwsdpmi
-echo "fetch-tools: DOSBox Staging and CWSDPMI ready in $VENDOR"
+if [ "$STUB_ONLY" = 1 ]; then echo "fetch-tools: CWSDPMI ready in $VENDOR"; else echo "fetch-tools: DOSBox Staging and CWSDPMI ready in $VENDOR"; fi

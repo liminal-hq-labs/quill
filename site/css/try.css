@@ -1,0 +1,203 @@
+/*
+	Styles for the Try Quill page: the player, its controls and the key list. Uses the tokens in site.css, so both themes apply.
+
+	(c) Copyright 2026 Liminal HQ, Scott Morris
+	SPDX-License-Identifier: Apache-2.0 OR MIT
+*/
+
+.breadcrumb {
+	margin: 0 0 1rem;
+}
+
+.try-intro h1 {
+	font-size: clamp(2.4rem, 1.8rem + 3vw, 3.8rem);
+	margin: 0 0 0.5rem;
+	letter-spacing: -0.01em;
+}
+
+.try-intro .lede {
+	max-width: var(--measure);
+}
+
+.try-intro p,
+.section p {
+	max-width: var(--measure);
+}
+
+.notice {
+	border: 2px solid var(--part);
+	background: var(--part-bg);
+	color: var(--part);
+	border-radius: 0.5rem;
+	padding: 0.75rem 1rem;
+	font-weight: 600;
+}
+
+.notice[hidden] {
+	display: none;
+}
+
+.player {
+	margin: 1.25rem 0 2rem;
+}
+
+.player-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+}
+
+.player-controls .button[hidden] {
+	display: none;
+}
+
+.player-status {
+	flex: 1 1 16rem;
+	margin: 0;
+	color: var(--text-muted);
+}
+
+/* A VGA monitor showed both modes in a 4 by 3 frame, so the screen does too, whatever the width of the page. */
+.stage {
+	position: relative;
+	width: 100%;
+	max-width: 60rem;
+	aspect-ratio: 4 / 3;
+	background: #000;
+	border: 3px solid var(--ink-700);
+	border-radius: 0.5rem;
+	box-shadow: var(--shadow);
+	overflow: hidden;
+}
+
+.stage:focus-visible,
+.stage:focus-within {
+	outline: 3px solid var(--focus);
+	outline-offset: 3px;
+}
+
+.stage-idle,
+.stage-dos {
+	position: absolute;
+	inset: 0;
+}
+
+.stage-idle img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	opacity: 0.55;
+	image-rendering: pixelated;
+}
+
+.stage-dos {
+	visibility: hidden;
+}
+
+.player[data-state="running"] .stage-dos {
+	visibility: visible;
+}
+
+.player[data-state="running"] .stage-idle {
+	display: none;
+}
+
+/* js-dos draws its own chrome inside the stage; the page keeps only the screen. */
+.stage-dos .jsdos-rso {
+	height: 100%;
+}
+
+.keys {
+	display: grid;
+	gap: 0.5rem 1.5rem;
+	grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+	max-width: var(--wide);
+	margin: 1rem 0;
+}
+
+.keys > div {
+	background: var(--surface);
+	border: 1px solid var(--rule);
+	border-radius: 0.5rem;
+	padding: 0.6rem 0.9rem;
+}
+
+.keys dt {
+	font-weight: 700;
+	color: var(--heading);
+}
+
+.keys dd {
+	margin: 0.2rem 0 0;
+}
+
+kbd {
+	font-family: var(--font-mono);
+	font-size: 0.9em;
+	background: var(--code-bg);
+	border: 1px solid var(--rule);
+	border-bottom-width: 2px;
+	border-radius: 0.3rem;
+	padding: 0.05em 0.4em;
+}
+
+.plain-list {
+	max-width: var(--measure);
+	padding-left: 1.2rem;
+}
+
+.plain-list li {
+	margin-bottom: 0.6rem;
+}
+
+.licence-table {
+	border-collapse: collapse;
+	width: 100%;
+	max-width: var(--wide);
+	margin: 1rem 0;
+}
+
+.licence-table th,
+.licence-table td {
+	text-align: left;
+	vertical-align: top;
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid var(--rule);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.stage {
+		transition: box-shadow 0.15s ease;
+	}
+}
+
+.displays {
+	display: grid;
+	gap: 1.25rem;
+	grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+	max-width: var(--wide);
+	margin: 1.5rem 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.displays figure {
+	margin: 0;
+}
+
+.displays img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 2px solid var(--ink-700);
+	border-radius: 0.4rem;
+}
+
+.displays figcaption {
+	margin-top: 0.4rem;
+	color: var(--text-muted);
+	font-size: 0.95rem;
+}

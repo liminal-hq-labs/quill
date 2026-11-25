@@ -19,3 +19,6 @@ __pycache__/
 *.swp
 .vscode/
 .idea/
+
+# The browser demo's disk bundle, built by scripts/build-try.sh
+/site/try/quill.jsdos
