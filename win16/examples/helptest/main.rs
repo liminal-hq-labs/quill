@@ -68,7 +68,7 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, _show: u32) -> u32 {
 		cp[end..end + cn.len()].copy_from_slice(cn);
 		let f = _lopen(cp.as_ptr() as u32, 0);
 		if f != HFILE_ERROR {
-			len = _lread(f, cmd.as_mut_ptr() as u32, 79) as usize;
+			len = _lread(f, far(data_selector(), cmd.as_mut_ptr() as u32), 79) as usize;
 			_lclose(f);
 		}
 		let ok = if len >= 3 && cmd[0] == b'C' {
