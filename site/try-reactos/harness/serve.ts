@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-// Runs on Bun or Node 22+: `bun harness/serve.ts` (from site/try-reactos). Binds to 127.0.0.1 only.
+// Runs on Bun or Node 22+: `bun harness/serve.ts` (from site/try-reactos). Binds to 127.0.0.1 unless HOST is set (HOST=0.0.0.0 serves the LAN, read-only: the write endpoints answer this machine only).
 //
 // Environment: PORT (default 8086), IMAGES_DIR (default ~/.cache/reactos/web, mapped to /images/),
 // COI=1 adds Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy, LOG_FILE (default out/requests.json).
@@ -262,6 +262,11 @@ const server = http.createServer((req, res) => {
 		sent = b.length;
 	};
 
+	// The write endpoints answer this machine only, so serving on the LAN (HOST=0.0.0.0) exposes the page and the images read-only.
+	const ra = req.socket.remoteAddress || "";
+	const loopback = ra === "127.0.0.1" || ra === "::1" || ra === "::ffff:127.0.0.1";
+	if (p.startsWith("/__") && method === "POST" && !loopback) return json(403, { error: "local only" });
+
 	if (p === "/__stats" && method === "GET") return json(200, statsJson(url.searchParams.get("client")));
 	if (p === "/__stats/reset" && method === "POST") {
 		const only = url.searchParams.get("client");
@@ -335,8 +340,10 @@ const server = http.createServer((req, res) => {
 	stream.pipe(res);
 });
 
-server.listen(port, "127.0.0.1", () => {
-	console.log(`serving ${siteRoot} (page at /try-reactos/) and /images/ from ${imagesDir} on http://127.0.0.1:${port}/ (pid ${process.pid})`);
+// HOST=0.0.0.0 serves the LAN; the default stays on this machine.
+const host = process.env.HOST || "127.0.0.1";
+server.listen(port, host, () => {
+	console.log(`serving ${siteRoot} (page at /try-reactos/) and /images/ from ${imagesDir} on http://${host}:${port}/ (pid ${process.pid})`);
 });
 process.on("SIGTERM", () => {
 	flush();

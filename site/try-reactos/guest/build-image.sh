@@ -42,15 +42,33 @@ for f in "$VMDIR/stage/QUILL.EXE" "$VMDIR/stage/QUILL32.EXE" "$DEMO/DEMO.QLD" "$
 done
 mcopy -i "$D" "$WALL" ::/ReactOS/Web/Wallpaper/Quill.bmp
 python3 -I "$HERE/make-lnk.py" "$VMDIR/lnk/Quill.lnk" 'C:\Quill\QUILL32.EXE' --args 'C:\Quill\DEMO.QLD' --cwd 'C:\Quill' --desc 'Quill, 32-bit build, opening the demo letter'
-python3 -I "$HERE/make-lnk.py" "$VMDIR/lnk/Quill16.lnk" 'C:\Quill\QUILL.EXE' --args 'C:\Quill\DEMO16.QLD' --cwd 'C:\Quill' --desc 'Quill, Windows 3.x build, through WineVDM'
+python3 -I "$HERE/make-lnk.py" "$VMDIR/lnk/Quill16.lnk" 'C:\Quill\QUILL.EXE' --args 'C:\Quill\DEMO16.QLD' --cwd 'C:\Quill' --desc 'Quill, Windows 3.x build, opening the demo letter. Slow: WineVDM inside the emulator is emulation inside emulation' --show 1
 U="::/Documents and Settings/Administrator/Desktop"
 for f in "Applications Manager" "Command Prompt" "Read Me"; do mdel -i "$D" "$U/$f.lnk"; done
 mcopy -i "$D" "$VMDIR/lnk/Quill.lnk" "$U/Quill.lnk"
-mcopy -i "$D" "$VMDIR/lnk/Quill16.lnk" "$U/Quill (Windows 3.x build).lnk"
+mcopy -i "$D" "$VMDIR/lnk/Quill16.lnk" "$U/Quill (Windows 3.x, slow).lnk"
 
 echo "4. settings CD, then apply the registry changes inside the guest and let it shut itself down"
 cp "$HERE/demo-settings.reg" "$VMDIR/cd/DEMO.REG"
 cp "$HERE/apply-settings.cmd" "$VMDIR/cd/APPLY.CMD"
+# --- polish (guest/polish): registry files applied last, from the same settings CD; apply-settings.cmd calls POLISH.CMD when it is there ---
+cp "$HERE/polish/apply-mouse.cmd" "$VMDIR/cd/POLISH.CMD"
+for f in "$HERE"/polish/*.reg; do cp "$f" "$VMDIR/cd/PL_$(basename "$f" .reg | tr a-z A-Z).REG"; done
+# --- optional: the Afterglow theme ---
+# AFTERGLOW_DIR (default unset) is a folder of Afterglow release files from liminal-hq/afterglow-themes: `afterglow.msstyles` and any
+# `*.reg` files that select it. When it is unset or has no `afterglow.msstyles`, this step is skipped and the demo keeps ReactOS's
+# classic look with the Quill wallpaper.
+if [ -n "${AFTERGLOW_DIR:-}" ] && [ -f "$AFTERGLOW_DIR/afterglow.msstyles" ]; then
+	echo "   Afterglow theme from $AFTERGLOW_DIR"
+	mmd -i "$D" ::/ReactOS/Resources/Themes/Afterglow 2>/dev/null || true
+	mcopy -o -i "$D" "$AFTERGLOW_DIR/afterglow.msstyles" ::/ReactOS/Resources/Themes/Afterglow/afterglow.msstyles
+	for f in "$AFTERGLOW_DIR"/*.reg; do
+		[ -f "$f" ] && cp "$f" "$VMDIR/cd/PL_AG_$(basename "$f" .reg | tr a-z A-Z).REG"
+	done
+else
+	echo "   no Afterglow theme (AFTERGLOW_DIR unset or empty): classic look"
+fi
+# --- end polish ---
 xorriso -as mkisofs -quiet -V SETUP -o "$VMDIR/setup.iso" "$VMDIR/cd" >/dev/null 2>&1
 "$HERE/vm/qrun.sh" "$OUT" "$VMDIR/setup.iso"
 sleep "$BOOT_WAIT"   # boot to the desktop

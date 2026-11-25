@@ -14,7 +14,7 @@
 		return { c, g: c.getContext("2d") };
 	};
 
-	// The fraction of the bottom 26 rows that is ReactOS's cream face colour (212, 208, 200), or the Afterglow taskbar's panel colours
+	// The fraction of the bottom 26 rows that is ReactOS's cream face colour (212, 208, 200), or the dark taskbar panel colours of a themed desktop
 	// (#0c0c10 and #14161d): a taskbar, not a boot screen.
 	m.taskbarScore = () => {
 		const k = ctx();

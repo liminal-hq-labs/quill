@@ -26,17 +26,79 @@
 	color: #c0c0c0;
 }
 
+/* v86 sizes the canvas with an inline style divided by devicePixelRatio, which leaves a small picture on a phone; the stage decides the size. */
 .stage--reactos .screen-canvas {
 	display: none;
-	width: 100%;
-	height: 100%;
+	width: 100% !important;
+	height: 100% !important;
 	object-fit: contain;
+	/* Smooth by default: nearest-neighbour at a fractional scale makes some pixel columns wider than their neighbours and squishes glyphs. */
+	image-rendering: auto;
+}
+
+/* Sharp pixels only when the screen is shown at a whole number of device pixels per guest pixel (see updateScale in try-reactos.js). */
+.stage--reactos .screen-canvas.crisp {
 	image-rendering: pixelated;
 }
 
-.hint {
+.caption {
+	color: var(--text-muted);
+	font-size: 0.8rem;
+	margin-top: -0.5rem;
+}
+
+.hint-list {
 	color: var(--text-muted);
 	font-size: 0.9rem;
+	margin: 0.75rem 0 0;
+	padding-left: 1.2rem;
+	max-width: 64rem;
+}
+
+.hint-list code {
+	white-space: nowrap;
+}
+
+.hint-list li + li {
+	margin-top: 0.3rem;
+}
+
+.stage--reactos {
+	position: relative;
+}
+
+/* The pointer the page draws itself, ahead of the guest's own (?cursor=local); moved by transform from try-reactos.js. */
+.local-cursor {
+	position: absolute;
+	left: 0;
+	top: 0;
+	pointer-events: none;
+	will-change: transform;
+	z-index: 2;
+}
+
+.local-cursor[hidden] {
+	display: none;
+}
+
+.player-controls {
+	flex-wrap: wrap;
+}
+
+@media (max-width: 40rem) {
+	.player-controls .button {
+		flex: 1 1 auto;
+		padding-inline: 0.75rem;
+	}
+
+	.diag-form label {
+		flex: 1 1 100%;
+		justify-content: space-between;
+	}
+
+	.diag-form input[type="text"] {
+		width: 55%;
+	}
 }
 
 .diag {
