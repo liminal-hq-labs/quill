@@ -247,6 +247,12 @@ struct Shell {
 	/// The positions whose marks changed since the page was last painted for them, and how many batches ago that was.
 	spell_chg: (u32, u32),
 	spell_since: u8,
+	/// Where each scroll bar (vertical, horizontal) was last put and what it was last told to show, so a key that changes neither makes
+	/// no call.
+	bar_placed: [Option<ui::Placed>; 2],
+	bar_info: [Option<(i32, u32, i32)>; 2],
+	/// The title the window has now.
+	title: Vec<u8>,
 }
 
 /// An off-screen bitmap, and the memory device context that holds it, the size of the window's client area.
@@ -1006,6 +1012,7 @@ unsafe fn handle_dialogs(hwnd: Handle) {
 				}
 			}
 			quill_app::Dialog::Print => {
+				ui::refresh_clock(sh);
 				if !print_job(hwnd, sh, true, None) {
 					sh.app.set_message("Quill could not print.");
 				}
@@ -1415,7 +1422,8 @@ unsafe fn sync_chrome(hwnd: Handle, sh: &mut Shell) {
 	InvalidateRect(hwnd, null(), 0);
 }
 
-unsafe fn retitle(hwnd: Handle, sh: &Shell) {
+/// Puts the document's name in the title bar when it is not there already.
+unsafe fn retitle(hwnd: Handle, sh: &mut Shell) {
 	let mut t = b"Quill - ".to_vec();
 	if sh.app.name().is_empty() {
 		t.extend_from_slice(b"(Untitled)");
@@ -1423,7 +1431,10 @@ unsafe fn retitle(hwnd: Handle, sh: &Shell) {
 		t.extend_from_slice(sh.app.name());
 	}
 	t.push(0);
-	SetWindowTextA(hwnd, t.as_ptr());
+	if sh.title != t {
+		SetWindowTextA(hwnd, t.as_ptr());
+		sh.title = t;
+	}
 }
 
 unsafe fn press(hwnd: Handle, k: Key) {
@@ -1502,18 +1513,23 @@ unsafe fn press_key(hwnd: Handle, k: Key) {
 		InvalidateRect(hwnd, null(), 0);
 	} else {
 		// A key changes the page and the status line; the toolbars and the ruler are painted again only when they show something new.
-		let (hs, vs) = (sh.hscroll, sh.vpos);
+		let hs = sh.hscroll;
 		{
 			span!(KStory);
 			story_changed(sh);
 		}
 		{
+			// The bars are told once, after the caret is in view; before that only the window's own arithmetic runs.
 			span!(KScroll);
-			ui::update_scroll(hwnd, sh);
+			ui::settle_scroll(hwnd, sh);
 		}
 		{
 			span!(KEnsure);
-			ui::ensure_visible(hwnd, sh);
+			ui::ensure_visible_with(hwnd, sh, false);
+		}
+		{
+			span!(KScroll);
+			ui::update_scroll(hwnd, sh);
 		}
 		let after = {
 			span!(KSig);
@@ -1521,7 +1537,9 @@ unsafe fn press_key(hwnd: Handle, k: Key) {
 		};
 		{
 			span!(KInval);
-			if before != after || hs != sh.hscroll || vs != sh.vpos {
+			// The toolbars and the ruler do not depend on how far the page is scrolled down, so a key that only does that paints the
+			// page area.
+			if before != after || hs != sh.hscroll {
 				InvalidateRect(hwnd, null(), 0);
 			} else {
 				invalidate_page(hwnd, sh);
@@ -1590,14 +1608,14 @@ unsafe fn paint(hwnd: Handle) {
 unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 	if !sh.grid {
 		span!(PClock);
-		ui::refresh_clock(sh);
 		ui::status_update(hwnd, sh);
 	}
 	let saved = SaveDC(dc);
 	IntersectClipRect(dc, damage.left, damage.top, damage.right, damage.bottom);
 	SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
 	let mut g = Grid::<25>::new(0);
-	{
+	// The text grid is the golden-frame screen and what shows over the page while the app is not editing; the page view needs none of it.
+	if sh.grid || !sh.app.editing() {
 		span!(PGrid);
 		quill_app::draw(&sh.app, &sh.store, &mut g);
 	}
@@ -2025,6 +2043,9 @@ pub extern "C" fn start() -> ! {
 		spell_view: true,
 		spell_chg: (0, 0),
 		spell_since: 0,
+		bar_placed: [None; 2],
+		bar_info: [None; 2],
+		title: Vec::new(),
 	});
 	// SAFETY: single-threaded start-up; the boxes live for the whole process.
 	unsafe {

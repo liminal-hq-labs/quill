@@ -567,6 +567,10 @@ unsafe fn draw_line(
 				// A field shows its value where it will print (the body), and its name where it is edited (a header or footer).
 				let mut buf = [0u8; 32];
 				let n = match cx.fields {
+					// The screen reads the clock when it draws the field; a printed page has the date and time it was started with.
+					Some(_) if matches!(pics, Pics::Cache(_)) && (kind == 3 || kind == 5) => {
+						crate::ui::clock_text(kind, &mut buf)
+					}
 					Some(total) => app.field_text(kind, cx.page, total, &mut buf),
 					None => {
 						let name: &[u8] = match kind {
