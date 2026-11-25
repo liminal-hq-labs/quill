@@ -5,11 +5,24 @@
 //
 // A moveable block in protected mode keeps its selector when Windows moves it, so the far pointer from the single `GlobalLock` stays
 // good until the block is freed. The table of blocks lives in the data segment (160 entries of 8 bytes: 5 MB at 32 KB each, which holds a 4 MB picture, the most a document takes, and the rest of the document).
+use core::cell::Cell;
 use quill_core::store::{ChunkId, ReadStore, Store};
-use w16::{GlobalAlloc, GlobalFree, GlobalLock, GlobalUnlock, far_read, far_write};
+use quill_text::codepage::{CodePage, resource_offset};
+use w16::{
+	FindResource, GlobalAlloc, GlobalFree, GlobalLock, GlobalUnlock, LoadResource, LockResource,
+	far, far_read, far_write, int_resource,
+};
 
 const CHUNKS: usize = 160;
 const GMEM_MOVEABLE_ZEROINIT: u32 = 0x0042;
+
+/// The code page tables of `quill-text` (`assets/codepages/CPAGES.BIN`), an `RCDATA` resource: the data segment has no room for
+/// 1,536 bytes of tables (D200), and a resource is read through its own far pointer like a store chunk is.
+const CPAGES_ID: u32 = 100;
+const RT_RCDATA: u32 = 10;
+/// `FarStore::cpages` before the first lookup, and after a lookup that found no resource.
+const CP_UNLOADED: u32 = 0;
+const CP_MISSING: u32 = 1;
 
 /// For tracing: the last place ES was found different from DS, and the two selectors.
 pub static mut BAD: [u16; 4] = [0; 4];
@@ -78,6 +91,8 @@ pub struct FarStore {
 	handle: [u16; CHUNKS],
 	ptr: [u32; CHUNKS],
 	len: [u16; CHUNKS],
+	/// The far pointer to the code page tables (after the resource's 4-byte length), once found.
+	cpages: Cell<u32>,
 }
 
 impl FarStore {
@@ -86,6 +101,30 @@ impl FarStore {
 			handle: [0; CHUNKS],
 			ptr: [0; CHUNKS],
 			len: [0; CHUNKS],
+			cpages: Cell::new(CP_UNLOADED),
+		}
+	}
+
+	/// Finds, loads and locks the table resource. The lock is never released: the program needs it until it ends.
+	fn load_cpages() -> u32 {
+		unsafe {
+			let h = FindResource(
+				w16::HINST,
+				far(0, int_resource(CPAGES_ID)),
+				far(0, int_resource(RT_RCDATA)),
+			);
+			if h == 0 {
+				return CP_MISSING;
+			}
+			let g = LoadResource(w16::HINST, h);
+			if g == 0 {
+				return CP_MISSING;
+			}
+			match LockResource(g) {
+				0 => CP_MISSING,
+				// The packer puts the resource's length in four bytes in front of its data.
+				p => p + 4,
+			}
 		}
 	}
 
@@ -102,6 +141,30 @@ impl FarStore {
 }
 
 impl ReadStore for FarStore {
+	fn to_unicode(&self, cp: CodePage, byte: u8) -> char {
+		if byte < 0x80 {
+			return char::from(byte);
+		}
+		let mut base = self.cpages.get();
+		if base == CP_UNLOADED {
+			base = Self::load_cpages();
+			self.cpages.set(base);
+		}
+		if base == CP_MISSING {
+			// No table: Latin-1, which is right for the bytes the pages share with it and keeps the text readable.
+			return char::from(byte);
+		}
+		let mut unit = [0u8; 2];
+		unsafe {
+			far_read(
+				base + resource_offset(cp, byte) as u32,
+				unit.as_mut_ptr(),
+				2,
+			)
+		};
+		char::from_u32(u32::from(u16::from_le_bytes(unit))).unwrap_or('\u{FFFD}')
+	}
+
 	fn read(&self, id: ChunkId, offset: u16, out: &mut [u8]) {
 		let have = match self.at(id, offset) {
 			Some((p, left)) => {

@@ -25,6 +25,7 @@ long-names = ["quill-app/long-names"]
 [dev-dependencies]
 proptest = { version = "1", default-features = false, features = ["std"] }
 quill-mouse = { path = "../quill-mouse", features = ["fake"] }
+quill-text = { path = "../quill-text" }
 
 [package.metadata.quill]
 layer = "tool"

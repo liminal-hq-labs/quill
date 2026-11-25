@@ -8,6 +8,7 @@ description = "Quill's file formats: .QLD, RTF and plain text over byte-stream t
 
 [dependencies]
 quill-core = { path = "../quill-core" }
+quill-text = { path = "../quill-text" }
 
 [dev-dependencies]
 quill-host = { path = "../quill-host" }
