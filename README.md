@@ -34,6 +34,8 @@ bash dos/tools/fetch-tools.sh    # CWSDPMI and DOSBox Staging, checked by SHA-25
 bash dos/build.sh                # dos/dist/QUILLDOS.EXE
 ```
 
+The sample document that ships on the disks and opens in the [Try Quill](site/try/) page is `samples/demo.rtf` and `samples/demo.qld`; `samples/make-demo.sh` rebuilds them.
+
 ## Documentation
 
 - [SPEC.md](SPEC.md) — what Quill does, on each platform
