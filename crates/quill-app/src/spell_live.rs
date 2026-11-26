@@ -553,8 +553,13 @@ impl<M: Measure + Clone> App<M> {
 	/// Checks up to `budget` words of the visible text, then says whether more is left. Call it when the keyboard has been quiet: an
 	/// empty call costs next to nothing, and each word costs one dictionary lookup (about a tenth of a millisecond on a 486).
 	pub fn spell_idle<S: Store + ?Sized>(&mut self, s: &mut S, budget: u32) -> bool {
+		self.spell_step(s, budget).0
+	}
+
+	/// `spell_idle`, and how many words it checked: what `App::idle` charges to its budget.
+	pub(crate) fn spell_step<S: Store + ?Sized>(&mut self, s: &mut S, budget: u32) -> (bool, u32) {
 		if !self.spell.live.on || self.spell.dict.is_none() || self.mode != Mode::Edit {
-			return false;
+			return (false, 0);
 		}
 		self.live_sync(s);
 		// The word that was held back is checked once the caret has left it.
@@ -604,7 +609,7 @@ impl<M: Measure + Clone> App<M> {
 				};
 			}
 		}
-		self.live_more()
+		(self.live_more(), budget - left)
 	}
 
 	/// The range the marks changed in since the last call, for the shell to paint again; none when nothing changed.

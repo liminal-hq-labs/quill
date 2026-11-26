@@ -167,6 +167,8 @@ pub mod words {
 	pub const CANNOT_PRINT: &str = "Quill could not print.";
 	/// A copy that failed its check was put aside.
 	pub const DAMAGED_RECOVERY: &str = "Quill found a damaged recovery file and set it aside.";
+	/// The start of `Autosaving LETTER.QLD...`, said before a write that input cannot cut short.
+	pub const AUTOSAVING: &str = "Autosaving";
 	/// An autosave could not be written; said once a session.
 	pub const CANNOT_AUTOSAVE: &str = "Quill cannot autosave: the disk is full.";
 	/// A second window finds the document open in another one.

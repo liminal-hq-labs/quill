@@ -18,6 +18,7 @@ quill-dlg = { path = "../quill-dlg", features = ["fake"] }
 quill-core = { path = "../quill-core" }
 quill-formats = { path = "../quill-formats" }
 quill-dict = { path = "../quill-dict" }
+quill-job = { path = "../quill-job" }
 
 [features]
 # Test the editor as the Win32 build is built: file names keep the case the file system returns.

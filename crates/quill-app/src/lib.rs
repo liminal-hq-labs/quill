@@ -25,6 +25,7 @@ mod filedialog;
 mod find;
 pub mod flow;
 mod form;
+pub mod idle;
 pub mod mouse;
 mod native;
 mod overlay;
@@ -621,6 +622,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) zoom: u16,
 	/// What the editor keeps about recovery files (`recovery.rs`).
 	pub(crate) rcv: recovery::State,
+	/// What idle time keeps between passes: the autosave job and its clock.
+	pub(crate) idle: idle::State,
 	/// The file dialog of the text screens: whether it is wanted, its state and what it shows.
 	#[cfg(feature = "text-file-dialog")]
 	pub(crate) fd: filedialog::State,
@@ -689,6 +692,7 @@ impl<M: Measure + Clone> App<M> {
 			saved_view: (0, 0),
 			zoom: 0,
 			rcv: recovery::State::new(),
+			idle: idle::State::new(),
 			#[cfg(feature = "text-file-dialog")]
 			fd: filedialog::State::new(),
 		}

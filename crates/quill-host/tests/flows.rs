@@ -77,6 +77,8 @@ flows! {
 	fonts_dialog => "fonts",
 	insert_picture => "picture",
 	print_dialog => "print",
+	autosave_by_the_timer => "autosave-timer",
+	autosave_of_an_untitled_document => "autosave-untitled",
 	recover_at_launch => "recover",
 	recover_then_discard => "recover-discard",
 	recover_later => "recover-later",

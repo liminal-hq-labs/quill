@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::fmt::Write as _;
 
+use quill_app::idle::Idle;
 use quill_app::mouse::{Pointer, TextCells};
 use quill_app::script::{parse_pointer, Step};
 use quill_app::{App, Drive, Files, Key, LockMade, Owner, Stamp};
@@ -414,6 +415,9 @@ pub struct Script {
 	pub places: Vec<(String, String)>,
 	/// Check Spelling as You Type is on, and the keyboard goes quiet after each key: the marks follow each frame.
 	pub live: bool,
+	/// The seed of a random idle schedule (`@sched seed=N`): idle passes of random sizes run after each step, and the frames and files
+	/// must not change.
+	pub sched: Option<u32>,
 }
 
 /// Reads a script: tokens separated by white space, `#` starting a comment to the end of the line.
@@ -430,6 +434,13 @@ pub fn parse_script(text: &str) -> Script {
 			match t {
 				"@mono" => sc.mono = true,
 				"@live" => sc.live = true,
+				"@sched" => {
+					sc.sched = it
+						.next()
+						.and_then(|t| t.strip_prefix("seed="))
+						.and_then(|n| n.parse().ok());
+					assert!(sc.sched.is_some(), "@sched takes seed=N");
+				}
 				"@rows" => {
 					sc.rows = match it.next() {
 						Some("25") => 25,
@@ -615,29 +626,51 @@ fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &
 	quill_app::draw(&app, &s, &mut g);
 	g.dump(n, frames).unwrap();
 	let mut pointer = Pointer::default();
+	let mut sim = script.sched.map(quill_job::Sim::new);
+	// Seconds since the last input: `@quiet` adds to it, and everything the person does clears it.
+	let mut quiet = 0u32;
 	let target = TextCells {
 		rows: (ROWS - 2) as i32,
 	};
 	let mut tick = 0;
 	for step in &script.steps {
 		match step {
-			Step::Key(k) => app.key(&mut s, files, *k),
-			Step::Clock(secs) | Step::Quiet(secs) => {
-				files.clock = dos_add(files.clock, (*secs).max(0) as u32);
+			Step::Key(k) => {
+				quiet = 0;
+				app.key(&mut s, files, *k)
 			}
-			other => other.play(&mut tick, |ev, ctx| {
-				pointer.handle(&mut app, &mut s, files, &target, ev, ctx)
-			}),
+			Step::Clock(secs) => files.clock = dos_add(files.clock, (*secs).max(0) as u32),
+			Step::Quiet(secs) => {
+				files.clock = dos_add(files.clock, (*secs).max(0) as u32);
+				quiet = quiet.saturating_add((*secs).max(0) as u32);
+			}
+			other => {
+				quiet = 0;
+				other.play(&mut tick, |ev, ctx| {
+					pointer.handle(&mut app, &mut s, files, &target, ev, ctx)
+				})
+			}
 		}
 		quill_app::draw(&app, &s, &mut g);
 		n += 1;
 		g.dump(n, frames).unwrap();
 		if script.live {
-			// The keyboard goes quiet: the whole document is on the screen and the scanner runs out of work.
 			app.spell_set_view(0, app.doc().body.len());
-			if app.spell_live_ready(&mut s, files) {
-				while app.spell_idle(&mut s, 8) {}
+		}
+		if let Some(sim) = sim.as_mut() {
+			// A schedule slices idle time between the steps; the drain below reaches the same state.
+			for _ in 0..sim.below(4) {
+				let ctx = Idle {
+					quiet,
+					units: sim.budget(8).left(),
+					busy: false,
+				};
+				app.idle(&mut s, files, ctx, &mut || false);
 			}
+		}
+		if script.live {
+			// The keyboard goes quiet: the whole document is on the screen and the scanner runs out of work.
+			app.drain(&mut s, files, quiet);
 			let marks: Vec<String> = app
 				.spell_marks(&s, 0, u32::MAX)
 				.map(|(a, b)| format!("{a}-{b}"))

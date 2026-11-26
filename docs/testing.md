@@ -67,7 +67,8 @@ A script is lines of words; `#` starts a comment, a word may be `"quoted"` (with
 | `rm NAME` | Removes a file from the disk, as another program might |
 | `put NAME "text"` | Writes a file as another program might, stamped with the time now |
 | `@clock +Ns` | The clock moves on N seconds (the DOS packed time every recovery copy and stamp carries; a flow starts at 25 November 2026, 14:32) |
-| `@quiet Ns` | The keyboard is quiet for N seconds, and the clock moves on with it |
+| `@quiet Ns` | The keyboard is quiet for N seconds, and the clock moves on with it; idle time then runs what has come due, so a copy is written when the interval and the pause have both passed |
+| `@sched seed=N` | (A directive, not a step.) Idle passes of random sizes run after each step, from a generator seeded with N; every transcript must be the one the golden has. `tests/sched.rs` replays every flow and every scenario under three seeds |
 | `autosave` | The autosave timer fires: a recovery copy is written |
 | `restart` | The program is killed and started again on the same disk; the launch check runs |
 | `damage` | A byte of every recovery copy on the disk is flipped |

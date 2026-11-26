@@ -1,0 +1,32 @@
+> type "a letter that was never named"
+> @clock +598s
+> @quiet 4s
+> dump
+= state
+text: "a letter that was never named"
+caret: 29  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file RECOVER\~Q2E421D.RCV: 346 bytes fnv1a=f2f440abfd5e5dc3
+> restart
+< recover "Quill found an untitled document that was not saved, from 25 Nov 2026 at 2:42 PM." buttons="RecoverDiscardLater" default="Yes"
+> answer recover
+> dump
+= state
+text: "a letter that was never named"
+caret: 29  selection: none
+name: ""
+modified: true
+status: ""
+recent: []
+folder: ""
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file RECOVER\~Q2E421D.RCV: 346 bytes fnv1a=f2f440abfd5e5dc3

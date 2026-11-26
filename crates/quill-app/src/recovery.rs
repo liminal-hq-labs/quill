@@ -29,6 +29,8 @@ pub const STR_DAMAGED: u8 = 1;
 pub const STR_CANNOT_AUTOSAVE: u8 = 2;
 /// See `STR_DAMAGED`.
 pub const STR_SECOND_WINDOW: u8 = 3;
+/// See `STR_DAMAGED`. The start of `Autosaving LETTER.QLD...`, said before a write that input cannot cut short.
+pub const STR_AUTOSAVING: u8 = 4;
 
 /// The words for `id` (`STR_*`) written into `out`, and their length: what `Files::string` gives when the shell has no resources of
 /// its own. A shell that overrides `string` does not link these.
@@ -37,6 +39,7 @@ pub fn default_string(id: u8, out: &mut [u8]) -> usize {
 		STR_DAMAGED => words::DAMAGED_RECOVERY,
 		STR_CANNOT_AUTOSAVE => words::CANNOT_AUTOSAVE,
 		STR_SECOND_WINDOW => words::SECOND_WINDOW_STATUS,
+		STR_AUTOSAVING => words::AUTOSAVING,
 		_ => "",
 	};
 	let n = text.len().min(out.len());
@@ -128,6 +131,43 @@ pub enum Why {
 	EndOfSession,
 	/// The program is going down after an internal error; the copy never replaces a good one.
 	Emergency,
+}
+
+/// Asks whether input waits while a recovery copy is written. `NoInput` never does and costs nothing; any `FnMut() -> bool` is asked about
+/// every `qld::PROGRESS_STEP` bytes.
+pub trait Input {
+	/// True when the type polls, so a build that never uses one does not link the hook.
+	const POLLS: bool;
+	/// True when a key or click waits.
+	fn waiting(&mut self) -> bool;
+}
+
+/// The write is never cut short.
+pub struct NoInput;
+
+impl Input for NoInput {
+	const POLLS: bool = false;
+	fn waiting(&mut self) -> bool {
+		false
+	}
+}
+
+impl<F: FnMut() -> bool> Input for F {
+	const POLLS: bool = true;
+	fn waiting(&mut self) -> bool {
+		self()
+	}
+}
+
+/// How a write of a recovery copy ended.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Wrote {
+	/// The copy is on the disk.
+	Done,
+	/// Input was waiting, so the write stopped and the disk is as it was.
+	Abandoned,
+	/// Nothing was written: the document is clean, another window has it, or no place took the file.
+	Failed,
 }
 
 // ---- names -----------------------------------------------------------------------------------------------------------------------
@@ -549,6 +589,29 @@ impl<M: Measure + Clone> App<M> {
 	/// The test hook `[Debug] AutosaveSeconds`: an interval in seconds, 0 when absent.
 	pub fn autosave_debug_seconds(&self) -> u16 {
 		self.rcv.debug_seconds
+	}
+
+	/// Seconds between autosaves: the debug hook's, else the minutes of the setting; 0 for never.
+	pub(crate) fn autosave_interval(&self) -> u32 {
+		if self.rcv.debug_seconds > 0 {
+			u32::from(self.rcv.debug_seconds)
+		} else {
+			u32::from(self.rcv.interval) * 60
+		}
+	}
+
+	/// Seconds of quiet before an autosave: 2 on the 8.3 builds, 1 on the clients that have long names and the debug hook.
+	pub(crate) fn autosave_wait(&self) -> u32 {
+		if self.rcv.debug_seconds > 0 || self.rcv.writer >= 4 {
+			1
+		} else {
+			2
+		}
+	}
+
+	/// True when another window has this document, so nothing is written for it here.
+	pub(crate) fn second_window(&self) -> bool {
+		self.rcv.flags & SECOND != 0
 	}
 
 	pub(crate) fn rcv_each_setting(&self, f: &mut crate::Emit<'_>) {
@@ -990,8 +1053,20 @@ impl<M: Measure + Clone> App<M> {
 		f: &mut F,
 		why: Why,
 	) -> bool {
+		self.save_recovery_with(s, f, why, NoInput) == Wrote::Done
+	}
+
+	/// `save_recovery` that a key can cut short: while the copy is written, `input` is asked about every `PROGRESS_STEP` bytes, and
+	/// when it says true the write stops, its temporary file goes and the copy that was there stays (`Wrote::Abandoned`).
+	pub fn save_recovery_with<I: Input, S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		why: Why,
+		mut input: I,
+	) -> Wrote {
 		if !self.modified || (why != Why::Emergency && self.rcv.flags & SECOND != 0) {
-			return false;
+			return Wrote::Failed;
 		}
 		let style = self.style();
 		let mut orig = [0u8; NAME_MAX];
@@ -1016,8 +1091,9 @@ impl<M: Measure + Clone> App<M> {
 				if self.slot(f, &cur, orig) == Some(false) {
 					continue;
 				}
-				if self.write_copy(s, f, &p, false, why, orig) {
-					return true;
+				match self.write_copy(s, f, (&p, false), why, orig, &mut input) {
+					Wrote::Failed => {}
+					done => return done,
 				}
 				break;
 			}
@@ -1038,8 +1114,9 @@ impl<M: Measure + Clone> App<M> {
 				if self.slot(f, &cur, orig) == Some(false) {
 					continue;
 				}
-				if self.write_copy(s, f, &p, true, why, orig) {
-					return true;
+				match self.write_copy(s, f, (&p, true), why, orig, &mut input) {
+					Wrote::Failed => {}
+					done => return done,
 				}
 				break;
 			}
@@ -1048,18 +1125,18 @@ impl<M: Measure + Clone> App<M> {
 			self.rcv.flags |= SAID_FULL;
 			self.say(f, STR_CANNOT_AUTOSAVE);
 		}
-		false
+		Wrote::Failed
 	}
 
-	fn write_copy<S: Store + ?Sized, F: Files>(
+	fn write_copy<I: Input, S: Store + ?Sized, F: Files>(
 		&mut self,
 		s: &mut S,
 		f: &mut F,
-		target: &Path,
-		in_central: bool,
+		(target, in_central): (&Path, bool),
 		why: Why,
 		orig: &[u8],
-	) -> bool {
+		input: &mut I,
+	) -> Wrote {
 		let style = self.style();
 		let emergency = why == Why::Emergency;
 		if !emergency && self.rcv.flags & LEFT != 0 && f.exists(target.bytes()) {
@@ -1087,16 +1164,28 @@ impl<M: Measure + Clone> App<M> {
 		rec.caret = self.caret;
 		rec.top_line = self.top;
 		if rec.set_path(orig).is_err() {
-			return false;
+			return Wrote::Failed;
 		}
 		let temp = kind_of(target, style, Kind::Temp);
 		let doc = &self.doc;
 		let store = &*s;
-		let saved = safe::write_replace_via(f, target.bytes(), temp.bytes(), |w| {
-			qld::write_recovery(doc, store, w, &rec, None)
-		});
+		let mut cut = false;
+		// A caller that does not poll for input (every one but the idle autosave) links no hook.
+		let saved = if I::POLLS {
+			let mut hook = |_done: u32, _total: u32| {
+				cut = input.waiting();
+				!cut
+			};
+			safe::write_replace_via(f, target.bytes(), temp.bytes(), |w| {
+				qld::write_recovery(doc, store, w, &rec, Some(&mut hook))
+			})
+		} else {
+			safe::write_replace_via(f, target.bytes(), temp.bytes(), |w| {
+				qld::write_recovery(doc, store, w, &rec, None)
+			})
+		};
 		if saved == safe::Saved::Failed {
-			return false;
+			return if cut { Wrote::Abandoned } else { Wrote::Failed };
 		}
 		if !emergency {
 			self.rcv.flags |= WROTE;
@@ -1104,7 +1193,7 @@ impl<M: Measure + Clone> App<M> {
 				self.persist(s, f);
 			}
 		}
-		true
+		Wrote::Done
 	}
 
 	// ---- the document changes ---------------------------------------------------------------------------------------------------
@@ -1112,6 +1201,7 @@ impl<M: Measure + Clone> App<M> {
 	/// The first modification of a named document takes the lock note; a second window that finds one held by a live owner stops
 	/// writing recovery copies. Called after each key and command.
 	pub(crate) fn rcv_after<F: Files>(&mut self, f: &mut F) {
+		self.idle_dirty(f);
 		if self.rcv.flags & (ENABLED | LOCKED | SECOND) != ENABLED
 			|| !self.modified
 			|| self.name_len == 0
@@ -1170,6 +1260,7 @@ impl<M: Measure + Clone> App<M> {
 	/// The document is going away or being replaced: Don't Save (the document is modified) removes this session's copy and brings a
 	/// set-aside copy back; a clean close leaves what is there. The lock note goes either way.
 	pub(crate) fn rcv_leave<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F) {
+		self.idle_reset();
 		if self.rcv.flags & (ENABLED | WROTE | LEFT | ASIDE | LOCKED) == 0 {
 			return;
 		}
@@ -1198,6 +1289,7 @@ impl<M: Measure + Clone> App<M> {
 		f: &mut F,
 		old: &[u8],
 	) {
+		self.idle_reset();
 		if self.rcv.flags & (WROTE | LEFT | ASIDE | LEGACY) != 0 {
 			let name = self.name;
 			let name = name.get(..self.name_len).unwrap_or(&[]);
