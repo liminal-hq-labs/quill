@@ -96,9 +96,9 @@ cp "$quill_dir/QUILL.EXE" "$quill_dir/QUILL32.EXE" "$payload/"
 python3 -I "$here/../guest/make_desk_icon.py" "$payload/QUILLDESK.ICO"
 
 echo "== rl install"
-locked rl install "$recipe" --work "$work"
+locked "$rl_dir/rl" install "$recipe" --work "$work"
 echo "== rl image"
-locked rl image "$recipe" --work "$work"
+locked "$rl_dir/rl" image "$recipe" --work "$work"
 image=$work/images/qagrr.img
 
 echo "== rl parts"
@@ -107,6 +107,6 @@ rl parts "$recipe" "$image" --out "$out/parts" --work "$work"
 echo "== rl manifest"
 inputs=()
 for name in QUILL.EXE QUILL32.EXE; do inputs+=(--input "$name=$(sha256sum "$payload/$name" | cut -d' ' -f1)"); done
-rl manifest "$recipe" "$out" --work "$work" "${inputs[@]}" \
+rl manifest "$recipe" "$out" "${inputs[@]}" \
 	--extra "quill_commit=${QUILL_COMMIT:-unknown}" --extra "reactos_liminal_commit=$pin"
 echo "done: $out"
