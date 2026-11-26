@@ -49,17 +49,48 @@ pub fn swap_extension(name: &[u8], ext: &[u8], rule: Rule) -> Option<PathBuf> {
 	Some(out)
 }
 
-/// The name with the type's default extension added when the last part has no dot. A trailing dot means no extension, so it is
-/// left alone; so are an empty name, a wildcard and a type with no default.
+/// True when `name` takes the type's default extension: it is not empty, has no dot in its last part (a trailing dot counts as typed,
+/// and means no extension) and the type has a default. This is the one rule every build shares; the dialog also leaves a wildcard
+/// alone, because a typed pattern is taken before a name is completed.
+pub fn takes_default_ext(name: &[u8], default_ext: &[u8]) -> bool {
+	!(name.is_empty() || default_ext.is_empty() || ext_of(name).is_some())
+}
+
+/// The name with the type's default extension added when [`takes_default_ext`] says it takes one and it is not a wildcard, otherwise
+/// as it was. `None` when the result would not fit.
 pub fn with_default_ext(name: &[u8], default_ext: &[u8]) -> Option<PathBuf> {
-	if name.is_empty() || default_ext.is_empty() || is_wild(name) || ext_of(name).is_some() {
-		return PathBuf::from_bytes(name);
-	}
 	let mut out = PathBuf::from_bytes(name)?;
-	if !out.push_byte(b'.') || !out.push_bytes(default_ext) {
+	if !is_wild(name)
+		&& takes_default_ext(name, default_ext)
+		&& !(out.push_byte(b'.') && out.push_bytes(default_ext))
+	{
 		return None;
 	}
 	Some(out)
+}
+
+/// The same rule over a caller's buffer, for the Windows shells that hand the common dialog's name on: adds `.` and `default_ext`
+/// to the `len` bytes of name at the start of `buf` and returns the new length (the same `len` when nothing was added or the
+/// extension does not fit). A NUL follows the name when there is room.
+pub fn complete_in_place(buf: &mut [u8], len: usize, default_ext: &[u8]) -> usize {
+	let Some(name) = buf.get(..len) else {
+		return len;
+	};
+	if !takes_default_ext(name, default_ext) {
+		return len;
+	}
+	let end = len + 1 + default_ext.len();
+	let Some(tail) = buf.get_mut(len..end) else {
+		return len;
+	};
+	if let Some((dot, rest)) = tail.split_first_mut() {
+		*dot = b'.';
+		rest.copy_from_slice(default_ext);
+	}
+	if let Some(z) = buf.get_mut(end) {
+		*z = 0;
+	}
+	end
 }
 
 /// What the Save As dialog opens with.

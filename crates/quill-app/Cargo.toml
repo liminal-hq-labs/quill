@@ -22,6 +22,10 @@ long-names = []
 # Recovery copies may be named as dot-files (`.~Quill-NAME.rcv`), as the Linux builds keep them; without it the code for those names is not linked.
 dot-files = []
 
+# The file dialog of the text screens (`Mode::File`, `filedialog`, `filepaint`): on for the DOS text screen, the host and the terminal
+# client, off for the Windows builds, whose `QUILL.EXE` and `QUILL32.EXE` use the system's dialogs and must not link it.
+text-file-dialog = []
+
 [package.metadata.quill]
 layer = "editor"
 no_std = true

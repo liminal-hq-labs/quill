@@ -30,6 +30,8 @@ pub enum DlgKey {
 	F4,
 	/// Alt+Down, which opens a drop-down list
 	AltDown,
+	/// F5, which reads the folder again
+	F5,
 	ShiftLeft,
 	ShiftRight,
 	ShiftHome,
@@ -70,6 +72,7 @@ pub(crate) mod tests {
 			1 => Just(DlgKey::PgDn),
 			1 => Just(DlgKey::F4),
 			1 => Just(DlgKey::AltDown),
+			1 => Just(DlgKey::F5),
 			1 => Just(DlgKey::ShiftLeft),
 			1 => Just(DlgKey::ShiftRight),
 			1 => Just(DlgKey::ShiftHome),

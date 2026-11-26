@@ -16,6 +16,10 @@ pub const TEXT_ROWS: usize = 23;
 /// Menus on the bar.
 pub const MENU_COUNT: u8 = 9;
 
+#[cfg(feature = "text-file-dialog")]
+#[path = "filepaint.rs"]
+mod filepaint;
+
 /// The column each menu's title starts at on the DOS menu bar.
 pub(crate) const MENU_COLS: [usize; 9] = [1, 7, 13, 21, 27, 38, 49, 59, 65];
 /// The attribute of a mnemonic letter on an unselected menu entry, and on the selected one.
@@ -926,6 +930,8 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 			}
 			cursor = None;
 		}
+		#[cfg(feature = "text-file-dialog")]
+		Mode::File => cursor = filepaint::draw(app, s, g),
 		Mode::Edit => {}
 	}
 	cursor

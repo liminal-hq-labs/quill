@@ -13,39 +13,11 @@ pub fn ext_for_filter(filter_index: u32) -> &'static [u8] {
 	SAVE_EXTS.get(i).copied().unwrap_or(b"qld")
 }
 
-/// True when the last path component of `name` has a dot. A name that ends in a dot has an empty extension, which the common
-/// dialogs also count as typed, so it is left alone.
-fn has_extension(name: &[u8]) -> bool {
-	let part = name
-		.iter()
-		.rposition(|b| matches!(*b, b'\\' | b'/' | b':'))
-		.map_or(name, |i| name.get(i + 1..).unwrap_or(&[]));
-	part.contains(&b'.')
-}
-
 /// Adds the type's extension to the `len` bytes of name at the start of `buf` when the last component has none, and returns the new
 /// length (the same `len` when nothing was added, the name is empty or the extension does not fit). A NUL follows the name when
-/// there is room.
+/// there is room. The rule is `quill_dlg::savename`'s, the one every build shares.
 pub fn complete_name(buf: &mut [u8], len: usize, filter_index: u32) -> usize {
-	let Some(name) = buf.get(..len) else {
-		return len;
-	};
-	if len == 0 || has_extension(name) {
-		return len;
-	}
-	let ext = ext_for_filter(filter_index);
-	let end = len + 1 + ext.len();
-	let Some(tail) = buf.get_mut(len..end) else {
-		return len;
-	};
-	if let Some((dot, rest)) = tail.split_first_mut() {
-		*dot = b'.';
-		rest.copy_from_slice(ext);
-	}
-	if let Some(z) = buf.get_mut(end) {
-		*z = 0;
-	}
-	end
+	quill_dlg::savename::complete_in_place(buf, len, ext_for_filter(filter_index))
 }
 
 #[cfg(test)]

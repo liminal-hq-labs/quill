@@ -185,12 +185,7 @@ fn scenario(name: &str) -> (quill_host::script::MemFiles, String) {
 		&std::fs::read_to_string(root().join(format!("tests/scenarios/{name}.keys"))).unwrap(),
 	);
 	let mut files = quill_host::script::MemFiles::default();
-	for f in &sc.copy {
-		files.files.insert(
-			f.to_ascii_uppercase(),
-			std::fs::read(root().join(format!("tests/docs/{}", f.to_ascii_lowercase()))).unwrap(),
-		);
-	}
+	quill_host::script::stage(&mut files, &sc, &root().join("tests/docs"));
 	let mut frames = String::new();
 	quill_host::script::play(&mut files, &sc, &mut frames);
 	(files, frames)

@@ -1,0 +1,26 @@
+# M16: Save As in the file dialog. It starts with the document's name selected and the folder it is in; changing the type swaps the
+# extension; a name that is there asks before it is replaced (No is the default, then Yes saves); New folder makes a folder and
+# selects it; a read-only file is refused; Esc leaves.
+@dialog
+@cwd C:\DOCS
+@dir DOCS\LETTERS
+@copy letter.qld DOCS\
+@copy letter.rtf DOCS\
+@copy plain.qld DOCS\
+@stamp DOCS\LETTER.QLD 2026-11-24 18:45
+@stamp DOCS\LETTER.RTF 2026-11-02 09:05
+@stamp DOCS\PLAIN.QLD 2026-03-14 12:00
+@readonly DOCS\PLAIN.QLD
+@open C:\DOCS\LETTER.QLD
+f10 down down down enter      # File > Save As...: LETTER.QLD, selected
+altt down                     # Save as type: Rich Text Format; the name becomes LETTER.RTF
+enter                         # LETTER.RTF is there: Do you want to replace it?
+enter                         # No is the default: back to the dialog
+enter y                       # Yes: saved as RTF
+f10 down down down enter      # File > Save As... again
+altf d r a f t s enter        # New folder DRAFTS: made and selected
+altn n e w enter              # NEW.RTF
+f10 down down down enter
+altn p l a i n period q l d enter   # PLAIN.QLD is read-only
+enter                         # OK
+esc                           # Cancel
