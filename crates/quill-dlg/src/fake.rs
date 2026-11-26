@@ -29,6 +29,10 @@ pub struct FakeFs {
 	pub lower: bool,
 	/// How many listings were asked for
 	pub lists: usize,
+	/// The date and time a folder made by `add_dir` has (a real disk's folders all have one)
+	pub dir_stamp: (u16, u16),
+	/// The date and time a folder made by `mkdir` has
+	pub now: (u16, u16),
 }
 
 impl FakeFs {
@@ -69,7 +73,8 @@ impl FakeFs {
 			}
 		}
 		if !self.has(&path) {
-			self.nodes.push((path, ATTR_DIR, 0, 0, 0));
+			let (date, time) = self.dir_stamp;
+			self.nodes.push((path, ATTR_DIR, 0, date, time));
 		}
 	}
 
@@ -247,7 +252,8 @@ impl FileSystem for FakeFs {
 		}
 		match p.rsplit_once('\\') {
 			Some((parent, _)) if parent.len() == 2 || self.has(parent) => {
-				self.nodes.push((p, ATTR_DIR, 0, 0, 0));
+				let (date, time) = self.now;
+				self.nodes.push((p, ATTR_DIR, 0, date, time));
 				Ok(())
 			}
 			_ => Err(FsError::NoPath),

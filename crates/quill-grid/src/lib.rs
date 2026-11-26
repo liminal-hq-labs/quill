@@ -130,15 +130,20 @@ impl<const ROWS: usize> Grid<ROWS> {
 	/// Writes the screen as a golden frame: `=== screen N ===`, the rows as UTF-8 text, then `--- attributes ---` and
 	/// the attributes as two hex digits per cell.
 	pub fn dump<W: fmt::Write>(&self, n: u32, w: &mut W) -> fmt::Result {
+		self.dump_rows(n, ROWS, w)
+	}
+
+	/// The dump of the top `rows` rows, for a screen of fewer rows drawn in a bigger grid.
+	pub fn dump_rows<W: fmt::Write>(&self, n: u32, rows: usize, w: &mut W) -> fmt::Result {
 		writeln!(w, "=== screen {n} ===")?;
-		for row in &self.cells {
+		for row in self.cells.iter().take(rows) {
 			for c in row {
 				w.write_char(dump_char(c.ch))?;
 			}
 			w.write_char('\n')?;
 		}
 		writeln!(w, "--- attributes ---")?;
-		for row in &self.cells {
+		for row in self.cells.iter().take(rows) {
 			for c in row {
 				write!(w, "{:02X}", c.attr)?;
 			}

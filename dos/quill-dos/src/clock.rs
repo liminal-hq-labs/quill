@@ -65,3 +65,12 @@ pub fn set(app: &mut App<ScreenMeasure>) {
 		app.set_print_time(text);
 	}
 }
+
+/// Gives the file dialog the country's date order and separator and whether its clock has 24 hours, for the Modified column and the
+/// preview.
+pub fn set_file(app: &mut App<ScreenMeasure>) {
+	let (order, date_sep, _, h24) = country();
+	let mut pattern = [0u8; 10];
+	let p = datefmt::dos_pattern(order, date_sep, &mut pattern);
+	app.set_file_clock(pattern.get(..p).unwrap_or(&[]), h24);
+}

@@ -105,11 +105,11 @@ pub fn leave() {
 	cleanup::forget(leave);
 }
 
-/// Shows the grid.
-pub fn present<const ROWS: usize>(grid: &Grid<ROWS>) {
-	enter(ROWS);
+/// Shows the top `rows` rows (25 or 50) of the grid.
+pub fn present<const ROWS: usize>(grid: &Grid<ROWS>, rows: usize) {
+	enter(rows);
 	let vram = screen();
-	for (i, word) in grid.words().enumerate() {
+	for (i, word) in grid.words().take(rows * 80).enumerate() {
 		// SAFETY: B8000h onward is the text page: 4000 bytes at 80 by 25 and 8000 at 80 by 50.
 		unsafe { vram.add(i).write_volatile(word) };
 	}
@@ -127,11 +127,17 @@ pub fn cursor(at: Option<(u8, u8)>) {
 }
 
 /// Reads the screen back from video memory, so a dump shows what is on the screen and not what the program meant to draw.
-pub fn read_back<const ROWS: usize>() -> Grid<ROWS> {
+pub fn read_back<const ROWS: usize>(rows: usize) -> Grid<ROWS> {
 	let vram = screen();
 	let mut g = Grid::<ROWS>::new(0);
-	// SAFETY: as `present`.
-	g.load_words(|i| unsafe { vram.add(i).read_volatile() });
+	// SAFETY: as `present`; nothing is read past the `rows` the screen has.
+	g.load_words(|i| {
+		if i < rows * 80 {
+			unsafe { vram.add(i).read_volatile() }
+		} else {
+			0
+		}
+	});
 	g
 }
 

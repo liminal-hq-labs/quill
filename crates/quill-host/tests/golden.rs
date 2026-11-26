@@ -191,6 +191,15 @@ fn scenario(name: &str) -> (quill_host::script::MemFiles, String) {
 	(files, frames)
 }
 
+/// A file the run saved: the file dialog hands the editor a full path, so the name is looked for in the root of `C:` too.
+fn saved<'a>(files: &'a quill_host::script::MemFiles, name: &str) -> &'a Vec<u8> {
+	files
+		.files
+		.get(name)
+		.or_else(|| files.files.get(&format!("C:\\{name}")))
+		.unwrap_or_else(|| panic!("{name} was not saved"))
+}
+
 fn compare_bytes(path: &str, actual: &[u8]) {
 	let file = root().join(path);
 	if std::env::var_os("QUILL_UPDATE_GOLDEN").is_some() {
@@ -217,21 +226,34 @@ fn m10_spell_live_script_matches_its_golden_screens_and_marks() {
 fn m1_edit_script_matches_its_golden_screens_and_file() {
 	let (files, frames) = scenario("m1-edit");
 	compare("tests/golden/screens/m1-edit.frames.txt", &frames);
-	compare_bytes("tests/golden/files/m1-edit.qld", &files.files["PLAIN.QLD"]);
+	compare_bytes("tests/golden/files/m1-edit.qld", saved(&files, "PLAIN.QLD"));
 }
 
 #[test]
 fn m1_edit_script_on_50_rows_matches_its_golden_screens_and_the_same_file() {
 	let (files, frames) = scenario("m1-edit-50");
 	compare("tests/golden/screens/m1-edit-50.frames.txt", &frames);
-	compare_bytes("tests/golden/files/m1-edit.qld", &files.files["PLAIN.QLD"]);
+	compare_bytes("tests/golden/files/m1-edit.qld", saved(&files, "PLAIN.QLD"));
+}
+
+#[test]
+fn m16_save_as_writes_the_same_files_every_run() {
+	let (files, _) = scenario("m16-save-as");
+	compare_bytes(
+		"tests/golden/files/m16-new.rtf",
+		saved(&files, "C:\\DOCS\\NEW.RTF"),
+	);
+	compare_bytes(
+		"tests/golden/files/m16-letter.rtf",
+		saved(&files, "C:\\DOCS\\LETTER.RTF"),
+	);
 }
 
 #[test]
 fn m2_letter_script_matches_its_golden_screens_and_file() {
 	let (files, frames) = scenario("m2-letter");
 	compare("tests/golden/screens/m2-letter.frames.txt", &frames);
-	compare_bytes("tests/golden/files/m2-letter.rtf", &files.files["OUT.RTF"]);
+	compare_bytes("tests/golden/files/m2-letter.rtf", saved(&files, "OUT.RTF"));
 }
 
 #[test]
@@ -328,9 +350,12 @@ fn m13_clock_script_matches_its_golden_screens_and_prints_the_fields() {
 fn m7_picture_script_matches_its_golden_screens_and_file() {
 	let (files, frames) = scenario("m7-picture");
 	compare("tests/golden/screens/m7-picture.frames.txt", &frames);
-	compare_bytes("tests/golden/files/m7-picture.qld", &files.files["OUT.QLD"]);
+	compare_bytes(
+		"tests/golden/files/m7-picture.qld",
+		saved(&files, "OUT.QLD"),
+	);
 	// The original file bytes travel inside the document unchanged.
-	let out = &files.files["OUT.QLD"];
+	let out = saved(&files, "OUT.QLD");
 	for pic in ["pic.bmp", "pic.png"] {
 		let bytes = std::fs::read(root().join(format!("tests/docs/{pic}"))).unwrap();
 		assert!(

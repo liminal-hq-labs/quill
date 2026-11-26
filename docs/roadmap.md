@@ -126,7 +126,7 @@ Budgets per file, unpacked and packed (estimates until M11 measures them; the si
 |---|---|---|
 | `QUILL.EXE` | 300 KB | 160 KB |
 | `QUILL32.EXE` | 260 KB | 130 KB |
-| `QUILLDOS.EXE` | 400 KB | 190 KB |
+| `QUILLDOS.EXE` | 416 KB | 190 KB |
 | `QUILL.FNT` | 250 KB | 120 KB |
 | `QUILL.HLP` | 200 KB | 190 KB (already compressed) |
 | `QUILL.HLX` | 100 KB | 40 KB |

@@ -35,6 +35,8 @@
 # command runs, for example `DOS_ENV=$'BLASTER=A220 I5 D1 T3\nLI_DUMP=D:\\DUMP.TXT'`. D: is a scratch directory removed on exit; when
 # DOS_KEEP names a directory, D:'s files are copied there first (a screen dump the program wrote with LI_DUMP, for instance).
 #
+# DOS_CWD is a folder under C: that the command runs in, entered with `cd` first; name the program by its full path then.
+#
 # DOS_MOUNT_OPTS is added to the `mount c` line, for example `-freesize 64` to make C: report 64 MB free whatever the host disk holds.
 #
 # DOSBox needs no display: SDL_VIDEODRIVER=dummy gives it a video driver that draws nowhere, and SDL_AUDIODRIVER=dummy the same
@@ -70,6 +72,8 @@ trap cleanup EXIT
   echo '@echo off'
   # DOS_ENV is a list of NAME=value words, each set in the DOS environment before the command runs.
   while IFS= read -r kv; do [ -z "$kv" ] || echo "set $kv"; done <<< "${DOS_ENV:-}"
+  # DOS_CWD is a folder under C: the command runs in (its program is then named by its full path).
+  [ -z "${DOS_CWD:-}" ] || echo "cd $DOS_CWD"
   [ -z "${DOS_AUTOTYPE:-}" ] || echo "autotype $DOS_AUTOTYPE"
   if [ -n "${DOS_CONSOLE:-}" ]; then echo "$*"; else echo "$* > D:\\STDOUT.TXT"; fi
   echo 'set RC=0'

@@ -271,7 +271,12 @@ impl<M: Measure + Clone> App<M> {
 			path: b"",
 		}; 4];
 		let mut n = 0;
+		// The folder is remembered with its closing backslash; the dialog is given it without, as a path it lists.
 		let last = self.last_folder();
+		let last = match last.split_last() {
+			Some((b'\\', rest)) if last.len() > 3 => rest,
+			_ => last,
+		};
 		fn put<'a>(folders: &mut [PlaceSpec<'a>; 4], spec: PlaceSpec<'a>, n: &mut usize) {
 			if let Some(slot) = folders.get_mut(*n) {
 				*slot = spec;
@@ -515,6 +520,11 @@ impl<M: Measure + Clone> App<M> {
 	}
 }
 
+/// The letter of the drive the dialog is on, for the words about its disk.
+fn drive_of(dlg: &FileDlg) -> [u8; 1] {
+	[dlg.folder().first().map_or(b'A', u8::to_ascii_uppercase)]
+}
+
 /// The words of a refusal: two lines, and a drive that can be tried again.
 fn error_words(dlg: &FileDlg, e: DlgError) -> (Line, Line, Option<u8>) {
 	let name = file_name(dlg.chosen());
@@ -534,6 +544,20 @@ fn error_words(dlg: &FileDlg, e: DlgError) -> (Line, Line, Option<u8>) {
 			Some(d),
 		),
 		DlgError::Fs(quill_dlg::fs::FsError::Full) => one(words::FULL),
+		DlgError::Fs(quill_dlg::fs::FsError::WriteProtected) => (
+			Line::of(&[
+				b"The disk in drive ",
+				&drive_of(dlg),
+				b": is write-protected.",
+			]),
+			Line::new(),
+			None,
+		),
+		DlgError::Fs(quill_dlg::fs::FsError::Unreadable) => (
+			Line::of(&[b"The disk in drive ", &drive_of(dlg), b": cannot be read."]),
+			Line::of(&[b"It may not be formatted."]),
+			None,
+		),
 		DlgError::Fs(quill_dlg::fs::FsError::Unsupported) => one(words::UNSUPPORTED),
 		DlgError::Fs(_) => one(words::ACCESS),
 		DlgError::NoMemory => one(words::MEMORY),
