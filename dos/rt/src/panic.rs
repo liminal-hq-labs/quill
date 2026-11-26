@@ -18,6 +18,33 @@ fn panic(info: &PanicInfo) -> ! {
 		crate::dos::exit_now(3);
 	}
 	crate::cleanup::run_all();
-	crate::println!("RT PANIC: {}", info);
+	// Written without `core::fmt`, which the program would otherwise carry for this one line: the message when it is a plain string,
+	// and the place as file and line.
+	crate::io::write_str("RT PANIC: ");
+	if let Some(m) = info.message().as_str() {
+		crate::io::write_str(m);
+	}
+	if let Some(at) = info.location() {
+		crate::io::write_str(" at ");
+		crate::io::write_str(at.file());
+		crate::io::write_str(":");
+		let mut digits = [0u8; 10];
+		let mut i = digits.len();
+		let mut v = at.line();
+		loop {
+			i -= 1;
+			if let Some(d) = digits.get_mut(i) {
+				*d = b'0' + (v % 10) as u8;
+			}
+			v /= 10;
+			if v == 0 {
+				break;
+			}
+		}
+		if let Some(d) = digits.get(i..).and_then(|d| core::str::from_utf8(d).ok()) {
+			crate::io::write_str(d);
+		}
+	}
+	crate::io::write_str("\r\n");
 	crate::dos::exit_now(3)
 }
