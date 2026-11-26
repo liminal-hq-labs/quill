@@ -89,6 +89,8 @@ C="$WORK/c/WINDOWS"
 # The tree's StartUp group opens Notepad and dials a modem; leave it out so only Quill starts.
 sed -i '/^Group5=/Id' "$C/PROGMAN.INI"
 cp "$EXE" "$WORK/d/QUILL.EXE"
+# The caret stays steady, so every frame is the same whatever moment it is taken at ([Quill] Blink=0, W16-17).
+printf '[Quill]\r\nBlink=0\r\n' > "$WORK/d/QUILL.INI"
 [ ! -f "$(dirname "$EXE")/QUILL.HLP" ] || cp "$(dirname "$EXE")/QUILL.HLP" "$WORK/d/"
 # The document the program is told to open.
 cp "$ROOT/tests/docs/letter.qld" "$WORK/d/LETTER.QLD"

@@ -454,6 +454,33 @@ fn zoom_is_remembered_in_the_settings_and_clamped() {
 	assert_eq!(other.zoom(), 0);
 }
 
+#[test]
+fn a_steady_caret_setting_is_read_and_kept() {
+	let (mut app, _, mut f) = setup();
+	assert!(
+		!app.blink_steady(),
+		"the caret blinks unless the settings say otherwise"
+	);
+	app.apply_setting(b"Quill", b"Blink", b"1");
+	assert!(!app.blink_steady());
+	app.apply_setting(b"Quill", b"Blink", b"0");
+	assert!(app.blink_steady());
+	app.save_settings(&mut f);
+	let (mut other, _, _) = setup();
+	other.load_settings(&mut f);
+	assert!(other.blink_steady(), "Blink=0 survives the save at exit");
+	// A blinking caret writes no key at all.
+	other.apply_setting(b"Quill", b"Blink", b"1");
+	other.save_settings(&mut f);
+	let (mut third, _, _) = setup();
+	third.apply_setting(b"Quill", b"Blink", b"0");
+	third.load_settings(&mut f);
+	assert!(
+		third.blink_steady(),
+		"an absent key leaves the earlier value alone"
+	);
+}
+
 // ---- the recent-file list --------------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]

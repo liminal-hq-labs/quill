@@ -93,6 +93,8 @@ C="$WORK/c/WINDOWS"
 # The tree's StartUp group opens Notepad and dials a modem; leave it out so only Quill starts.
 sed -i '/^Group5=/Id' "$C/PROGMAN.INI"
 cp "$EXE" "$WORK/d/QUILL.EXE"
+# The caret stays steady, so every frame is the same whatever moment it is taken at ([Quill] Blink=0, W16-17).
+printf '[Quill]\r\nBlink=0\r\n' > "$WORK/d/QUILL.INI"
 [ ! -f "$(dirname "$EXE")/QUILL.HLP" ] || cp "$(dirname "$EXE")/QUILL.HLP" "$WORK/d/"
 # WIN.INI's run= line takes the program with no arguments, as a double click would start it (CR LF line ends are kept).
 awk 'BEGIN { IGNORECASE = 1 } /^[ \t]*run[ \t]*=/ { printf "run=D:\\QUILL.EXE\r\n"; done = 1; next } { print } END { if (!done) exit 3 }' "$C/WIN.INI" > "$C/WIN.INI.new" || fail "WIN.INI has no run= line"

@@ -6,7 +6,7 @@
 
 use core::arch::global_asm;
 
-pub const COUNT_IMPORTS: usize = 149;
+pub const COUNT_IMPORTS: usize = 150;
 pub const IDX_GetVersion: usize = 0;
 pub const IDX_GlobalAlloc: usize = 1;
 pub const IDX_GlobalFree: usize = 2;
@@ -77,85 +77,86 @@ pub const IDX_GetStockObject: usize = 66;
 pub const IDX_WinExec: usize = 67;
 pub const IDX_SetTimer: usize = 68;
 pub const IDX_KillTimer: usize = 69;
-pub const IDX_GetTickCount: usize = 70;
-pub const IDX_FindWindow: usize = 71;
-pub const IDX_DrawIcon: usize = 72;
-pub const IDX_GetDeviceCaps: usize = 73;
-pub const IDX_CreateMenu: usize = 74;
-pub const IDX_AppendMenu: usize = 75;
-pub const IDX_SetMenu: usize = 76;
-pub const IDX_GetKeyState: usize = 77;
-pub const IDX_CheckMenuItem: usize = 78;
-pub const IDX_GetMenu: usize = 79;
-pub const IDX_MoveWindow: usize = 80;
-pub const IDX_SetCapture: usize = 81;
-pub const IDX_ReleaseCapture: usize = 82;
-pub const IDX_TrackPopupMenu: usize = 83;
-pub const IDX_ClientToScreen: usize = 84;
-pub const IDX_DestroyMenu: usize = 85;
-pub const IDX_FillRect: usize = 86;
-pub const IDX_EnumFontFamilies: usize = 87;
-pub const IDX_GetTextMetrics: usize = 88;
-pub const IDX_SetTextColor: usize = 89;
-pub const IDX_SetBkColor: usize = 90;
-pub const IDX_SelectObject: usize = 91;
-pub const IDX_DeleteObject: usize = 92;
-pub const IDX_CreateSolidBrush: usize = 93;
-pub const IDX_Rectangle: usize = 94;
-pub const IDX_CreateFont: usize = 95;
-pub const IDX_GetCharWidth: usize = 96;
-pub const IDX_SetTextAlign: usize = 97;
-pub const IDX_ExtTextOut: usize = 98;
-pub const IDX_CreatePen: usize = 99;
-pub const IDX_MoveTo: usize = 100;
-pub const IDX_LineTo: usize = 101;
-pub const IDX_SaveDC: usize = 102;
-pub const IDX_RestoreDC: usize = 103;
-pub const IDX_IntersectClipRect: usize = 104;
-pub const IDX_SetDIBitsToDevice: usize = 105;
-pub const IDX_StretchDIBits: usize = 106;
-pub const IDX_SetStretchBltMode: usize = 107;
-pub const IDX_GetCurrentTask: usize = 108;
-pub const IDX_InterruptRegister: usize = 109;
-pub const IDX_InterruptUnRegister: usize = 110;
-pub const IDX_WinHelp: usize = 111;
-pub const IDX_GetCursorPos: usize = 112;
-pub const IDX_GetFocus: usize = 113;
-pub const IDX_ScreenToClient: usize = 114;
-pub const IDX_WindowFromPoint: usize = 115;
-pub const IDX_IsIconic: usize = 116;
-pub const IDX_GetWindowRect: usize = 117;
-pub const IDX_SetScrollPos: usize = 118;
-pub const IDX_SetScrollRange: usize = 119;
-pub const IDX_CheckRadioButton: usize = 120;
-pub const IDX_CheckDlgButton: usize = 121;
-pub const IDX_IsDlgButtonChecked: usize = 122;
-pub const IDX_SendDlgItemMessage: usize = 123;
-pub const IDX_EnableMenuItem: usize = 124;
-pub const IDX_LoadBitmap: usize = 125;
-pub const IDX_SetWindowPos: usize = 126;
-pub const IDX_ShowScrollBar: usize = 127;
-pub const IDX_PatBlt: usize = 128;
-pub const IDX_BitBlt: usize = 129;
-pub const IDX_Polygon: usize = 130;
-pub const IDX_CreateCompatibleBitmap: usize = 131;
-pub const IDX_SetViewportOrg: usize = 132;
-pub const IDX_CreateCompatibleDC: usize = 133;
-pub const IDX_CreateFontIndirect: usize = 134;
-pub const IDX_DeleteDC: usize = 135;
-pub const IDX_GetTextExtent: usize = 136;
-pub const IDX_StartDoc: usize = 137;
-pub const IDX_EndDoc: usize = 138;
-pub const IDX_StartPage: usize = 139;
-pub const IDX_EndPage: usize = 140;
-pub const IDX_GetFreeSpace: usize = 141;
-pub const IDX_GetOpenFileName: usize = 142;
-pub const IDX_GetSaveFileName: usize = 143;
-pub const IDX_ChooseFont: usize = 144;
-pub const IDX_PrintDlg: usize = 145;
-pub const IDX_CommDlgExtendedError: usize = 146;
-pub const IDX_CreatePopupMenu: usize = 147;
-pub const IDX_GetProfileString: usize = 148;
+pub const IDX_GetCaretBlinkTime: usize = 70;
+pub const IDX_GetTickCount: usize = 71;
+pub const IDX_FindWindow: usize = 72;
+pub const IDX_DrawIcon: usize = 73;
+pub const IDX_GetDeviceCaps: usize = 74;
+pub const IDX_CreateMenu: usize = 75;
+pub const IDX_AppendMenu: usize = 76;
+pub const IDX_SetMenu: usize = 77;
+pub const IDX_GetKeyState: usize = 78;
+pub const IDX_CheckMenuItem: usize = 79;
+pub const IDX_GetMenu: usize = 80;
+pub const IDX_MoveWindow: usize = 81;
+pub const IDX_SetCapture: usize = 82;
+pub const IDX_ReleaseCapture: usize = 83;
+pub const IDX_TrackPopupMenu: usize = 84;
+pub const IDX_ClientToScreen: usize = 85;
+pub const IDX_DestroyMenu: usize = 86;
+pub const IDX_FillRect: usize = 87;
+pub const IDX_EnumFontFamilies: usize = 88;
+pub const IDX_GetTextMetrics: usize = 89;
+pub const IDX_SetTextColor: usize = 90;
+pub const IDX_SetBkColor: usize = 91;
+pub const IDX_SelectObject: usize = 92;
+pub const IDX_DeleteObject: usize = 93;
+pub const IDX_CreateSolidBrush: usize = 94;
+pub const IDX_Rectangle: usize = 95;
+pub const IDX_CreateFont: usize = 96;
+pub const IDX_GetCharWidth: usize = 97;
+pub const IDX_SetTextAlign: usize = 98;
+pub const IDX_ExtTextOut: usize = 99;
+pub const IDX_CreatePen: usize = 100;
+pub const IDX_MoveTo: usize = 101;
+pub const IDX_LineTo: usize = 102;
+pub const IDX_SaveDC: usize = 103;
+pub const IDX_RestoreDC: usize = 104;
+pub const IDX_IntersectClipRect: usize = 105;
+pub const IDX_SetDIBitsToDevice: usize = 106;
+pub const IDX_StretchDIBits: usize = 107;
+pub const IDX_SetStretchBltMode: usize = 108;
+pub const IDX_GetCurrentTask: usize = 109;
+pub const IDX_InterruptRegister: usize = 110;
+pub const IDX_InterruptUnRegister: usize = 111;
+pub const IDX_WinHelp: usize = 112;
+pub const IDX_GetCursorPos: usize = 113;
+pub const IDX_GetFocus: usize = 114;
+pub const IDX_ScreenToClient: usize = 115;
+pub const IDX_WindowFromPoint: usize = 116;
+pub const IDX_IsIconic: usize = 117;
+pub const IDX_GetWindowRect: usize = 118;
+pub const IDX_SetScrollPos: usize = 119;
+pub const IDX_SetScrollRange: usize = 120;
+pub const IDX_CheckRadioButton: usize = 121;
+pub const IDX_CheckDlgButton: usize = 122;
+pub const IDX_IsDlgButtonChecked: usize = 123;
+pub const IDX_SendDlgItemMessage: usize = 124;
+pub const IDX_EnableMenuItem: usize = 125;
+pub const IDX_LoadBitmap: usize = 126;
+pub const IDX_SetWindowPos: usize = 127;
+pub const IDX_ShowScrollBar: usize = 128;
+pub const IDX_PatBlt: usize = 129;
+pub const IDX_BitBlt: usize = 130;
+pub const IDX_Polygon: usize = 131;
+pub const IDX_CreateCompatibleBitmap: usize = 132;
+pub const IDX_SetViewportOrg: usize = 133;
+pub const IDX_CreateCompatibleDC: usize = 134;
+pub const IDX_CreateFontIndirect: usize = 135;
+pub const IDX_DeleteDC: usize = 136;
+pub const IDX_GetTextExtent: usize = 137;
+pub const IDX_StartDoc: usize = 138;
+pub const IDX_EndDoc: usize = 139;
+pub const IDX_StartPage: usize = 140;
+pub const IDX_EndPage: usize = 141;
+pub const IDX_GetFreeSpace: usize = 142;
+pub const IDX_GetOpenFileName: usize = 143;
+pub const IDX_GetSaveFileName: usize = 144;
+pub const IDX_ChooseFont: usize = 145;
+pub const IDX_PrintDlg: usize = 146;
+pub const IDX_CommDlgExtendedError: usize = 147;
+pub const IDX_CreatePopupMenu: usize = 148;
+pub const IDX_GetProfileString: usize = 149;
 
 // KERNEL.3 GetVersion
 global_asm!(
@@ -3114,6 +3115,45 @@ global_asm!(
 	".byte 0x66, 0xc3",
 );
 
+// USER.169 GetCaretBlinkTime
+global_asm!(
+	".code16",
+	".section .text.imp_GetCaretBlinkTime,\"ax\"",
+	".globl GetCaretBlinkTime",
+	"GetCaretBlinkTime:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"push es",
+	"mov ax, word ptr [__w16_cnt_sel]",
+	"test ax, ax",
+	"je 2f",
+	"mov es, ax",
+	"inc dword ptr es:[280]",
+	"2:",
+	"pop es",
+	"mov ss, word ptr [__w16_ss16]",
+	"movzx esp, sp",
+	".byte 0x9a",
+	".globl __w16imp_USER_169_GetCaretBlinkTime",
+	"__w16imp_USER_169_GetCaretBlinkTime:",
+	".word 0, 0",
+	".byte 0x66, 0xe8",
+	".long w16_sync_alias - . - 4",
+	"mov ss, word ptr [__w16_ss32]",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
 // USER.13 GetTickCount
 global_asm!(
 	".code16",
@@ -3130,7 +3170,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[280]",
+	"inc dword ptr es:[284]",
 	"2:",
 	"pop es",
 	"mov ss, word ptr [__w16_ss16]",
@@ -3171,7 +3211,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[284]",
+	"inc dword ptr es:[288]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+10]",
@@ -3214,7 +3254,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[288]",
+	"inc dword ptr es:[292]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3257,7 +3297,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[292]",
+	"inc dword ptr es:[296]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3298,7 +3338,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[296]",
+	"inc dword ptr es:[300]",
 	"2:",
 	"pop es",
 	"mov ss, word ptr [__w16_ss16]",
@@ -3337,7 +3377,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[300]",
+	"inc dword ptr es:[304]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3381,7 +3421,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[304]",
+	"inc dword ptr es:[308]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3422,7 +3462,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[308]",
+	"inc dword ptr es:[312]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3462,7 +3502,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[312]",
+	"inc dword ptr es:[316]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3504,7 +3544,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[316]",
+	"inc dword ptr es:[320]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3544,7 +3584,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[320]",
+	"inc dword ptr es:[324]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3589,7 +3629,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[324]",
+	"inc dword ptr es:[328]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3629,7 +3669,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[328]",
+	"inc dword ptr es:[332]",
 	"2:",
 	"pop es",
 	"mov ss, word ptr [__w16_ss16]",
@@ -3667,7 +3707,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[332]",
+	"inc dword ptr es:[336]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3714,7 +3754,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[336]",
+	"inc dword ptr es:[340]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3755,7 +3795,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[340]",
+	"inc dword ptr es:[344]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3795,7 +3835,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[344]",
+	"inc dword ptr es:[348]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3838,7 +3878,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[348]",
+	"inc dword ptr es:[352]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3884,7 +3924,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[352]",
+	"inc dword ptr es:[356]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3926,7 +3966,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[356]",
+	"inc dword ptr es:[360]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -3970,7 +4010,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[360]",
+	"inc dword ptr es:[364]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4014,7 +4054,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[364]",
+	"inc dword ptr es:[368]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4055,7 +4095,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[368]",
+	"inc dword ptr es:[372]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4095,7 +4135,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[372]",
+	"inc dword ptr es:[376]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+10]",
@@ -4136,7 +4176,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[376]",
+	"inc dword ptr es:[380]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4180,7 +4220,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[380]",
+	"inc dword ptr es:[384]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4234,7 +4274,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[384]",
+	"inc dword ptr es:[388]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4278,7 +4318,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[388]",
+	"inc dword ptr es:[392]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4319,7 +4359,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[392]",
+	"inc dword ptr es:[396]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4369,7 +4409,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[396]",
+	"inc dword ptr es:[400]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4412,7 +4452,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[400]",
+	"inc dword ptr es:[404]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4456,7 +4496,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[404]",
+	"inc dword ptr es:[408]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4498,7 +4538,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[408]",
+	"inc dword ptr es:[412]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4538,7 +4578,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[412]",
+	"inc dword ptr es:[416]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4579,7 +4619,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[416]",
+	"inc dword ptr es:[420]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4623,7 +4663,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[420]",
+	"inc dword ptr es:[424]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4676,7 +4716,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[424]",
+	"inc dword ptr es:[428]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4731,7 +4771,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[428]",
+	"inc dword ptr es:[432]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4772,7 +4812,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[432]",
+	"inc dword ptr es:[436]",
 	"2:",
 	"pop es",
 	"mov ss, word ptr [__w16_ss16]",
@@ -4811,7 +4851,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[436]",
+	"inc dword ptr es:[440]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4853,7 +4893,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[440]",
+	"inc dword ptr es:[444]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4893,7 +4933,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[444]",
+	"inc dword ptr es:[448]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -4938,7 +4978,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[448]",
+	"inc dword ptr es:[452]",
 	"2:",
 	"pop es",
 	"push ds",
@@ -4978,7 +5018,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[452]",
+	"inc dword ptr es:[456]",
 	"2:",
 	"pop es",
 	"mov ss, word ptr [__w16_ss16]",
@@ -5017,7 +5057,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[456]",
+	"inc dword ptr es:[460]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5058,7 +5098,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[460]",
+	"inc dword ptr es:[464]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+10]",
@@ -5099,7 +5139,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[464]",
+	"inc dword ptr es:[468]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5139,7 +5179,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[468]",
+	"inc dword ptr es:[472]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5180,7 +5220,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[472]",
+	"inc dword ptr es:[476]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5223,7 +5263,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[476]",
+	"inc dword ptr es:[480]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5266,7 +5306,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[480]",
+	"inc dword ptr es:[484]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5308,7 +5348,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[484]",
+	"inc dword ptr es:[488]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5349,7 +5389,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[488]",
+	"inc dword ptr es:[492]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5390,7 +5430,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[492]",
+	"inc dword ptr es:[496]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5437,7 +5477,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[496]",
+	"inc dword ptr es:[500]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5479,7 +5519,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[500]",
+	"inc dword ptr es:[504]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5521,7 +5561,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[504]",
+	"inc dword ptr es:[508]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5566,7 +5606,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[508]",
+	"inc dword ptr es:[512]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5607,7 +5647,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[512]",
+	"inc dword ptr es:[516]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5653,7 +5693,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[516]",
+	"inc dword ptr es:[520]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5702,7 +5742,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[520]",
+	"inc dword ptr es:[524]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5745,7 +5785,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[524]",
+	"inc dword ptr es:[528]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5787,7 +5827,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[528]",
+	"inc dword ptr es:[532]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5831,7 +5871,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[532]",
+	"inc dword ptr es:[536]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5871,7 +5911,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[536]",
+	"inc dword ptr es:[540]",
 	"2:",
 	"pop es",
 	"push ds",
@@ -5912,7 +5952,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[540]",
+	"inc dword ptr es:[544]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5952,7 +5992,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[544]",
+	"inc dword ptr es:[548]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -5997,7 +6037,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[548]",
+	"inc dword ptr es:[552]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -6039,7 +6079,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[552]",
+	"inc dword ptr es:[556]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -6079,7 +6119,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[556]",
+	"inc dword ptr es:[560]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -6119,7 +6159,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[560]",
+	"inc dword ptr es:[564]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -6159,7 +6199,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[564]",
+	"inc dword ptr es:[568]",
 	"2:",
 	"pop es",
 	"push word ptr [bp+8]",
@@ -6201,7 +6241,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[568]",
+	"inc dword ptr es:[572]",
 	"2:",
 	"pop es",
 	"push ds",
@@ -6242,7 +6282,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[572]",
+	"inc dword ptr es:[576]",
 	"2:",
 	"pop es",
 	"push ds",
@@ -6283,7 +6323,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[576]",
+	"inc dword ptr es:[580]",
 	"2:",
 	"pop es",
 	"push ds",
@@ -6324,7 +6364,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[580]",
+	"inc dword ptr es:[584]",
 	"2:",
 	"pop es",
 	"push ds",
@@ -6365,7 +6405,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[584]",
+	"inc dword ptr es:[588]",
 	"2:",
 	"pop es",
 	"mov ss, word ptr [__w16_ss16]",
@@ -6406,7 +6446,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[588]",
+	"inc dword ptr es:[592]",
 	"2:",
 	"pop es",
 	"mov ss, word ptr [__w16_ss16]",
@@ -6445,7 +6485,7 @@ global_asm!(
 	"test ax, ax",
 	"je 2f",
 	"mov es, ax",
-	"inc dword ptr es:[592]",
+	"inc dword ptr es:[596]",
 	"2:",
 	"pop es",
 	"push ds",
@@ -6548,6 +6588,7 @@ unsafe extern "C" {
 	pub fn WinExec(a0: u32, a1: u32) -> u32;
 	pub fn SetTimer(a0: u32, a1: u32, a2: u32, a3: u32) -> u32;
 	pub fn KillTimer(a0: u32, a1: u32) -> u32;
+	pub fn GetCaretBlinkTime() -> u32;
 	pub fn GetTickCount() -> u32;
 	pub fn FindWindow(a0: u32, a1: u32) -> u32;
 	pub fn DrawIcon(a0: u32, a1: u32, a2: u32, a3: u32) -> u32;

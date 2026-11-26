@@ -38,6 +38,10 @@ export_proc!(QuillWndProc, wnd_proc);
 #[cfg(feature = "diag")]
 export_proc!(QuillWndProc, wnd_proc_checked);
 
+const WM_SETFOCUS: u32 = 0x0007;
+const WM_KILLFOCUS: u32 = 0x0008;
+const WM_WININICHANGE: u32 = 0x001A;
+const WM_MENUSELECT: u32 = 0x011F;
 const WM_SIZE: u32 = 0x0005;
 const WM_CLOSE: u32 = 0x0010;
 const WM_QUERYENDSESSION: u32 = 0x0011;
@@ -50,7 +54,10 @@ const WM_TIMER: u32 = 0x0113;
 /// The timer that `/EXIT` sets; timer 1 steps a `/PLAY` script and `tips::TIMER` polls the pointer. Each needs an id of its own: when
 /// `/EXIT` and the tooltips shared one, the first tooltip tick closed the window a moment after it opened (W16-3).
 const EXIT_TIMER: u32 = 3;
+/// The caret's blink timer (W16-17).
+const BLINK_TIMER: u32 = 4;
 const _: () = assert!(EXIT_TIMER != 1 && EXIT_TIMER != tips::TIMER && tips::TIMER != 1);
+const _: () = assert!(BLINK_TIMER > EXIT_TIMER && BLINK_TIMER != tips::TIMER);
 const WM_CTLCOLOR: u32 = 0x0019;
 const WM_INITMENU: u32 = 0x0116;
 const WM_HSCROLL: u32 = 0x0114;
@@ -139,6 +146,12 @@ struct Shell {
 	vbar: u32,
 	hbar: u32,
 	hbar_on: bool,
+	/// The caret's blink: whether it may blink at all (not in a scripted run or with `[Quill] Blink=0`), its phase, whether the window
+	/// has the keyboard focus, and the period in milliseconds (zero for a steady caret).
+	blink_ok: bool,
+	blink_on: bool,
+	blink_focus: bool,
+	blink_ms: u16,
 }
 
 static mut SH: Shell = Shell {
@@ -166,6 +179,10 @@ static mut SH: Shell = Shell {
 	vbar: 0,
 	hbar: 0,
 	hbar_on: false,
+	blink_ok: false,
+	blink_on: true,
+	blink_focus: true,
+	blink_ms: 0,
 };
 
 fn app() -> &'static mut QApp {
@@ -298,7 +315,14 @@ impl Files for Win16Files {
 
 	// The status-line words of recovery are string resources: the data segment has no room for them.
 	fn string(&mut self, id: u8, out: &mut [u8]) -> usize {
-		unsafe { LoadString(w16::HINST, u32::from(id), np(out.as_mut_ptr()), out.len() as u32) as usize }
+		unsafe {
+			LoadString(
+				w16::HINST,
+				u32::from(id),
+				np(out.as_mut_ptr()),
+				out.len() as u32,
+			) as usize
+		}
 	}
 
 	// Where a recovery copy goes when it has no place beside its document: `RECOVER\` beside the program, then the program's own folder.
@@ -562,7 +586,7 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 		let area = Rect16::new(0, tb + rl, lay.page_w, lay.page_bottom);
 		if db > tb + rl && dt < lay.page_bottom {
 			let pct = zoom_now(lay.page_w);
-			let rows = gdi::paint_page(dc, area, damage, sh().hscroll, pct, app, s);
+			let rows = gdi::paint_page(dc, area, damage, sh().hscroll, pct, app, s, blink_shows());
 			app.set_rows(rows);
 			app.set_view_height(view::log(lay.page_bottom - tb - rl, pct));
 		}
@@ -588,6 +612,95 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 		RestoreDC(dc, saved);
 	}
 	chrome::sync_combos(app, s);
+}
+
+/// Whether the page draws the caret now. A steady caret is always drawn; a blinking one only in its on phase and while the window has
+/// the focus, as the system's does.
+fn blink_shows() -> bool {
+	let sh = sh();
+	!sh.blink_ok || (sh.blink_on && sh.blink_focus)
+}
+
+/// Asks for the caret's own rectangle to be painted again, and nothing else.
+fn invalidate_caret(hwnd: u32) {
+	if sh().grid {
+		return;
+	}
+	let (w, h) = client_size(hwnd);
+	let lay = layout(w, h, sh().hbar_on);
+	let (h0, h1) = view::rows(app());
+	let top = h0 + h1 + if app().show_ruler() { view::RULER_H } else { 0 };
+	let area = Rect16::new(0, top, lay.page_w, lay.page_bottom);
+	let pct = zoom_now(lay.page_w);
+	if let Some(r) = gdi::caret_rect(area, sh().hscroll, pct, app(), store()) {
+		#[cfg(feature = "bench")]
+		bench::inv(&r);
+		unsafe { InvalidateRect(hwnd, gdi::fp(&r), 0) };
+	}
+}
+
+/// Makes the caret solid and starts its blink over, as any key, click or command does to the system's caret. It reads the system's
+/// blink time each time, so a change in Control Panel is followed by the next key. A steady caret calls nothing.
+fn blink_restart(hwnd: u32) {
+	let sh = sh();
+	if !sh.blink_ok {
+		return;
+	}
+	unsafe { KillTimer(hwnd, BLINK_TIMER) };
+	let was_off = !sh.blink_on;
+	sh.blink_on = true;
+	// Zero and 0xFFFF (the system's "never") both mean a steady caret.
+	let ms = if sh.blink_focus {
+		unsafe { GetCaretBlinkTime() as u16 }
+	} else {
+		0
+	};
+	sh.blink_ms = if ms == 0xFFFF { 0 } else { ms };
+	if sh.blink_ms > 0 {
+		unsafe { SetTimer(hwnd, BLINK_TIMER, u32::from(sh.blink_ms), 0) };
+	}
+	if was_off {
+		invalidate_caret(hwnd);
+	}
+}
+
+/// The blink timer fired: shows or hides the caret. It stops itself when there is nothing to blink.
+fn blink_tick(hwnd: u32) {
+	let sh = sh();
+	if !sh.blink_focus || sh.blink_ms == 0 || sh.grid || !app().editing() {
+		unsafe { KillTimer(hwnd, BLINK_TIMER) };
+		sh.blink_on = true;
+		return;
+	}
+	sh.blink_on = !sh.blink_on;
+	invalidate_caret(hwnd);
+}
+
+/// The window gained or lost the keyboard focus: the caret shows, and blinks, only with it.
+fn blink_focus(hwnd: u32, focused: bool) {
+	let sh = sh();
+	if !sh.blink_ok {
+		return;
+	}
+	if sh.blink_focus != focused {
+		invalidate_caret(hwnd);
+	}
+	sh.blink_focus = focused;
+	blink_restart(hwnd);
+	if !focused {
+		unsafe { KillTimer(hwnd, BLINK_TIMER) };
+	}
+}
+
+/// A menu opened: the caret goes solid and stays so until the menu closes.
+fn blink_menu_open(hwnd: u32) {
+	if sh().blink_ok {
+		unsafe { KillTimer(hwnd, BLINK_TIMER) };
+		if !sh().blink_on {
+			sh().blink_on = true;
+			invalidate_caret(hwnd);
+		}
+	}
 }
 
 /// Asks for the page and the status bar to be painted again, and nothing above them.
@@ -789,6 +902,7 @@ fn after_edit(hwnd: u32, before: u32) {
 }
 
 fn press(hwnd: u32, k: Key) {
+	blink_restart(hwnd);
 	let before = view::signature(app(), store());
 	app().key(store(), &mut Win16Files, k);
 	after_edit(hwnd, before);
@@ -855,6 +969,7 @@ pub fn set_clock() {
 }
 
 fn run_command(hwnd: u32, c: Command) {
+	blink_restart(hwnd);
 	if matches!(c, Command::Field(3 | 5)) {
 		set_clock();
 	}
@@ -962,6 +1077,7 @@ fn mouse_down(hwnd: u32, x: i32, y: i32, shift: bool) {
 	if sh().grid {
 		return;
 	}
+	blink_restart(hwnd);
 	let (app, s) = (app(), store());
 	let (h0, h1) = view::rows(app);
 	if y < h0 + h1 {
@@ -1597,6 +1713,8 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				if wparam == EXIT_TIMER {
 					KillTimer(hwnd, EXIT_TIMER);
 					DestroyWindow(hwnd);
+				} else if wparam == BLINK_TIMER {
+					blink_tick(hwnd);
 				} else if wparam == tips::TIMER {
 					if tips::tick(hwnd, app()) {
 						invalidate_status(hwnd);
@@ -1624,6 +1742,7 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				tips::tip_brush()
 			}
 			WM_INITMENU => {
+				blink_menu_open(hwnd);
 				tips::dismiss();
 				DefWindowProc(hwnd, msg, wparam, lparam)
 			}
@@ -1711,8 +1830,34 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				PostQuitMessage(0);
 				0
 			}
-			_ => DefWindowProc(hwnd, msg, wparam, lparam),
+			_ => blink_message(hwnd, msg, wparam, lparam),
 		}
+	}
+}
+
+/// The messages that move the caret's blink, kept out of `wnd_proc`'s `match` so its jump table does not grow into the data segment
+/// (W16-17); anything else is the system's.
+#[inline(never)]
+fn blink_message(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
+	match msg {
+		// The caret shows, and blinks, only while the window has the keyboard focus.
+		WM_SETFOCUS | WM_KILLFOCUS => {
+			blink_focus(hwnd, msg == WM_SETFOCUS);
+			0
+		}
+		// Control Panel changed the caret's blink time (or anything else in WIN.INI): read it again.
+		WM_WININICHANGE => {
+			blink_restart(hwnd);
+			0
+		}
+		// The menu closed without a choice (the flags are all ones and there is no menu): the caret blinks again.
+		WM_MENUSELECT => {
+			if lparam == 0xFFFF {
+				blink_restart(hwnd);
+			}
+			unsafe { DefWindowProc(hwnd, msg, wparam, lparam) }
+		}
+		_ => unsafe { DefWindowProc(hwnd, msg, wparam, lparam) },
 	}
 }
 
@@ -2072,6 +2217,12 @@ pub extern "C" fn w16_main(hinst: u32, hprev: u32, show: u32) -> u32 {
 		UpdateWindow(hwnd);
 		if (*core::ptr::addr_of!(PLAY)).is_some() {
 			SetTimer(hwnd, 1, 300, 0);
+		}
+		// A scripted run, a benchmark and `[Quill] Blink=0` keep the caret steady.
+		#[cfg(not(feature = "bench"))]
+		if !gridview && (*core::ptr::addr_of!(PLAY)).is_none() {
+			sh().blink_ok = !app().blink_steady();
+			blink_restart(hwnd);
 		}
 		#[cfg(feature = "bench")]
 		if bench::armed() {

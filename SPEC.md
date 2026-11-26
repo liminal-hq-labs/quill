@@ -384,7 +384,7 @@ Every build keeps every property of the document. The table says what each shows
 | Toolbar and ruler | Yes | Yes | Ruler as text | Yes, with tips and drop-down lists (no tab-kind button) |
 | Print preview | Yes | Yes | No | Yes |
 | Zoom (stretch) | Yes | Yes | No | No |
-| Caret | Steady | Blinks at the system's rate (W9X-12) | Steady | Steady |
+| Caret | Blinks at the system's rate (W16-17) | Blinks at the system's rate (W9X-12) | Steady | Steady |
 | Printing | Windows printer drivers | Windows printer drivers | Plain text | Plain text; PostScript stretch |
 | Clipboard | Windows: RTF, DIB, text | Windows: RTF, DIB, text | Own; Windows text in a DOS box | As text mode |
 | Spelling as you type | Off by default, not built yet | On by default | Off by default, not built yet | As text mode |
@@ -529,7 +529,7 @@ Settings live in `QUILL.INI` in the Windows directory (both Windows builds share
 | `[Quill] Backup` | `0` | When `1`, Save keeps the previous file as `<name>.BAK` |
 | `[Quill] PictureMemory` | `1024` (Win16), `16384` (Win32), `4096` (DOS) | Most memory, in KB, decoded pictures may hold at once (256–65536) |
 | `[Quill] Zoom` | `Width` | Zoom: `Width` (the page fits the window, never larger than 100 percent) or a percentage from 25 to 200 |
-| `[Quill] Blink` | `1` | Win32 only: `0` keeps the caret steady; otherwise it blinks at the system's rate (`GetCaretBlinkTime`), steady when that is zero or infinite. The environment variable `QUILL_NO_BLINK`, set to anything, and a `/PLAY` run do the same (W9X-12); the Linux client also reads `QUILL_NO_BLINK` (LNX-15). Never written back |
+| `[Quill] Blink` | `1` | Windows builds: `0` keeps the caret steady; otherwise it blinks at the system's rate (`GetCaretBlinkTime`), steady when that is zero or infinite. A `/PLAY` run does the same, and the Win32 build and the Linux client also read the environment variable `QUILL_NO_BLINK`, set to anything (W9X-12, W16-17, LNX-15). The Win32 build never writes it back; the Win16 build keeps `Blink=0` in the file it rewrites at exit, since that file is its own |
 | `[Spelling] Language` | `en-CA` | `en-CA`, `en-US` or `en-GB` |
 | `[Quill] AsYouType` | `0` (Win16 and DOS, not built yet), `1` (Windows 95) | Check spelling as you type |
 | `[Spelling] IgnoreCaps` | `1` | Skip words in all capitals |

@@ -2403,6 +2403,37 @@ global_asm!(
 	".byte 0x66, 0xc3",
 );
 
+// USER.169 GetCaretBlinkTime
+global_asm!(
+	".code16",
+	".section .text.imp_GetCaretBlinkTime,\"ax\"",
+	".globl GetCaretBlinkTime",
+	"GetCaretBlinkTime:",
+	"push ebp",
+	"mov bp, sp",
+	"push ebx",
+	"push esi",
+	"push edi",
+	"mov ss, word ptr [__w16_ss16]",
+	"movzx esp, sp",
+	".byte 0x9a",
+	".globl __w16imp_USER_169_GetCaretBlinkTime",
+	"__w16imp_USER_169_GetCaretBlinkTime:",
+	".word 0, 0",
+	".byte 0x66, 0xe8",
+	".long w16_sync_alias - . - 4",
+	"mov ss, word ptr [__w16_ss32]",
+	"movzx esp, sp",
+	"push ds",
+	"pop es",
+	"movzx eax, ax",
+	"pop edi",
+	"pop esi",
+	"pop ebx",
+	"pop ebp",
+	".byte 0x66, 0xc3",
+);
+
 // USER.13 GetTickCount
 global_asm!(
 	".code16",
@@ -5205,6 +5236,7 @@ unsafe extern "C" {
 	pub fn WinExec(a0: u32, a1: u32) -> u32;
 	pub fn SetTimer(a0: u32, a1: u32, a2: u32, a3: u32) -> u32;
 	pub fn KillTimer(a0: u32, a1: u32) -> u32;
+	pub fn GetCaretBlinkTime() -> u32;
 	pub fn GetTickCount() -> u32;
 	pub fn FindWindow(a0: u32, a1: u32) -> u32;
 	pub fn DrawIcon(a0: u32, a1: u32, a2: u32, a3: u32) -> u32;
