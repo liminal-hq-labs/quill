@@ -1,0 +1,22 @@
+# M16: what the file dialog says when it cannot do what it was asked: a name that is not there, a name DOS keeps for a device, a name that is
+# not valid, a path that is too long, and a drive that is not ready (Retry tries it again, Cancel stays where it was).
+@dialog
+@cwd C:\A1234567\B1234567\C1234567\D1234567\E1234567\F1234567\G1234567\H1234567
+@dir A1234567\B1234567\C1234567\D1234567\E1234567\F1234567\G1234567\H1234567
+@drive A removable notready
+f10 down enter                # File > Open...
+x period q enter              # X.Q is not there
+enter                         # OK
+altn bspace bspace bspace
+l p t 1 enter                 # LPT1 is a device
+enter
+altn bspace bspace bspace bspace
+x pipe enter                  # a name with a bar in it
+enter
+altn bspace bspace
+a b c d e f g h period q l d enter   # C:\A1234567\...\H1234567\ABCDEFGH.QLD is 84 bytes
+enter
+altp home enter               # the A: place: the drive is not ready
+r                             # Retry: it still is
+esc                           # Cancel: the dialog stays where it was
+esc                           # leaves the dialog

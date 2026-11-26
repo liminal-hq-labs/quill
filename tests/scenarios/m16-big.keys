@@ -1,0 +1,17 @@
+# M16: a folder with more than the dialog lists. 2,100 files and a folder: the list stops at 2,000 entries, says so, and still scrolls and
+# types ahead across its two pages.
+@dialog
+@cwd C:\BIG
+@dir BIG\SUB
+@many BIG 2100 QLD
+f10 down enter                # File > Open...
+tab tab tab tab tab tab tab   # to the list
+pagedown pagedown pagedown
+end
+pageup
+home
+f 0 9 9 9
+alt2
+alt2
+end
+esc

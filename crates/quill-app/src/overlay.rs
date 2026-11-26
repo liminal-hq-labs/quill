@@ -272,6 +272,9 @@ impl<M: Measure + Clone> crate::App<M> {
 	pub fn overlay<S: ReadStore + ?Sized>(&self, s: &S, o: &mut Overlay) -> bool {
 		match &self.mode {
 			Mode::Edit | Mode::Menu { .. } => false,
+			// The file dialog is drawn by the text painter; the graphics screen gets its own painter with the pointer.
+			#[cfg(feature = "text-file-dialog")]
+			Mode::File => false,
 			Mode::Prompt {
 				kind,
 				buf,

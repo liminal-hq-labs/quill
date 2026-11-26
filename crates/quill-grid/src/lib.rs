@@ -133,7 +133,7 @@ impl<const ROWS: usize> Grid<ROWS> {
 		writeln!(w, "=== screen {n} ===")?;
 		for row in &self.cells {
 			for c in row {
-				w.write_char(cp437(c.ch))?;
+				w.write_char(dump_char(c.ch))?;
 			}
 			w.write_char('\n')?;
 		}
@@ -170,7 +170,7 @@ impl<const ROWS: usize> Grid<ROWS> {
 		let mut utf = [0u8; 4];
 		for row in &self.cells {
 			for c in row {
-				out(cp437(c.ch).encode_utf8(&mut utf).as_bytes());
+				out(dump_char(c.ch).encode_utf8(&mut utf).as_bytes());
 			}
 			out(b"\n");
 		}
@@ -194,6 +194,21 @@ const HIGH: [char; 128] = [
 	'▀', 'α', 'ß', 'Γ', 'π', 'Σ', 'σ', 'µ', 'τ', 'Φ', 'Θ', 'Ω', 'δ', '∞', 'φ', 'ε', '∩', '≡', '±',
 	'≥', '≤', '⌠', '⌡', '÷', '≈', '°', '∙', '·', '√', 'ⁿ', '²', '■', '\u{a0}',
 ];
+
+/// The character a golden dump shows for a CP437 code: [`cp437`], and for the glyphs a dialog draws its file types and scroll bars with
+/// (below 0x20, where a dump would otherwise show a space) the shape they have on a DOS screen.
+pub fn dump_char(b: u8) -> char {
+	match b {
+		0x0F => '☼',
+		0x14 => '¶',
+		0x15 => '§',
+		0x16 => '▬',
+		0x18 => '↑',
+		0x1E => '▲',
+		0x1F => '▼',
+		_ => cp437(b),
+	}
+}
 
 /// The Unicode character for a CP437 code. Codes below 0x20 show as spaces, so a dump holds no control characters.
 pub fn cp437(b: u8) -> char {

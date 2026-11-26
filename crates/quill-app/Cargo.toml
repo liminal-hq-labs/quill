@@ -19,6 +19,9 @@ quill-spell = { path = "../quill-spell" }
 [features]
 # File names up to a Windows path (260 bytes) instead of a DOS one (64); the Win32 build turns it on.
 long-names = []
+# The file dialog of the text screens (`Mode::File`, `filedialog`, `filepaint`): on for the DOS text screen, the host and the terminal
+# client, off for the Windows builds, whose `QUILL.EXE` and `QUILL32.EXE` use the system's dialogs and must not link it.
+text-file-dialog = []
 
 [package.metadata.quill]
 layer = "editor"
