@@ -523,7 +523,18 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 	s: &S,
 	g: &mut Grid<ROWS>,
 ) -> Option<Cursor> {
-	let text_rows = ROWS.saturating_sub(2);
+	draw_rows(app, s, g, ROWS)
+}
+
+/// Paints a screen of `rows` rows into the top of `g`, which may have more: a shell with one grid for the 25 and the 50 row screens
+/// keeps one copy of the painter. The rows below `rows` are left as the grid's background.
+pub fn draw_rows<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
+	app: &App<M>,
+	s: &S,
+	g: &mut Grid<ROWS>,
+	rows: usize,
+) -> Option<Cursor> {
+	let text_rows = rows.saturating_sub(2);
 	let base = if app.scheme == Scheme::Colour {
 		attr::TEXT
 	} else {
@@ -654,7 +665,7 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 	}
 
 	// The status line.
-	let last = ROWS - 1;
+	let last = rows.saturating_sub(1).min(ROWS - 1);
 	g.fill(0, last, COLS, 1, b' ', attr::CHROME);
 	let mut st = Row::new();
 	status_into(app, s, caret, caret_page, ln_in_page, &mut st);
@@ -931,7 +942,7 @@ pub fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 			cursor = None;
 		}
 		#[cfg(feature = "text-file-dialog")]
-		Mode::File => cursor = filepaint::draw(app, s, g),
+		Mode::File => cursor = filepaint::draw(app, s, g, rows),
 		Mode::Edit => {}
 	}
 	cursor

@@ -4,12 +4,15 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use alloc::boxed::Box;
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use quill_app::{Files, SaveMode};
+use quill_dlg::fs::{DriveKind, FileSystem, Found, FsError, ATTR_DIR};
+use quill_dlg::name83::PathBuf;
 use quill_formats::io::{Sink, Source};
 use quill_strike::{index_len, StrikeSource, Strikes, HEADER_LEN};
-use rt::dos::{File, Mode};
+use rt::dos::{DosError, File, Mode};
 
 /// Reads a DOS file.
 pub struct DosSource(File);
@@ -53,21 +56,148 @@ impl Files for DosFiles {
 		SaveMode::TempRename
 	}
 
+	fn fs(&mut self) -> Option<&mut dyn FileSystem> {
+		Some(self)
+	}
+
 	fn remove(&mut self, name: &[u8]) -> bool {
 		core::str::from_utf8(name).is_ok_and(|n| rt::dos::remove(n).is_ok())
 	}
 
 	// DOS refuses a name that is taken, so a replace falls to `remove` and then `rename` (the provided `replace`).
 	fn rename(&mut self, from: &[u8], to: &[u8]) -> bool {
-		match (core::str::from_utf8(from), core::str::from_utf8(to)) {
-			(Ok(a), Ok(b)) => rt::dos::rename(a, b).is_ok(),
-			_ => false,
-		}
+		FileSystem::rename(self, from, to).is_ok()
 	}
 
 	fn len(&mut self, name: &[u8]) -> Option<u32> {
 		File::open(core::str::from_utf8(name).ok()?, Mode::Read).ok()?.len().ok()
 	}
+}
+
+/// The failure DOS reported, as the dialog says it. Where the critical-error stub answered Fail, DOS says only that the call failed
+/// (15h or 53h), so the extended error is asked for the cause; it is the next DOS call after the failure.
+fn fail(e: DosError) -> FsError {
+	let code = if matches!(e.0, 0x15 | 0x53) {
+		match rt::dos::extended_error() {
+			0 | 0x53 => e.0,
+			cause => cause,
+		}
+	} else {
+		e.0
+	};
+	FsError::from_dos(code)
+}
+
+fn text(path: &[u8]) -> Result<&str, FsError> {
+	core::str::from_utf8(path).map_err(|_| FsError::NoPath)
+}
+
+/// The file dialog's view of the disk: INT 21h searches and the drive calls that do not read the media.
+impl FileSystem for DosFiles {
+	fn list(&mut self, dir: &[u8], each: &mut dyn FnMut(Found<'_>)) -> Result<(), FsError> {
+		let mut pattern = Vec::with_capacity(dir.len() + 4);
+		pattern.extend_from_slice(dir);
+		if pattern.last() != Some(&b'\\') {
+			pattern.push(b'\\');
+		}
+		pattern.extend_from_slice(b"*.*");
+		// 10h asks for folders besides files, and so leaves out hidden, system and volume entries.
+		rt::dos::find_each(text(&pattern)?, 0x10, |e| {
+			each(Found {
+				name: e.name_bytes(),
+				attr: e.attr,
+				// A folder has no size; DOSBox gives one a few bytes.
+				size: if e.is_dir() { 0 } else { e.size },
+				date: e.date,
+				time: e.time,
+			})
+		})
+		.map(|_| ())
+		.map_err(fail)
+	}
+
+	fn drives(&mut self) -> u32 {
+		rt::dos::drive_mask()
+	}
+
+	fn drive_kind(&mut self, letter: u8) -> DriveKind {
+		let d = letter.to_ascii_uppercase().wrapping_sub(b'A');
+		if d >= 26 {
+			return DriveKind::Fixed;
+		}
+		if rt::dos::drive_attributes(d).is_ok_and(|w| w & 0x1000 != 0) {
+			DriveKind::Network
+		} else if rt::dos::drive_is_cdrom(d) {
+			DriveKind::CdRom
+		} else if rt::dos::drive_removable(d) == Ok(true) {
+			DriveKind::Removable
+		} else {
+			DriveKind::Fixed
+		}
+	}
+
+	fn current_dir(&mut self, drive: u8, out: &mut PathBuf) -> Result<(), FsError> {
+		let index = if drive == 0 {
+			rt::dos::current_drive()
+		} else {
+			drive.to_ascii_uppercase().wrapping_sub(b'A')
+		};
+		if index >= 26 {
+			return Err(FsError::NoPath);
+		}
+		let rest = rt::dos::current_dir(index).map_err(fail)?;
+		out.clear();
+		let ok = out.push_bytes(&[b'A' + index, b':', b'\\']) && out.push_bytes(rest.as_bytes());
+		if ok {
+			Ok(())
+		} else {
+			Err(FsError::NoPath)
+		}
+	}
+
+	fn exists(&mut self, path: &[u8]) -> Option<u8> {
+		// A root has no attributes to ask for; it exists when its drive does.
+		if path.len() == 3 && path.get(1) == Some(&b':') && path.get(2) == Some(&b'\\') {
+			let d = path.first()?.to_ascii_uppercase().wrapping_sub(b'A');
+			return (d < 26 && rt::dos::drive_valid(d)).then_some(ATTR_DIR);
+		}
+		rt::dos::attributes(text(path).ok()?).ok().map(|a| a as u8)
+	}
+
+	fn mkdir(&mut self, path: &[u8]) -> Result<(), FsError> {
+		rt::dos::mkdir(text(path)?).map_err(fail)
+	}
+
+	fn rename(&mut self, from: &[u8], to: &[u8]) -> Result<(), FsError> {
+		rt::dos::rename(text(from)?, text(to)?).map_err(fail)
+	}
+
+	fn remove(&mut self, path: &[u8]) -> Result<(), FsError> {
+		rt::dos::remove(text(path)?).map_err(fail)
+	}
+}
+
+/// The folders the dialog offers besides the drives: Quill's own and the samples beside it, when there are samples.
+pub fn places() -> Vec<(String, String)> {
+	let mut v = Vec::new();
+	let Some(exe) = rt::env::program_path() else {
+		return v;
+	};
+	let Some(cut) = exe.rfind('\\') else {
+		return v;
+	};
+	// A root keeps its backslash (`C:\`); any other folder has none.
+	let own = if cut <= 2 { &exe[..=cut] } else { &exe[..cut] };
+	v.push((String::from("Quill"), String::from(own)));
+	let mut samples = String::from(own);
+	if !samples.ends_with('\\') {
+		samples.push('\\');
+	}
+	samples.push_str("SAMPLES");
+	if rt::dos::attributes(&samples).is_ok_and(|a| a & u16::from(ATTR_DIR) != 0) {
+		v.push((String::from("Samples"), samples));
+	}
+	v
 }
 
 /// Bytes of `QUILL.FNT` read at a time and kept.

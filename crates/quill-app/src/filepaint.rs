@@ -209,10 +209,11 @@ pub(super) fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>
 	app: &App<M>,
 	s: &S,
 	g: &mut Grid<ROWS>,
+	rows: usize,
 ) -> Option<Cursor> {
 	let dlg = app.fd.dlg.as_ref()?;
 	let kind = dlg.kind();
-	let l = Layout::new(Screen::Text(ROWS as u16), kind)?;
+	let l = Layout::new(Screen::Text(rows as u16), kind)?;
 	let roles = Roles::of(app.scheme);
 	let d = l.dialog;
 	let focus = dlg.focus().focused();

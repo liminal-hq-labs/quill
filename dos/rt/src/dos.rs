@@ -592,8 +592,9 @@ pub fn current_dir(drive: u8) -> Result<alloc::string::String, DosError> {
 	};
 	rm21(&mut r)?;
 	let mut out = alloc::string::String::new();
-	for i in 0..64 {
-		// SAFETY: DOS wrote at most 64 bytes at the start of the buffer.
+	// DOS means the buffer to hold 64 bytes; a DOS that keeps a longer path (DOSBox) writes all of it, and the transfer buffer is big.
+	for i in 0..128 {
+		// SAFETY: the buffer is 32 KiB and DOS wrote a NUL-terminated path at its start.
 		let b = unsafe { tb_ptr().add(i).read() };
 		if b == 0 {
 			break;
@@ -630,6 +631,44 @@ pub fn logical_drive_map(drive: u8) -> Result<u8, DosError> {
 	};
 	rm21(&mut r)?;
 	Ok(r.eax as u8)
+}
+
+/// AX=4408h: whether `drive` (0 for A:) has removable media, without touching the disk: `Ok(true)` for a floppy, `Ok(false)` for a
+/// fixed disk. A network drive and an invalid one are errors (1 and 0Fh).
+pub fn drive_removable(drive: u8) -> Result<bool, DosError> {
+	let mut r = RealRegs {
+		eax: 0x4408,
+		ebx: u32::from(drive) + 1,
+		..RealRegs::default()
+	};
+	rm21(&mut r)?;
+	Ok(r.eax as u8 == 0)
+}
+
+/// INT 2Fh AX=150Bh (MSCDEX): whether `drive` (0 for A:) is a CD-ROM drive. False when MSCDEX is not there. Does not read the disc.
+pub fn drive_is_cdrom(drive: u8) -> bool {
+	let mut r = RealRegs {
+		eax: 0x150B,
+		ebx: 0,
+		ecx: u32::from(drive),
+		..RealRegs::default()
+	};
+	dpmi::simulate_int(0x2F, &mut r).is_ok() && r.ebx as u16 == 0xADAD && r.eax as u16 != 0
+}
+
+/// AH=59h: why the last DOS call failed. With the critical-error stub answering Fail, the call itself says only "failed" (15h or 53h);
+/// this gives the cause in the extended error code (13h write-protected, 15h not ready, 1Fh general failure, and so on). It must be
+/// the next DOS call after the failure, before anything else runs.
+pub fn extended_error() -> u16 {
+	let mut r = RealRegs {
+		eax: 0x5900,
+		ebx: 0,
+		..RealRegs::default()
+	};
+	if dpmi::simulate_int(0x21, &mut r).is_err() {
+		return 0;
+	}
+	r.eax as u16
 }
 
 /// INT 11h: how many floppy drives the equipment word reports (0 to 4).

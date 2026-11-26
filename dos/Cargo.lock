@@ -92,6 +92,7 @@ dependencies = [
  "desk-vga",
  "quill-app",
  "quill-core",
+ "quill-dlg",
  "quill-formats",
  "quill-grid",
  "quill-heap",

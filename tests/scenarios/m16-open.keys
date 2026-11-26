@@ -2,10 +2,12 @@
 # column, steps through a letter's entries, goes up with Backspace, reads the folder again with F5, opens a folder with Enter, picks a place
 # and takes a file by its name.
 @dialog
+@dir QUILL
+@place Quill C:\QUILL
 @cwd C:\DOCS
 @dir DOCS\LETTERS\OLD
 @dir DOCS\2025
-@dir GAMES
+@dir QUILL\SAMPLES
 @copy letter.qld DOCS\
 @copy letter.rtf DOCS\
 @copy plain.qld DOCS\
@@ -19,7 +21,7 @@
 @stamp DOCS\PIC.BMP 2025-10-01 08:30
 @stamp DOCS\WIDE.RTF 2026-05-02 14:30
 @stamp DOCS\HEADING.RTF 2024-01-01 00:00
-@place Samples C:\GAMES
+@place Samples C:\QUILL\SAMPLES
 f10 down enter                # File > Open...
 altt end                      # All Files
 altl down down down           # the list: 2025, LETTERS, then the first file; its name goes in the field
@@ -33,7 +35,7 @@ p                             # a new prefix after ten ticks: PIC.BMP
 home enter                    # `..` goes up to the root, with DOCS selected
 f5                            # reads it again
 enter                         # into DOCS
-altp end enter                # the Samples place: C:\GAMES
-altu                          # the Up button: C:\
+altp end enter                # the Samples place: C:\QUILL\SAMPLES
 altp home enter               # the C: place: its own folder, C:\DOCS
-altn p l a i n period q l d enter   # opens PLAIN.QLD
+altu                          # the Up button: C:\
+altn d o c s backslash p l a i n period q l d enter   # opens DOCS\PLAIN.QLD from the root

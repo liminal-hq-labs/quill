@@ -46,6 +46,8 @@ run_scenario() { # <name> <saved file on the disk or -> <golden saved file or ->
 		@rows) [ "$a" != 50 ] || args="$args /50" ;;
 		esac
 	done < <(grep '^@' "$file" | sed 's/#.*//')
+	# The file dialog lists dates: the host's files are all from 2025-01-01, so the disk's are too.
+	find "$disk" -type f ! -name QUILLDOS.EXE -exec touch -d '2025-01-01 00:00' {} +
 	local keys
 	keys="$(grep -v '^@' "$file" | sed 's/#.*//' | tr -s ' \n\t' ' ' | sed 's/^ //; s/ $//')"
 	export DOS_ENV='QUILL_DUMP=D:\DUMP.TXT'
@@ -56,6 +58,9 @@ run_scenario() { # <name> <saved file on the disk or -> <golden saved file or ->
 	"$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE$args" > "$WORK/$name.out" || rc=$?
 	[ "$rc" = 0 ] || fail "$name: QUILLDOS.EXE exited with $rc"
 	tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/$name-frames.txt"
+	# A file this run wrote has DOS's real time where the host has its fixed clock (the file dialog lists both).
+	python3 "$HERE/tools/normalise-clock.py" "$WORK/$name-frames.txt" "$ROOT/tests/golden/screens/$name.frames.txt" > "$WORK/$name-norm.txt"
+	mv "$WORK/$name-norm.txt" "$WORK/$name-frames.txt"
 	diff -u "$ROOT/tests/golden/screens/$name.frames.txt" "$WORK/$name-frames.txt" > "$WORK/$name.diff" || { head -60 "$WORK/$name.diff" >&2; fail "$name: the screens differ from the host's"; }
 	echo "e2e: $name: every screen matches the host's, character for character and attribute for attribute"
 	if [ "$saved" != - ]; then
@@ -102,32 +107,103 @@ unset DOS_CONF
 # `@wheel` lines in order, the same steps the host plays. Text mode compares every screen with the host's; graphics compares the CRC-32 of
 # every frame with the host's and with the video memory read back (the arrow is on the card and never in the shadow, so the read-back
 # takes it off first).
-run_mouse_text() { # <name> <arguments>
-	local name="$1" args="$2"
+# Puts what a scenario's directives name on the disk, as the host's `stage` puts it in its memory files: `@copy NAME [DIR\]` (a test document,
+# in a folder), `@dir DIR`, `@many DIR N EXT` (files with the host's sizes and dates), `@readonly PATH` and `@stamp PATH DATE TIME`. Every
+# file and folder gets the host's default date (2025-01-01 00:00) unless a `@stamp` names one, because the dialog lists dates and the disk's
+# are the time of the copy. Names are upper case, as DOS shows them.
+stage_disk() { # <scenario file> <disk>
+	local file="$1" disk="$2" d a b c
+	local up
+	while read -r d a b c; do
+		case "$d" in
+		@copy)
+			if [ -n "$b" ]; then
+				up="$(echo "$b" | tr '[:lower:]' '[:upper:]' | tr '\\' '/')"
+				mkdir -p "$disk/$up"
+				cp "$ROOT/tests/docs/$a" "$disk/$up$(echo "$a" | tr '[:lower:]' '[:upper:]')"
+			else
+				cp "$ROOT/tests/docs/$a" "$disk/$(echo "$a" | tr '[:lower:]' '[:upper:]')"
+			fi
+			;;
+		@dir) mkdir -p "$disk/$(echo "$a" | tr '[:lower:]' '[:upper:]' | tr '\\' '/')" ;;
+		@many)
+			up="$(echo "$a" | tr '[:lower:]' '[:upper:]' | tr '\\' '/')"
+			mkdir -p "$disk/$up"
+			local i m dd name
+			for ((i = 0; i < b; i++)); do
+				name="$disk/$up/$(printf 'F%04d' "$i").$(echo "$c" | tr '[:lower:]' '[:upper:]')"
+				truncate -s $(((i * 7919) % 90000 + 1)) "$name"
+				m=$(((i * 5) % 12 + 1))
+				dd=$(((i * 3) % 28 + 1))
+				touch -d "$(printf '%d-%02d-%02d %02d:%02d' $((2024 + i % 3)) "$m" "$dd" $((i % 24)) $((i % 60)))" "$name"
+			done
+			;;
+		esac
+	done < <(grep '^@' "$file" | sed 's/#.*//')
+	# The default date for everything that was made, then the dates the scenario names.
+	find "$disk" -mindepth 1 ! -name 'F[0-9][0-9][0-9][0-9].*' ! -name 'QUILLDOS.EXE' -exec touch -d '2025-01-01 00:00' {} +
+	while read -r d a b c; do
+		case "$d" in
+		@stamp) touch -d "$b $c" "$disk/$(echo "$a" | tr '[:lower:]' '[:upper:]' | tr '\\' '/')" ;;
+		@readonly) chmod a-w "$disk/$(echo "$a" | tr '[:lower:]' '[:upper:]' | tr '\\' '/')" ;;
+		esac
+	done < <(grep '^@' "$file" | sed 's/#.*//')
+}
+
+# A scenario played by the program itself from a file (QUILL_MOUSE), in place of the keyboard and the INT 33h driver: keys and `@click`,
+# `@dclick`, `@drag`, `@wheel`, `@wait` lines in order, the same steps the host plays. AUTOTYPE cannot hold Alt or Shift with a key and
+# cannot wait, so the file dialog's scenarios (Alt+N, BackTab, type-ahead after `@wait`) go this way too. The program starts in `@cwd`'s
+# folder. Text mode compares every screen with the host's; <normalise> says whether today's date and time, which DOS gives to a file or
+# folder the scenario makes, are replaced by the host's fixed clock first.
+run_mouse_text() { # <name> <arguments> [normalise]
+	local name="$1" args="$2" norm="${3:-}"
 	[ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = "$name" ] || return 0
 	local file="$ROOT/tests/scenarios/$name.keys"
 	local disk="$WORK/disk-$name"
 	rm -rf "$disk" "$WORK/keep"
 	mkdir -p "$disk"
-	cp "$HERE/dist/QUILLDOS.EXE" "$disk/"
-	cp "$file" "$disk/MOUSE.TXT"
-	while read -r d a; do
-		case "$d" in
-		@copy) cp "$ROOT/tests/docs/$a" "$disk/$(echo "$a" | tr '[:lower:]' '[:upper:]')" ;;
-		esac
-	done < <(grep '^@copy' "$file" | sed 's/#.*//')
-	export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT\nQUILL_MOUSE=MOUSE.TXT'
+	# A scenario with a `@cwd` browses the disk, so the program and its script sit in the folder QUILL, out of every listing; the
+	# scenario names that folder (`@dir QUILL`, `@place Quill C:\QUILL`).
+	local cwd="" open="" opts="" prog="$disk" at='C:\'
+	if grep -q '^@cwd' "$file"; then
+		prog="$disk/QUILL"
+		at='C:\QUILL\'
+		mkdir -p "$prog"
+	fi
+	cp "$HERE/dist/QUILLDOS.EXE" "$prog/"
+	cp "$file" "$prog/MOUSE.TXT"
+	stage_disk "$file" "$disk"
+	cwd="$(grep '^@cwd' "$file" | sed 's/#.*//' | awk '{print $2}' | sed 's/^C:\\*//' || true)"
+	open="$(grep '^@open' "$file" | sed 's/#.*//' | awk '{print $2}' || true)"
+	if grep -q '^@mono' "$file"; then opts="$opts /MONO"; fi
+	if grep -q '^@rows 50' "$file"; then opts="$opts /50"; fi
+	export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT\nQUILL_MOUSE='"$at"'MOUSE.TXT'
 	export DOS_KEEP="$WORK/keep"
 	unset DOS_AUTOTYPE
-	export DOS_TIMEOUT=240
+	export DOS_TIMEOUT=900
 	local rc=0
-	"$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE $args" > "$WORK/$name.out" || rc=$?
+	DOS_CWD="$cwd" "$HERE/tools/dosrun.sh" "$disk" "${at}QUILLDOS.EXE $args$opts $open" > "$WORK/$name.out" || rc=$?
 	[ "$rc" = 0 ] || fail "$name: QUILLDOS.EXE exited with $rc"
 	tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/$name-frames.txt"
+	if [ -n "$norm" ]; then
+		# The host's clock reads 11/25/26 2:32 PM. The date and time of what the run wrote are the real ones; they take the host's.
+		python3 "$HERE/tools/normalise-clock.py" "$WORK/$name-frames.txt" "$ROOT/tests/golden/screens/$name.frames.txt" > "$WORK/$name-norm.txt"
+		mv "$WORK/$name-norm.txt" "$WORK/$name-frames.txt"
+	fi
 	diff -u "$ROOT/tests/golden/screens/$name.frames.txt" "$WORK/$name-frames.txt" > "$WORK/$name.diff" || { head -60 "$WORK/$name.diff" >&2; fail "$name: the screens differ from the host's"; }
-	echo "e2e: $name: every screen matches the host's, with the mouse played from a file"
+	echo "e2e: $name: every screen matches the host's, with the keys and pointer played from a file"
 }
 run_mouse_text g8-mouse "LETTER.RTF"
+# The file dialog (tests/scenarios/m16-*.keys): the folders, dates and sizes of a real disk, the sorting, the type-ahead, the places, Save As.
+for scen in m16-open m16-open-50 m16-open-mono m16-big m16-errors; do
+	run_mouse_text "$scen" "" normalise
+done
+run_mouse_text m16-save-as "" normalise
+if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = m16-save-as ]; then
+	cmp "$WORK/disk-m16-save-as/DOCS/NEW.RTF" "$ROOT/tests/golden/files/m16-new.rtf" || fail "m16-save-as: the saved NEW.RTF differs from the host's"
+	cmp "$WORK/disk-m16-save-as/DOCS/LETTER.RTF" "$ROOT/tests/golden/files/m16-letter.rtf" || fail "m16-save-as: the saved LETTER.RTF differs from the host's"
+	echo "e2e: m16-save-as: the saved NEW.RTF and LETTER.RTF are byte-identical to the host's"
+fi
 
 # The graphics shell (tests/scenarios/g6-gfx.keys): the same keys are played into QUILLDOS.EXE in graphics mode and on the host through
 # quill-paint's shell. QUILL.FNT on the disk is the committed test font, so a frame is the same bytes on both: every frame's CRC-32 must

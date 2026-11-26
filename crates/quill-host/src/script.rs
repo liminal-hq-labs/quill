@@ -44,19 +44,34 @@ pub struct MemFiles {
 
 impl Default for MemFiles {
 	fn default() -> Self {
+		let clock = dos_time(2026, 11, 25, 14, 32, 0);
+		let mut stamps = HashMap::new();
+		// The DPMI host QUILLDOS.EXE carries makes its swap file in the root of `C:` when it starts.
+		stamps.insert(
+			"C:\\CWSDPMI.SWP".to_string(),
+			((clock >> 16) as u16, clock as u16),
+		);
 		MemFiles {
 			files: HashMap::new(),
 			dirs: Vec::new(),
-			stamps: HashMap::new(),
-			dummies: Vec::new(),
-			clock: dos_time(2026, 11, 25, 14, 32, 0),
+			stamps,
+			dummies: vec![("C:\\CWSDPMI.SWP".to_string(), 0)],
+			clock,
 			times: HashMap::new(),
 			alive: Vec::new(),
 			drives: Vec::new(),
 			recover_dirs: vec!["RECOVER\\".to_string()],
 			denied: Vec::new(),
 			readonly: Vec::new(),
-			tree: FakeFs::dosbox(),
+			tree: {
+				// A real disk's folders all have a date; the clock is what a folder made now has.
+				let mut t = FakeFs::dosbox();
+				// DOSBox Staging 0.83 also gives the machine a `Y:` of its own.
+				t.add_drive(b'Y', quill_dlg::fs::DriveKind::Fixed, false);
+				t.dir_stamp = (0x5A21, 0);
+				t.now = (0x5A21, 0);
+				t
+			},
 		}
 	}
 }
@@ -124,15 +139,25 @@ fn tree_path(key: &str) -> String {
 impl MemFiles {
 	/// Makes the tree the file dialog lists agree with the files: what was put in `files` since the last call shows up.
 	fn sync(&mut self) {
+		self.tree.now = ((self.clock >> 16) as u16, self.clock as u16);
 		for (k, v) in &self.files {
 			let path = tree_path(k);
-			let (date, time) = self.stamps.get(k).copied().unwrap_or((0x5A21, 0));
+			// A file written during the run has the time it was written; the others have their stamp.
+			let (date, time) = match self.times.get(k) {
+				Some(t) => ((t >> 16) as u16, *t as u16),
+				None => self.stamps.get(k).copied().unwrap_or((0x5A21, 0)),
+			};
 			let attr = u8::from(self.readonly.contains(k));
 			self.tree
 				.add_file_info(&path, attr, v.len() as u32, date, time);
 		}
 		for d in &self.dirs {
-			self.tree.add_dir(&tree_path(d));
+			let path = tree_path(d);
+			self.tree.add_dir(&path);
+			if let Some((date, time)) = self.stamps.get(d) {
+				self.tree
+					.add_file_info(&path, quill_dlg::fs::ATTR_DIR, 0, *date, *time);
+			}
 		}
 		for (k, size) in &self.dummies {
 			let (date, time) = self.stamps.get(k).copied().unwrap_or((0x5A21, 0));
@@ -382,9 +407,10 @@ pub struct Script {
 	pub cwd: Option<String>,
 	/// Drives to add (`@drive A removable notready`): the letter and the words after it.
 	pub drives: Vec<(u8, String)>,
-	/// Open, Save As and Insert Picture use the file dialog (`@dialog`).
+	/// Open, Save As and Insert Picture use the file dialog, as they do in the DOS build; `@prompt` brings the one-line name box back.
 	pub dialog: bool,
-	/// Folders for the dialog's places (`@place Samples C:\\SAMPLES`), at most two.
+	/// Folders for the dialog's places (`@place Samples C:\\SAMPLES`), at most two: Quill's own folder, which a script moves with
+	/// `@place Quill`, and the samples.
 	pub places: Vec<(String, String)>,
 	/// Check Spelling as You Type is on, and the keyboard goes quiet after each key: the marks follow each frame.
 	pub live: bool,
@@ -392,7 +418,12 @@ pub struct Script {
 
 /// Reads a script: tokens separated by white space, `#` starting a comment to the end of the line.
 pub fn parse_script(text: &str) -> Script {
-	let mut sc = Script::default();
+	let mut sc = Script {
+		dialog: true,
+		// The program is in the root of `C:`, as it is when it is run from a disk's root.
+		places: vec![("Quill".to_string(), "C:\\".to_string())],
+		..Script::default()
+	};
 	for line in text.lines().map(|l| l.split('#').next().unwrap_or("")) {
 		let mut it = line.split_whitespace().peekable();
 		while let Some(t) = it.next() {
@@ -408,6 +439,7 @@ pub fn parse_script(text: &str) -> Script {
 				}
 				"@open" => sc.open = it.next().map(str::to_string),
 				"@dialog" => sc.dialog = true,
+				"@prompt" => sc.dialog = false,
 				"@copy" => {
 					let name = it.next().map(str::to_string);
 					match it.next_if(|t| t.ends_with('\\')) {
@@ -432,6 +464,7 @@ pub fn parse_script(text: &str) -> Script {
 				"@cwd" => sc.cwd = it.next().map(str::to_string),
 				"@place" => {
 					if let (Some(l), Some(p)) = (it.next(), it.next()) {
+						sc.places.retain(|(k, _)| k != l);
 						sc.places.push((l.to_string(), p.to_string()));
 					}
 				}

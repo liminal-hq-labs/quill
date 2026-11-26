@@ -87,7 +87,11 @@ impl Line {
 	}
 }
 
-fn show<const ROWS: usize>(
+/// The grid both text screens draw into: the 25 row screen uses its top rows, so the program holds one copy of the painter.
+const GRID_ROWS: usize = 50;
+
+fn show(
+	rows: usize,
 	app: &App<ScreenMeasure>,
 	s: &HeapStore,
 	dump: &mut Option<File>,
@@ -95,9 +99,9 @@ fn show<const ROWS: usize>(
 	pointer: Option<(i32, i32)>,
 	frame: bool,
 ) {
-	let mut g = Grid::<ROWS>::new(0);
-	let cursor = quill_app::draw(app, s, &mut g);
-	video::present(&g);
+	let mut g = Grid::<GRID_ROWS>::new(0);
+	let cursor = quill_app::draw_rows(app, s, &mut g, rows);
+	video::present(&g, rows);
 	video::cursor(cursor.map(|(x, y)| (x as u8, y as u8)));
 	if cursor.is_some() {
 		video::cursor_shape(app.overtype());
@@ -106,12 +110,12 @@ fn show<const ROWS: usize>(
 		if let Some(f) = dump {
 			let mut text = String::new();
 			*n += 1;
-			let _ = video::read_back::<ROWS>().dump(*n, &mut text);
+			let _ = video::read_back::<GRID_ROWS>(rows).dump_rows(*n, rows, &mut text);
 			let _ = f.write_all(text.as_bytes());
 		}
 	}
 	if let Some(at) = pointer {
-		video::pointer(at, ROWS);
+		video::pointer(at, rows);
 	}
 }
 
@@ -176,6 +180,9 @@ impl Kept {
 }
 
 fn main() -> i32 {
+	// A drive with no disk must fail the call, not stop the program on DOS's own "Abort, Retry, Fail?" prompt. The old handler goes
+	// back at exit.
+	let _ = rt::dos::install_critical_handler();
 	let mut ini = [0u8; 512];
 	let n = File::open("QUILL.INI", Mode::Read)
 		.ok()
@@ -202,7 +209,7 @@ fn main() -> i32 {
 	}
 	// The screen decides: a card with no 50-row mode keeps 25.
 	let rows = video::enter(rows);
-	let code = if rows == 50 { run::<50>(&kept) } else { run::<25>(&kept) };
+	let code = run(rows, &kept);
 	if let Some(why) = note {
 		rt::io::write_str("Quill: graphics mode was not used (");
 		rt::io::write_str(why);
@@ -256,7 +263,17 @@ fn clock_for(app: &mut App<ScreenMeasure>, ev: Ev) {
 	}
 }
 
-fn run<const ROWS: usize>(kept: &Kept) -> i32 {
+/// Open, Save As and Insert Picture show the file dialog on the text screens: the folders it offers after the drives, and the date
+/// and time as the country writes them. The graphics screen keeps the name prompt until it has a painter for the dialog.
+fn file_dialog(app: &mut App<ScreenMeasure>) {
+	app.set_file_dialog(true);
+	let places = files::places();
+	let places: Vec<(&[u8], &[u8])> = places.iter().map(|(l, p)| (l.as_bytes(), p.as_bytes())).collect();
+	app.set_file_places(&places);
+	clock::set_file(app);
+}
+
+fn run(rows: usize, kept: &Kept) -> i32 {
 	let mut store = HeapStore::new();
 	let mut app = Box::new(App::with_measure(ScreenMeasure::Grid(GridMeasure)));
 	let mut files = files::DosFiles;
@@ -265,19 +282,21 @@ fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 		rt::io::write_str("Quill: there is not enough memory.\r\n");
 		return 1;
 	}
-	app.set_rows(ROWS - 2);
+	app.set_rows(rows - 2);
+	file_dialog(&mut app);
 	open_arguments(&mut app, &mut store, &mut files);
 	clock::set(&mut app);
 	let mut dump = env::var("QUILL_DUMP").and_then(|p| File::open(&p, Mode::Create).ok());
 	let mut n = 0;
-	let target = TextCells { rows: (ROWS - 2) as i32 };
+	let target = TextCells { rows: (rows - 2) as i32 };
 	let mut ptr = Pointer::default();
-	let mut mouse = mouse::open(80, ROWS as i32, (8, 8));
+	let mut mouse = mouse::open(80, rows as i32, (8, 8));
 	let script = script_text();
 	let mut at = None;
-	show::<ROWS>(&app, &store, &mut dump, &mut n, at, true);
+	show(rows, &app, &store, &mut dump, &mut n, at, true);
 	// A test script plays first, in place of the keyboard and the driver; the steps are the host's (`quill_host::script::play`).
 	let mut hold = false;
+	let mut last_tick = mouse::ticks();
 	if let Some(text) = &script {
 		let mut tick = 0;
 		for step in quill_app::script::steps(text) {
@@ -289,7 +308,7 @@ fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 					at = Some(ptr.at());
 				}),
 			}
-			show::<ROWS>(&app, &store, &mut dump, &mut n, at, true);
+			show(rows, &app, &store, &mut dump, &mut n, at, true);
 			if app.quit() {
 				break;
 			}
@@ -299,6 +318,12 @@ fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 	while (script.is_none() || hold) && !app.quit() {
 		let mut clicked = false;
 		let waited = keys::wait_until(&mut || {
+			// A tick of the BIOS clock ages the file dialog's type-ahead.
+			let now = mouse::ticks();
+			for _ in 0..now.wrapping_sub(last_tick).min(16) {
+				app.file_tick();
+			}
+			last_tick = now;
 			let Some(m) = mouse.as_mut() else {
 				return false;
 			};
@@ -320,10 +345,10 @@ fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 			keys::Wait::Key(Some(k)) => {
 				clock::set(&mut app);
 				app.key(&mut store, &mut files, k);
-				show::<ROWS>(&app, &store, &mut dump, &mut n, at, true);
+				show(rows, &app, &store, &mut dump, &mut n, at, true);
 			}
 			keys::Wait::Key(None) | keys::Wait::Scroll(_) => {}
-			keys::Wait::Break => show::<ROWS>(&app, &store, &mut dump, &mut n, at, clicked),
+			keys::Wait::Break => show(rows, &app, &store, &mut dump, &mut n, at, clicked),
 		}
 	}
 	if let Some(m) = mouse {

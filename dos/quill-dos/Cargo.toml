@@ -18,7 +18,8 @@ path = "src/main.rs"
 [dependencies]
 rt = { path = "../rt" }
 quill-grid = { path = "../../crates/quill-grid" }
-quill-app = { path = "../../crates/quill-app" }
+quill-app = { path = "../../crates/quill-app", features = ["text-file-dialog"] }
+quill-dlg = { path = "../../crates/quill-dlg" }
 quill-formats = { path = "../../crates/quill-formats" }
 quill-heap = { path = "../../crates/quill-heap" }
 quill-core = { path = "../../crates/quill-core" }

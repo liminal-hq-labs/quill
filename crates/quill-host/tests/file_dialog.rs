@@ -48,6 +48,7 @@ screens! {
 	m16_open_mono_screens => "m16-open-mono",
 	m16_save_as_screens => "m16-save-as",
 	m16_errors_screens => "m16-errors",
+	m16_errors_drive_screens => "m16-errors-drive",
 	m16_big_screens => "m16-big",
 }
 

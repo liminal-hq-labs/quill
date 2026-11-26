@@ -26,8 +26,31 @@ pub enum FsError {
 	Denied,
 	/// The disk is full
 	Full,
+	/// The disk is write-protected
+	WriteProtected,
+	/// The disk cannot be read: unformatted, damaged or the wrong kind
+	Unreadable,
 	/// This file system cannot do that
 	Unsupported,
+}
+
+impl FsError {
+	/// The failure a DOS error code (the carry-flag error of INT 21h, or AH=59h's extended code) stands for. With a critical-error
+	/// handler that answers Fail, a drive with no disk reports 15h or 53h and the extended error gives the cause.
+	pub fn from_dos(code: u16) -> FsError {
+		match code {
+			0x02 | 0x12 => FsError::NotFound,
+			0x03 | 0x0F => FsError::NoPath,
+			// Drive not ready, and "fail on INT 24h" (the handler said Fail and nothing says why)
+			0x15 | 0x53 => FsError::NotReady,
+			0x13 => FsError::WriteProtected,
+			// Data error, seek error, unknown media, sector not found, read fault, general failure, wrong disk, unknown unit
+			0x17 | 0x19 | 0x1A | 0x1B | 0x1E | 0x1F | 0x22 | 0x14 => FsError::Unreadable,
+			// Handle disk full, insufficient disk space
+			0x27 | 0x70 => FsError::Full,
+			_ => FsError::Denied,
+		}
+	}
 }
 
 /// What a drive is, for the icon and for whether the dialog may read it at once.
@@ -88,4 +111,24 @@ pub trait FileSystem {
 
 	/// Deletes a file.
 	fn remove(&mut self, path: &[u8]) -> Result<(), FsError>;
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn dos_codes_map_to_what_a_person_can_act_on() {
+		assert_eq!(FsError::from_dos(2), FsError::NotFound);
+		assert_eq!(FsError::from_dos(3), FsError::NoPath);
+		assert_eq!(FsError::from_dos(0x0F), FsError::NoPath);
+		assert_eq!(FsError::from_dos(0x15), FsError::NotReady);
+		assert_eq!(FsError::from_dos(0x53), FsError::NotReady);
+		assert_eq!(FsError::from_dos(0x13), FsError::WriteProtected);
+		assert_eq!(FsError::from_dos(0x1F), FsError::Unreadable);
+		assert_eq!(FsError::from_dos(0x1E), FsError::Unreadable);
+		assert_eq!(FsError::from_dos(0x27), FsError::Full);
+		assert_eq!(FsError::from_dos(5), FsError::Denied);
+		assert_eq!(FsError::from_dos(0x7777), FsError::Denied);
+	}
 }

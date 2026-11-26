@@ -1,0 +1,13 @@
+# M16: a drive that is not ready. Retry tries it again and Cancel stays where it was. Host only: DOSBox cannot make a drive answer
+# "not ready", so this one is played on the host and the INT 24h path is left for a machine with a real floppy drive.
+@dialog
+@dir QUILL
+@place Quill C:\QUILL
+@cwd C:\DOCS
+@dir DOCS
+@drive A removable notready
+f10 down enter                # File > Open...
+altp home enter               # the A: place: the drive is not ready
+r                             # Retry: it still is
+esc                           # Cancel: the dialog stays where it was
+esc                           # leaves the dialog
