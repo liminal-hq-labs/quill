@@ -25,6 +25,8 @@
 # when they are missing. Uses its own display (QUILL_PIXELS_DISPLAY, default :176) and a WINEPREFIX of its own under the cache
 # directory, at 640 by 480. Local only: Wine paces it.
 set -euo pipefail
+# The caret stays solid so that screenshots are stable (`[Quill] Blink`, win9x/tools/wine-blink.sh).
+export QUILL_NO_BLINK=1
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 OLD=""

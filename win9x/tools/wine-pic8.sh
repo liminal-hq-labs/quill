@@ -10,6 +10,8 @@
 # gradient with a black diagonal where the indices leave the table; a grey box has no red in it. The capture must hold at least 1,500
 # red pixels. Needs wine, xvfb-run, ImageMagick; exits 0 with a note when they are missing. Uses a WINEPREFIX of its own under the cache.
 set -euo pipefail
+# The caret stays solid so that screenshots are stable (`[Quill] Blink`, win9x/tools/wine-blink.sh).
+export QUILL_NO_BLINK=1
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 EXE="${1:-$HERE/dist/QUILL32.EXE}"

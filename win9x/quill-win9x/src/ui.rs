@@ -31,6 +31,8 @@ pub const TIMER_HINT: usize = 2;
 pub const TIMER_DRAG: usize = 3;
 /// The idle timer of Check Spelling as You Type.
 pub const TIMER_SPELL: usize = 4;
+/// The caret's blink timer.
+pub const TIMER_BLINK: usize = 5;
 /// How long the keyboard and the mouse stay quiet before spelling is checked, and the wait between the small batches after it, in
 /// milliseconds (the system clock ticks every 55).
 const SPELL_QUIET: u32 = 300;
@@ -537,6 +539,115 @@ pub unsafe fn caret_point(hwnd: Handle, sh: &Shell) -> Option<(i32, i32)> {
 	Some((x0 + dev(x, p), area.top + dev(view::rel(top + h, sh.vpos), p)))
 }
 
+/// The caret's blink: on at the system's rate (`GetCaretBlinkTime`), as the system's own caret does.
+pub struct Blink {
+	/// Whether the caret may blink at all: off in a scripted run, with `QUILL_NO_BLINK` set, or with `[Quill] Blink=0`.
+	pub allowed: bool,
+	/// The caret's phase: true while it shows. It is always true when the caret does not blink.
+	pub on: bool,
+	/// Whether the window has the keyboard focus; the system shows no caret in a window that has not.
+	pub focused: bool,
+	/// The blink period in milliseconds, or zero for a steady caret.
+	pub ms: u32,
+}
+
+impl Blink {
+	pub const fn new(allowed: bool) -> Self {
+		Blink {
+			allowed,
+			on: true,
+			focused: true,
+			ms: 0,
+		}
+	}
+
+	/// Whether the page draws the caret now.
+	pub const fn shows(&self) -> bool {
+		self.on && self.focused
+	}
+}
+
+/// True when the environment has `name` set to anything.
+pub unsafe fn env_set(name: &[u8]) -> bool {
+	let mut buf = [0u8; 4];
+	GetEnvironmentVariableA(name.as_ptr(), buf.as_mut_ptr(), buf.len() as u32) != 0
+}
+
+/// Where the caret is in the client area, as the pixels it covers, a little wider than its two page units, or `None` when no caret shows.
+unsafe fn caret_rect(hwnd: Handle, sh: &Shell) -> Option<Rect> {
+	if sh.grid || sh.preview.is_some() || !sh.app.editing() {
+		return None;
+	}
+	let area = page_area(hwnd, sh);
+	let p = pct(sh, area.right - area.left);
+	let (x, top, h) = sh.app.point_of(&sh.store, sh.app.caret(), view::stride(&sh.app))?;
+	let x0 = area.left + view::page_x0(area.right - area.left, dev(view::paper(&sh.app).0, p), sh.hscroll);
+	let (cx, y0, y1) = (
+		x0 + dev(x, p),
+		area.top + dev(view::rel(top, sh.vpos), p),
+		area.top + dev(view::rel(top + h, sh.vpos), p),
+	);
+	let r = Rect {
+		left: (cx - 2).max(area.left),
+		top: (y0 - 1).max(area.top),
+		right: (cx + 3).min(area.right),
+		bottom: (y1 + 1).min(area.bottom),
+	};
+	(r.right > r.left && r.bottom > r.top).then_some(r)
+}
+
+/// Asks for the caret's own rectangle to be painted again, and nothing else.
+pub unsafe fn invalidate_caret(hwnd: Handle, sh: &Shell) {
+	if let Some(r) = caret_rect(hwnd, sh) {
+		InvalidateRect(hwnd, &r, 0);
+	}
+}
+
+/// Makes the caret solid and starts its blink over, as any key, click or edit does to the system's caret. Reads the system's blink time
+/// each time, so a change in Control Panel is followed by the next key.
+pub unsafe fn blink_restart(hwnd: Handle, sh: &mut Shell) {
+	KillTimer(hwnd, TIMER_BLINK);
+	let was_off = !sh.blink.on;
+	sh.blink.on = true;
+	let t = if sh.blink.allowed && sh.blink.focused {
+		GetCaretBlinkTime()
+	} else {
+		0
+	};
+	// Zero and INFINITE (all ones) both mean a steady caret.
+	sh.blink.ms = if t == u32::MAX { 0 } else { t };
+	if sh.blink.ms > 0 {
+		SetTimer(hwnd, TIMER_BLINK, sh.blink.ms, null());
+	}
+	if was_off {
+		invalidate_caret(hwnd, sh);
+	}
+}
+
+/// The blink timer fired: shows or hides the caret. It stops itself when there is nothing to blink: the window has lost the focus, a
+/// dialog or menu of the app's own is open, or a view without a caret is showing.
+pub unsafe fn blink_tick(hwnd: Handle, sh: &mut Shell) {
+	if !sh.blink.focused || sh.blink.ms == 0 || sh.grid || sh.preview.is_some() || !sh.app.editing() {
+		KillTimer(hwnd, TIMER_BLINK);
+		sh.blink.on = true;
+		return;
+	}
+	sh.blink.on = !sh.blink.on;
+	invalidate_caret(hwnd, sh);
+}
+
+/// The window gained or lost the keyboard focus: the caret shows (and blinks) only with it.
+pub unsafe fn blink_focus(hwnd: Handle, sh: &mut Shell, focused: bool) {
+	if sh.blink.focused != focused {
+		invalidate_caret(hwnd, sh);
+	}
+	sh.blink.focused = focused;
+	blink_restart(hwnd, sh);
+	if !focused {
+		KillTimer(hwnd, TIMER_BLINK);
+	}
+}
+
 /// Asks for the lines that hold the positions `lo` to `hi` to be painted again, and for nothing else.
 pub unsafe fn invalidate_range(hwnd: Handle, sh: &Shell, lo: u32, hi: u32) {
 	if sh.grid || sh.preview.is_some() {
@@ -661,6 +772,7 @@ pub unsafe fn page_down(hwnd: Handle, sh: &mut Shell, x: i32, y: i32) {
 	if !sh.app.editing() {
 		return;
 	}
+	blink_restart(hwnd, sh);
 	let shift = GetKeyState(VK_SHIFT) < 0;
 	let now = GetTickCount();
 	let near = |c: &Click| (c.x - x).abs() <= 4 && (c.y - y).abs() <= 4;
@@ -1225,6 +1337,18 @@ pub unsafe fn ini_load(sh: &mut Shell) {
 		(b"Quill", b"FormattingBar"),
 	];
 	let _ = recent;
+	// `Blink=0` keeps the caret steady; anything else, or no key, follows the system's blink time. The shell reads it itself: it is
+	// not one of the editor's settings and is never written back.
+	let mut b = [0u8; 8];
+	let n = GetPrivateProfileStringA(
+		z(b"Quill").as_ptr(),
+		z(b"Blink").as_ptr(),
+		b"\0".as_ptr(),
+		b.as_mut_ptr(),
+		8,
+		INI.as_ptr(),
+	);
+	sh.blink.allowed = n == 0 || b[0] != b'0';
 	for (section, key) in keys {
 		let mut buf = [0u8; 264];
 		let n = GetPrivateProfileStringA(

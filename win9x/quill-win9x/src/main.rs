@@ -341,6 +341,8 @@ struct Shell {
 	/// no call.
 	bar_placed: [Option<ui::Placed>; 2],
 	bar_info: [Option<(i32, u32, i32)>; 2],
+	/// The caret's blink phase and period.
+	blink: ui::Blink,
 	/// The title the window has now.
 	title: Vec<u8>,
 	/// A shutdown block reason is set on the window (Windows Vista and later), because the document has unsaved work.
@@ -534,6 +536,11 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 						ui::spell_tick(hwnd, sh);
 					}
 				}
+				ui::TIMER_BLINK => {
+					if let Some(sh) = shell() {
+						ui::blink_tick(hwnd, sh);
+					}
+				}
 				ui::TIMER_DRAG => {
 					if let Some(sh) = shell() {
 						if let Some(d) = sh.sel {
@@ -558,6 +565,20 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 				}
 			}
 			InvalidateRect(hwnd, null(), 0);
+			0
+		}
+		// The caret shows, and blinks, only while the window has the keyboard focus.
+		WM_SETFOCUS | WM_KILLFOCUS => {
+			if let Some(sh) = shell() {
+				ui::blink_focus(hwnd, sh, msg == WM_SETFOCUS);
+			}
+			0
+		}
+		// Control Panel changed the caret's blink time (or anything else): read it again.
+		WM_SETTINGCHANGE => {
+			if let Some(sh) = shell() {
+				ui::blink_restart(hwnd, sh);
+			}
 			0
 		}
 		WM_SIZE => {
@@ -1229,6 +1250,7 @@ unsafe fn run_command(hwnd: Handle, c: Command) {
 	let Some(sh) = shell() else {
 		return;
 	};
+	ui::blink_restart(hwnd, sh);
 	match c {
 		Command::Preview if !sh.grid => {
 			let first = 1;
@@ -1640,6 +1662,7 @@ unsafe fn press_key(hwnd: Handle, k: Key) {
 	let Some(sh) = shell() else {
 		return;
 	};
+	ui::blink_restart(hwnd, sh);
 	if let Some(pv) = sh.preview {
 		let (_, _, pages) = gdi::preview_pages(&sh.app, &sh.store, sh.screen_dc);
 		let line = view::LINE_STEP * 3;
@@ -1899,6 +1922,7 @@ unsafe fn paint_into(hwnd: Handle, dc: Handle, sh: &mut Shell, damage: Rect) {
 			&sh.store,
 			sh.screen_dc,
 			&mut sh.pics,
+			sh.blink.shows(),
 		);
 		SelectObject(dc, GetStockObject(OEM_FIXED_FONT));
 		sh.app.set_rows(rows);
@@ -2235,6 +2259,7 @@ pub extern "C" fn start() -> ! {
 		bar_placed: [None; 2],
 		bar_info: [None; 2],
 		title: Vec::new(),
+		blink: ui::Blink::new(false),
 		blocked: false,
 	});
 	// SAFETY: single-threaded start-up; the boxes live for the whole process.
@@ -2350,6 +2375,8 @@ pub extern "C" fn start() -> ! {
 				// Windows 95 checks spelling as you type unless QUILL.INI says otherwise.
 				sh.app.set_spell_live_default(true);
 				ui::ini_load(sh);
+				// A scripted run, `QUILL_NO_BLINK` in the environment and `[Quill] Blink=0` keep the caret steady.
+				sh.blink.allowed = sh.blink.allowed && !playing && !ui::env_set(b"QUILL_NO_BLINK\0");
 				#[cfg(feature = "bench")]
 				bench::init();
 				let cb = chrome::create_combos(hwnd, instance, &sh.faces);
@@ -2363,6 +2390,7 @@ pub extern "C" fn start() -> ! {
 				sh.tips = tips::Tips::new(hwnd, instance);
 				sync_chrome(hwnd, sh);
 				ui::update_scroll(hwnd, sh);
+				ui::blink_restart(hwnd, sh);
 				if preview_start {
 					ui::preview_open(hwnd, sh, 1, false);
 				}

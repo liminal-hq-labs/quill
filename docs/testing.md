@@ -126,6 +126,8 @@ Both Windows builds run under Wine with Xvfb in CI: `QUILL32.EXE` in a prefix se
 
 `win9x/tools/wine-editing.sh` starts `QUILL32.EXE` on a 640 by 480 screen and checks by pixels that the page is centred without a horizontal bar, that Ctrl+I switches Italic on, that a drag highlights text, that the wheel scrolls, that print preview shows a tooltip and that Esc leaves the window as it was. It is local only, for the same reason. The Windows 95 checks use the test bed of Liminal Installer's `scripts/win95` with `xdotool` for the keys and the mouse; the guest has no wheel driver, so the wheel is checked under Wine only.
 
+`win9x/tools/wine-blink.sh` starts `QUILL32.EXE` three times on its own display: with `QUILL_NO_BLINK=1` and with `[Quill] Blink=0` six screenshots 0.3 s apart must be byte-identical (and equal to each other), and with blinking on fourteen screenshots 0.15 s apart must hold exactly two pictures, the steady one and one that differs from it only in a box a few pixels wide beside the end of the text, a key must leave the caret solid, and an open prompt must leave it off. A blinking caret makes screenshots unrepeatable, so every other Wine script exports `QUILL_NO_BLINK=1`, the Windows 95 test-bed scripts write `Blink=0` into `QUILL.INI`, and `/PLAY` runs never blink. Local only, like the other Wine scripts.
+
 ## Windows 3.11 in DOSBox-X (local)
 
 The real check for the Win16 build, using the pre-installed Windows for Workgroups 3.11 tree in `~/Downloads/win31.zip`. It is not redistributable, so this runs on the developer's machine and its screenshots and logs are committed as evidence, never the tree (D21). To run it by hand in a real window, see [play.md](play.md).

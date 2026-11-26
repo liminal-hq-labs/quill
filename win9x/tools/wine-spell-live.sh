@@ -13,6 +13,8 @@
 # from the layout's positions), that the right-click menu opens (the page changes) and that choosing the first suggestion takes the
 # red away. Needs wine, Xvfb, xdotool and ImageMagick; exits 0 with a note when they are missing. Local only: Wine paces it.
 set -euo pipefail
+# The caret stays solid so that screenshots are stable (`[Quill] Blink`, win9x/tools/wine-blink.sh).
+export QUILL_NO_BLINK=1
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SHOTS=""
