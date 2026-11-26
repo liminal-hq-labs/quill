@@ -1,0 +1,79 @@
+# The Quill Afterglow Remaster Remix (QAGRR): the Afterglow ReactOS remaster with Quill, its demo documents and two desktop shortcuts.
+#
+# Builds the disk the Try ReactOS page serves. It extends the base recipe in reactos-liminal (pinned in reactos-liminal.pin) and adds
+# only what is Quill's: the names, the trim beyond the base profile, the programs and the shortcuts. All art (wallpaper, orb, icons,
+# logon, boot logo) comes from the base and is not repeated here. Build it with `build-with-rl.sh`.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[recipe]
+name = "qagrr"
+description = "Quill Afterglow Remaster Remix: the Afterglow ReactOS remaster with Quill and its demo documents"
+extends = "rl:recipes/afterglow.toml"
+
+[install]
+computer_name = "QUILLDEMO"
+owner_name = "Quill demo"
+
+# The detailed Quill icon shows on the desktop at 48 px. The stock desktop icons are hidden and the three stock shortcuts removed so only
+# the Quill shortcuts remain; the mouse has no acceleration, so the page can predict the guest pointer exactly.
+[settings]
+icon_size = 48
+reg_files = ["display", "quiet", "watermark-off", "mouse-linear", "hide-desktop-icons"]
+remove_desktop_shortcuts = ["Applications Manager", "Command Prompt", "Read Me"]
+
+# The base profile plus the network card drivers v86 does not emulate.
+[trim]
+extra = ["trim-extra.txt"]
+
+# The programs and QUILLDESK.ICO are staged into payload/ by build-with-rl.sh (the programs come from a Quill build, the icon from
+# guest/make_desk_icon.py). The demo documents are the committed ones.
+[[files]]
+source = "payload/QUILL32.EXE"
+destination = "Quill/QUILL32.EXE"
+
+[[files]]
+source = "payload/QUILL.EXE"
+destination = "Quill/QUILL.EXE"
+
+[[files]]
+source = "payload/QUILLDESK.ICO"
+destination = "Quill/QUILLDESK.ICO"
+
+[[files]]
+source = "../demo/demo.qld"
+destination = "Quill/DEMO.QLD"
+
+[[files]]
+source = "../demo/demo.rtf"
+destination = "Quill/DEMO.RTF"
+
+[[files]]
+source = "../demo/demo16.qld"
+destination = "Quill/DEMO16.QLD"
+
+[[files]]
+source = "../demo/demo16.rtf"
+destination = "Quill/DEMO16.RTF"
+
+[[files]]
+source = "../demo/QUILL.HLP"
+destination = "Quill/QUILL.HLP"
+
+[[shortcuts]]
+name = "Quill"
+target = 'C:\Quill\QUILL32.EXE'
+arguments = 'C:\Quill\DEMO.QLD'
+working_dir = 'C:\Quill'
+description = "Quill, 32-bit build, opening the demo letter"
+icon = 'C:\Quill\QUILLDESK.ICO'
+
+[[shortcuts]]
+name = "Quill (Windows 3.x, slow)"
+target = 'C:\Quill\QUILL.EXE'
+arguments = 'C:\Quill\DEMO16.QLD'
+working_dir = 'C:\Quill'
+description = "Quill, Windows 3.x build, opening the demo letter. Slow: WineVDM inside the emulator is emulation inside emulation"
+icon = 'C:\Quill\QUILLDESK.ICO'
+show = 1

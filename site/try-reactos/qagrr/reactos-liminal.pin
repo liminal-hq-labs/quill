@@ -1,0 +1,8 @@
+# The reactos-liminal commit that builds QAGRR. Read by build-with-rl.sh: the first line that is not a comment is the full commit hash.
+# A commit stays reachable after a merge-commit merge, so the pin stays valid. To move: set a newer commit, then run
+# `build-with-rl.sh --check-trim` and a dry run.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+ff93534d78d19aca8e3505d909cc4bb22c40e94a

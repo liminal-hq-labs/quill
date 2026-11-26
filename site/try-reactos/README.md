@@ -15,6 +15,7 @@ ReactOS 0.4.16 with Quill, running in [v86](https://copy.sh/v86/) (an x86 emulat
 | `tools/fetch-v86.sh`, `make-parts.mjs`, `build-manifest.py`, `job-summary.py` | Downloads and checks the pinned v86; splits a raw disk image into zstd parts for v86's chunked disk; writes the build manifest; prints it as a CI job summary |
 | `demo/` | The pitch document Quill opens: `demo.rtf` and `demo.qld`, and `demo16.*` for the Windows 3.x icon; `make-demo.sh` rebuilds them |
 | `guest/` | Builds the guest disk and the artifacts from the official ReactOS install CD: `build-all.sh` (the whole chain), `install-golden.sh` with `unattend.inf` (the unattended install), `build-image.sh` with the trim lists, registry settings, wallpaper, desktop icon (`make_desk_icon.py`), shortcut writer and the build VM scripts (see [Build everything with one command](#build-everything-with-one-command) and [Rebuild the trimmed guest](#rebuild-the-trimmed-guest)) |
+| `qagrr/` | The Quill Afterglow Remaster Remix (QAGRR), the recipe that replaces `guest/` and `tools/` one piece at a time: `qagrr.toml` (extends the Afterglow base recipe in reactos-liminal, with Quill's names, programs, documents and shortcuts), `trim-extra.txt` (the six network card drivers), `quill-run.reg`, `reactos-liminal.pin` (the pinned reactos-liminal commit) and `build-with-rl.sh` (fetches that commit and runs `rl`); see [Build with rl](#build-with-rl) |
 
 The disk images, CDs, states and parts live outside git, in `~/.cache/reactos/web/` (the server maps it to `/images/`; override with `IMAGES_DIR`). Never copy them into the repository.
 
@@ -92,6 +93,24 @@ Prerequisites for the Afterglow step: network (once; the source is then cached),
 To move to a newer Afterglow, change `AFTERGLOW_COMMIT` in `afterglow.pin`, run `AFTERGLOW_PRINT_SUMS=1 guest/fetch-afterglow.sh` to see the tar's sum, then `guest/prepare-afterglow.sh` to see the style's (it stops on a mismatch and prints the new one), and put both in the pin. When Afterglow publishes a release the pin can name its tag instead; there is none yet, and this repository tags nothing.
 
 The pointer set is part of the pinned source: the pointers are generated, `user32.dll` is patched on the demo disk only, and neither the patched file nor the generated pointers are committed or published outside the private workflow artifact.
+
+## Build with rl
+
+The ReactOS pipeline now lives in [reactos-liminal](https://github.com/liminal-hq-labs/reactos-liminal) (the `rl` command), which builds the Afterglow ReactOS remaster (AGR). Quill is a downstream consumer: its own remix, the Quill Afterglow Remaster Remix (QAGRR), is the recipe in `qagrr/`. It extends the AGR base recipe and owns only what is Quill's: the computer and owner names, the trim beyond the base profile, the programs, the demo documents, the two desktop shortcuts and the 48 px icon size. The wallpaper, the orb, the icons, the logon and the boot logo come from the base and are not repeated.
+
+```sh
+site/try-reactos/qagrr/build-with-rl.sh --check-trim                 # base profile + trim-extra.txt = the old trim lists
+site/try-reactos/qagrr/build-with-rl.sh --dry-run                    # rl explain, then the plans for install and image
+site/try-reactos/qagrr/build-with-rl.sh --quill-dir DIR --work DIR   # install, image, parts, manifest
+```
+
+`build-with-rl.sh` fetches the commit in `qagrr/reactos-liminal.pin` into `~/.cache/quill-reactos-liminal` (outside the repository), then runs `rl explain`, `install`, `image`, `parts` and `manifest`. `--work` is rl's work directory. Set `RL_QEMU_LOCK` to a lock file to run the two QEMU steps under `flock`. The `reactos-qagrr.yml` workflow does the same on a runner, by hand only.
+
+Not yet moved, so the page still uses the old chain (`build-all.sh`) until a later change retires it:
+
+- the cold-boot `Run` key that opens the demo letter (`qagrr/quill-run.reg`), because rl's `settings.reg_files` accepts only its own files;
+- the Quill emblem on the wallpaper (`quillify.py`), which the recipe leaves to the base art for now;
+- the saved v86 state (`harness/build-state.ts`).
 
 ## Build everything with one command
 

@@ -1,0 +1,126 @@
+# Builds the QAGRR disk (the Quill Afterglow Remaster Remix) with `rl` from the reactos-liminal commit in
+# site/try-reactos/qagrr/reactos-liminal.pin: site/try-reactos/qagrr/build-with-rl.sh does the work (see site/try-reactos/README.md). Run by
+# hand only. It sits beside reactos-demo.yml, which stays the way the page is built until the owner retires it.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# The artefact holds ReactOS (GPL-2.0-or-later and other free licences) and WineVDM (GPL-2.0). It stays a private workflow artefact with a
+# short retention. Publishing it anywhere means publishing the corresponding source too; the job summary lists it. The install takes a few
+# minutes with KVM and hours without it. A hosted runner has about 14 GB free on / and far more on /mnt, so the work goes to /mnt.
+name: ReactOS QAGRR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reactos-qagrr
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  WORK: /mnt/reactos-qagrr/work
+  DIST: /mnt/reactos-qagrr/dist
+
+jobs:
+  quill:
+    name: Build the Quill programs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned Rust toolchain
+        run: rustup toolchain install --profile minimal
+
+      - name: Build QUILL32.EXE and QUILL.EXE
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/target
+        run: |
+          bash win9x/build.sh
+          bash win16/build.sh
+          mkdir -p "$RUNNER_TEMP/quill"
+          cp win9x/dist/QUILL32.EXE win16/out/QUILL.EXE "$RUNNER_TEMP/quill/"
+
+      - name: Upload the programs
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: quill-programs
+          path: ${{ runner.temp }}/quill
+          retention-days: 1
+          if-no-files-found: error
+
+  image:
+    name: Build the QAGRR parts
+    needs: quill
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Download the Quill programs
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: quill-programs
+          path: ${{ runner.temp }}/quill
+
+      - name: Make room and show the disks
+        run: |
+          sudo mkdir -p /mnt/reactos-qagrr
+          sudo chown "$USER" /mnt/reactos-qagrr
+          mkdir -p "$WORK" "$DIST"
+          df -h / /mnt
+
+      # What `rl doctor` checks, plus what Afterglow's style and pointer builds and Quill's desktop icon need.
+      - name: Install the tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 mtools xorriso zstd imagemagick librsvg2-bin curl unzip python3 python3-numpy python3-pil llvm lld
+
+      # Hosted runners expose /dev/kvm to root only; this is the usual udev rule that opens it to everyone. Without it (a runner with no
+      # nested virtualization) QEMU falls back to software emulation, which the 300-minute limit allows but is far slower.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          if [ -w /dev/kvm ]; then echo "KVM is available" >> "$GITHUB_STEP_SUMMARY"; else echo "No KVM: QEMU will use software emulation (slow)" >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Check the trim
+        run: bash site/try-reactos/qagrr/build-with-rl.sh --check-trim
+
+      - name: Build the parts
+        env:
+          QUILL_COMMIT: ${{ github.sha }}
+        run: bash site/try-reactos/qagrr/build-with-rl.sh --work "$WORK" --quill-dir "$RUNNER_TEMP/quill" --out "$DIST"
+
+      - name: Summarise
+        if: always()
+        run: |
+          pin=$(grep -E '^[0-9a-f]{40}$' site/try-reactos/qagrr/reactos-liminal.pin)
+          "$HOME/.cache/quill-reactos-liminal/$pin/rl" summary "$DIST/build-manifest.json" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Show the disks
+        if: always()
+        run: df -h / /mnt
+
+      - name: Upload the parts and manifest
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: reactos-qagrr
+          path: ${{ env.DIST }}
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
