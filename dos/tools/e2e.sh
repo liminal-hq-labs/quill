@@ -12,7 +12,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-VENDOR="${DOS_VENDOR:-$HERE/vendor}"
+VENDOR="$("$HERE/tools/vendor-dir.sh" "$HERE/vendor")"
 
 if [ ! -f "$VENDOR/cwsdpmi/bin/CWSDSTUB.EXE" ] || [ -z "$(ls "$VENDOR"/dosbox/*/dosbox 2> /dev/null)" ]; then
 	echo "e2e: DOS tools not present; skipping (run dos/tools/fetch-tools.sh)"

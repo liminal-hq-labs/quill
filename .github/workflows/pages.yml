@@ -7,8 +7,8 @@
 
 # Two files are built here rather than committed: the Try Quill page's disk bundle, site/try/quill.<hash>.jsdos, which holds FreeDOS
 # and QUILLDOS.EXE, and the manifest that names it, site/try/try-manifest.json (the page's cache busting, SITE-4). No release builds
-# exist to fetch the bundle from, so the job builds the DOS program from source (the pinned Rust toolchain and CWSDPMI's stub; no
-# DOSBox, no Docker) and packs the disk with scripts/build-try.sh. That is a few minutes more than the static upload alone, and it
+# exist to fetch the bundle from, so the job builds the DOS program from source (the image's pinned Rust toolchain and CWSDPMI's stub; no
+# DOSBox) and packs the disk with scripts/build-try.sh. That is a few minutes more than the static upload alone, and it
 # keeps the demo on the code in main.
 #
 name: Pages
@@ -48,19 +48,15 @@ jobs:
     name: Upload the site
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # The shared ci-dos image (liminal-hq/.github, docker/ci/Dockerfile), pinned by digest: Rust 1.98.0, python3, mtools and CWSDPMI
+    # (under $DOS_TOOLCHAIN), so the job downloads no tool. Only FreeDOS and CuteMouse come from their pinned addresses.
+    container:
+      image: ghcr.io/liminal-hq/ci-dos@sha256:08ef2d984d71ed635d38e1ba8e164c0d8d1be6b34265c3b466ccf4894d934930
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           persist-credentials: false
-
-      - name: Install the pinned Rust toolchain
-        run: rustup toolchain install --profile minimal
-
-      - name: Install mtools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends mtools
 
       # Builds QUILLDOS.EXE, the graphics-mode fonts and the dictionary, fetches FreeDOS 1.3 (checked against a pinned SHA-256 sum)
       # and writes the hashed bundle and the manifest. The folder is built from scratch, so it holds only what the manifest names.

@@ -15,7 +15,7 @@
 # when they are missing, as e2e.sh does.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-VENDOR="${DOS_VENDOR:-$HERE/vendor}"
+VENDOR="$("$HERE/tools/vendor-dir.sh" "$HERE/vendor")"
 
 if [ ! -f "$VENDOR/cwsdpmi/bin/CWSDSTUB.EXE" ] || [ -z "$(ls "$VENDOR"/dosbox/*/dosbox 2> /dev/null)" ]; then
 	echo "rt-test: DOS tools not present; skipping (run dos/tools/fetch-tools.sh)"

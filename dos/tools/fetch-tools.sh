@@ -9,7 +9,8 @@
 # With --stub-only only CWSDPMI is fetched: `dos/build.sh` needs nothing else, and the browser demo's build (scripts/build-try.sh)
 # does not run DOSBox Staging.
 #
-# The tools go to $DOS_VENDOR (default: dos/vendor, which is not committed): dosbox/, cwsdpmi/ and dl/ for the downloads. The
+# In the Liminal HQ ci-dos image (DOS_TOOLCHAIN=/opt/dos-toolchain, see vendor-dir.sh) the tools are already installed with the same
+# DOSBox Staging and CWSDPMI pins, so nothing is downloaded. Elsewhere the tools go to $DOS_VENDOR (default: dos/vendor, which is not committed): dosbox/, cwsdpmi/ and dl/ for the downloads. The
 # downloads are cached and verified on every run, so a corrupt or tampered file is never unpacked. The same URLs and sums as Desk's
 # tools/fetch-tools.sh (see PROVENANCE.md). DJGPP itself is not needed: CWSDPMI's own CWSDSTUB.EXE is the stub, and SETUP.EXE then
 # carries its DPMI host inside it.
@@ -17,7 +18,7 @@
 # Exits 0 when the tools are present, 1 when they cannot be fetched (the callers treat that as "skip the DOS run").
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-VENDOR="${DOS_VENDOR:-$HERE/vendor}"
+VENDOR="$("$HERE/tools/vendor-dir.sh" "$HERE/vendor")"
 
 DOSBOX_URL=https://github.com/dosbox-staging/dosbox-staging/releases/download/v0.83.0/dosbox-staging-linux-x86_64-v0.83.0.tar.xz
 DOSBOX_SHA256=d3a94f7f1c3e68a47ec88d61145506c7904452adb0c9c5928cb8cfe2331d6c5c

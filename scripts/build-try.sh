@@ -64,7 +64,7 @@ done
 
 # FreeDOS, checked before it is unpacked.
 zip="$WORK/dl/${FD_URL##*/}"
-[ -f "$zip" ] || curl -fsSL -o "$zip" "$FD_URL"
+[ -f "$zip" ] || curl -fsSL --retry 5 --retry-all-errors -o "$zip" "$FD_URL"
 if ! printf '%s  %s\n' "$FD_SHA256" "$zip" | sha256sum -c - >/dev/null; then
 	rm -f "$zip"
 	echo "build-try: checksum mismatch for ${zip##*/}; removed it" >&2
@@ -73,7 +73,7 @@ fi
 
 # CuteMouse, checked the same way.
 cmzip="$WORK/dl/${CM_URL##*/}"
-[ -f "$cmzip" ] || curl -fsSL -o "$cmzip" "$CM_URL"
+[ -f "$cmzip" ] || curl -fsSL --retry 5 --retry-all-errors -o "$cmzip" "$CM_URL"
 if ! printf '%s  %s\n' "$CM_SHA256" "$cmzip" | sha256sum -c - >/dev/null; then
 	rm -f "$cmzip"
 	echo "build-try: checksum mismatch for ${cmzip##*/}; removed it" >&2

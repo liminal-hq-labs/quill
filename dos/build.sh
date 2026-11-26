@@ -14,7 +14,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-VENDOR="${DOS_VENDOR:-$PWD/vendor}"
+VENDOR="$(tools/vendor-dir.sh "$PWD/vendor")"
 STUB="$VENDOR/cwsdpmi/bin/CWSDSTUB.EXE"
 [ -f "$STUB" ] || { echo "build: $STUB not found; run dos/tools/fetch-tools.sh" >&2; exit 1; }
 
