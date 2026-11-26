@@ -1,0 +1,183 @@
+# Reads the frames e2e-zoom-w31.sh took of Quill on Windows 3.11 and checks that the page was drawn at the zoom the menu chose.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+#
+# usage: check_zoom.py click FRAME BX BY0           prints where to click: the fifth line of text, a little way along it
+#        check_zoom.py foot FRAME BX BY0            exits 0 when the foot of the last sheet is in the frame
+#        check_zoom.py check WORKDIR BX BY0         every comparison below; exits 1 and says why when one fails
+#
+# BX is the x of the vertical scroll bar and BY0 the y of the top of the page area (find_vbar.py). Everything is measured from what the
+# layout fixes and Windows' fonts cannot change: the sheet's edges, and the caret, which is a two-pixel bar as tall as its line. The
+# sample (tests/docs/scroll.rtf) has margins of 1.25 inches at the left, so at zoom Z the text's left edge is 120 * Z / 100 pixels from
+# the sheet's left edge and a letter-size sheet is 816 * Z / 100 pixels wide.
+import sys
+
+from PIL import Image
+
+DESK = (132, 130, 132)
+# The page area is this many pixels wide: from the window's left edge to the vertical bar.
+BAR_LEFT = 7
+# The rows of the page area the measures look at (the horizontal bar and the status line are below them).
+ROWS = 420
+# How far down the page area the foot of a sheet is looked for: its last rows, above the horizontal bar.
+FOOT_ROWS = 440
+# The sheet's width at 100 percent, the margin, and the gaps the layout leaves between a sheet and the window's edge.
+PAPER = 816
+MARGIN = 120
+PAD = 8
+
+
+def dark(px) -> bool:
+	return sum(px) < 90
+
+
+def white(px) -> bool:
+	return sum(px) > 740
+
+
+def load(path: str) -> Image.Image:
+	return Image.open(path).convert("RGB")
+
+
+def area_left(img: Image.Image, top: int) -> int:
+	"""The first pixel of the page area: the window's left edge is black, the desk or the sheet starts after it."""
+	return next(x for x in range(150, 400) if not dark(img.getpixel((x, top + 2))))
+
+
+class Frame:
+	def __init__(self, path: str, bx: int, by0: int):
+		self.img = load(path)
+		self.px = self.img.load()
+		self.top = by0
+		self.left = area_left(self.img, by0)
+		self.right = bx - BAR_LEFT
+		# The sheet's left edge and width, from a row inside the sheet's top margin. A sheet wider than the window runs to its edge.
+		row = by0 + 2
+		self.page_left = next((x for x in range(self.left, self.right) if white(self.img.getpixel((x, row)))), None)
+		x = self.page_left
+		while x is not None and x < self.right and white(self.img.getpixel((x, row))):
+			x += 1
+		self.clipped = x is not None and x >= self.right
+		self.page_width = None if x is None else x - self.page_left
+
+	def caret(self):
+		"""The caret: the leftmost of the columns with the longest run of black pixels inside the sheet, as (x, height, top y)."""
+		if self.page_left is None:
+			return None
+		hi = min(self.right, self.page_left + (self.page_width or 0)) - 3
+		best = (0, 0, 0)
+		for x in range(self.page_left + 2, hi):
+			run = start = 0
+			for y in range(self.top, self.top + ROWS):
+				if dark(self.px[x, y]):
+					if run == 0:
+						start = y
+					run += 1
+					if run > best[1]:
+						best = (x, run, start)
+				else:
+					run = 0
+		return best if best[1] >= 6 else None
+
+	def foot(self) -> bool:
+		"""True when desk shows under the sheet in the middle of the page area (the sheet has ended above the window's bottom)."""
+		if self.page_left is None:
+			return False
+		x = min(self.page_left + 300, self.right - 10)
+		return any(self.img.getpixel((x, y)) == DESK for y in range(self.top + 300, self.top + FOOT_ROWS))
+
+
+def click(argv: list[str]) -> int:
+	f = Frame(argv[0], int(argv[1]), int(argv[2]))
+	c = f.caret()
+	if c is None:
+		print("no caret in the first frame", file=sys.stderr)
+		return 1
+	x, h, y = c
+	print(x + 300, y + 4 * (h + 2) + h // 2)
+	return 0
+
+
+def foot(argv: list[str]) -> int:
+	return 0 if Frame(argv[0], int(argv[1]), int(argv[2])).foot() else 1
+
+
+def check(argv: list[str]) -> int:
+	work, bx, by0 = argv[0], int(argv[1]), int(argv[2])
+	ok = True
+
+	def need(cond: bool, why: str) -> None:
+		nonlocal ok
+		if not cond:
+			print("FAIL:", why, file=sys.stderr)
+			ok = False
+
+	def near(got, want, slack: int) -> bool:
+		return got is not None and abs(got - want) <= slack
+
+	top = Frame(f"{work}/zoom-200-top.png", bx, by0)
+	click_f = Frame(f"{work}/zoom-200-click.png", bx, by0)
+	c0, c1 = top.caret(), click_f.caret()
+	need(c0 is not None and c1 is not None, "the caret is not in the 200 percent frames")
+	if c0 is None or c1 is None:
+		return 1
+	# The first frame: a sheet at twice its size, its left margin and its caret too.
+	need(top.clipped and near(top.page_left, top.left + PAD, 1), f"200: the sheet should run past the window from {PAD} pixels in, got {top.page_left} (window at {top.left})")
+	need(near(c0[0] - top.page_left, 2 * MARGIN, 4), f"200: the text starts {c0[0] - top.page_left} pixels in, not {2 * MARGIN}")
+	line200 = c0[1]
+	need(line200 >= 30, f"200: the caret is {line200} pixels tall, a 12-point line is about 36")
+	# The click put the caret where the pointer was: in the fifth line and within a letter of the pointer.
+	cx, cy = click_f_target(work, bx, by0)
+	need(near(c1[0], cx, 14), f"200: the click was at x={cx} and the caret is at x={c1[0]}")
+	need(c1[2] - 4 <= cy <= c1[2] + c1[1] + 4, f"200: the click was at y={cy} and the caret is at y={c1[2]} to {c1[2] + c1[1]}")
+	rel200 = c1[0] - click_f.page_left
+	need(rel200 > 2 * MARGIN + 100, f"200: the caret is only {rel200} pixels from the sheet's edge after a click 300 pixels into the text")
+
+	# The same caret, the same character, at every other zoom: its distance from the sheet's edge and its height follow the zoom.
+	for name, pct, fits in [("150", 150, False), ("100", 100, False), ("75", 75, True), ("50", 50, True), ("width", 0, True)]:
+		f = Frame(f"{work}/zoom-{name}.png", bx, by0)
+		c = f.caret()
+		if c is None or f.page_left is None:
+			need(False, f"{name}: no sheet or no caret in the frame")
+			continue
+		if pct == 0:
+			# Page Width: the largest zoom up to 100 at which the sheet fits with eight pixels either side.
+			pct = (f.right - f.left - 2 * PAD) * 100 // PAPER
+		want_rel = rel200 * pct // 200
+		need(near(c[0] - f.page_left, want_rel, 4), f"{name}: the caret is {c[0] - f.page_left} pixels from the sheet's edge, at {pct} percent it should be {want_rel}")
+		need(near(c[1], line200 * pct // 200, 3), f"{name}: the caret is {c[1]} pixels tall, at {pct} percent it should be {line200 * pct // 200}")
+		need(f.clipped == (not fits), f"{name}: the sheet {'runs past' if f.clipped else 'fits in'} the window; at {pct} percent it should {'fit in' if fits else 'run past'} it")
+		if fits:
+			need(near(f.page_width, PAPER * pct // 100, 4), f"{name}: the sheet is {f.page_width} pixels wide, at {pct} percent it should be {PAPER * pct // 100}")
+		else:
+			need(near(f.page_left, f.left + PAD, 1), f"{name}: the sheet starts {f.page_left - f.left} pixels in, it should start {PAD}")
+
+	# The scroll range: the larger the zoom, the longer the page, so the more clicks on the track it takes to reach the foot.
+	n200, n50 = (int(open(f"{work}/clicks-{z}").read()) for z in ("200", "50"))
+	need(n200 >= n50 + 2, f"the foot took {n200} clicks at 200 percent and {n50} at 50: the range did not grow with the zoom")
+	need(n200 < 14, "the foot of the sheet never came into view at 200 percent")
+	need(Frame(f"{work}/zoom-200-foot.png", bx, by0).foot(), "200: the foot frame has no foot")
+	end = Frame(f"{work}/zoom-200-end.png", bx, by0)
+	need(not end.foot(), "200: Ctrl+End already shows the foot of the sheet, so it is not the end of the text")
+	print("check_zoom:", "ok" if ok else "failed", f"(200 percent: margin {c0[0] - top.page_left}, caret {line200} tall, foot after {n200} clicks; 50 percent: {n50})")
+	return 0 if ok else 1
+
+
+def click_f_target(work: str, bx: int, by0: int) -> tuple[int, int]:
+	"""Where `click` sent the pointer, worked out again from the first frame."""
+	top = Frame(f"{work}/zoom-200-top.png", bx, by0)
+	x, h, y = top.caret()
+	return x + 300, y + 4 * (h + 2) + h // 2
+
+
+def main() -> int:
+	modes = {"click": click, "foot": foot, "check": check}
+	if len(sys.argv) < 5 or sys.argv[1] not in modes:
+		print(__doc__, file=sys.stderr)
+		return 2
+	return modes[sys.argv[1]](sys.argv[2:])
+
+
+if __name__ == "__main__":
+	sys.exit(main())

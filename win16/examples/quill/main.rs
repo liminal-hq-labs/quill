@@ -394,6 +394,16 @@ fn page_w(hwnd: u32) -> i32 {
 	layout(w, h, false).page_w
 }
 
+/// The zoom the page is drawn at now, in percent, for a page area `w` wide: Page Width depends on the window. The test mode's text grid
+/// has none.
+fn zoom_now(w: i32) -> i32 {
+	if sh().grid {
+		100
+	} else {
+		view::zoom_pct(app(), w)
+	}
+}
+
 /// Makes (or remakes, after the window changed size) the off-screen bitmap: the whole client area if the system will give it, else a
 /// band of rows across the window (the paint then goes band by band), else nothing. A failure is not tried again until the window
 /// changes size. True when the bitmap is new, covers the whole window and holds nothing yet.
@@ -547,9 +557,10 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 		}
 		let area = Rect16::new(0, tb + rl, lay.page_w, lay.page_bottom);
 		if db > tb + rl && dt < lay.page_bottom {
-			let rows = gdi::paint_page(dc, area, damage, sh().hscroll, app, s);
+			let pct = zoom_now(lay.page_w);
+			let rows = gdi::paint_page(dc, area, damage, sh().hscroll, pct, app, s);
 			app.set_rows(rows);
-			app.set_view_height(lay.page_bottom - tb - rl);
+			app.set_view_height(view::log(lay.page_bottom - tb - rl, pct));
 		}
 		// The page area ends where the bars are; the bars are windows of their own, and the corner box between them is drawn here.
 		if let Some((cx, cy, cw, ch)) = lay.corner {
@@ -636,15 +647,16 @@ fn update_scroll_in(hwnd: u32, cw: i32, ch: i32) {
 		return;
 	}
 	let (app, s) = (app(), store());
-	let hmax = view::hscroll_max(app, layout(cw, ch, false).page_w).min(32000);
+	let pct = zoom_now(layout(cw, ch, false).page_w);
+	let hmax = view::hscroll_max_at(app, layout(cw, ch, false).page_w, pct).min(32000);
 	let sh = sh();
 	sh.hscroll = sh.hscroll.clamp(0, hmax);
 	let show_h = hmax > 0;
 	let changed = show_h != sh.hbar_on;
 	sh.hbar_on = show_h;
 	let l = layout(cw, ch, show_h);
-	// The vertical bar counts pixels of the page (a page with one line still scrolls), shrunk to fit a 16-bit range.
-	app.set_view_height(l.page_bottom - view::chrome_height(app));
+	// The vertical bar counts page units (a page with one line still scrolls), shrunk to fit a 16-bit range.
+	app.set_view_height(view::log(l.page_bottom - view::chrome_height(app), pct));
 	let vmax = app.vscroll_max(s);
 	let k = vscroll_k(vmax);
 	let (lines, vpos) = (vmax / k, app.vscroll_pos(s) / k);
@@ -684,12 +696,13 @@ fn update_scroll_in(hwnd: u32, cw: i32, ch: i32) {
 fn follow_caret(hwnd: u32, cw: i32, ch: i32) {
 	let (app, s) = (app(), store());
 	let w = layout(cw, ch, false).page_w;
-	if sh().grid || !app.editing() || view::hscroll_max(app, w) == 0 {
+	let pct = zoom_now(w);
+	if sh().grid || !app.editing() || view::hscroll_max_at(app, w, pct) == 0 {
 		return;
 	}
 	if let Some((_, _, x)) = app.caret_xy(s) {
 		let margin = quill_core::layout::to_units(app.doc().page.margin_l, view::DPI);
-		let at = view::PAGE_PAD + margin + x;
+		let at = view::PAGE_PAD + view::dev(margin + x, pct);
 		let slack = 32.min(w / 4);
 		let sh = sh();
 		if at - sh.hscroll < slack {
@@ -701,7 +714,7 @@ fn follow_caret(hwnd: u32, cw: i32, ch: i32) {
 	}
 }
 
-/// Ticks the View menu's toolbar, ruler and status bar items and shows or hides the boxes with the formatting row.
+/// Ticks the View menu's toolbar, ruler and status bar items and the zoom now chosen, and shows or hides the boxes with the formatting row.
 fn sync_chrome(hwnd: u32) {
 	chrome::show_combos(app());
 	unsafe {
@@ -709,10 +722,12 @@ fn sync_chrome(hwnd: u32) {
 		if menu != 0 {
 			let cmds = &*core::ptr::addr_of!(CMDS);
 			for (i, c) in cmds.iter().take(NCMDS).enumerate() {
-				if let Command::Chrome(bit) = c {
-					let on = app().chrome_on(*bit);
-					CheckMenuItem(menu, 100 + i as u32, if on { 8 } else { 0 });
-				}
+				let on = match c {
+					Command::Chrome(bit) => app().chrome_on(*bit),
+					Command::Zoom(z) => app().zoom() == *z,
+					_ => continue,
+				};
+				CheckMenuItem(menu, 100 + i as u32, if on { 8 } else { 0 });
 			}
 		}
 	}
@@ -846,7 +861,7 @@ fn run_command(hwnd: u32, c: Command) {
 	} else {
 		app().command(store(), &mut Win16Files, c);
 	}
-	if let Command::Chrome(_) = c {
+	if matches!(c, Command::Chrome(_) | Command::Zoom(_)) {
 		sync_chrome(hwnd);
 		invalidate_all(hwnd);
 	}
@@ -983,7 +998,7 @@ fn mouse_down(hwnd: u32, x: i32, y: i32, shift: bool) {
 	if y >= i32::from(area.bottom) {
 		return;
 	}
-	if let Some((line, tx)) = gdi::hit(app, s, area, sh().hscroll, x, y) {
+	if let Some((line, tx)) = gdi::hit(app, s, area, sh().hscroll, zoom_now(page_w(hwnd)), x, y) {
 		let before = view::signature(app, s);
 		app.click(s, line, tx, shift);
 		sh().selecting = true;
@@ -1011,14 +1026,15 @@ fn mouse_move(hwnd: u32, x: i32, y: i32) {
 	}
 	// Dragging past the top or the bottom of the page scrolls 16 pixels at a time.
 	let area = page_area(hwnd);
+	let pct = zoom_now(page_w(hwnd));
 	let (top, bottom) = (i32::from(area.top), i32::from(area.bottom));
 	if y < top {
-		app.vscroll_by(s, -LINE_PX);
+		app.vscroll_by(s, -view::log(LINE_PX, pct));
 	} else if y >= bottom {
-		app.vscroll_by(s, LINE_PX);
+		app.vscroll_by(s, view::log(LINE_PX, pct));
 	}
 	let y = y.clamp(top, bottom - 1);
-	if let Some((line, tx)) = gdi::hit(app, s, area, sh().hscroll, x, y) {
+	if let Some((line, tx)) = gdi::hit(app, s, area, sh().hscroll, pct, x, y) {
 		app.drag_select_line(s, line, tx);
 		update_scroll(hwnd);
 		invalidate_page(hwnd);
@@ -1054,12 +1070,15 @@ const LINE_PX: i32 = view::SCROLL_LINE;
 fn scroll_bar(hwnd: u32, vertical: bool, code: u32, thumb: u32) {
 	let (app, s) = (app(), store());
 	if vertical {
+		// The bar stands on page units: an arrow moves 16 pixels of the screen and a page is the window less two arrows' worth.
 		let area = page_area(hwnd);
-		let page = (i32::from(area.bottom - area.top) - 2 * LINE_PX).max(LINE_PX);
+		let pct = zoom_now(page_w(hwnd));
+		let line = view::log(LINE_PX, pct);
+		let page = (view::log(i32::from(area.bottom - area.top), pct) - 2 * line).max(line);
 		let (now, vmax) = (app.vscroll_pos(s), app.vscroll_max(s));
 		let to = match code {
-			0 => now - LINE_PX,
-			1 => now + LINE_PX,
+			0 => now - line,
+			1 => now + line,
 			2 => now - page,
 			3 => now + page,
 			4 | 5 => (thumb as i32).saturating_mul(vscroll_k(vmax)),

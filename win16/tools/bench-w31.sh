@@ -4,7 +4,7 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# usage: [VIDEO=s3|vga] [CYCLES=N] [SCRIPT=FILE] [OUT=DIR] [KEEP=1] [NO_BUILD=1] win16/tools/bench-w31.sh [QUILLB.EXE]
+# usage: [VIDEO=s3|vga] [ZOOM=100|Width|N] [CYCLES=N] [SCRIPT=FILE] [OUT=DIR] [KEEP=1] [NO_BUILD=1] win16/tools/bench-w31.sh [QUILLB.EXE]
 #
 # 1. Builds QUILLB.EXE (`W16_FEATURES=bench win16/build.sh`, into $OUT_DIR or win16/out-bench) unless one is named or NO_BUILD is set.
 # 2. Copies it, the key script (tests/bench/w16-type.txt) and tests/docs/letter.qld to D:, writes QUILL.CMD with
@@ -91,6 +91,8 @@ cp "$EXE" "$WORK/d/QUILLB.EXE"
 cp "$SCRIPT" "$WORK/d/W16-TYPE.TXT"
 cp "$ROOT/tests/docs/letter.qld" "$WORK/d/LETTER.QLD"
 printf '/BENCH W16-TYPE.TXT /END\r\n' > "$WORK/d/QUILL.CMD"
+# The page is measured at 100 percent, which is what `bench-budget.json` gates; ZOOM=Width (or a percentage) measures another zoom.
+printf '[Quill]\r\nZoom=%s\r\n' "${ZOOM:-100}" > "$WORK/d/QUILL.INI"
 awk 'BEGIN { IGNORECASE = 1 } /^[ \t]*run[ \t]*=/ { printf "run=D:\\QUILLB.EXE\r\n"; done = 1; next } { print } END { if (!done) exit 3 }' "$C/WIN.INI" > "$C/WIN.INI.new" || fail "WIN.INI has no run= line"
 mv "$C/WIN.INI.new" "$C/WIN.INI"
 if [ "$VIDEO" = vga ]; then

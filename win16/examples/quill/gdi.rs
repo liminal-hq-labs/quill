@@ -181,27 +181,35 @@ pub fn make_font(
 	unsafe { CreateFontIndirect(np(&lf)) }
 }
 
-/// The fonts made lately, keyed by the font, the underline and strikeout bits: a small ring, so a page of a few faces makes each once.
-static mut FONTS: [(Option<(FontRef, u8)>, u32); 10] = [(None, 0); 10];
+/// The fonts made lately, keyed by the font, the underline and strikeout bits and the zoom: a small ring, so a page of a few faces makes
+/// each once.
+static mut FONTS: [(Option<(FontRef, u8, u8)>, u32); 10] = [(None, 0); 10];
 static mut NEXT_FONT: usize = 0;
 
-/// The font handle `font_handle` already holds for `fr` and `extra`, if any.
-fn font_cached(fr: &FontRef, extra: u8) -> Option<u32> {
+/// The font handle already held for `fr`, `extra` and `pct`, if any.
+fn font_cached(fr: &FontRef, extra: u8, pct: u8) -> Option<u32> {
 	unsafe {
-		(*core::ptr::addr_of!(FONTS))
-			.iter()
-			.find_map(|(k, h)| k.filter(|(f, e)| f == fr && *e == extra).map(|_| *h))
+		(*core::ptr::addr_of!(FONTS)).iter().find_map(|(k, h)| {
+			k.filter(|(f, e, z)| f == fr && *e == extra && *z == pct)
+				.map(|_| *h)
+		})
 	}
 }
 
-/// The GDI font for `fr` at 96 dots per inch with the extra underline (1) and strikeout (2) bits.
+/// The GDI font for `fr` at 96 dots per inch with the extra underline (1) and strikeout (2) bits: what the layout measures.
 pub fn font_handle(fr: &FontRef, extra: u8) -> u32 {
-	if let Some(h) = font_cached(fr, extra) {
+	font_handle_at(fr, extra, 100)
+}
+
+/// The same drawn at `pct` percent of that size (the zoomed page's fonts). The layout never uses one: widths come from the 100 percent
+/// font, and a zoomed page puts each character where the layout says.
+pub fn font_handle_at(fr: &FontRef, extra: u8, pct: u8) -> u32 {
+	if let Some(h) = font_cached(fr, extra, pct) {
 		return h;
 	}
 	unsafe {
 		let cache = &mut *core::ptr::addr_of_mut!(FONTS);
-		let height = -((i32::from(fr.size) * 96 + 72) / 144);
+		let height = -(((i32::from(fr.size) * 96 * i32::from(pct) + 7200) / 14400).max(2));
 		let pitch_family = match fr.family {
 			1 => 0x10 | 2,
 			2 => 0x20 | 2,
@@ -223,7 +231,7 @@ pub fn font_handle(fr: &FontRef, extra: u8) -> u32 {
 			if old.is_some() && *handle != 0 {
 				DeleteObject(*handle);
 			}
-			*old = Some((*fr, extra));
+			*old = Some((*fr, extra, pct));
 			*handle = h;
 		}
 		h
@@ -410,6 +418,8 @@ impl Measure for Gdi16 {
 /// the context first is selected back once, by `done`, and before a font is made that could take the ring's place of one still
 /// selected.
 pub struct TextState {
+	/// The zoom the fonts are made for, in percent.
+	pct: u8,
 	old: u32,
 	font: u32,
 	mode: u32,
@@ -421,8 +431,9 @@ pub struct TextState {
 const UNSET: u32 = u32::MAX;
 
 impl TextState {
-	pub const fn new() -> Self {
+	pub const fn new(pct: u8) -> Self {
 		TextState {
+			pct,
 			old: 0,
 			font: UNSET,
 			mode: UNSET,
@@ -433,12 +444,12 @@ impl TextState {
 
 	/// Selects the font for `fr` and `extra`.
 	fn font(&mut self, dc: u32, fr: &FontRef, extra: u8) {
-		let h = match font_cached(fr, extra) {
+		let h = match font_cached(fr, extra, self.pct) {
 			Some(h) => h,
 			None => {
 				// A new font may take the place of the one selected, which must not be deleted while it is.
 				self.done(dc);
-				font_handle(fr, extra)
+				font_handle_at(fr, extra, self.pct)
 			}
 		};
 		if h != self.font {
@@ -493,22 +504,64 @@ fn colour_of(app: &QApp, s: &FarStore, cf: &CFmt) -> u32 {
 		})
 }
 
-/// Draws one laid-out line whose top is at `y_top` and whose left margin is at `tx`.
+/// The page view's scale: page units (pixels at 96 dots per inch, which is what the layout is in) to the device pixels the window
+/// shows them in. At 100 percent every position is its own page unit, so the page is drawn as it always was.
+#[derive(Copy, Clone)]
+pub struct Zoom(pub i32);
+
+impl Zoom {
+	/// A position or a length in page units as device pixels.
+	fn d(self, v: i32) -> i32 {
+		view::dev(v, self.0)
+	}
+
+	/// Whether the page is drawn at its own size.
+	fn one(self) -> bool {
+		self.0 == 100
+	}
+}
+
+/// Where one laid-out line is on the screen: the device x of the text column's left edge, the device y of the page area's top and the
+/// line's top below it in page units (so every position of the line comes from the same two roundings).
+#[derive(Copy, Clone)]
+struct At {
+	tx: i32,
+	top: i32,
+	y_rel: i32,
+}
+
+impl At {
+	/// The device x of layout x `x`.
+	fn x(&self, z: Zoom, x: i32) -> i32 {
+		self.tx + z.d(x)
+	}
+
+	/// The device y of the point `v` page units below the line's top.
+	fn y(&self, z: Zoom, v: i32) -> i32 {
+		self.top + z.d(self.y_rel + v)
+	}
+}
+
+/// Draws one laid-out line, the text at its layout positions: at 100 percent in runs of one format, and zoomed a word at a time, each
+/// at the position the layout gave its first character, because the system rounds each advance of a scaled font alone and the error
+/// would build up along a line (decision D102 for Windows 95; here the font is made at the zoomed size and no mapping mode is set).
 fn draw_line(
 	dc: u32,
 	app: &QApp,
 	s: &FarStore,
 	l: &Line,
 	label: Option<([u8; 16], usize, usize)>,
-	tx: i32,
-	y_top: i32,
+	at: At,
+	z: Zoom,
 	pages: u32,
 	ts: &mut TextState,
 ) {
 	let doc = app.doc();
 	let text = doc.story(StoryKind::Body);
 	let sel = app.selection();
-	let base = y_top + l.ascent;
+	let line_h = l.ascent + l.descent;
+	let base = at.y(z, l.ascent);
+	let (box_top, box_h) = (at.y(z, 0), (at.y(z, line_h) - at.y(z, 0)).max(1));
 	#[cfg(feature = "bench")]
 	crate::bench::add(crate::bench::LINES, 1);
 	unsafe {
@@ -523,7 +576,7 @@ fn draw_line(
 			ts.colour(dc, colour_of(app, s, &cfmt));
 			TextOut(
 				dc,
-				(tx + first as i32) as u32,
+				at.x(z, first as i32) as u32,
 				base as u32,
 				np(lab.as_ptr()),
 				n as u32,
@@ -557,7 +610,8 @@ fn draw_line(
 			unsafe {
 				ts.font(dc, &fr, extra);
 				if selected {
-					ts.mode(dc, OPAQUE);
+					// A zoomed character's cell is filled by its caller, so the characters of a selection touch.
+					ts.mode(dc, if z.one() { OPAQUE } else { TRANSPARENT });
 					ts.back(dc, SELECTED_BG);
 					ts.colour(dc, WHITE);
 				} else {
@@ -566,8 +620,8 @@ fn draw_line(
 				}
 				TextOut(
 					dc,
-					(tx + x) as u32,
-					(base + shift) as u32,
+					at.x(z, x) as u32,
+					at.y(z, l.ascent + shift) as u32,
 					np(run.as_ptr()),
 					*n as u32,
 				);
@@ -591,9 +645,11 @@ fn draw_line(
 				if let Some((pw, ph)) = quill_core::layout::picture_size(doc, s, text, p, 96, 96) {
 					let idx = text.object_at(s, p).map_or(0, |v| v & 0xFFFF) as u16;
 					// The picture, or a grey box with a dark edge the size it prints when it is not drawn (see `picture.rs`).
-					if !crate::picture::draw(dc, doc, s, idx, tx + x, base - ph, pw, ph) {
-						fill(dc, tx + x, base - ph, pw, ph, SHADOW);
-						fill(dc, tx + x + 1, base - ph + 1, pw - 2, ph - 2, FACE);
+					let (px0, py0) = (at.x(z, x), at.y(z, l.ascent - ph));
+					let (pw, ph) = (at.x(z, x + pw) - px0, base - py0);
+					if !crate::picture::draw(dc, doc, s, idx, px0, py0, pw, ph) {
+						fill(dc, px0, py0, pw, ph, SHADOW);
+						fill(dc, px0 + 1, py0 + 1, pw - 2, ph - 2, FACE);
 					}
 				} else if let Some(v) = text.object_at(s, p) {
 					// A field shows its value: the page it is on, the page count, the date or the file name.
@@ -608,7 +664,13 @@ fn draw_line(
 					ts.mode(dc, TRANSPARENT);
 					ts.colour(dc, colour_of(app, s, &cfmt));
 					unsafe {
-						TextOut(dc, (tx + x) as u32, base as u32, np(buf.as_ptr()), n as u32)
+						TextOut(
+							dc,
+							at.x(z, x) as u32,
+							base as u32,
+							np(buf.as_ptr()),
+							n as u32,
+						)
 					};
 				}
 				return;
@@ -620,7 +682,14 @@ fn draw_line(
 					ts.font(dc, &fr, 0);
 					unsafe {
 						if selected {
-							fill(dc, tx + x, y_top, w, l.ascent + l.descent, SELECTED_BG);
+							fill(
+								dc,
+								at.x(z, x),
+								box_top,
+								at.x(z, x + w) - at.x(z, x),
+								box_h,
+								SELECTED_BG,
+							);
 						}
 						if leader != 0 {
 							let ch = [match leader {
@@ -638,27 +707,58 @@ fn draw_line(
 									colour_of(app, s, &cfmt)
 								},
 							);
-							// The leader's characters go out in strings of up to 64, each as far from the last as the characters
-							// advance, where each one used to be a `TextOut` of its own.
-							let mut dots = [ch[0]; 64];
-							let mut dx = 0;
-							while dx + step <= w {
-								let k = (((w - dx) / step) as usize).min(dots.len());
-								TextOut(
-									dc,
-									(tx + x + dx) as u32,
-									base as u32,
-									np(dots.as_mut_ptr()),
-									k as u32,
-								);
-								dx += step * k as i32;
+							if z.one() {
+								// The leader's characters go out in strings of up to 64, each as far from the last as the characters
+								// advance, where each one used to be a `TextOut` of its own.
+								let mut dots = [ch[0]; 64];
+								let mut dx = 0;
+								while dx + step <= w {
+									let k = (((w - dx) / step) as usize).min(dots.len());
+									TextOut(
+										dc,
+										at.x(z, x + dx) as u32,
+										base as u32,
+										np(dots.as_mut_ptr()),
+										k as u32,
+									);
+									dx += step * k as i32;
+								}
+							} else {
+								// A zoomed leader goes out eight dots at a time, each group where the layout puts its first dot.
+								let mut dots = [ch[0]; 8];
+								let mut dx = 0;
+								while dx + step <= w {
+									let k = (((w - dx) / step) as usize).min(dots.len());
+									TextOut(
+										dc,
+										at.x(z, x + dx) as u32,
+										base as u32,
+										np(dots.as_mut_ptr()),
+										k as u32,
+									);
+									dx += step * k as i32;
+								}
 							}
 						}
 					}
 				}
 				return;
 			}
-			if n > 0 && (cf != run_cf || selected != run_sel || n == run.len()) {
+			if !z.one() && selected {
+				// A zoomed selection fills each cell, so the cells touch whatever the scaled font's advances round to.
+				fill(
+					dc,
+					at.x(z, x),
+					box_top,
+					at.x(z, x + w) - at.x(z, x),
+					box_h,
+					SELECTED_BG,
+				);
+			}
+			// A zoomed word is a run of its own, placed where the layout puts its first character, so the scaled font's rounding of
+			// each advance never carries further than the end of the word.
+			let word_ends = !z.one() && n > 0 && run.get(n - 1) == Some(&b' ');
+			if n > 0 && (cf != run_cf || selected != run_sel || n == run.len() || word_ends) {
 				flush(&mut n, &run, run_x, run_cf, run_sel, ts);
 			}
 			if n == 0 {
@@ -708,13 +808,18 @@ struct Shown {
 }
 
 /// Paints the page view into `area` (the client area under the toolbars and ruler, above the status bar), scrolled `hscroll` pixels
-/// sideways, and returns how many lines fit. Only `damage` is drawn: a fill is cut to it and a line it does not reach is not drawn
-/// (the clip region would discard the pixels anyway, but every call would still be made).
+/// sideways and drawn at `pct` percent, and returns how many lines fit. Only `damage` is drawn: a fill is cut to it and a line it does
+/// not reach is not drawn (the clip region would discard the pixels anyway, but every call would still be made).
+///
+/// The layout and the scroll position are in page units, and everything here is turned into device pixels as it is drawn, so no
+/// coordinate is ever measured from the top of the document: only from the first line shown, which keeps 16-bit GDI in range at 200
+/// percent (a letter sheet is 2,112 pixels tall there).
 pub fn paint_page(
 	dc: u32,
 	area: Rect16,
 	damage: Rect16,
 	hscroll: i32,
+	pct: i32,
 	app: &QApp,
 	s: &FarStore,
 ) -> usize {
@@ -724,9 +829,10 @@ pub fn paint_page(
 		i32::from(area.right),
 		i32::from(area.bottom),
 	);
+	let z = Zoom(pct);
 	let page = &app.doc().page;
-	let page_w = view::page_width(app);
-	let margin_l = quill_core::layout::to_units(page.margin_l, view::DPI);
+	let page_w = z.d(view::page_width(app));
+	let margin_l = z.d(quill_core::layout::to_units(page.margin_l, view::DPI));
 	let x0 = left + view::page_x0(right - left, page_w, hscroll);
 	let g = PageGeom::of(app, s);
 	unsafe {
@@ -736,90 +842,114 @@ pub fn paint_page(
 		fill_in(dc, d, left, top, right - left, bottom - top, SHADOW);
 		let mut p = 0;
 		loop {
-			let y = g.page_y(p, top);
+			let y = top + z.d(g.page_y(p, 0));
+			let page_h = top + z.d(g.page_y(p, 0) + g.page_h) - y;
 			if y > bottom || p > 400 {
 				break;
 			}
-			if y + g.page_h > top {
-				fill_in(dc, d, x0, y, page_w, g.page_h, WHITE);
+			if y + page_h > top {
+				fill_in(dc, d, x0, y, page_w, page_h, WHITE);
 				// A thin shadow on the right and below, as a sheet on the desk.
-				fill_in(dc, d, x0 + page_w, y + 3, 2, g.page_h, BLACK);
-				fill_in(dc, d, x0 + 3, y + g.page_h, page_w, 2, BLACK);
+				fill_in(dc, d, x0 + page_w, y + 3, 2, page_h, BLACK);
+				fill_in(dc, d, x0 + 3, y + page_h, page_w, 2, BLACK);
 			}
 			p += 1;
 		}
-		// The lines that show, with their labels (list numbers count through the whole document, so every line is seen).
-		let mut shown = [Shown {
-			line: NO_LINE,
-			label: None,
-		}; MAX_SHOWN];
-		let mut count = 0usize;
-		let mut fitted = 0usize;
-		let mut line_h = 16;
-		let first = app.top_line();
-		let mut counters: ListCounters = [[0; 9]; 4];
-		let pages = app.page_total(s).max(1);
-		app.for_each_line_from(s, first, |i, l| {
-			let label = line_label(app, s, l, &mut counters, view::DPI);
-			if i < first {
-				return true;
-			}
-			let y = g.line_y(l, top);
-			if i == first {
-				line_h = (l.ascent + l.descent).max(8);
-			}
-			if y > bottom {
-				// Below the window: no later line is shown either.
-				return false;
-			}
-			fitted += 1;
-			if let Some(slot) = shown.get_mut(count) {
-				*slot = Shown { line: *l, label };
-				count += 1;
-			}
-			true
-		});
 		let tx = x0 + margin_l;
-		SetTextAlign(dc, TA_BASELINE);
-		let mut ts = TextState::new();
-		for sh in shown.iter().take(count) {
-			let y = g.line_y(&sh.line, top);
-			// A line is drawn when its box, with a margin for what hangs outside it, reaches the damage.
-			if y + sh.line.ascent + sh.line.descent + LINE_MARGIN <= i32::from(damage.top)
-				|| y - LINE_MARGIN >= i32::from(damage.bottom)
-			{
-				continue;
+		let first = app.top_line();
+		let pages = app.page_total(s).max(1);
+		let mut line_h = 16;
+		let mut fitted = 0usize;
+		// The lines that show are drawn a screenful of records at a time, each collected before any is drawn so the layout's font cache
+		// is gone from the stack by then. A zoomed-out window shows more lines than a record holds, so the walk starts again after the
+		// last one drawn (the list numbers count from the start of the walk, so each pass counts them again).
+		let mut from = first;
+		let mut more = true;
+		while more {
+			let mut shown = [Shown {
+				line: NO_LINE,
+				label: None,
+			}; MAX_SHOWN];
+			let mut count = 0usize;
+			let mut counters: ListCounters = [[0; 9]; 4];
+			more = false;
+			app.for_each_line_from(s, from, |i, l| {
+				let label = line_label(app, s, l, &mut counters, view::DPI);
+				if i < from {
+					return true;
+				}
+				let y = top + z.d(g.line_y(l, 0));
+				if i == first {
+					line_h = (z.d(l.ascent + l.descent)).max(8);
+				}
+				if y > bottom {
+					// Below the window: no later line is shown either.
+					return false;
+				}
+				if count == MAX_SHOWN {
+					more = true;
+					return false;
+				}
+				if let Some(slot) = shown.get_mut(count) {
+					*slot = Shown { line: *l, label };
+					count += 1;
+				}
+				true
+			});
+			fitted += count;
+			from += count as u32;
+			SetTextAlign(dc, TA_BASELINE);
+			let mut ts = TextState::new(pct as u8);
+			for sh in shown.iter().take(count) {
+				let y_rel = g.line_y(&sh.line, 0);
+				let (y, y_end) = (
+					top + z.d(y_rel),
+					top + z.d(y_rel + sh.line.ascent + sh.line.descent),
+				);
+				// A line is drawn when its box, with a margin for what hangs outside it, reaches the damage.
+				if y_end + LINE_MARGIN <= i32::from(damage.top)
+					|| y - LINE_MARGIN >= i32::from(damage.bottom)
+				{
+					continue;
+				}
+				let at = At { tx, top, y_rel };
+				draw_line(dc, app, s, &sh.line, sh.label, at, z, pages, &mut ts);
 			}
-			draw_line(dc, app, s, &sh.line, sh.label, tx, y, pages, &mut ts);
+			// The text alignment goes back with the `RestoreDC` below.
+			ts.done(dc);
 		}
-		// The text alignment goes back with the `RestoreDC` below.
-		ts.done(dc);
 		// The caret: a two-pixel bar the height of its line.
 		if app.editing() {
 			if let Some((idx, l, x)) = app.caret_xy(s) {
 				if idx >= first {
-					let y = g.line_y(&l, top);
-					fill_in(dc, d, tx + x, y, 2, l.ascent + l.descent, BLACK);
+					let y_rel = g.line_y(&l, 0);
+					let y = top + z.d(y_rel);
+					let h = top + z.d(y_rel + l.ascent + l.descent) - y;
+					fill_in(dc, d, tx + z.d(x), y, 2, h.max(1), BLACK);
 				}
 			}
 		}
 		RestoreDC(dc, saved);
+		// How many lines of the first one's height the window holds: what Page Up and Page Down move by.
 		(((bottom - top) / line_h.max(1)) as usize)
 			.max(fitted.min(1))
 			.max(1)
 	}
 }
 
-/// The page's left margin in the window and the line under (`x`, `y`), for a click in a page area whose top is `area_top`.
+/// The page's left margin in the window and the line under (`x`, `y`), for a click in a page area whose top is `area_top` and which is
+/// drawn at `pct` percent: the line's index and how far `x` is from the text's left edge, in page units (the layout's own, which the
+/// editor places the caret with at every zoom).
 pub fn hit(
 	app: &QApp,
 	s: &FarStore,
 	area: Rect16,
 	hscroll: i32,
+	pct: i32,
 	x: i32,
 	y: i32,
 ) -> Option<(u32, i32)> {
-	let (left, _) = view::text_extent(app, i32::from(area.right - area.left), hscroll);
-	let line = app.line_at_y(s, i32::from(area.top), y)?;
-	Some((line, x - i32::from(area.left) - left))
+	let (left, _) = view::text_extent_at(app, i32::from(area.right - area.left), hscroll, pct);
+	let line = app.line_at_y(s, 0, view::log(y - i32::from(area.top), pct))?;
+	Some((line, view::log(x - i32::from(area.left) - left, pct)))
 }
