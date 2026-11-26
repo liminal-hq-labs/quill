@@ -9,10 +9,10 @@
 #
 # `wineboot --end-session` sends WM_QUERYENDSESSION to every top-level window, and WM_ENDSESSION when none answers FALSE, as Windows
 # does for a log off or a shutdown (CORE-7, W9X-8). Three runs, each on a modified copy of LETTER.RTF (an `x` typed at its start):
-#   1. Cancel in the question: wineboot reports the end cancelled (exit status 1), LETTER.RTF is unchanged and QUILL.RCV holds the text
+#   1. Cancel in the question: wineboot reports the end cancelled (exit status 1), LETTER.RTF is unchanged and `~Quill-LETTER.RTF.rcv` holds the text
 #      (a refusal still copies it aside, for systems that shut down whatever the answer).
 #   2. Yes (Save): the end goes on and LETTER.RTF holds the typed `x`.
-#   3. No (Don't Save): the end goes on, LETTER.RTF is unchanged, and QUILL.RCV beside the program holds the typed text.
+#   3. No (Don't Save): the end goes on, LETTER.RTF is unchanged, and `~Quill-LETTER.RTF.rcv` beside the document holds the typed text.
 # The question must be answered within a few seconds: Wine then offers to terminate the program, as Windows does a program that does not
 # answer. Each run has its own scratch directory and Wine prefix, which is stopped with `wineserver -k` for that prefix only.
 set -euo pipefail
@@ -38,7 +38,7 @@ set -u
 cd "$1"
 mode="$2"
 cp "$3" LETTER.RTF
-rm -f QUILL.RCV
+rm -f "~Quill-LETTER.RTF.rcv"
 wine QUILL32.EXE LETTER.RTF > /dev/null 2>&1 &
 sleep 14
 xdotool mousemove 300 300 click 1
@@ -66,14 +66,14 @@ fail=0
 run cancel
 [ "$(cat "$work/wineboot.status" 2> /dev/null)" = 1 ] || { echo "wine-endsession: FAIL: Cancel did not cancel the end of the session"; fail=1; }
 cmp -s "$PWD/tests/docs/letter.rtf" "$work/LETTER.RTF" || { echo "wine-endsession: FAIL: Cancel changed the file"; fail=1; }
-[ -s "$work/QUILL.RCV" ] || { echo "wine-endsession: FAIL: Cancel left no QUILL.RCV"; fail=1; }
+[ -s "$work/~Quill-LETTER.RTF.rcv" ] || { echo "wine-endsession: FAIL: Cancel left no recovery file"; fail=1; }
 echo "wine-endsession: cancel checked"
 run yes
 grep -aq 'x' "$work/LETTER.RTF" && ! cmp -s "$PWD/tests/docs/letter.rtf" "$work/LETTER.RTF" || { echo "wine-endsession: FAIL: Yes did not save"; fail=1; }
 echo "wine-endsession: yes checked"
 run no
 cmp -s "$PWD/tests/docs/letter.rtf" "$work/LETTER.RTF" || { echo "wine-endsession: FAIL: No changed the file"; fail=1; }
-[ -s "$work/QUILL.RCV" ] || { echo "wine-endsession: FAIL: no QUILL.RCV after the session ended"; fail=1; }
+[ -s "$work/~Quill-LETTER.RTF.rcv" ] || { echo "wine-endsession: FAIL: no recovery file after the session ended"; fail=1; }
 echo "wine-endsession: no checked"
 [ "$fail" = 0 ] && echo "wine-endsession: ok"
 exit $fail

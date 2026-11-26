@@ -6,7 +6,8 @@
 #
 # usage: win9x/tools/wine-dialogs.sh   (needs wine, xvfb-run, xdotool and ImageMagick; exits 0 with a note when they are missing)
 #
-# The window clicks the menus (the positions are those of the 80-column default window under Xvfb without a window manager), then asks
+# The window clicks the menus (the positions are those of the default window, centred on the 1000 by 700 screen, at 70,47 with no window
+# manager; the script measures where the window is and shifts every position by the difference), then asks
 # `xdotool search --name` for the dialog's window by title. A dialog drawn in text cells would not be a window and the search would
 # find nothing (D86). One screenshot per dialog is left in $DIALOG_SHOTS (default: a scratch directory).
 set -euo pipefail
@@ -36,9 +37,13 @@ cat > "$work/drive.sh" << 'DRIVE'
 set -u
 shots="$1"
 fail=0
-click() { xdotool mousemove "$1" "$2" click 1; sleep 1; }
-# menu X Y: opens the menu at x=X and chooses the item at y=Y.
-menu() { click "$1" 61; click "$(( $1 + 12 ))" "$2"; sleep 2; }
+# The window opens centred on the work area, so every position below is given for a window at 70,47 and shifted to where it is.
+shift_x=0
+shift_y=0
+click() { xdotool mousemove "$(( $1 + shift_x ))" "$(( $2 + shift_y ))"; sleep 1; xdotool click 1; sleep 1; }
+# menu X Y: opens the menu whose title is at x=X (the menu bar is at y=58) and chooses the item at y=Y. The pointer rests a moment before
+# each click; a click sent as the pointer arrives is lost when the previous menu has only just closed.
+menu() { click "$1" 58; click "$(( $1 + 12 ))" "$2"; sleep 2; }
 expect() {
 	# expect TITLE SHOT: the dialog's window must exist; a screenshot is kept; Escape closes it.
 	if xdotool search --onlyvisible --name "$1" > /dev/null 2>&1; then
@@ -52,22 +57,25 @@ expect() {
 	sleep 1
 }
 sleep 13
-menu 391 82;  expect "About Quill" about
-menu 141 82;  expect "Find" find
-menu 141 116; expect "Replace" replace
-menu 189 203; expect "Fonts" fonts
-menu 249 220; expect "Tabs" tabs
-menu 37 99;   expect "Open" open
-menu 37 133;  expect "Save As" save-as
-menu 104 82;  expect "Insert Picture" insert-picture
+geometry="$(xdotool search --onlyvisible --name '^Quill - ' getwindowgeometry --shell | head -4)"
+shift_x=$(( $(sed -n 's/^X=//p' <<< "$geometry" | head -1) - 70 ))
+shift_y=$(( $(sed -n 's/^Y=//p' <<< "$geometry" | head -1) - 47 ))
+menu 440 94;  expect "About Quill" about
+menu 188 78;  expect "Find" find
+menu 188 112; expect "Replace" replace
+menu 234 224; expect "Fonts" fonts
+menu 295 292; expect "Tabs" tabs
+menu 83 95;   expect "Open" open
+menu 83 138;  expect "Save As" save-as
+menu 151 77;  expect "Insert Picture" insert-picture
 # Unsaved changes: type, then File > New asks in a message box.
 xdotool key x
 sleep 1
-menu 37 82
+menu 83 78
 expect "^Quill$" confirm-save
 # Spelling: a made-up word is the first the check stops at.
 xdotool type "qqzx "; sleep 1
-menu 141 133; expect "Spelling" spelling
+menu 188 138; expect "Spelling" spelling
 exit $fail
 DRIVE
 chmod +x "$work/drive.sh"

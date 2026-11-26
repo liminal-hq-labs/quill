@@ -39,28 +39,43 @@ export WINEPREFIX="${WINEPREFIX:-${XDG_CACHE_HOME:-$HOME/.cache}/quill-wine-layo
 unset WINEARCH
 fail() { echo "wine-layout: FAIL: $*" >&2; exit 1; }
 
-# Counts, from a Wine call trace, what typing did: prints "keys full-invalidations erases direct-draws blits".
+# Counts, from a Wine call trace, what typing did to the page window: prints "keys full-invalidations erases direct-draws blits".
 analyse() {
 	python3 -I - "$1" << 'PY'
 import re, sys
 keys = full = erase = direct = blits = 0
 started = False
 paint_dc = None
+page = None
+char_depth = 0
 draws = ("NtGdiPatBlt", "NtGdiExtTextOutW", "NtGdiExtTextOutA", "NtGdiSetDIBitsToDeviceInternal", "NtGdiPolyPolyDraw", "NtGdiLineTo", "NtGdiStretchBlt")
 for line in open(sys.argv[1], errors="replace"):
-	if "Call window proc" in line and "msg=WM_CHAR" in line:
-		keys += 1
-		started = True
+	# Wine's relay shows a message once for its own wrapper and once for the program's procedure; a key is the outer one only.
+	if "msg=WM_CHAR" in line:
+		if "Call window proc" in line:
+			if char_depth == 0:
+				keys += 1
+				started = True
+				page = re.search(r"hwnd=(\w+)", line).group(1).lower()
+			char_depth += 1
+		elif "Ret  window proc" in line:
+			char_depth -= 1
 	if not started:
 		continue
 	if "Call window proc" in line and "msg=WM_ERASEBKGND" in line:
 		erase += 1
 	m = re.search(r"Call win32u\.NtUserInvalidateRect\((\w+),(\w+),", line)
-	if m and int(m.group(2), 16) == 0:
+	if m and int(m.group(2), 16) == 0 and m.group(1).lower() == page:
 		full += 1
+	# Only the page window (the one that takes the keys) is held to one BitBlt. The toolbars, the ruler and the status bar are windows of
+	# their own and paint what they show, a few pixels at a time, in their own procedures.
+	m = re.search(r"Call win32u\.NtUserBeginPaint\((\w+),", line)
+	if m:
+		paint_hwnd = m.group(1).lower()
 	m = re.search(r"Ret  win32u\.NtUserBeginPaint\(\) retval=(\w+)", line)
 	if m:
-		paint_dc = m.group(1)
+		if paint_hwnd == page:
+			paint_dc = m.group(1)
 	m = re.search(r"Call win32u\.(NtGdi\w+)\((\w+)", line)
 	if m and paint_dc and m.group(2) == paint_dc:
 		if m.group(1) == "NtGdiBitBlt":
