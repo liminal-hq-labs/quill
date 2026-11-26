@@ -26,7 +26,6 @@ mod ps2;
 mod video;
 
 use alloc::boxed::Box;
-use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use measure::ScreenMeasure;
@@ -48,6 +47,46 @@ rt::entry!(main);
 
 /// Draws the screen. `frame` writes it to the dump as a golden frame; the pointer's cell goes on after the dump, so the frames are the
 /// host's.
+/// A line of a test log, built without `core::fmt` (the formatter is some 3 KB the shipped program has no other use for).
+struct Line(Vec<u8>);
+
+impl Line {
+	fn new() -> Self {
+		Line(Vec::new())
+	}
+
+	fn s(&mut self, s: &str) -> &mut Self {
+		self.0.extend_from_slice(s.as_bytes());
+		self
+	}
+
+	fn dec(&mut self, v: usize) -> &mut Self {
+		let mut v = v;
+		let mut digits = [0u8; 20];
+		let mut i = digits.len();
+		loop {
+			i -= 1;
+			if let Some(d) = digits.get_mut(i) {
+				*d = b'0' + (v % 10) as u8;
+			}
+			v /= 10;
+			if v == 0 {
+				break;
+			}
+		}
+		self.0.extend_from_slice(digits.get(i..).unwrap_or(&[]));
+		self
+	}
+
+	fn hex8(&mut self, v: u32) -> &mut Self {
+		for shift in (0..8).rev() {
+			let n = ((v >> (shift * 4)) & 15) as u8;
+			self.0.push(if n < 10 { b'0' + n } else { b'a' + n - 10 });
+		}
+		self
+	}
+}
+
 fn show<const ROWS: usize>(
 	app: &App<ScreenMeasure>,
 	s: &HeapStore,
@@ -165,7 +204,9 @@ fn main() -> i32 {
 	let rows = video::enter(rows);
 	let code = if rows == 50 { run::<50>(&kept) } else { run::<25>(&kept) };
 	if let Some(why) = note {
-		rt::println!("Quill: graphics mode was not used ({why}); it ran in text mode.");
+		rt::io::write_str("Quill: graphics mode was not used (");
+		rt::io::write_str(why);
+		rt::io::write_str("); it ran in text mode.\r\n");
 	}
 	code
 }
@@ -221,7 +262,7 @@ fn run<const ROWS: usize>(kept: &Kept) -> i32 {
 	let mut files = files::DosFiles;
 	if !start(&mut app, &mut store, &mut files) {
 		video::leave();
-		rt::println!("Quill: there is not enough memory.");
+		rt::io::write_str("Quill: there is not enough memory.\r\n");
 		return 1;
 	}
 	app.set_rows(ROWS - 2);
@@ -376,22 +417,29 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 			if let Some(f) = &mut dump {
 				// The arrow is on the card and not in the shadow: it comes off for the read-back, so a frame's two sums compare.
 				scr.hide_pointer();
-				let line = format!(
-					"frame {n} crc32 {:08x} video {:08x}\n",
-					quill_paint::crc32(&scr.shadow),
-					scr.read_back_crc()
-				);
-				let _ = f.write_all(line.as_bytes());
+				let mut line = Line::new();
+				line.s("frame ")
+					.dec(n as usize)
+					.s(" crc32 ")
+					.hex8(quill_paint::crc32(&scr.shadow));
+				line.s(" video ").hex8(scr.read_back_crc()).s("\n");
+				let _ = f.write_all(&line.0);
 			}
 			if let Some(f) = &mut times {
-				let line = format!(
-					"frame {n} paint_us {} present_us {} rows {rows} layout_pass_us {} lines {}\n",
-					gfx::micros(t1.wrapping_sub(t0)),
-					gfx::micros(t2.wrapping_sub(t1)),
-					gfx::micros(layout.map_or(0, |l| l.0)),
-					layout.map_or(0, |l| l.1)
-				);
-				let _ = f.write_all(line.as_bytes());
+				let mut line = Line::new();
+				line.s("frame ")
+					.dec(n as usize)
+					.s(" paint_us ")
+					.dec(gfx::micros(t1.wrapping_sub(t0)) as usize);
+				line.s(" present_us ")
+					.dec(gfx::micros(t2.wrapping_sub(t1)) as usize)
+					.s(" rows ")
+					.dec(rows);
+				line.s(" layout_pass_us ")
+					.dec(layout.map_or(0, |l| l.0) as usize)
+					.s(" lines ");
+				line.dec(layout.map_or(0, |l| l.1) as usize).s("\n");
+				let _ = f.write_all(&line.0);
 			}
 			if let Some(p) = at {
 				scr.show_pointer(p);
@@ -495,14 +543,17 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 	app.save_settings(&mut files);
 	kept.put_back();
 	if let Some(f) = &mut times {
-		let line = format!(
-			"heap_bytes {} font_pages_read {} font_bytes_resident {} shadow_bytes {}\n",
-			rt::heap::HEAP.total_bytes(),
-			fnt.loaded,
-			fnt.resident(),
-			scr.shadow.len()
-		);
-		let _ = f.write_all(line.as_bytes());
+		let mut line = Line::new();
+		line.s("heap_bytes ")
+			.dec(rt::heap::HEAP.total_bytes())
+			.s(" font_pages_read ")
+			.dec(fnt.loaded as usize);
+		line.s(" font_bytes_resident ")
+			.dec(fnt.resident())
+			.s(" shadow_bytes ")
+			.dec(scr.shadow.len())
+			.s("\n");
+		let _ = f.write_all(&line.0);
 	}
 	if let Some(f) = &mut dump {
 		let _ = f.write_all(b"=== end ===\n");
