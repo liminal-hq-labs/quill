@@ -10,7 +10,7 @@ import { KEY, PROFILES, grab, launch, pageUrl, save, sleep, waitFor } from "./li
 
 const args = process.argv.slice(2);
 const dir = args[0];
-const params: Record<string, string> = { state: "/images/state.l22.bin.zst", disk: "/images/parts/.img.zst", chunk: "1048576", ram: "256" };
+const params: Record<string, string> = { state: "/images/state.l22.bin.zst", disk: "/images/parts/.img.zst", ram: "256" };
 args.forEach((a, i) => {
 	if (a === "--param") {
 		const eq = args[i + 1].indexOf("=");

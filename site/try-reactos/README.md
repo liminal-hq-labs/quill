@@ -1,6 +1,6 @@
 # Try Quill on ReactOS
 
-ReactOS 0.4.16 with Quill, running in [v86](https://copy.sh/v86/) (an x86 emulator in WebAssembly) inside a browser tab. The page starts from a saved machine state (about 13 MB compressed) over a disk served as 1 MiB zstd parts (about 54 MB in all, read on demand), so a live desktop with Quill open needs about 16 MB. The page makes no request outside its own origin.
+ReactOS 0.4.16 with Quill, running in [v86](https://copy.sh/v86/) (an x86 emulator in WebAssembly) inside a browser tab. The page starts from a saved machine state (about 13 MB compressed) over a disk served as 8 MiB zstd parts (512 files, about 55 MB in all, read on demand), so a live desktop with Quill open needs about 16 MB. The page makes no request outside its own origin.
 
 ## Layout
 
@@ -11,7 +11,7 @@ ReactOS 0.4.16 with Quill, running in [v86](https://copy.sh/v86/) (an x86 emulat
 | `harness/serve.ts` | The local server: static files, HTTP range requests, per-client byte counters, a JSON request log |
 | `harness/measure.ts`, `lib.ts`, `inpage.js` | The measurement run, on `playwright-core` driving the installed Chromium |
 | `harness/desktop-shot.ts` | Restores the saved state and saves the guest's own pixels (the emulator canvas) as it restores and with the desktop shown, for checking a build headlessly |
-| `harness/watch.ts`, `explore.ts`, `build-state.ts`, `run-all.sh`, `summarise.ts` | Screenshots on a timer, key-sequence exploration, saved-state builder, the full measurement set, the results table |
+| `harness/watch.ts`, `explore.ts`, `build-state.ts`, `run-all.sh`, `summarise.ts`, `chunk-session.ts` | Screenshots on a timer, key-sequence exploration, saved-state builder, the full measurement set, the results table, a disk-touching session for comparing part sizes |
 | `tools/fetch-v86.sh`, `make-parts.mjs`, `build-manifest.py`, `job-summary.py` | Downloads and checks the pinned v86; splits a raw disk image into zstd parts for v86's chunked disk; writes the build manifest; prints it as a CI job summary |
 | `demo/` | The pitch document Quill opens: `demo.rtf` and `demo.qld`, and `demo16.*` for the Windows 3.x icon; `make-demo.sh` rebuilds them |
 | `guest/` | Builds the guest disk and the artifacts from the official ReactOS install CD: `build-all.sh` (the whole chain), `install-golden.sh` with `unattend.inf` (the unattended install), `build-image.sh` with the trim lists, registry settings, wallpaper, desktop icon (`make_desk_icon.py`), shortcut writer and the build VM scripts (see [Build everything with one command](#build-everything-with-one-command) and [Rebuild the trimmed guest](#rebuild-the-trimmed-guest)) |
@@ -34,8 +34,8 @@ The server stops with a message naming `tools/fetch-v86.sh` when the emulator fi
 1. **Smoke test, the live CD:** `?cdrom=/images/livecd.iso&boot=cd` boots the ReactOS 0.4.16 installer. Or `node watch.ts --name livecd --seconds 90 --param cdrom=/images/livecd.iso --param boot=cd`; frames go to `out/livecd/`.
 2. **A copied disk:** `node measure.ts --name spike-a --app quill32` (or `--app quill16` for the Win16 build, `--profile 50mbit|10mbit`).
 3. **Make a saved state:** `node build-state.ts --name state-q32`, then `zstd -19 -T0 ~/.cache/reactos/web/state-q32.bin -o ~/.cache/reactos/web/state-q32.l19.bin.zst`.
-4. **Make disk parts:** `node tools/make-parts.mjs IMAGE ~/.cache/reactos/web/parts/spike-a 1048576 19`.
-5. **Restore from a state:** `node measure.ts --name restore --param state=/images/state-q32.l19.bin.zst` (add `--param disk=/images/parts/spike-a/.img.zst --param chunk=1048576` for the chunked disk).
+4. **Make disk parts:** `node tools/make-parts.mjs IMAGE ~/.cache/reactos/web/parts/spike-a 8388608 19` (the size is optional; 8 MiB is the default, and `parts/manifest.json` records it, so the page needs no `chunk`).
+5. **Restore from a state:** `node measure.ts --name restore --param state=/images/state-q32.l19.bin.zst` (add `--param disk=/images/parts/spike-a/.img.zst --param chunk=8388608` for the chunked disk; the page reads the size from the manifest when `chunk` is absent).
 6. **The full set and the table:** `bash run-all.sh`, then `node summarise.ts`.
 7. **Demo documents:** `demo/make-demo.sh "<path>/quill-document.svg" <path>/target/release/quill` (build the CLI with `cargo build --release -p quill-cli`).
 
@@ -107,7 +107,7 @@ From the official ReactOS 0.4.16 install CD to the final artifacts, with no hand
 | `install-golden` | Downloads the ISO (or reuses a copy whose hash matches) and installs ReactOS onto a blank raw 4 GiB disk with no prompt (below). Skipped when the disk's stamp matches the ISO hash, `unattend.inf`, `install-golden.sh` and `patch-iso.py` |
 | `build-image` | `guest/build-image.sh`: copy, trim, put Quill, the documents and the wallpaper on the disk, apply the settings in a build VM, power off |
 | `zero-free` | `guest/zero-free.py` and `fallocate --dig-holes`: free clusters become holes |
-| `make-parts` | `tools/make-parts.mjs`: 1 MiB zstd parts and `parts/manifest.json` |
+| `make-parts` | `tools/make-parts.mjs`: 8 MiB zstd parts and `parts/manifest.json` |
 | `build-state` | Starts `harness/serve.ts` on port 18086, boots the image in v86 in headless Chromium until Quill shows the demo letter, saves the machine state |
 | `zstd-state` | `zstd -22 --ultra` |
 
@@ -182,7 +182,7 @@ The image holds ReactOS (GPL-2.0-or-later, with LGPL-2.1-or-later for the Wine-d
 4. **Zero the free space and make the file sparse again.** `python3 -I guest/zero-free.py IMAGE; fallocate --dig-holes IMAGE`. Deleted files leave their data in the image; this makes it compress and split into tiny parts.
 5. **Optional: copy the memory-fill tool onto the disk.** `mcopy -i IMAGE@@1048576 ~/.cache/reactos/web/p2/MEMFILL.EXE ::/ReactOS/MEMFILL.EXE` (the state experiment `--zero` runs it).
 6. **State.** Start the server, then `node harness/build-state.ts --name state-p2` (cold boot; the image opens `DEMO.QLD` itself from its Run key; add `--param ram=192` or `--param vga=4` to try those; `--zero` runs the memory-fill tool first). Compress: `zstd -19 -T0 state-p2.bin` (16 MB) or `zstd -22 --ultra` (13 MB).
-7. **Parts.** `node tools/make-parts.mjs ~/.cache/reactos/web/reactos16-trim.img ~/.cache/reactos/web/parts/trim 1048576 19`.
+7. **Parts.** `node tools/make-parts.mjs ~/.cache/reactos/web/reactos16-trim.img ~/.cache/reactos/web/parts/trim 8388608 19`.
 8. **Measure.** `node harness/measure.ts --name p2-cold-whole --app auto` (cold boot, whole file; `--app auto` waits for Quill to open itself), and with `--param state=/images/state-p2.l19.bin.zst` for the restore. `harness/run-phase2.sh` runs the set.
 
 To look at the guest or change a setting by hand, `guest/vm/qrun.sh IMAGE CDISO` starts the build VM, `guest/vm/run.sh 'cmd /c D:\SCRIPT.CMD'` runs a script from the CD in the Run box, `guest/vm/shot.sh out.png` takes a screenshot, and `system_powerdown` on the monitor (`VMDIR/mon.sock`) shuts the guest down cleanly. Always shut the guest down before reading the disk with mtools (hidden and system files such as `freeldr.ini` only show with `mdir -a`).
@@ -221,3 +221,17 @@ Measured in headless Chromium 156 on a machine shared with other builds (load av
 | RAM 192 MB, VGA 4 MB, zeroed free memory | not tried | no gain (state within 1 to 2 %) |
 
 `node harness/summarise.ts` prints every run in `out/results/` as a table.
+
+### Disk part size
+
+The disk is 4 GiB raw and nearly all of it is empty, so the parts are mostly a few bytes each; the count is what GitHub Pages deploys, a Release (at most 1,000 assets) and a CDN have to carry. v86 downloads a whole part for every read that lands in it, so bigger parts cost more bytes per session. The same disk (the Afterglow build) cut at five sizes, `zstd -19`, and one session from the saved state in headless Chromium: restore, Quill's File menu and Open dialog, the Start menu and Programs, Run, six Page Downs (`harness/chunk-session.ts`). The saved state is 14.3 MB and the page and emulator about 2.6 MB more, the same for every size; 22 IDE reads (1.4 MB) in every run.
+
+| Part size | Files | All parts | Largest part | Disk bytes in the session | Session total | Requests | Disk time at 50 / 10 Mbit/s | To the desktop at 50 / 10 Mbit/s |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 MiB | 4,096 | 54.7 MB | 0.95 MB | 2.9 MB (15 requests) | 19.8 MB | 26 | 0.5 / 2.3 s | 3.3 / 14.3 s |
+| 2 MiB | 2,048 | 52.6 MB | 1.44 MB | 3.7 MB (11) | 20.7 MB | 22 | 0.6 / 3.0 s | 3.3 / 14.3 s |
+| 4 MiB | 1,024 | 50.7 MB | 2.13 MB | 6.9 MB (11) | 23.8 MB | 22 | 1.1 / 5.5 s | 3.3 / 14.3 s |
+| **8 MiB** | **512** | 49.2 MB | 2.92 MB | 8.9 MB (8) | 25.9 MB | 19 | 1.4 / 7.2 s | 3.3 / 14.3 s |
+| 16 MiB | 256 | 47.8 MB | 4.05 MB | 12.9 MB (7) | 29.9 MB | 18 | 2.1 / 10.3 s | 3.3 / 14.3 s |
+
+The first frame shows at 0.15 s on both throttle profiles and the restored desktop is live when the state has arrived, so the time to the desktop is the state's download and does not change with the part size; the disk is read after it. The pitch session in `measure.ts` (typing, scrolling) reads no disk at all after a restore, so it cannot tell the sizes apart. 8 MiB is the default: 512 files, a session download 1.3 times that of 1 MiB parts (the limit was 1.5), and 1 to 5 s more disk time spread over the session. 4 MiB (1,024 files) would not fit a Release; 16 MiB reaches 1.5 times. Part sets of any size still load: the page reads `chunk` from the parts' `manifest.json`, and `?chunk=` overrides it.

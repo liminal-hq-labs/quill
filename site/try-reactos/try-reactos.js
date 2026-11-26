@@ -86,12 +86,17 @@ async function sizeOf(url) {
 	return Number(r.headers.get("content-length"));
 }
 
-// The whole file read with range requests, or 1 MiB (or other) zstd parts named DIR/START-END.img.zst, as in v86's own ReactOS demo.
-// For parts the URL is DIR/.img.zst and DIR/manifest.json holds the image size.
+// The disk parts' size when neither the address bar nor the parts' manifest.json says: the size the pipeline makes (tools/make-parts.mjs).
+const DEFAULT_CHUNK = 8 * 1024 * 1024;
+
+// The whole file read with range requests, or zstd parts named DIR/START-END.img.zst, as in v86's own ReactOS demo.
+// For parts the URL is DIR/.img.zst and DIR/manifest.json holds the image size and the part size; a chunk given in the panel or as
+// ?chunk= overrides the manifest (an older part set without a "chunk" field falls back to DEFAULT_CHUNK).
 async function asyncImage(url, chunk) {
-	if (!chunk) return { url, async: true, size: await sizeOf(url) };
+	const parts = Boolean(chunk) || /\/\.img\.zst$/.test(url);
+	if (!parts) return { url, async: true, size: await sizeOf(url) };
 	const manifest = await (await fetch(url.replace(/[^/]*$/, "manifest.json"))).json();
-	return { url, async: true, size: manifest.size, fixed_chunk_size: chunk, use_parts: true };
+	return { url, async: true, size: manifest.size, fixed_chunk_size: chunk || manifest.chunk || DEFAULT_CHUNK, use_parts: true };
 }
 
 function render() {

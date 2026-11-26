@@ -16,7 +16,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const opt = (k: string, d: string) => (args.includes("--" + k) ? args[args.indexOf("--" + k) + 1] : d);
 const label = opt("label", "axis");
-const params: Record<string, string> = { state: "/images/state.l22.bin.zst", disk: "/images/parts/.img.zst", chunk: "1048576", ram: "256" };
+const params: Record<string, string> = { state: "/images/state.l22.bin.zst", disk: "/images/parts/.img.zst", ram: "256" };
 args.forEach((a, i) => {
 	if (a === "--param") {
 		const eq = args[i + 1].indexOf("=");
