@@ -11,6 +11,8 @@
 # and checks the first size is back; Esc takes the handles away. Needs wine, Xvfb, xdotool, ImageMagick and Python with Pillow; exits 0
 # with a note when they are missing. Uses its own display (QUILL_PICTURE_DISPLAY, default :175) and its own WINEPREFIX. Local only.
 set -euo pipefail
+# The caret stays solid so that screenshots are stable (`[Quill] Blink`, win9x/tools/wine-blink.sh).
+export QUILL_NO_BLINK=1
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SHOTS=""

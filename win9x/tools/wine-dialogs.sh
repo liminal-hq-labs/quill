@@ -10,6 +10,8 @@
 # `xdotool search --name` for the dialog's window by title. A dialog drawn in text cells would not be a window and the search would
 # find nothing (D86). One screenshot per dialog is left in $DIALOG_SHOTS (default: a scratch directory).
 set -euo pipefail
+# The caret stays solid so that screenshots are stable (`[Quill] Blink`, win9x/tools/wine-blink.sh).
+export QUILL_NO_BLINK=1
 cd "$(dirname "$0")/../.."
 
 for tool in wine xvfb-run xdotool import; do

@@ -768,7 +768,7 @@ unsafe fn map_pages(dc: Handle, pct: i32, x: i32, y: i32) {
 
 /// Paints the page view into the client rectangle `area`, scrolled `hscroll` pixels sideways and `vpos` page units down, at `pct`
 /// percent. Only the lines that reach into `damage` (in the device's pixels) are drawn; the rest of the page is already in the picture. `mdc` is a device context with no mapping set, which character widths are asked of: under the zoom's mapping a font's widths
-/// come back in scaled, hinted units and no longer agree with the layout. Returns how many lines a screenful holds and how many sheets the document takes.
+/// come back in scaled, hinted units and no longer agree with the layout. `caret` is the caret's on phase: false while it blinks off. Returns how many lines a screenful holds and how many sheets the document takes.
 ///
 /// # Safety
 /// `dc` must be a valid device context.
@@ -783,6 +783,7 @@ pub unsafe fn paint_page(
 	s: &HeapStore,
 	mdc: Handle,
 	cache: &mut PicCache,
+	caret: bool,
 ) -> (usize, u32) {
 	use crate::view::{dev, log, page_x0, paper, rel, stride};
 	span!(PPage);
@@ -871,7 +872,7 @@ pub unsafe fn paint_page(
 
 	// The caret.
 	span!(PCaret);
-	if app.editing() {
+	if caret && app.editing() {
 		if let Some((_, l, x)) = app.caret_xy(s) {
 			let y = rel(cum(&l), vpos);
 			let pen = CreatePen(0, 2, 0);

@@ -11,6 +11,8 @@
 # window exactly as it was after Esc. Needs wine, Xvfb, xdotool and ImageMagick; exits 0 with a note when they are missing. Uses its
 # own display (QUILL_EDITING_DISPLAY, default :174) and a WINEPREFIX of its own under the cache directory. Local only: Wine paces it.
 set -euo pipefail
+# The caret stays solid so that screenshots are stable (`[Quill] Blink`, win9x/tools/wine-blink.sh).
+export QUILL_NO_BLINK=1
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 SHOTS=""
 if [ "${1:-}" = "--shots" ]; then SHOTS="$(mkdir -p "$2" && cd "$2" && pwd)"; fi

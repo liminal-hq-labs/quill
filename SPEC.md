@@ -383,6 +383,7 @@ Every build keeps every property of the document. The table says what each shows
 | Toolbar and ruler | Yes | Yes | Ruler as text | Yes, with tips and drop-down lists (no tab-kind button) |
 | Print preview | Yes | Yes | No | Yes |
 | Zoom (stretch) | Yes | Yes | No | No |
+| Caret | Steady | Blinks at the system's rate (W9X-12) | Steady | Steady |
 | Printing | Windows printer drivers | Windows printer drivers | Plain text | Plain text; PostScript stretch |
 | Clipboard | Windows: RTF, DIB, text | Windows: RTF, DIB, text | Own; Windows text in a DOS box | As text mode |
 | Spelling as you type | Off by default, not built yet | On by default | Off by default, not built yet | As text mode |
@@ -527,6 +528,7 @@ Settings live in `QUILL.INI` in the Windows directory (both Windows builds share
 | `[Quill] Backup` | `0` | When `1`, Save keeps the previous file as `<name>.BAK` |
 | `[Quill] PictureMemory` | `1024` (Win16), `16384` (Win32), `4096` (DOS) | Most memory, in KB, decoded pictures may hold at once (256–65536) |
 | `[Quill] Zoom` | `Width` | Zoom: `Width` (the page fits the window, never larger than 100 percent) or a percentage from 25 to 200 |
+| `[Quill] Blink` | `1` | Win32 only: `0` keeps the caret steady; otherwise it blinks at the system's rate (`GetCaretBlinkTime`), steady when that is zero or infinite. The environment variable `QUILL_NO_BLINK`, set to anything, and a `/PLAY` run do the same (W9X-12); the Linux client also reads `QUILL_NO_BLINK` (LNX-15). Never written back |
 | `[Spelling] Language` | `en-CA` | `en-CA`, `en-US` or `en-GB` |
 | `[Quill] AsYouType` | `0` (Win16 and DOS, not built yet), `1` (Windows 95) | Check spelling as you type |
 | `[Spelling] IgnoreCaps` | `1` | Skip words in all capitals |

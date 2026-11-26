@@ -16,6 +16,8 @@
 # The question must be answered within a few seconds: Wine then offers to terminate the program, as Windows does a program that does not
 # answer. Each run has its own scratch directory and Wine prefix, which is stopped with `wineserver -k` for that prefix only.
 set -euo pipefail
+# The caret stays solid so that screenshots are stable (`[Quill] Blink`, win9x/tools/wine-blink.sh).
+export QUILL_NO_BLINK=1
 cd "$(dirname "$0")/../.."
 
 for tool in wine xvfb-run xdotool; do

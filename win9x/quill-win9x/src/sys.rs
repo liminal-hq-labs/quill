@@ -33,6 +33,9 @@ pub const WS_HSCROLL: u32 = 0x0010_0000;
 pub const WS_MAXIMIZE: u32 = 0x0100_0000;
 pub const WS_CLIPCHILDREN: u32 = 0x0200_0000;
 pub const WM_SIZE: u32 = 0x0005;
+pub const WM_SETFOCUS: u32 = 0x0007;
+pub const WM_KILLFOCUS: u32 = 0x0008;
+pub const WM_SETTINGCHANGE: u32 = 0x001A;
 pub const WM_SYSCOLORCHANGE: u32 = 0x0015;
 pub const WM_HSCROLL: u32 = 0x0114;
 pub const SIZE_MINIMIZED: usize = 1;
@@ -194,6 +197,7 @@ extern "system" {
 	pub fn GetModuleHandleA(name: *const u8) -> Handle;
 	pub fn GetModuleFileNameA(module: Handle, name: *mut u8, size: u32) -> u32;
 	pub fn GetCommandLineA() -> *const u8;
+	pub fn GetEnvironmentVariableA(name: *const u8, buf: *mut u8, size: u32) -> u32;
 	pub fn GetProcessHeap() -> Handle;
 	pub fn GlobalMemoryStatus(status: *mut MemoryStatus);
 	pub fn GetVersionExA(info: *mut OsVersionInfo) -> i32;
@@ -322,6 +326,7 @@ counted! {
 		fn SetScrollInfo(hwnd: Handle, bar: i32, info: *const ScrollInfo, redraw: i32) -> i32;
 		fn GetCursorPos(p: *mut Point) -> i32;
 		fn KillTimer(hwnd: Handle, id: usize) -> i32;
+		fn GetCaretBlinkTime() -> u32;
 		fn GetSubMenu(menu: Handle, pos: i32) -> Handle;
 		fn GetMenuItemCount(menu: Handle) -> i32;
 		fn UpdateWindow(hwnd: Handle) -> i32;

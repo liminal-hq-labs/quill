@@ -14,6 +14,8 @@
 # Needs wine, Xvfb, xdotool and ImageMagick's import (for --shots); exits 0 with a note when they are missing. Uses its own Xvfb
 # display (QUILL_LAYOUT_DISPLAY, default :173) and a WINEPREFIX of its own under the cache directory.
 set -euo pipefail
+# The caret stays solid so that screenshots are stable (`[Quill] Blink`, win9x/tools/wine-blink.sh).
+export QUILL_NO_BLINK=1
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 SHOTS=""
 [ "${1:-}" = "--shots" ] && SHOTS="$(mkdir -p "$2" && cd "$2" && pwd)"

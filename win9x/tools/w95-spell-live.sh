@@ -91,7 +91,7 @@ chmod u+w "$RUN/work.img"
 mcopy -n -i "$RUN/work.img@@$OFF" ::/WINDOWS/WIN.INI "$RUN/WIN.INI"
 awk 'BEGIN { IGNORECASE = 1 } /^[ \t]*run[ \t]*=/ { printf "run=D:\\QUILL32.EXE\r\n"; done = 1; next } { print } END { if (!done) exit 3 }' "$RUN/WIN.INI" > "$RUN/WIN.INI.new" || fail "WIN.INI has no run= line"
 mcopy -o -i "$RUN/work.img@@$OFF" "$RUN/WIN.INI.new" ::/WINDOWS/WIN.INI
-printf '[Quill]\r\nZoom=%s\r\nAsYouType=%s\r\n' "$ZOOM" "$ON" > "$RUN/QUILL.INI"
+printf '[Quill]\r\nZoom=%s\r\nAsYouType=%s\r\nBlink=0\r\n' "$ZOOM" "$ON" > "$RUN/QUILL.INI"
 mcopy -o -i "$RUN/work.img@@$OFF" "$RUN/QUILL.INI" ::/WINDOWS/QUILL.INI
 w95_make_dimage "$RUN/exchange.img" "$RUN/stage"
 {
