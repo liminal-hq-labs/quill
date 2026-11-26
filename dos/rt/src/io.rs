@@ -16,6 +16,11 @@ impl fmt::Write for Handle {
 	}
 }
 
+/// Writes a string to standard output without `core::fmt`, for the messages a program prints when it cannot afford the formatter.
+pub fn write_str(s: &str) {
+	let _ = crate::dos::write_all(STDOUT.0, s.as_bytes());
+}
+
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
 	let _ = fmt::Write::write_fmt(&mut Handle(STDOUT.0), args);
