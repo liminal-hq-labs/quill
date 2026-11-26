@@ -14,6 +14,7 @@ use std::fmt::Write as _;
 use quill_app::flow::{
 	Answer, Ask, FindFields, Notice, NoticeKind, SpellButton, SpellStep, TabButton,
 };
+use quill_app::idle::Idle;
 use quill_app::recovery::Why;
 use quill_app::{App, Command, Dialog, FindAction, Key};
 
@@ -200,6 +201,14 @@ pub trait Driver {
 	fn autosave(&mut self) -> Vec<Event> {
 		Vec::new()
 	}
+	/// One idle pass with `units` of budget, after `quiet` seconds without input; `busy` when a dialog is open.
+	fn idle(&mut self, _quiet: u32, _units: u32, _busy: bool) -> Vec<Event> {
+		Vec::new()
+	}
+	/// Idle passes until nothing is ready, as the editor would reach on its own if it were left alone.
+	fn drain(&mut self, _quiet: u32, _busy: bool) -> Vec<Event> {
+		Vec::new()
+	}
 	/// The program is killed and started again on the same disk; the launch check runs.
 	fn restart(&mut self) -> Vec<Event> {
 		Vec::new()
@@ -349,6 +358,16 @@ impl NativeStub {
 		stub.recovery = true;
 		stub.app.set_recovery(true);
 		stub
+	}
+
+	/// The status line, as a notice, when idle work changed it.
+	fn said(&self, before: Vec<u8>) -> Vec<Event> {
+		let now = self.app.message();
+		if now.is_empty() || now == before.as_slice() {
+			Vec::new()
+		} else {
+			vec![Event::Notice(Notice::status(now))]
+		}
 	}
 
 	/// Takes every dialog the editor has asked for since the last call, as the Windows shells' `handle_dialogs` does.
@@ -555,6 +574,22 @@ impl Driver for NativeStub {
 			out.push(Event::Notice(Notice::status(self.app.message())));
 		}
 		out
+	}
+
+	fn idle(&mut self, quiet: u32, units: u32, busy: bool) -> Vec<Event> {
+		let before = self.app.message().to_vec();
+		let ctx = Idle { quiet, units, busy };
+		self.app
+			.idle(&mut self.store, &mut self.files, ctx, &mut || false);
+		self.said(before)
+	}
+
+	fn drain(&mut self, quiet: u32, busy: bool) -> Vec<Event> {
+		let before = self.app.message().to_vec();
+		if !busy {
+			self.app.drain(&mut self.store, &mut self.files, quiet);
+		}
+		self.said(before)
 	}
 
 	fn restart(&mut self) -> Vec<Event> {
@@ -957,13 +992,17 @@ pub struct Flow {
 	pub alive: Vec<String>,
 	/// Places that are not fixed disks: the start of the path and what it is (`removable`, `readonly` or `missing`).
 	pub drives: Vec<(String, String)>,
+	/// The seed of a random idle schedule (`@sched seed=N`): idle passes of random sizes run between the steps, and the transcript
+	/// must not change.
+	pub sched: Option<u32>,
 	/// The step lines with their line numbers.
 	lines: Vec<(usize, String)>,
 }
 
 /// Reads a script. Directives are `@copy NAME` (a file of `tests/docs`), `@file NAME "text"`, `@locked NAME` (the name cannot be
 /// created), `@full NAME` (writing the name cannot be finished; `*.RCV` stands for every name that ends so), `@recovery` (the editor
-/// runs the recovery protocol), `@alive NAME` (another Quill window has NAME open with changes) and `@drive PATH removable|readonly|missing`.
+/// runs the recovery protocol), `@alive NAME` (another Quill window has NAME open with changes), `@drive PATH removable|readonly|missing`
+/// and `@sched seed=N` (idle time runs in random slices between the steps).
 pub fn parse_flow(text: &str) -> Result<Flow, String> {
 	let mut fl = Flow {
 		copy: Vec::new(),
@@ -973,6 +1012,7 @@ pub fn parse_flow(text: &str) -> Result<Flow, String> {
 		recovery: false,
 		alive: Vec::new(),
 		drives: Vec::new(),
+		sched: None,
 		lines: Vec::new(),
 	};
 	for (i, raw) in text.lines().enumerate() {
@@ -989,6 +1029,14 @@ pub fn parse_flow(text: &str) -> Result<Flow, String> {
 				.full
 				.extend(toks.get(1).map(|t| t.val.to_ascii_uppercase())),
 			"@recovery" => fl.recovery = true,
+			"@sched" => {
+				fl.sched = Some(
+					toks.get(1)
+						.filter(|t| t.key.as_deref() == Some("seed"))
+						.and_then(|t| t.val.parse().ok())
+						.ok_or(format!("line {}: @sched seed=N", i + 1))?,
+				)
+			}
 			"@alive" => fl
 				.alive
 				.extend(toks.get(1).map(|t| t.val.to_ascii_uppercase())),
@@ -1060,6 +1108,10 @@ struct Run<'a, D: Driver> {
 	log: String,
 	events: VecDeque<Event>,
 	current: Option<Shown>,
+	/// Seconds since the last input, as `@quiet` counts them.
+	quiet: u32,
+	/// The random idle schedule, when the script asks for one.
+	sim: Option<quill_job::Sim>,
 }
 
 impl<D: Driver> Run<'_, D> {
@@ -1103,6 +1155,7 @@ impl<D: Driver> Run<'_, D> {
 		match verb {
 			"type" => {
 				self.idle()?;
+				self.quiet = 0;
 				let mut evs = Vec::new();
 				for b in need(1, "text")?.bytes() {
 					evs.extend(
@@ -1114,6 +1167,7 @@ impl<D: Driver> Run<'_, D> {
 			}
 			"key" => {
 				self.idle()?;
+				self.quiet = 0;
 				let mut evs = Vec::new();
 				for t in toks.get(1..).unwrap_or(&[]) {
 					let k = parse_key(&t.val).ok_or(format!("unknown key {}", t.val))?;
@@ -1123,6 +1177,7 @@ impl<D: Driver> Run<'_, D> {
 			}
 			"cmd" => {
 				self.idle()?;
+				self.quiet = 0;
 				let c = parse_command(need(1, "a command")?, arg(2))
 					.ok_or(format!("unknown command {}", arg(1).unwrap_or("")))?;
 				let evs = self.d.command(c);
@@ -1148,7 +1203,11 @@ impl<D: Driver> Run<'_, D> {
 					self.d.clock(n);
 				} else {
 					self.d.quiet(n);
+					self.quiet = self.quiet.saturating_add(n);
 				}
+				// Time has passed with nobody typing: the editor's idle time runs what has come due.
+				let evs = self.d.drain(self.quiet, false);
+				self.raised(evs);
 			}
 			"autosave" => {
 				self.idle()?;
@@ -1157,6 +1216,7 @@ impl<D: Driver> Run<'_, D> {
 			}
 			"restart" => {
 				self.idle()?;
+				self.quiet = 0;
 				let evs = self.d.restart();
 				self.raised(evs);
 			}
@@ -1166,12 +1226,34 @@ impl<D: Driver> Run<'_, D> {
 			}
 			"dump" => {
 				self.events_done()?;
+				if self.sim.is_some() {
+					// Every frame is of the state idle time reaches, however it was sliced.
+					let evs = self.d.drain(self.quiet, self.current.is_some());
+					self.raised(evs);
+					self.events_done()?;
+				}
 				let st = self.d.state();
 				dump_state(&st, &mut self.log);
 			}
 			_ => self.reply_step(verb, &toks)?,
 		}
+		self.slice();
 		Ok(())
+	}
+
+	/// Under `@sched`, a few idle passes of random sizes run after each step, as a shell's timer would run them between keys.
+	fn slice(&mut self) {
+		let Some(mut sim) = self.sim.take() else {
+			return;
+		};
+		let passes = sim.below(4);
+		let busy = self.current.is_some();
+		for _ in 0..passes {
+			let units = sim.budget(8).left();
+			let evs = self.d.idle(self.quiet, units, busy);
+			self.raised(evs);
+		}
+		self.sim = Some(sim);
 	}
 
 	fn events_done(&self) -> Result<(), String> {
@@ -1192,6 +1274,7 @@ impl<D: Driver> Run<'_, D> {
 			.current
 			.clone()
 			.ok_or(format!("{verb}: no dialog is open"))?;
+		self.quiet = 0;
 		let arg = |i: usize| toks.get(i).map(|t| t.val.as_str());
 		let field = |k: &str| {
 			toks.iter()
@@ -1340,6 +1423,8 @@ pub fn run_flow<D: Driver>(fl: &Flow, d: &mut D) -> Result<String, String> {
 		log: String::new(),
 		events: VecDeque::new(),
 		current: None,
+		quiet: 0,
+		sim: fl.sched.map(quill_job::Sim::new),
 	};
 	let evs = r.d.start();
 	r.raised(evs);

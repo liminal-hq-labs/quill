@@ -422,6 +422,7 @@ dependencies = [
  "quill-grid",
  "quill-image",
  "quill-inflate",
+ "quill-job",
  "quill-mouse",
  "quill-spell",
 ]
@@ -540,6 +541,7 @@ dependencies = [
  "quill-formats",
  "quill-grid",
  "quill-heap",
+ "quill-job",
  "quill-mouse",
  "quill-text",
 ]

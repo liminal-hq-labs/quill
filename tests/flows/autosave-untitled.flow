@@ -1,0 +1,10 @@
+# A document with no name is autosaved too, into the central folder, and the copy is offered back after a restart.
+@recovery
+type "a letter that was never named"
+@clock +598s
+@quiet 4s
+dump
+restart
+expect recover default Yes
+answer recover
+dump
