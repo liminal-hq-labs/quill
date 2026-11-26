@@ -172,7 +172,7 @@ async function start(overrides) {
 			boot_order: BOOT[c.boot] || 0,
 			autostart: true,
 			disable_speaker: true,
-			disable_mouse: !LEGACY_MOUSE, // the page's own handler below sends the pointer (every coalesced move, scaled, optionally predicted)
+			disable_mouse: !LEGACY_MOUSE, // the page's own handler below sends the pointer (locked or followed, one packet a frame)
 		};
 		if (c.cpuid) opts.cpuid_level = Number(c.cpuid);
 		if (c.disk) opts.hda = await asyncImage(c.disk, c.chunk);
@@ -201,6 +201,7 @@ async function start(overrides) {
 async function stop() {
 	if (!emulator) return;
 	clearInterval(tick);
+	if (pointer.following) stopFollowing();
 	try {
 		await emulator.destroy();
 	} catch (e) {
@@ -256,18 +257,34 @@ const input = {
 	},
 };
 
-// The pointer. v86's own mouse adapter is off; this one differs in four ways. It sends every coalesced move the browser has
-// (getCoalescedEvents), never throttled. It scales a move by how large the screen is shown, so the guest pointer crosses the picture
-// as far as the hand moves the system pointer (the stage can be 360 CSS pixels wide on a phone and 1024 pixels of guest screen).
-// ?speed=N multiplies that (default 1.5; 1 is exact). ?lock=raw asks for unadjusted counts (what v86 does), without the system's
-// acceleration. And ?cursor=local draws an arrow that follows the hand at once and is placed by dead reckoning: the guest's pointer
-// is relative, one PS/2 count is one guest pixel with no acceleration in the guest (measured, see guest/polish/), and the guest
-// clamps at the screen edge as this does. The first lock parks the guest pointer in a corner and moves it to the centre to
-// calibrate. The guest still draws its own arrow, one frame or so behind, unless the transparent scheme in guest/polish/ is applied.
+// The pointer. v86's own mouse adapter is off; this one has two ways to move the guest pointer, and differs from v86's in five ways.
+//
+// Lock (the default): a click on the screen locks the system pointer and the moves it reports are sent as relative counts. Every
+// coalesced move the browser has is counted (getCoalescedEvents). A move is scaled by how large the screen is shown, so the guest
+// pointer crosses the picture as far as the hand moves the system pointer (the stage can be 360 CSS pixels wide on a phone and 1024
+// pixels of guest screen). ?speed=N multiplies that (default 1.5; 1 is exact). ?lock=raw asks for unadjusted counts, without the
+// system's acceleration. The counts of one animation frame go out as one PS/2 packet with both axes (or several, when the move is
+// longer than a packet carries): a diagonal stays diagonal however small the browser's moves are, and a fast hand cannot fill the
+// guest's input queue (the guest keeps about 100 packets and drops the rest of a burst).
+//
+// Follow (?mouse=follow, and the default in Firefox on Linux): no pointer lock. The guest pointer is moved to the place under the
+// system pointer, frame by frame, from the system pointer's absolute position. Firefox on Wayland reports a locked pointer's moves as
+// whole device pixels, each move cut to an integer on its own (widget/gtk/nsWindowWayland.cpp), so the slower axis of a slow
+// diagonal is dropped and the guest pointer moves in horizontal and vertical runs; the absolute position has no such loss. The guest
+// is relative with no acceleration (one count is one pixel, see guest/polish/) and clamps at the edges, so the position is dead
+// reckoning: selecting the screen, and entering it again, parks the guest pointer in a corner and moves it to the system pointer.
+// ?mouse=lock forces the lock, ?mouse=v86 turns the page's handler off and uses v86's own mouse adapter (for comparing).
+//
+// ?cursor=local draws an arrow that follows the hand at once, at the dead-reckoned guest position. The first lock parks the guest
+// pointer in a corner and moves it to the centre to calibrate. The guest still draws its own arrow, one frame or so behind, unless
+// the transparent scheme in guest/polish/ is applied.
 const query = new URLSearchParams(location.search);
-// ?mouse=v86 turns the page's handler off and uses v86's own mouse adapter, as before (for comparing).
-const LEGACY_MOUSE = query.get("mouse") === "v86";
+const ua = navigator.userAgent;
+const MOUSE_MODE = ["v86", "lock", "follow"].includes(query.get("mouse")) ? query.get("mouse") : /Firefox\//.test(ua) && /Linux/.test(ua) && !/Android/.test(ua) ? "follow" : "lock";
+const LEGACY_MOUSE = MOUSE_MODE === "v86";
+const FOLLOW = MOUSE_MODE === "follow";
 const pointer = {
+	mode: MOUSE_MODE,
 	speed: Number(query.get("speed")) || 1.5,
 	raw: query.get("lock") === "raw",
 	local: query.get("cursor") === "local",
@@ -276,6 +293,14 @@ const pointer = {
 	calibrated: false,
 	residX: 0,
 	residY: 0,
+	// Counts waiting for the next animation frame, and how many packets have gone to the guest.
+	pendX: 0,
+	pendY: 0,
+	frame: 0,
+	packets: 0,
+	// Follow: the screen was selected (and is not deselected by a click elsewhere), and the system pointer is over it.
+	following: false,
+	inside: false,
 	buttons: 0,
 	events: 0,
 	lastTouch: null,
@@ -286,31 +311,52 @@ function guestSize() {
 	return { w: c && c.width ? c.width : 1024, h: c && c.height ? c.height : 768, canvas: c };
 }
 
+// Where the guest's screen is shown, in CSS pixels relative to the viewport (the canvas can be letterboxed).
+function shownRect(g) {
+	const r = g.canvas.getBoundingClientRect();
+	const w = Math.min(r.width, (r.height * g.w) / g.h);
+	const h = (w * g.h) / g.w;
+	return { left: r.left + (r.width - w) / 2, top: r.top + (r.height - h) / 2, w, h };
+}
+
 // How many guest pixels one CSS pixel of the page's pointer covers, from how large the picture is shown.
 function cssToGuest() {
 	const g = guestSize();
 	if (!g.canvas) return 1;
-	const r = g.canvas.getBoundingClientRect();
-	const shown = Math.min(r.width, (r.height * g.w) / g.h);
-	return shown > 0 ? g.w / shown : 1;
+	const s = shownRect(g);
+	return s.w > 0 ? g.w / s.w : 1;
 }
 
 function placeLocalCursor() {
 	if (!pointer.local || !pointer.calibrated) return;
 	const g = guestSize();
 	if (!g.canvas) return;
-	const r = g.canvas.getBoundingClientRect();
+	const s = shownRect(g);
 	const sr = stage.getBoundingClientRect();
-	const shownW = Math.min(r.width, (r.height * g.w) / g.h);
-	const shownH = (shownW * g.h) / g.w;
-	const left = r.left - sr.left + (r.width - shownW) / 2;
-	const top = r.top - sr.top + (r.height - shownH) / 2;
-	localCursor.style.transform = "translate(" + (left + (pointer.x * shownW) / g.w).toFixed(2) + "px," + (top + (pointer.y * shownH) / g.h).toFixed(2) + "px) scale(" + (shownW / g.w).toFixed(3) + ")";
+	localCursor.style.transform = "translate(" + (s.left - sr.left + (pointer.x * s.w) / g.w).toFixed(2) + "px," + (s.top - sr.top + (pointer.y * s.h) / g.h).toFixed(2) + "px) scale(" + (s.w / g.w).toFixed(3) + ")";
 	localCursor.style.transformOrigin = "0 0";
 	localCursor.removeAttribute("hidden");
 }
 
-// Send whole counts, remember the fraction, and follow the guest's position (it clamps at the edges).
+// Send what the frame collected: both axes in one packet, split only when a packet's signed byte cannot carry it.
+function flushMove() {
+	pointer.frame = 0;
+	if (!emulator) return;
+	let rx = pointer.pendX;
+	let ry = pointer.pendY;
+	pointer.pendX = 0;
+	pointer.pendY = 0;
+	while (rx || ry) {
+		const sx = Math.max(-120, Math.min(120, rx));
+		const sy = Math.max(-120, Math.min(120, ry));
+		emulator.bus.send("mouse-delta", [sx, -sy]);
+		pointer.packets++;
+		rx -= sx;
+		ry -= sy;
+	}
+}
+
+// Count whole guest pixels, remember the fraction, follow the guest's position (it clamps at the edges), send on the next frame.
 function sendMove(dx, dy) {
 	if (!emulator) return;
 	const g = guestSize();
@@ -321,25 +367,23 @@ function sendMove(dx, dy) {
 	if (!ix && !iy) return;
 	pointer.residX -= ix;
 	pointer.residY -= iy;
-	// A PS/2 packet carries one signed byte per axis, so a long move goes as several.
-	let rx = ix;
-	let ry = iy;
-	while (rx || ry) {
-		const sx = Math.max(-120, Math.min(120, rx));
-		const sy = Math.max(-120, Math.min(120, ry));
-		emulator.bus.send("mouse-delta", [sx, -sy]);
-		rx -= sx;
-		ry -= sy;
-	}
+	pointer.pendX += ix;
+	pointer.pendY += iy;
+	if (!pointer.frame) pointer.frame = requestAnimationFrame(flushMove);
 	pointer.x = Math.max(0, Math.min(g.w - 1, pointer.x + ix));
 	pointer.y = Math.max(0, Math.min(g.h - 1, pointer.y + iy));
 	pointer.events++;
 	placeLocalCursor();
 }
 
-// Park the guest pointer in the top-left corner, then move it to the middle: afterwards the position is known.
-function calibrate() {
+// Park the guest pointer in the top-left corner: afterwards the position is known. Counts not yet sent are dropped (the park
+// covers them).
+function park() {
 	const g = guestSize();
+	if (pointer.frame) cancelAnimationFrame(pointer.frame);
+	pointer.frame = 0;
+	pointer.pendX = 0;
+	pointer.pendY = 0;
 	for (let n = 0; n < Math.ceil(g.w / 100) + 1; n++) emulator.bus.send("mouse-delta", [-100, 0]);
 	for (let n = 0; n < Math.ceil(g.h / 100) + 1; n++) emulator.bus.send("mouse-delta", [0, 100]);
 	pointer.x = 0;
@@ -347,7 +391,38 @@ function calibrate() {
 	pointer.residX = 0;
 	pointer.residY = 0;
 	pointer.calibrated = true;
+}
+
+// Lock: park, then move to the middle.
+function calibrate() {
+	const g = guestSize();
+	park();
 	sendMove(g.w / 2, g.h / 2);
+}
+
+// Follow: the guest pixel under the system pointer, and a move there.
+function followTo(e) {
+	const g = guestSize();
+	if (!g.canvas) return;
+	const s = shownRect(g);
+	const tx = Math.max(0, Math.min(g.w - 1, Math.round(((e.clientX - s.left) * g.w) / s.w)));
+	const ty = Math.max(0, Math.min(g.h - 1, Math.round(((e.clientY - s.top) * g.h) / s.h)));
+	sendMove(tx - pointer.x, ty - pointer.y);
+}
+
+function startFollowing(e) {
+	pointer.following = true;
+	pointer.inside = true;
+	stage.style.cursor = "none";
+	park();
+	followTo(e);
+}
+
+function stopFollowing() {
+	pointer.following = false;
+	stage.style.removeProperty("cursor");
+	if (pointer.buttons) emulator && emulator.bus.send("mouse-click", [false, false, false]);
+	pointer.buttons = 0;
 }
 
 function lockPointer() {
@@ -357,12 +432,22 @@ function lockPointer() {
 	Promise.resolve(ask).catch(() => el.requestPointerLock && el.requestPointerLock());
 }
 
+// The guest has the pointer: locked to the page, or followed while over the screen.
+function captured() {
+	return !!emulator && (!!document.pointerLockElement || (pointer.following && pointer.inside));
+}
+
 function pointerActive(e) {
 	return !!emulator && (document.pointerLockElement || stage.contains(e.target));
 }
 
 function onMove(e) {
-	if (!emulator || !document.pointerLockElement) return;
+	if (!emulator) return;
+	if (FOLLOW) {
+		if (pointer.following && pointer.inside) followTo(e);
+		return;
+	}
+	if (!document.pointerLockElement) return;
 	const k = pointer.speed * (pointer.raw ? 1 : cssToGuest());
 	const list = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : [];
 	if (list.length) for (const ev of list) sendMove(ev.movementX * k, ev.movementY * k);
@@ -405,10 +490,24 @@ function hookPointer() {
 		if (locked) placeLocalCursor();
 		else if (pointer.buttons) emulator.bus.send("mouse-click", [false, false, false]);
 	});
-	window.addEventListener("mousedown", (e) => { if (pointerActive(e) && document.pointerLockElement) { sendButtons(e); e.preventDefault(); } });
-	window.addEventListener("mouseup", (e) => { if (emulator && document.pointerLockElement) { sendButtons(e); e.preventDefault(); } });
+	if (FOLLOW) {
+		// A mouse (not a finger) entering the screen again: the guest pointer may have stopped at an edge, so park and move.
+		stage.addEventListener("pointerenter", (e) => {
+			if (e.pointerType !== "mouse" || !emulator || !pointer.following) return;
+			pointer.inside = true;
+			park();
+			followTo(e);
+		});
+		stage.addEventListener("pointerleave", (e) => {
+			if (e.pointerType === "mouse") pointer.inside = false;
+		});
+		// A click outside the screen gives the pointer back to the page.
+		window.addEventListener("mousedown", (e) => { if (pointer.following && !stage.contains(e.target)) stopFollowing(); }, true);
+	}
+	window.addEventListener("mousedown", (e) => { if (pointerActive(e) && captured()) { sendButtons(e); e.preventDefault(); } });
+	window.addEventListener("mouseup", (e) => { if (emulator && (captured() || pointer.buttons)) { sendButtons(e); e.preventDefault(); } });
 	window.addEventListener("wheel", (e) => {
-		if (!pointerActive(e) || !document.pointerLockElement) return;
+		if (!pointerActive(e) || !captured()) return;
 		emulator.bus.send("mouse-wheel", [e.deltaY < 0 ? 1 : e.deltaY > 0 ? -1 : 0, 0]);
 		e.preventDefault();
 	}, { passive: false });
@@ -472,10 +571,12 @@ if (!canRun()) {
 	fullButton.addEventListener("click", () => {
 		if (stage.requestFullscreen) stage.requestFullscreen();
 	});
-	stage.addEventListener("click", () => {
+	stage.addEventListener("click", (e) => {
 		if (!emulator || document.pointerLockElement) return;
 		if (LEGACY_MOUSE) emulator.lock_mouse();
-		else lockPointer();
+		else if (FOLLOW) {
+			if (!pointer.following) startFollowing(e);
+		} else lockPointer();
 	});
 	new ResizeObserver(updateScale).observe(stage);
 	window.addEventListener("resize", updateScale);
