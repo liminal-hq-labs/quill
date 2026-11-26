@@ -109,6 +109,8 @@ impl<M: Measure + Clone> App<M> {
 				self.key(s, f, Key::Enter);
 				Pressed::Acted
 			}
+			#[cfg(feature = "text-file-dialog")]
+			Mode::File => Pressed::Nothing,
 			Mode::About => {
 				if w.kind != Wk::Button {
 					return Pressed::Nothing;

@@ -1,0 +1,41 @@
+# M16: the file dialog in monochrome: the selection in reverse video and the glyphs without colour. The keys of m16-open.
+@mono
+# M16: the file dialog on the text screen. Open lists `..`, the folders and the files with their sizes and dates; the list sorts by each
+# column, steps through a letter's entries, goes up with Backspace, reads the folder again with F5, opens a folder with Enter, picks a place
+# and takes a file by its name.
+@dialog
+@cwd C:\DOCS
+@dir DOCS\LETTERS\OLD
+@dir DOCS\2025
+@dir GAMES
+@copy letter.qld DOCS\
+@copy letter.rtf DOCS\
+@copy plain.qld DOCS\
+@copy pic.bmp DOCS\
+@copy wide.rtf DOCS\
+@copy heading.rtf DOCS\
+@copy lists.rtf DOCS\LETTERS\
+@stamp DOCS\LETTER.QLD 2026-11-24 18:45
+@stamp DOCS\LETTER.RTF 2026-11-02 09:05
+@stamp DOCS\PLAIN.QLD 2026-03-14 12:00
+@stamp DOCS\PIC.BMP 2025-10-01 08:30
+@stamp DOCS\WIDE.RTF 2026-05-02 14:30
+@stamp DOCS\HEADING.RTF 2024-01-01 00:00
+@place Samples C:\GAMES
+f10 down enter                # File > Open...
+altt end                      # All Files
+altl down down down           # the list: 2025, LETTERS, then the first file; its name goes in the field
+alt2 alt2                     # sort by size, then largest first
+alt3                          # by date
+alt1                          # by name again
+l                             # type-ahead: LETTERS ...
+l                             # ... and the next entry that starts with L
+@wait 10
+p                             # a new prefix after ten ticks: PIC.BMP
+home enter                    # `..` goes up to the root, with DOCS selected
+f5                            # reads it again
+enter                         # into DOCS
+altp end enter                # the Samples place: C:\GAMES
+altu                          # the Up button: C:\
+altp home enter               # the C: place: its own folder, C:\DOCS
+altn p l a i n period q l d enter   # opens PLAIN.QLD

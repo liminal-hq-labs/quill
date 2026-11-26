@@ -5,7 +5,8 @@
 
 use crate::Key;
 
-/// Turns one token into a key: a letter or digit, or a name such as `enter`, `f10`, `down`, `space`.
+/// Turns one token into a key: a letter or digit, or a name such as `enter`, `f10`, `down`, `space`. With the file dialog (feature
+/// `text-file-dialog`) also `backtab`, `backslash`, `colon`, `star`, `pipe` and `alt` with a letter or digit (`alt1`).
 pub fn parse_token(t: &str) -> Option<Key> {
 	Some(match t {
 		"enter" => Key::Enter,
@@ -13,6 +14,8 @@ pub fn parse_token(t: &str) -> Option<Key> {
 		"delete" => Key::Delete,
 		"esc" => Key::Esc,
 		"tab" => Key::Tab,
+		#[cfg(feature = "text-file-dialog")]
+		"backtab" => Key::BackTab,
 		"left" => Key::Left,
 		"right" => Key::Right,
 		"up" => Key::Up,
@@ -25,8 +28,23 @@ pub fn parse_token(t: &str) -> Option<Key> {
 		"period" => Key::Char(b'.'),
 		"minus" => Key::Char(b'-'),
 		"insert" => Key::Insert,
+		#[cfg(feature = "text-file-dialog")]
+		"backslash" => Key::Char(b'\\'),
+		#[cfg(feature = "text-file-dialog")]
+		"colon" => Key::Char(b':'),
+		#[cfg(feature = "text-file-dialog")]
+		"star" => Key::Char(b'*'),
+		#[cfg(feature = "text-file-dialog")]
+		"pipe" => Key::Char(b'|'),
 		_ => {
 			let b = t.as_bytes();
+			// `alt1`, `altn`: Alt with a letter or a digit, for the mnemonics and the sort keys of a dialog.
+			#[cfg(feature = "text-file-dialog")]
+			if let Some([c]) = t.strip_prefix("alt").map(str::as_bytes) {
+				if c.is_ascii_alphanumeric() {
+					return Some(Key::Alt(c.to_ascii_lowercase()));
+				}
+			}
 			if b.len() == 1 && b.first().is_some_and(u8::is_ascii_alphanumeric) {
 				return b.first().map(|c| Key::Char(*c));
 			}
@@ -131,7 +149,11 @@ pub fn steps(text: &str) -> impl Iterator<Item = Step> + '_ {
 			match parse_pointer(t, &mut tokens) {
 				Some(Ok(s)) => return Some(s),
 				Some(Err(_)) => return None,
-				None if matches!(t, "@rows" | "@open" | "@copy") => {
+				None if matches!(
+					t,
+					"@rows" | "@open" | "@copy" | "@dir" | "@cwd" | "@drive" | "@readonly"
+				) =>
+				{
 					tokens.next();
 				}
 				None => {}

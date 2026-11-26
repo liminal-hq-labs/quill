@@ -20,6 +20,8 @@ mod chrome;
 pub mod cmdline;
 pub mod datefmt;
 mod edit;
+#[cfg(feature = "text-file-dialog")]
+mod filedialog;
 mod find;
 pub mod flow;
 mod form;
@@ -191,6 +193,11 @@ pub trait Files {
 	fn rename(&mut self, _from: &[u8], _to: &[u8]) -> bool {
 		false
 	}
+	/// The file system the text screens' file dialog lists: drives, folders and files with their sizes and dates. A shell that cannot
+	/// list files keeps the default, and Open, Save As and Insert Picture ask for a name instead.
+	fn fs(&mut self) -> Option<&mut dyn quill_dlg::fs::FileSystem> {
+		None
+	}
 	/// Whether a file can be opened.
 	fn exists(&mut self, name: &[u8]) -> bool {
 		self.open(name).is_some()
@@ -314,11 +321,12 @@ pub enum Command {
 	Zoom(u16),
 }
 
-/// The longest file name the editor keeps: a DOS path, or a Windows path on the build that asks for long names.
+/// The longest file name the editor keeps, with room for the terminating NUL: a DOS path (79 bytes: `C:\` and 63 of folders and a
+/// name), or a Windows path on the build that asks for long names.
 pub(crate) const NAME_MAX: usize = if cfg!(feature = "long-names") {
 	260
 } else {
-	64
+	80
 };
 
 /// The zoom a `QUILL.INI` value names: a percentage, or `Width` (anything that is not a number) for the page's width.
@@ -424,6 +432,9 @@ pub(crate) enum Mode {
 	Find(find::FindState),
 	Form(form::Form),
 	Spell(spelling::SpellDlg),
+	/// The file dialog of the text screens; its state is `App::fd`.
+	#[cfg(feature = "text-file-dialog")]
+	File,
 }
 
 /// The editor.
@@ -500,6 +511,9 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	fmt: u8,
 	/// The view's zoom: a percentage, or 0 for the page's width.
 	pub(crate) zoom: u16,
+	/// The file dialog of the text screens: whether it is wanted, its state and what it shows.
+	#[cfg(feature = "text-file-dialog")]
+	pub(crate) fd: filedialog::State,
 }
 
 impl Default for App {
@@ -564,6 +578,8 @@ impl<M: Measure + Clone> App<M> {
 			view: 0,
 			saved_view: (0, 0),
 			zoom: 0,
+			#[cfg(feature = "text-file-dialog")]
+			fd: filedialog::State::new(),
 		}
 	}
 
@@ -862,6 +878,11 @@ impl<M: Measure + Clone> App<M> {
 			return;
 		}
 		let is = |k: &[u8]| key.eq_ignore_ascii_case(k);
+		#[cfg(feature = "text-file-dialog")]
+		if is(b"DocFolder") {
+			self.set_doc_folder(value);
+			return;
+		}
 		if is(b"Language") {
 			self.spell.lang = value.first().map_or(0, |b| b.saturating_sub(b'0').min(2));
 		} else if is(b"AsYouType") {
@@ -1418,33 +1439,16 @@ impl<M: Measure + Clone> App<M> {
 			}
 			Command::Open => {
 				self.pending = None;
-				self.mode = Mode::Prompt {
-					kind: Prompt::Open,
-					buf: [0; NAME_MAX],
-					len: 0,
-					caret: Caret::new(),
-				};
+				self.ask_for_name(s, f, Prompt::Open);
 			}
 			Command::Save => {
 				if self.name_len == 0 {
-					self.mode = Mode::Prompt {
-						kind: Prompt::SaveAs,
-						buf: [0; NAME_MAX],
-						len: 0,
-						caret: Caret::new(),
-					};
+					self.ask_for_name(s, f, Prompt::SaveAs);
 				} else {
 					self.do_save(s, f);
 				}
 			}
-			Command::SaveAs => {
-				self.mode = Mode::Prompt {
-					kind: Prompt::SaveAs,
-					buf: [0; NAME_MAX],
-					len: 0,
-					caret: Caret::new(),
-				};
-			}
+			Command::SaveAs => self.ask_for_name(s, f, Prompt::SaveAs),
 			Command::Exit => {
 				// Exiting after a No completes the discard.
 				if self.pending.take().is_some() {
@@ -1608,14 +1612,7 @@ impl<M: Measure + Clone> App<M> {
 				// Shells that show help take the request and clear this.
 				self.set_message("Help is in the Windows builds for now");
 			}
-			Command::Picture => {
-				self.mode = Mode::Prompt {
-					kind: Prompt::Picture,
-					buf: [0; NAME_MAX],
-					len: 0,
-					caret: Caret::new(),
-				}
-			}
+			Command::Picture => self.ask_for_name(s, f, Prompt::Picture),
 			Command::Chrome(bit) => self.chrome ^= bit,
 			Command::SpellAsYouType => {
 				self.set_spell_live(!self.spell.live.on);
@@ -1860,6 +1857,8 @@ impl<M: Measure + Clone> App<M> {
 			Mode::Find(st) => self.key_find(s, k, st),
 			Mode::Form(fm) => self.key_form(s, k, fm),
 			Mode::Spell(d) => self.key_spell(s, f, k, d),
+			#[cfg(feature = "text-file-dialog")]
+			Mode::File => self.key_file(s, f, k),
 			Mode::Confirm(c, focus) => {
 				let answer = match k {
 					Key::Char(b'y' | b'Y') => Some(0),
@@ -1881,12 +1880,7 @@ impl<M: Measure + Clone> App<M> {
 						self.mode = Mode::Edit;
 						self.pending = Some(c);
 						if self.name_len == 0 {
-							self.mode = Mode::Prompt {
-								kind: Prompt::SaveAs,
-								buf: [0; NAME_MAX],
-								len: 0,
-								caret: Caret::new(),
-							};
+							self.ask_for_name(s, f, Prompt::SaveAs);
 						} else {
 							self.do_save(s, f);
 						}
@@ -2190,6 +2184,22 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	/// Asks for a file name: the file dialog where the shell has one, otherwise the one-line prompt.
+	#[inline(always)]
+	fn ask_for_name<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, kind: Prompt) {
+		#[cfg(feature = "text-file-dialog")]
+		if self.try_file_dialog(s, f, kind) {
+			return;
+		}
+		let _ = (&s, &f);
+		self.mode = Mode::Prompt {
+			kind,
+			buf: [0; NAME_MAX],
+			len: 0,
+			caret: Caret::new(),
+		};
+	}
+
 	#[inline(never)] // keeps each mode's locals out of `key`'s frame (Win16 stacks are small)
 	fn key_prompt<S: Store + ?Sized, F: Files>(
 		&mut self,
@@ -2296,4 +2306,34 @@ impl<M: Measure + Clone> App<M> {
 			}
 		}
 	}
+}
+
+#[cfg(test)]
+mod size_tests {
+	use super::*;
+
+	/// The file dialog's state is `App::fd`, not a `Mode` variant, so a build with the dialog (DOS, the host) carries no bigger `Mode`
+	/// than one without it, and Win16's near data does not pay for it. The widest variant is the forms' (536 bytes); a variant that
+	/// grew it would grow every `App`.
+	#[test]
+	fn mode_does_not_grow() {
+		assert!(
+			core::mem::size_of::<Mode>() <= 536,
+			"Mode is {} bytes",
+			core::mem::size_of::<Mode>()
+		);
+	}
+
+	/// A DOS path is at most 79 bytes and the buffer keeps its NUL too.
+	const _: () = {
+		assert!(
+			NAME_MAX
+				>= if cfg!(feature = "long-names") {
+					260
+				} else {
+					80
+				}
+		);
+		assert!(NAME_MAX > quill_dlg::name83::PATH_MAX);
+	};
 }

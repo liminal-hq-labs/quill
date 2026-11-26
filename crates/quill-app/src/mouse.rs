@@ -201,7 +201,10 @@ impl Pointer {
 					app.scroll_to(s, top.clamp(0, i64::from(u32::MAX)) as u32);
 				}
 			}
-			Ev::Tick => {}
+			Ev::Tick => {
+				#[cfg(feature = "text-file-dialog")]
+				app.file_tick();
+			}
 		}
 	}
 
@@ -422,6 +425,10 @@ impl<M: Measure + Clone> App<M> {
 	) {
 		let at = |x: i32, y: i32, w: usize| row == y && col >= x && col < x + w as i32;
 		match self.mode {
+			// The file dialog takes the pointer through `filelayout::hit` with the graphics screen's pointer (a later step); a press
+			// does nothing here.
+			#[cfg(feature = "text-file-dialog")]
+			Mode::File => {}
 			Mode::Menu { menu, .. } => {
 				if row == 0 {
 					if !self.bar_press(col) {

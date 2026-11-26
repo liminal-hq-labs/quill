@@ -393,7 +393,7 @@ pub enum Icon {
 	Other,
 }
 
-/// A text-mode glyph: a CP437 byte and its attribute on the grey dialog (the background is the dialog's).
+/// A text-mode glyph: a CP437 byte and its attribute on the list's black body (foreground only; a selected row takes the bar's).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Glyph {
 	pub ch: u8,
@@ -405,39 +405,39 @@ pub const fn glyph(icon: Icon) -> Glyph {
 	match icon {
 		Icon::Parent => Glyph {
 			ch: 0x18,
-			attr: 0x70,
+			attr: 0x07,
 		},
 		Icon::Folder => Glyph {
 			ch: 0xFE,
-			attr: 0x76,
+			attr: 0x06,
 		},
 		Icon::HardDisk | Icon::Network => Glyph {
 			ch: 0x16,
-			attr: 0x70,
+			attr: 0x07,
 		},
 		Icon::Floppy | Icon::CdRom => Glyph {
 			ch: 0xE9,
-			attr: 0x70,
+			attr: 0x07,
 		},
 		Icon::Document => Glyph {
 			ch: 0x14,
-			attr: 0x71,
+			attr: 0x09,
 		},
 		Icon::Rtf => Glyph {
 			ch: 0x15,
-			attr: 0x74,
+			attr: 0x0C,
 		},
 		Icon::Text => Glyph {
 			ch: 0xF0,
-			attr: 0x70,
+			attr: 0x07,
 		},
 		Icon::Picture => Glyph {
 			ch: 0x0F,
-			attr: 0x72,
+			attr: 0x0A,
 		},
 		Icon::Other => Glyph {
 			ch: 0xFA,
-			attr: 0x78,
+			attr: 0x08,
 		},
 	}
 }
@@ -741,14 +741,32 @@ mod tests {
 		sorted.sort();
 		sorted.dedup();
 		assert_eq!(sorted.len(), bytes.len());
-		// The colours are the plan's: brown folder, blue document, red RTF, green picture, grey the rest.
-		assert_eq!(glyph(Icon::Folder).attr, 0x76);
-		assert_eq!(glyph(Icon::Document).attr, 0x71);
-		assert_eq!(glyph(Icon::Rtf).attr, 0x74);
-		assert_eq!(glyph(Icon::Picture).attr, 0x72);
-		assert_eq!(glyph(Icon::Other).attr, 0x78);
+		// Brown folder, blue document, red RTF, green picture, grey the rest, on the list's black body.
+		assert_eq!(glyph(Icon::Folder).attr, 0x06);
+		assert_eq!(glyph(Icon::Document).attr, 0x09);
+		assert_eq!(glyph(Icon::Rtf).attr, 0x0C);
+		assert_eq!(glyph(Icon::Picture).attr, 0x0A);
+		assert_eq!(glyph(Icon::Other).attr, 0x08);
+		assert!(bytes_all_visible());
 		assert_eq!(glyph(Icon::CdRom), glyph(Icon::Floppy));
 		assert_eq!(glyph(Icon::Network), glyph(Icon::HardDisk));
+	}
+
+	fn bytes_all_visible() -> bool {
+		// No glyph is black on black.
+		[
+			Icon::Parent,
+			Icon::Folder,
+			Icon::HardDisk,
+			Icon::Floppy,
+			Icon::Document,
+			Icon::Rtf,
+			Icon::Text,
+			Icon::Picture,
+			Icon::Other,
+		]
+		.iter()
+		.all(|i| glyph(*i).attr & 0x0F != 0)
 	}
 
 	#[test]

@@ -48,6 +48,18 @@ impl FakeFs {
 		f
 	}
 
+	/// Adds a drive (a letter) of a kind; it answers `NotReady` when `not_ready` is true.
+	pub fn add_drive(&mut self, letter: u8, kind: DriveKind, not_ready: bool) {
+		let bit = 1u32 << (letter.to_ascii_uppercase() - b'A');
+		self.drive_mask |= bit;
+		self.set_kind(letter, kind);
+		if not_ready {
+			self.not_ready |= bit;
+		} else {
+			self.not_ready &= !bit;
+		}
+	}
+
 	/// Adds a folder (and any missing parents).
 	pub fn add_dir(&mut self, path: &str) {
 		let path = path.to_ascii_uppercase();

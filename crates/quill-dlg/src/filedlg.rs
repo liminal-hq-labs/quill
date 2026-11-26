@@ -1484,6 +1484,20 @@ impl FileDlg {
 		out
 	}
 
+	/// Goes to drive `letter`'s own current folder, as choosing the drive does; a shell calls it to try a drive again after it said
+	/// the drive was not ready.
+	pub fn go_drive<S: Store + ?Sized, F: FileSystem + ?Sized>(
+		&mut self,
+		letter: u8,
+		fs: &mut F,
+		store: &mut S,
+	) -> Outcome {
+		if self.done || self.new_folder.is_some() || self.pending.is_some() {
+			return Outcome::None;
+		}
+		self.change_drive(letter, fs, store)
+	}
+
 	fn change_drive<S: Store + ?Sized, F: FileSystem + ?Sized>(
 		&mut self,
 		letter: u8,
