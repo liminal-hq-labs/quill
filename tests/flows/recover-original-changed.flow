@@ -1,0 +1,13 @@
+# The original was saved after the copy was made: the question says so, and Recover opens the copy as a new document.
+@recovery
+@file "C:\\DOCS\\LETTER.QLD" "dear sir"
+cmd Open
+choose "C:\\DOCS\\LETTER.QLD"
+type ", and madam"
+autosave
+@clock +60s
+put "C:\\DOCS\\LETTER.QLD" "saved by someone else"
+restart
+expect recover "Quill found changes to LETTER.QLD that were not saved, from 25 Nov 2026 at 2:32 PM. LETTER.QLD has been saved since then; the copy will open as a new document." default Yes
+answer recover
+dump

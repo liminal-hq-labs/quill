@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use proptest::prelude::*;
+use quill_app::recovery::{Kind, Style, Why};
 use quill_app::safe::TempName;
 use quill_app::{App, Files, Key, Replaced, SaveError, SaveMode};
 use quill_formats::io::{Sink, Source};
@@ -494,20 +495,22 @@ fn the_default_replace_takes_the_old_file_away_only_when_the_name_is_taken() {
 #[test]
 fn a_recovery_copy_is_written_the_same_way() {
 	let mut f = Fake::default();
-	let (app, mut s, ..) = edited(&mut f, b"A.QLD", "one", " two");
-	f.put("QUILL.RCV", b"an older copy");
+	let (mut app, mut s, ..) = edited(&mut f, b"A.QLD", "one", " two");
+	let rcv = quill_app::recovery::beside(Style::Dos, Kind::Current, b"A.QLD", 0).unwrap();
+	let rcv = std::str::from_utf8(rcv.bytes()).unwrap().to_string();
+	f.put(&rcv, b"an older copy");
 	f.0.borrow_mut().fail_at = Some(2);
 	f.clear_log();
 	f.0.borrow_mut().fail_at = Some(2);
-	assert!(!app.save_recovery(&mut s, &mut f, b"QUILL.RCV"));
+	assert!(!app.save_recovery(&mut s, &mut f, Why::Autosave));
 	assert_eq!(
-		f.get("QUILL.RCV").unwrap(),
+		f.get(&rcv).unwrap(),
 		b"an older copy",
 		"a failed copy leaves the older one"
 	);
 	f.0.borrow_mut().fail_at = None;
-	assert!(app.save_recovery(&mut s, &mut f, b"QUILL.RCV"));
-	assert_ne!(f.get("QUILL.RCV").unwrap(), b"an older copy");
+	assert!(app.save_recovery(&mut s, &mut f, Why::Autosave));
+	assert_ne!(f.get(&rcv).unwrap(), b"an older copy");
 }
 
 /// The disk calls a save makes for a document of about `n` bytes of text (and the original's bytes).

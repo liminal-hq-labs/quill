@@ -1,0 +1,20 @@
+> cmd Open
+< file Open folder="" name="" type="0"
+> choose "C:\\DOCS\\LETTER.QLD"
+> type ", and madam"
+> autosave
+< notice Status "Quill cannot autosave: the disk is full."
+> autosave
+> dump
+= state
+text: ", and madamdear sir"
+caret: 11  selection: none
+name: "C:\\DOCS\\LETTER.QLD"
+modified: true
+status: ""
+recent: ["C:\\DOCS\\LETTER.QLD"]
+folder: "C:\\DOCS\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file C:\DOCS\~LETT941.LCK: 32 bytes fnv1a=1fb86392e635b5c8

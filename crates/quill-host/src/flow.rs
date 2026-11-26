@@ -14,9 +14,10 @@ use std::fmt::Write as _;
 use quill_app::flow::{
 	Answer, Ask, FindFields, Notice, NoticeKind, SpellButton, SpellStep, TabButton,
 };
+use quill_app::recovery::Why;
 use quill_app::{App, Command, Dialog, FindAction, Key};
 
-use quill_app::Files;
+use quill_app::{Drive, Files, LockMade, Owner, Stamp};
 
 use crate::script::{MemFiles, MemSource, NamedSink};
 use crate::HostStore;
@@ -28,6 +29,8 @@ use crate::HostStore;
 pub enum Shown {
 	/// A question in a message box, and the command it is about.
 	Ask(Ask, Command),
+	/// A recovery question: at launch, at Open, or the second window's.
+	Recover(Ask),
 	/// A file dialog (`Dialog::Open`, `SaveAs` or `Picture`) with what it starts with.
 	File {
 		/// Which one.
@@ -173,6 +176,10 @@ pub struct State {
 
 /// What plays a script: the editor behind some shell.
 pub trait Driver {
+	/// The start of a run: the settings are read and the launch check runs, so the first events may be a question.
+	fn start(&mut self) -> Vec<Event> {
+		Vec::new()
+	}
 	/// A key.
 	fn key(&mut self, k: Key) -> Vec<Event>;
 	/// A command, as a menu sends it.
@@ -181,6 +188,24 @@ pub trait Driver {
 	fn reply(&mut self, shown: &Shown, r: Reply) -> Outcome;
 	/// Removes a file from the disk, as another program might.
 	fn remove(&mut self, name: &str);
+	/// Writes a file as another program might, with the time now.
+	fn put(&mut self, _name: &str, _text: &str) {}
+	/// The clock moves on this many seconds.
+	fn clock(&mut self, _secs: u32) {}
+	/// The keyboard is quiet for this many seconds, and the clock moves on with it.
+	fn quiet(&mut self, secs: u32) {
+		self.clock(secs);
+	}
+	/// The autosave timer fires: a recovery copy is written. False when the editor had nothing to write.
+	fn autosave(&mut self) -> Vec<Event> {
+		Vec::new()
+	}
+	/// The program is killed and started again on the same disk; the launch check runs.
+	fn restart(&mut self) -> Vec<Event> {
+		Vec::new()
+	}
+	/// A byte of every recovery copy on the disk is flipped.
+	fn damage(&mut self) {}
 	/// The state to compare.
 	fn state(&mut self) -> State;
 }
@@ -215,10 +240,14 @@ impl Files for Disk {
 	}
 
 	fn close(&mut self, w: NamedSink) -> bool {
-		// A full disk refuses the file being written: the target itself, or the temporary file a save to it writes first.
+		// A full disk refuses the file being written: the target itself, or the temporary file a save to it writes first. A name
+		// that starts with `*` is a suffix: `*.RCV` and `*.$$$` stand for every recovery copy and its temporary file.
 		let name = w.name().to_string();
 		let full = self.full.iter().any(|t| {
-			*t == name || quill_app::safe::TempName::of(t.as_bytes()).bytes() == name.as_bytes()
+			*t == name
+				|| quill_app::safe::TempName::of(t.as_bytes()).bytes() == name.as_bytes()
+				|| t.strip_prefix('*')
+					.is_some_and(|suffix| name.ends_with(suffix))
 		});
 		if full {
 			return false;
@@ -244,6 +273,42 @@ impl Files for Disk {
 	fn len(&mut self, name: &[u8]) -> Option<u32> {
 		self.inner.len(name)
 	}
+
+	fn now(&mut self) -> u32 {
+		self.inner.now()
+	}
+
+	fn stamp(&mut self, name: &[u8]) -> Option<Stamp> {
+		self.inner.stamp(name)
+	}
+
+	fn drive(&mut self, name: &[u8]) -> Drive {
+		self.inner.drive(name)
+	}
+
+	fn make_dir(&mut self, dir: &[u8]) -> bool {
+		self.inner.make_dir(dir)
+	}
+
+	fn find_nth(&mut self, pattern: &[u8], n: usize, out: &mut [u8]) -> usize {
+		self.inner.find_nth(pattern, n, out)
+	}
+
+	fn recovery_dir(&mut self, n: u8, out: &mut [u8]) -> usize {
+		self.inner.recovery_dir(n, out)
+	}
+
+	fn instance(&mut self) -> u32 {
+		self.inner.instance()
+	}
+
+	fn lock_make(&mut self, name: &[u8], stamp: &[u8; 32]) -> LockMade {
+		self.inner.lock_make(name, stamp)
+	}
+
+	fn lock_owner(&mut self, name: &[u8]) -> Owner {
+		self.inner.lock_owner(name)
+	}
 }
 
 /// The editor with native dialogs on, answered through `quill_app::flow` the way the Windows shells answer.
@@ -252,6 +317,7 @@ pub struct NativeStub {
 	store: HostStore,
 	files: Disk,
 	initial: BTreeMap<String, Vec<u8>>,
+	recovery: bool,
 }
 
 impl NativeStub {
@@ -272,7 +338,17 @@ impl NativeStub {
 			store,
 			files,
 			initial,
+			recovery: false,
 		}
+	}
+
+	/// A new editor over `files` with the recovery protocol on, as a shell that asks the questions runs it. The list and the central
+	/// folder are read from `QUILL.INI`, and the launch check has run: its question, if any, is the first event of `start`.
+	pub fn with_recovery(files: Disk) -> Self {
+		let mut stub = NativeStub::new(files);
+		stub.recovery = true;
+		stub.app.set_recovery(true);
+		stub
 	}
 
 	/// Takes every dialog the editor has asked for since the last call, as the Windows shells' `handle_dialogs` does.
@@ -318,6 +394,12 @@ impl NativeStub {
 				Dialog::Print => out.push(Event::Show(Shown::Print)),
 			}
 		}
+		if let Some(a) = self
+			.app
+			.take_recovery_question(&mut self.store, &mut self.files)
+		{
+			out.push(Event::Show(Shown::Recover(a)));
+		}
 		out
 	}
 
@@ -346,6 +428,16 @@ fn failed(r: Result<(), Notice>, out: &mut Vec<Event>) {
 }
 
 impl Driver for NativeStub {
+	fn start(&mut self) -> Vec<Event> {
+		if self.recovery {
+			self.app
+				.load_settings_with(&mut self.store, &mut self.files);
+			self.app
+				.recovery_check_launch(&mut self.store, &mut self.files);
+		}
+		self.shown()
+	}
+
 	fn key(&mut self, k: Key) -> Vec<Event> {
 		self.app.key(&mut self.store, &mut self.files, k);
 		self.shown()
@@ -365,6 +457,8 @@ impl Driver for NativeStub {
 			(Shown::Ask(_, c), Reply::Cancel) => {
 				self.app.confirm_answered(s, f, *c, Answer::Cancel)
 			}
+			(Shown::Recover(_), Reply::Answer(a)) => self.app.recovery_answered(s, f, a),
+			(Shown::Recover(_), Reply::Cancel) => self.app.recovery_answered(s, f, Answer::Cancel),
 			(Shown::File { dialog, .. }, Reply::Chosen(path)) => match dialog {
 				Dialog::Open => failed(self.app.open_chosen(s, f, &path), &mut out),
 				Dialog::SaveAs => failed(self.app.save_as_chosen(s, f, &path), &mut out),
@@ -436,6 +530,49 @@ impl Driver for NativeStub {
 
 	fn remove(&mut self, name: &str) {
 		self.files.inner.files.remove(&name.to_ascii_uppercase());
+	}
+
+	fn put(&mut self, name: &str, text: &str) {
+		let n = name.to_ascii_uppercase();
+		self.files
+			.inner
+			.times
+			.insert(n.clone(), self.files.inner.clock);
+		self.files.inner.files.insert(n, text.as_bytes().to_vec());
+	}
+
+	fn clock(&mut self, secs: u32) {
+		let c = &mut self.files.inner.clock;
+		*c = crate::script::dos_add(*c, secs);
+	}
+
+	fn autosave(&mut self) -> Vec<Event> {
+		let (s, f) = (&mut self.store, &mut self.files);
+		self.app.set_message("");
+		self.app.save_recovery(s, f, Why::Autosave);
+		let mut out = Vec::new();
+		if !self.app.message().is_empty() {
+			out.push(Event::Notice(Notice::status(self.app.message())));
+		}
+		out
+	}
+
+	fn restart(&mut self) -> Vec<Event> {
+		self.store = HostStore::new();
+		self.app = App::new();
+		self.app.reset(&mut self.store).expect("a new document");
+		self.app.set_native_dialogs(true);
+		self.app.set_recovery(self.recovery);
+		self.start()
+	}
+
+	fn damage(&mut self) {
+		for (k, v) in self.files.inner.files.iter_mut() {
+			if (k.ends_with(".RCV") || k.ends_with(".RC0")) && v.len() > 100 {
+				let last = v.len() - 1;
+				v[last] ^= 0x55;
+			}
+		}
 	}
 
 	fn state(&mut self) -> State {
@@ -613,6 +750,17 @@ fn parse_answer(t: &str) -> Option<Answer> {
 	})
 }
 
+/// The buttons of the recovery questions by their names: Recover is Yes, Discard is No, and Later and Open original (which Esc
+/// presses) are Cancel.
+fn parse_recover_answer(t: &str) -> Option<Answer> {
+	Some(match t.to_ascii_lowercase().as_str() {
+		"recover" => Answer::Yes,
+		"discard" => Answer::No,
+		"later" | "original" => Answer::Cancel,
+		other => return parse_answer(other),
+	})
+}
+
 /// Quotes text for the transcript: `"`, `\` and line ends escaped.
 fn quote(s: &str) -> String {
 	let mut o = String::from("\"");
@@ -659,6 +807,15 @@ fn words_of(e: &Event) -> Words {
 	match e {
 		Event::Show(Shown::Ask(a, _)) => w(
 			"ask",
+			&[],
+			Some(String::from_utf8_lossy(a.text.as_bytes()).into_owned()),
+			vec![
+				("buttons", format!("{:?}", a.buttons)),
+				("default", format!("{:?}", a.default)),
+			],
+		),
+		Event::Show(Shown::Recover(a)) => w(
+			"recover",
 			&[],
 			Some(String::from_utf8_lossy(a.text.as_bytes()).into_owned()),
 			vec![
@@ -794,18 +951,28 @@ pub struct Flow {
 	pub locked: Vec<String>,
 	/// Names whose write fails at the end.
 	pub full: Vec<String>,
+	/// The recovery protocol is on.
+	pub recovery: bool,
+	/// Documents another Quill window has open with changes.
+	pub alive: Vec<String>,
+	/// Places that are not fixed disks: the start of the path and what it is (`removable`, `readonly` or `missing`).
+	pub drives: Vec<(String, String)>,
 	/// The step lines with their line numbers.
 	lines: Vec<(usize, String)>,
 }
 
 /// Reads a script. Directives are `@copy NAME` (a file of `tests/docs`), `@file NAME "text"`, `@locked NAME` (the name cannot be
-/// created) and `@full NAME` (writing the name cannot be finished).
+/// created), `@full NAME` (writing the name cannot be finished; `*.RCV` stands for every name that ends so), `@recovery` (the editor
+/// runs the recovery protocol), `@alive NAME` (another Quill window has NAME open with changes) and `@drive PATH removable|readonly|missing`.
 pub fn parse_flow(text: &str) -> Result<Flow, String> {
 	let mut fl = Flow {
 		copy: Vec::new(),
 		files: Vec::new(),
 		locked: Vec::new(),
 		full: Vec::new(),
+		recovery: false,
+		alive: Vec::new(),
+		drives: Vec::new(),
 		lines: Vec::new(),
 	};
 	for (i, raw) in text.lines().enumerate() {
@@ -821,6 +988,14 @@ pub fn parse_flow(text: &str) -> Result<Flow, String> {
 			"@full" => fl
 				.full
 				.extend(toks.get(1).map(|t| t.val.to_ascii_uppercase())),
+			"@recovery" => fl.recovery = true,
+			"@alive" => fl
+				.alive
+				.extend(toks.get(1).map(|t| t.val.to_ascii_uppercase())),
+			"@drive" => match (toks.get(1), toks.get(2)) {
+				(Some(p), Some(k)) => fl.drives.push((p.val.to_ascii_uppercase(), k.val.clone())),
+				_ => return Err(format!("line {}: @drive PATH KIND", i + 1)),
+			},
 			"@file" => {
 				let (n, c) = (toks.get(1), toks.get(2));
 				match (n, c) {
@@ -842,6 +1017,30 @@ pub fn flow_files(fl: &Flow, docs: &std::path::Path) -> Disk {
 		..Disk::default()
 	};
 	let files = &mut disk.inner;
+	for (p, k) in &fl.drives {
+		let kind = match k.as_str() {
+			"removable" => Drive::Removable,
+			"readonly" => Drive::ReadOnly,
+			_ => Drive::Missing,
+		};
+		files.drives.push((p.clone(), kind));
+	}
+	for n in &fl.alive {
+		let lock = quill_app::recovery::beside(
+			quill_app::recovery::Style::native(),
+			quill_app::recovery::Kind::Lock,
+			n.as_bytes(),
+			0,
+		)
+		.expect("a lock name");
+		files
+			.alive
+			.push(String::from_utf8_lossy(lock.bytes()).to_ascii_uppercase());
+		files.files.insert(
+			String::from_utf8_lossy(lock.bytes()).to_ascii_uppercase(),
+			vec![0; 32],
+		);
+	}
 	for n in &fl.copy {
 		let bytes = std::fs::read(docs.join(n)).unwrap_or_else(|_| panic!("missing test file {n}"));
 		files.files.insert(n.to_ascii_uppercase(), bytes);
@@ -933,6 +1132,38 @@ impl<D: Driver> Run<'_, D> {
 				self.idle()?;
 				self.d.remove(need(1, "a file name")?);
 			}
+			"put" => {
+				self.idle()?;
+				let (n, t) = (need(1, "a file name")?, need(2, "text")?);
+				self.d.put(n, t);
+			}
+			"@clock" | "@quiet" => {
+				self.idle()?;
+				let n: u32 = need(1, "a number of seconds")?
+					.trim_start_matches('+')
+					.trim_end_matches('s')
+					.parse()
+					.map_err(|_| format!("{verb} takes seconds, such as +30s"))?;
+				if verb == "@clock" {
+					self.d.clock(n);
+				} else {
+					self.d.quiet(n);
+				}
+			}
+			"autosave" => {
+				self.idle()?;
+				let evs = self.d.autosave();
+				self.raised(evs);
+			}
+			"restart" => {
+				self.idle()?;
+				let evs = self.d.restart();
+				self.raised(evs);
+			}
+			"damage" => {
+				self.idle()?;
+				self.d.damage();
+			}
 			"dump" => {
 				self.events_done()?;
 				let st = self.d.state();
@@ -977,6 +1208,11 @@ impl<D: Driver> Run<'_, D> {
 				arg(1)
 					.and_then(parse_answer)
 					.ok_or("answer yes, no or cancel")?,
+			),
+			("answer", Shown::Recover(_)) => Reply::Answer(
+				arg(1)
+					.and_then(parse_recover_answer)
+					.ok_or("answer recover, discard, later or original (or yes, no, cancel)")?,
 			),
 			("choose", Shown::File { .. }) => Reply::Chosen(bytes(arg(1))),
 			("cancel", _) => Reply::Cancel,
@@ -1105,6 +1341,8 @@ pub fn run_flow<D: Driver>(fl: &Flow, d: &mut D) -> Result<String, String> {
 		events: VecDeque::new(),
 		current: None,
 	};
+	let evs = r.d.start();
+	r.raised(evs);
 	for (n, line) in &fl.lines {
 		r.step(line)
 			.map_err(|e| format!("line {n}: {e}\n{}", r.log))?;

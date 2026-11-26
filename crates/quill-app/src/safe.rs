@@ -90,10 +90,19 @@ pub(crate) fn write_replace<F: Files>(
 	target: &[u8],
 	write: impl FnOnce(&mut Buffered<'_, F::W>) -> Result<(), FormatError>,
 ) -> Saved {
+	write_replace_via(f, target, TempName::of(target).bytes(), write)
+}
+
+/// `write_replace` through the temporary file `temp`, which must be in the target's folder: the recovery copies name their own.
+pub(crate) fn write_replace_via<F: Files>(
+	f: &mut F,
+	target: &[u8],
+	temp: &[u8],
+	write: impl FnOnce(&mut Buffered<'_, F::W>) -> Result<(), FormatError>,
+) -> Saved {
 	let mode = f.save_mode();
-	let temp = TempName::of(target);
 	let path = if mode == SaveMode::TempRename {
-		temp.bytes()
+		temp
 	} else {
 		target
 	};

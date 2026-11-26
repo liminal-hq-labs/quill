@@ -25,6 +25,7 @@ use core::mem::MaybeUninit;
 use gdi::{Gdi16, QApp, Rect16, np};
 use quill_app::accel::{self, Accel};
 use quill_app::cmdline;
+use quill_app::recovery::Why;
 use quill_app::view::{self, Act, Hit};
 use quill_app::{Command, Dir, Files, Key, SaveMode, Scheme};
 use quill_formats::io::{Sink, Source};
@@ -290,6 +291,24 @@ impl Files for Win16Files {
 		let n = unsafe { _llseek(h, 0, 2) };
 		unsafe { _lclose(h) };
 		(n != u32::MAX).then_some(n)
+	}
+
+	// The status-line words of recovery are string resources: the data segment has no room for them.
+	fn string(&mut self, id: u8, out: &mut [u8]) -> usize {
+		unsafe { LoadString(w16::HINST, u32::from(id), np(out.as_mut_ptr()), out.len() as u32) as usize }
+	}
+
+	// Where a recovery copy goes when it has no place beside its document: `RECOVER\` beside the program, then the program's own folder.
+	fn recovery_dir(&mut self, n: u8, out: &mut [u8]) -> usize {
+		let here = unsafe { &*core::ptr::addr_of!(HERE) };
+		let hl = unsafe { HERE_LEN }.min(here.len());
+		let extra: &[u8] = if n == 0 { b"RECOVER\\" } else { b"" };
+		if n > 1 || hl == 0 || hl + extra.len() > out.len() {
+			return 0;
+		}
+		out[..hl].copy_from_slice(&here[..hl]);
+		out[hl..hl + extra.len()].copy_from_slice(extra);
+		hl + extra.len()
 	}
 }
 
@@ -834,19 +853,11 @@ fn run_command(hwnd: u32, c: Command) {
 	after_edit(hwnd, before);
 }
 
-/// Writes the document to QUILL.RCV in the program's directory when it has unsaved work (the path is built on the stack).
+/// Writes a recovery copy of the document when it has unsaved work: beside the original, or in the central folder for a document with
+/// no name (`recovery_dir`).
 #[inline(never)]
 pub(crate) fn write_recovery() {
-	if !app().unsaved_work() {
-		return;
-	}
-	let mut path = [0u8; 128];
-	let here = unsafe { &*core::ptr::addr_of!(HERE) };
-	let hl = unsafe { HERE_LEN }.min(here.len());
-	path[..hl].copy_from_slice(&here[..hl]);
-	let name = b"QUILL.RCV";
-	path[hl..hl + name.len()].copy_from_slice(name);
-	app().save_recovery(store(), &mut Win16Files, &path[..hl + name.len()]);
+	app().save_recovery(store(), &mut Win16Files, Why::EndOfSession);
 }
 
 /// Shows the dialogs the editor asked for (`dialogs.rs`).

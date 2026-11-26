@@ -8,7 +8,7 @@ use std::fmt::Write as _;
 
 use quill_app::mouse::{Pointer, TextCells};
 use quill_app::script::{parse_pointer, Step};
-use quill_app::{App, Files, Key};
+use quill_app::{App, Drive, Files, Key, LockMade, Owner, Stamp};
 use quill_dlg::fake::FakeFs;
 use quill_grid::Grid;
 
@@ -24,6 +24,18 @@ pub struct MemFiles {
 	pub stamps: HashMap<String, (u16, u16)>,
 	/// Files that are read-only, by key.
 	pub readonly: Vec<String>,
+	/// The time now, as a DOS packed date and time.
+	pub clock: u32,
+	/// When each file was last written.
+	pub times: HashMap<String, u32>,
+	/// Lock notes whose owner is provably alive.
+	pub alive: Vec<String>,
+	/// What a place is, by the start of its path (upper case); anything else is a fixed disk.
+	pub drives: Vec<(String, Drive)>,
+	/// The central recovery folders the shell offers, in order.
+	pub recover_dirs: Vec<String>,
+	/// Names that start with one of these cannot be created.
+	pub denied: Vec<String>,
 	/// Files only the file dialog sees, with their sizes: a way to fill a big folder without storing bytes.
 	pub dummies: Vec<(String, u32)>,
 	/// The file system the file dialog lists: `C:`, `D:` and `Z:`, with `files` and `dirs` on `C:`.
@@ -37,10 +49,58 @@ impl Default for MemFiles {
 			dirs: Vec::new(),
 			stamps: HashMap::new(),
 			dummies: Vec::new(),
+			clock: dos_time(2026, 11, 25, 14, 32, 0),
+			times: HashMap::new(),
+			alive: Vec::new(),
+			drives: Vec::new(),
+			recover_dirs: vec!["RECOVER\\".to_string()],
+			denied: Vec::new(),
 			readonly: Vec::new(),
 			tree: FakeFs::dosbox(),
 		}
 	}
+}
+
+/// A date and time as DOS packs them: the date in the high word, the time in the low one.
+pub fn dos_time(y: u32, mo: u32, d: u32, h: u32, mi: u32, s: u32) -> u32 {
+	((((y - 1980) << 9) | (mo << 5) | d) << 16) | ((h << 11) | (mi << 5) | (s / 2))
+}
+
+/// The DOS time `secs` seconds after `t`.
+pub fn dos_add(t: u32, secs: u32) -> u32 {
+	let (date, time) = (t >> 16, t & 0xFFFF);
+	let (mut y, mut mo, mut d) = (1980 + (date >> 9), (date >> 5) & 15, date & 31);
+	let mut total = (time >> 11) * 3600 + ((time >> 5) & 63) * 60 + (time & 31) * 2 + secs;
+	let mut days = total / 86400;
+	total %= 86400;
+	while days > 0 {
+		let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+		let dim = [
+			31,
+			if leap { 29 } else { 28 },
+			31,
+			30,
+			31,
+			30,
+			31,
+			31,
+			30,
+			31,
+			30,
+			31,
+		][(mo - 1) as usize];
+		d += 1;
+		if d > dim {
+			d = 1;
+			mo += 1;
+			if mo > 12 {
+				mo = 1;
+				y += 1;
+			}
+		}
+		days -= 1;
+	}
+	dos_time(y, mo, d, total / 3600, total / 60 % 60, total % 60)
 }
 
 /// A DOS date and time (the DTA's words) for `year-month-day hour:minute`.
@@ -148,10 +208,15 @@ impl Files for MemFiles {
 	}
 
 	fn create(&mut self, name: &[u8]) -> Option<Self::W> {
-		Some(NamedSink(key_name(name), Vec::new()))
+		let n = key_name(name);
+		if self.denied.iter().any(|d| n.starts_with(d.as_str())) {
+			return None;
+		}
+		Some(NamedSink(n, Vec::new()))
 	}
 
 	fn close(&mut self, w: Self::W) -> bool {
+		self.times.insert(w.0.clone(), self.clock);
 		self.files.insert(w.0, w.1);
 		true
 	}
@@ -165,6 +230,7 @@ impl Files for MemFiles {
 	}
 
 	fn remove(&mut self, name: &[u8]) -> bool {
+		self.times.remove(&key_name(name));
 		let Some(key) = self.find(name) else {
 			return false;
 		};
@@ -185,6 +251,9 @@ impl Files for MemFiles {
 		let _ = self.tree.remove(tree_path(&from_key).as_bytes());
 		match self.files.remove(&from_key) {
 			Some(b) => {
+				if let Some(t) = self.times.remove(&key_name(from)) {
+					self.times.insert(key_name(to), t);
+				}
 				self.files.insert(key_name(to), b);
 				true
 			}
@@ -195,6 +264,85 @@ impl Files for MemFiles {
 	fn len(&mut self, name: &[u8]) -> Option<u32> {
 		let key = self.find(name)?;
 		self.files.get(&key).map(|b| b.len() as u32)
+	}
+
+	fn now(&mut self) -> u32 {
+		self.clock
+	}
+
+	fn stamp(&mut self, name: &[u8]) -> Option<Stamp> {
+		let n = key_name(name);
+		let size = self.files.get(&n)?.len() as u32;
+		Some(Stamp {
+			size,
+			time: self.times.get(&n).copied().unwrap_or(0),
+		})
+	}
+
+	fn drive(&mut self, name: &[u8]) -> Drive {
+		let n = key_name(name);
+		self.drives
+			.iter()
+			.find(|(p, _)| n.starts_with(p.as_str()))
+			.map_or(Drive::Fixed, |(_, d)| *d)
+	}
+
+	fn make_dir(&mut self, _dir: &[u8]) -> bool {
+		true
+	}
+
+	fn find_nth(&mut self, pattern: &[u8], n: usize, out: &mut [u8]) -> usize {
+		let pat = key_name(pattern);
+		let cut = pat.rfind(['\\', '/', ':']).map_or(0, |i| i + 1);
+		let (dir, file) = pat.split_at(cut);
+		let Some((pre, post)) = file.split_once('*') else {
+			return 0;
+		};
+		let mut names: Vec<&String> = self
+			.files
+			.keys()
+			.filter(|k| {
+				let c = k.rfind(['\\', '/', ':']).map_or(0, |i| i + 1);
+				k[..c] == *dir
+					&& k.len() >= c + pre.len() + post.len()
+					&& k[c..].starts_with(pre)
+					&& k.ends_with(post)
+			})
+			.collect();
+		names.sort();
+		let Some(name) = names.get(n) else { return 0 };
+		let base = &name[dir.len()..];
+		let len = base.len().min(out.len());
+		out[..len].copy_from_slice(&base.as_bytes()[..len]);
+		len
+	}
+
+	fn recovery_dir(&mut self, n: u8, out: &mut [u8]) -> usize {
+		let Some(d) = self.recover_dirs.get(usize::from(n)) else {
+			return 0;
+		};
+		out[..d.len()].copy_from_slice(d.as_bytes());
+		d.len()
+	}
+
+	fn instance(&mut self) -> u32 {
+		7
+	}
+
+	fn lock_owner(&mut self, name: &[u8]) -> Owner {
+		if self.alive.contains(&key_name(name)) {
+			Owner::Alive
+		} else {
+			Owner::Unknown
+		}
+	}
+
+	fn lock_make(&mut self, name: &[u8], stamp: &[u8; 32]) -> LockMade {
+		if self.files.contains_key(&key_name(name)) {
+			return LockMade::Exists;
+		}
+		self.files.insert(key_name(name), stamp.to_vec());
+		LockMade::Made
 	}
 }
 
@@ -441,6 +589,9 @@ fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &
 	for step in &script.steps {
 		match step {
 			Step::Key(k) => app.key(&mut s, files, *k),
+			Step::Clock(secs) | Step::Quiet(secs) => {
+				files.clock = dos_add(files.clock, (*secs).max(0) as u32);
+			}
 			other => other.play(&mut tick, |ev, ctx| {
 				pointer.handle(&mut app, &mut s, files, &target, ev, ctx)
 			}),

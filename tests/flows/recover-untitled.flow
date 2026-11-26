@@ -1,0 +1,10 @@
+# A document with no name has its copy in the central folder, and Recover opens it with no name, marked modified.
+@recovery
+type "a letter that was never named"
+@clock +120s
+autosave
+dump
+restart
+expect recover "Quill found an untitled document that was not saved, from 25 Nov 2026 at 2:34 PM." default Yes
+answer recover
+dump

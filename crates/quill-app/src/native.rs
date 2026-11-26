@@ -210,11 +210,26 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Where the last file dialog was, remembered in `QUILL.INI`.
 	pub fn last_folder(&self) -> &[u8] {
-		self.folder.get(..self.folder_len).unwrap_or(&[])
+		let all = self.folder.get(..self.folder_len).unwrap_or(&[]);
+		if self.rcv.flags & crate::recovery::SUGGEST != 0 {
+			// A recovered document whose original is gone leaves the original's whole path here: the folder is its first part.
+			return all.get(..crate::recovery::base_at(all)).unwrap_or(&[]);
+		}
+		all
+	}
+
+	/// The file name Save As offers when a recovered document's original is gone, empty otherwise.
+	pub(crate) fn suggested_name(&self) -> &[u8] {
+		if self.rcv.flags & crate::recovery::SUGGEST != 0 {
+			let all = self.folder.get(..self.folder_len).unwrap_or(&[]);
+			return crate::recovery::base_name(all);
+		}
+		&[]
 	}
 
 	/// Remembers the folder of `path` (everything before the last backslash or colon) for the next file dialog.
 	pub fn remember_folder(&mut self, path: &[u8]) {
+		self.rcv.flags &= !crate::recovery::SUGGEST;
 		let cut = path
 			.iter()
 			.rposition(|b| *b == b'\\' || *b == b':')
