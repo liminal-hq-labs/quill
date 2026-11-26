@@ -298,6 +298,7 @@ pub fn signature<M: Measure + Clone, S: ReadStore + ?Sized>(app: &App<M>, s: &S)
 	mix(r0 as u32);
 	mix(r1 as u32);
 	mix(u32::from(app.show_ruler()));
+	mix(u32::from(app.zoom()));
 	let cs = app.char_state(s);
 	let pf = app.para_state(s);
 	mix(u32::from(cs.flags));
@@ -378,6 +379,48 @@ pub fn scroll_layout(
 /// How far the page can scroll sideways in a client area `client_w` wide: zero when it fits.
 pub fn hscroll_max<M: Measure + Clone>(app: &App<M>, client_w: i32) -> i32 {
 	(page_width(app) + 2 * PAGE_PAD - client_w).max(0)
+}
+
+/// The smallest and largest zoom a view draws, in percent.
+pub const ZOOM_MIN: i32 = 25;
+pub const ZOOM_MAX: i32 = 200;
+
+/// The zoom in percent a window `client_w` pixels wide shows now: the one chosen, or for Page Width (0) the largest that fits the paper
+/// with [`PAGE_PAD`] either side, never past 100.
+pub fn zoom_pct<M: Measure + Clone>(app: &App<M>, client_w: i32) -> i32 {
+	match app.zoom() {
+		0 => ((client_w - 2 * PAGE_PAD) * 100 / page_width(app).max(1)).clamp(ZOOM_MIN, 100),
+		z => i32::from(z).clamp(ZOOM_MIN, ZOOM_MAX),
+	}
+}
+
+/// A length in page units (pixels at 96 dots per inch) as device pixels at `pct` percent, rounded down. A shell that draws at a zoom
+/// takes every position through this one function, so two edges that meet in the layout meet on the screen too.
+pub fn dev(v: i32, pct: i32) -> i32 {
+	v.saturating_mul(pct).div_euclid(100)
+}
+
+/// A length in device pixels at `pct` percent as page units, rounded down: what a click and the height of a window are in the layout.
+pub fn log(v: i32, pct: i32) -> i32 {
+	v.saturating_mul(100).div_euclid(pct.max(1))
+}
+
+/// [`hscroll_max`] at `pct` percent: how far the page can scroll sideways in device pixels.
+pub fn hscroll_max_at<M: Measure + Clone>(app: &App<M>, client_w: i32, pct: i32) -> i32 {
+	(dev(page_width(app), pct) + 2 * PAGE_PAD - client_w).max(0)
+}
+
+/// [`text_extent`] at `pct` percent, in device pixels: where the text's left edge is and the width of the column.
+pub fn text_extent_at<M: Measure + Clone>(
+	app: &App<M>,
+	client_w: i32,
+	hscroll: i32,
+	pct: i32,
+) -> (i32, i32) {
+	let page = &app.doc().page;
+	let x0 = page_x0(client_w, dev(page_width(app), pct), hscroll);
+	let left = x0 + dev(to_units(page.margin_l, DPI), pct);
+	(left, dev(to_units(page.text_w(), DPI), pct))
 }
 
 /// Where the text's left edge is in the window, and the text width, with the page scrolled `hscroll` pixels.
@@ -766,5 +809,34 @@ impl<M: Measure + Clone> App<M> {
 		}
 		self.caret = pos;
 		self.want_x = -1;
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn dev_and_log_round_down_and_agree_at_whole_percents() {
+		assert_eq!(dev(816, 200), 1632);
+		assert_eq!(dev(816, 50), 408);
+		assert_eq!(dev(1056, 150), 1584);
+		assert_eq!(dev(-1, 50), -1);
+		assert_eq!(log(1632, 200), 816);
+		assert_eq!(log(-1, 200), -1);
+		for pct in [25, 50, 75, 100, 150, 200] {
+			for v in [0, 1, 7, 96, 815, 2112] {
+				// A length taken to the screen and back never grows, and loses less than a pixel's worth of page units.
+				let back = log(dev(v, pct), pct);
+				assert!(back <= v && v - back <= 100 / pct + 1, "{v} at {pct}");
+			}
+		}
+	}
+
+	#[test]
+	fn a_sheet_at_the_top_zooms_fit_in_sixteen_bits() {
+		// 8.5 by 11 inches at 96 dots per inch, and the largest zoom: what Windows 3.x's 16-bit coordinates have to hold.
+		assert!(dev(816, ZOOM_MAX) <= i32::from(i16::MAX));
+		assert!(dev(1056, ZOOM_MAX) <= i32::from(i16::MAX));
 	}
 }
