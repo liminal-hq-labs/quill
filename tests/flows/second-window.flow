@@ -1,0 +1,17 @@
+# A document another Quill window has open with changes asks before it opens here; Yes opens it and this window then writes no recovery copy for it.
+@recovery
+@alive "C:\\DOCS\\LETTER.QLD"
+@file "C:\\DOCS\\LETTER.QLD" "dear sir"
+cmd Open
+choose "C:\\DOCS\\LETTER.QLD"
+expect recover "LETTER.QLD is open in another Quill window. Open it here as well? Changes made here are not autosaved." buttons=YesNo default No
+answer no
+dump
+cmd Open
+expect file Open
+choose "C:\\DOCS\\LETTER.QLD"
+expect recover buttons=YesNo
+answer yes
+type ", and madam"
+autosave
+dump

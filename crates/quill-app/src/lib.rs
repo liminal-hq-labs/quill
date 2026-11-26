@@ -33,6 +33,7 @@ pub mod platform;
 mod pointer;
 mod print;
 pub mod recent;
+pub mod recovery;
 mod reflow;
 pub mod safe;
 pub mod savename;
@@ -199,6 +200,61 @@ pub trait Files {
 	fn len(&mut self, _name: &[u8]) -> Option<u32> {
 		None
 	}
+	/// The time now, as a DOS packed date (high word) and time (low word); 0 when the shell has no clock to give.
+	fn now(&mut self) -> u32 {
+		0
+	}
+	/// The size and time of a file as the file system has them, or `None` when the shell cannot tell or the file is not there.
+	fn stamp(&mut self, _name: &[u8]) -> Option<Stamp> {
+		None
+	}
+	/// What kind of place `name` is in. A recovery copy is written beside a document on a fixed disk only.
+	fn drive(&mut self, _name: &[u8]) -> Drive {
+		Drive::Fixed
+	}
+	/// Makes the folder `dir` when it is not there; false when it could not be made (or the shell cannot make one).
+	fn make_dir(&mut self, _dir: &[u8]) -> bool {
+		false
+	}
+	/// The `n`th file that matches `pattern` (a folder, then a name with one `*`), by its name without the folder, written into `out`;
+	/// the length of the name, or 0 when there is no `n`th. Probes run with critical errors failed silently.
+	fn find_nth(&mut self, _pattern: &[u8], _n: usize, _out: &mut [u8]) -> usize {
+		0
+	}
+	/// The `n`th folder the shell offers for recovery copies that have no place beside their document, in the order to try them, written
+	/// into `out`; the length, or 0 after the last. The old `QUILL.RCV` is looked for in each.
+	fn recovery_dir(&mut self, _n: u8, _out: &mut [u8]) -> usize {
+		0
+	}
+	/// A number that tells this running program from another one (the Windows task or process, the Linux process).
+	fn instance(&mut self) -> u32 {
+		0
+	}
+	/// Makes the lock note `name` holding `stamp`, failing when it is already there. A shell that can keeps the note open with
+	/// deny-write sharing, which is how a second window proves the owner alive.
+	fn lock_make(&mut self, name: &[u8], stamp: &[u8; 32]) -> LockMade {
+		if self.exists(name) {
+			return LockMade::Exists;
+		}
+		let Some(mut w) = self.create(name) else {
+			return LockMade::Refused;
+		};
+		let wrote = w.write(stamp);
+		if self.close(w) && wrote {
+			LockMade::Made
+		} else {
+			LockMade::Refused
+		}
+	}
+	/// Whether the window that made the lock note `name` is provably still there. Where the shell cannot prove it, the note is
+	/// `Unknown` and counts as stale: that is what a crash leaves behind.
+	fn lock_owner(&mut self, _name: &[u8]) -> Owner {
+		Owner::Unknown
+	}
+	/// Gives up the lock note `name`.
+	fn lock_drop(&mut self, name: &[u8]) {
+		self.remove(name);
+	}
 	/// Puts the finished file `temp` in the place of `target`: a rename that replaces where the system can, otherwise the target is
 	/// removed and then the new file renamed, which is done only once the new file is whole.
 	fn replace(&mut self, temp: &[u8], target: &[u8]) -> Replaced {
@@ -212,6 +268,53 @@ pub trait Files {
 			Replaced::Lost
 		}
 	}
+}
+
+/// What takes in one setting: its section, key and value.
+pub type Emit<'a> = dyn FnMut(&[u8], &[u8], &[u8]) + 'a;
+
+/// The size and time of a file, the time as a DOS packed date (high word) and time (low word).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Stamp {
+	/// Bytes.
+	pub size: u32,
+	/// The file's last write.
+	pub time: u32,
+}
+
+/// What kind of place a file is in.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Drive {
+	/// A fixed disk that takes new files.
+	Fixed,
+	/// A floppy or other removable drive.
+	Removable,
+	/// A CD-ROM, or a folder or share that refuses new files.
+	ReadOnly,
+	/// A drive that is not there (a disconnected share): not an error, just not now.
+	Missing,
+}
+
+/// What `Files::lock_make` did.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum LockMade {
+	/// The note is made and this window holds it.
+	Made,
+	/// There already is one.
+	Exists,
+	/// It could not be made.
+	Refused,
+}
+
+/// Who owns a lock note.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Owner {
+	/// The window that made it is gone.
+	Gone,
+	/// The window that made it is still there.
+	Alive,
+	/// The shell cannot say.
+	Unknown,
 }
 
 /// Why a save did not finish.
@@ -500,6 +603,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	fmt: u8,
 	/// The view's zoom: a percentage, or 0 for the page's width.
 	pub(crate) zoom: u16,
+	/// What the editor keeps about recovery files (`recovery.rs`).
+	pub(crate) rcv: recovery::State,
 }
 
 impl Default for App {
@@ -564,6 +669,7 @@ impl<M: Measure + Clone> App<M> {
 			view: 0,
 			saved_view: (0, 0),
 			zoom: 0,
+			rcv: recovery::State::new(),
 		}
 	}
 
@@ -628,6 +734,7 @@ impl<M: Measure + Clone> App<M> {
 		self.discarded = false;
 		self.msg.clear();
 		self.run(s, f, c);
+		self.rcv_after(f);
 		self.sync_layout(s);
 		self.scroll(s);
 	}
@@ -647,6 +754,9 @@ impl<M: Measure + Clone> App<M> {
 			self.name = old;
 			self.name_len = old_len;
 			self.fmt = old_fmt;
+		} else if let Some(old) = old.get(..old_len).filter(|o| !o.is_empty()) {
+			// The copies of the name the document had are the ones to go as well.
+			self.rcv_saved(s, f, old);
 		}
 		ok
 	}
@@ -813,13 +923,10 @@ impl<M: Measure + Clone> App<M> {
 			b"AsYouType",
 			if self.spell.live.on { b"1" } else { b"0" },
 		);
-		if self.folder_len > 0 {
-			f(
-				b"Quill",
-				b"Folder",
-				self.folder.get(..self.folder_len).unwrap_or(&[]),
-			);
+		if !self.last_folder().is_empty() {
+			f(b"Quill", b"Folder", self.last_folder());
 		}
+		self.rcv_each_setting(&mut f);
 		let mut digits = [0u8; 4];
 		let mut v = self.zoom;
 		let mut i = digits.len();
@@ -868,6 +975,7 @@ impl<M: Measure + Clone> App<M> {
 			self.set_spell_live(value.first() != Some(&b'0'));
 		} else if is(b"Zoom") {
 			self.zoom = parse_zoom(value);
+		} else if self.rcv_apply_setting(key, value) {
 		} else if is(b"Folder") {
 			let n = value.len().min(NAME_MAX);
 			if let (Some(d), Some(sv)) = (self.folder.get_mut(..n), value.get(..n)) {
@@ -913,14 +1021,20 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
-	/// Writes `QUILL.INI` whole: the recent files, then the other settings, as the SPEC's settings file lists them.
+	/// Writes `QUILL.INI` whole: the recent files, then the other settings, as the SPEC's settings file lists them. It leaves out the
+	/// recovery list and the central folder, which live in the store; a shell that turns recovery on writes with `save_settings_with`.
 	pub fn save_settings<F: Files>(&self, f: &mut F) {
+		self.write_ini(f, &mut |_| {});
+	}
+
+	/// Writes the settings and then what `extra` adds, through one set of section headers.
+	pub(crate) fn write_ini<F: Files>(&self, f: &mut F, extra: &mut dyn FnMut(&mut Emit<'_>)) {
 		let Some(mut w) = f.create(b"QUILL.INI") else {
 			return;
 		};
 		let mut section: [u8; 16] = [0; 16];
 		let mut slen = usize::MAX;
-		self.each_setting(|sec, key, value| {
+		let mut emit = |sec: &[u8], key: &[u8], value: &[u8]| {
 			if section.get(..slen) != Some(sec) {
 				let _ = w.write(b"[");
 				let _ = w.write(sec);
@@ -934,7 +1048,9 @@ impl<M: Measure + Clone> App<M> {
 			let _ = w.write(b"=");
 			let _ = w.write(value);
 			let _ = w.write(b"\r\n");
-		});
+		};
+		self.each_setting(&mut emit);
+		extra(&mut emit);
 		f.close(w);
 	}
 
@@ -955,7 +1071,23 @@ impl<M: Measure + Clone> App<M> {
 
 	/// Opens a file by content (a RIFF `QLD1` header is native, anything else is plain text) into a fresh document, and
 	/// keeps the current one when it cannot be read.
+	///
+	/// When the recovery protocol is on (`set_recovery`) and the file has a recovery copy, or another window has it open, nothing opens
+	/// yet: the question comes from `take_recovery_question` and its answer finishes the open.
 	pub fn open<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		name: &[u8],
+	) -> Result<(), FormatError> {
+		if self.rcv_gate(s, f, name) {
+			return Ok(());
+		}
+		self.open_plain(s, f, name)
+	}
+
+	/// Opens a file without asking whether it has a recovery copy.
+	pub(crate) fn open_plain<S: Store + ?Sized, F: Files>(
 		&mut self,
 		s: &mut S,
 		f: &mut F,
@@ -994,6 +1126,9 @@ impl<M: Measure + Clone> App<M> {
 		}
 		self.doc.reset(s);
 		core::mem::swap(&mut self.doc, &mut fresh);
+		// The document being left behind keeps or loses its recovery copies by what the person chose.
+		self.rcv_leave(s, f);
+		self.rcv_note_original(f, name);
 		safe::clean_leftover(f, name);
 		self.reflow.invalidate();
 		self.spell_forget();
@@ -1046,6 +1181,7 @@ impl<M: Measure + Clone> App<M> {
 		self.fmt = kind;
 		self.push_recent();
 		self.modified = false;
+		self.rcv_saved(s, f, &[]);
 		Ok(())
 	}
 
@@ -1410,6 +1546,7 @@ impl<M: Measure + Clone> App<M> {
 			}
 			Command::New => {
 				self.pending = None;
+				self.rcv_leave(s, f);
 				self.doc.reset(s);
 				if self.reset(s).is_err() {
 					self.msg
@@ -1446,6 +1583,7 @@ impl<M: Measure + Clone> App<M> {
 				};
 			}
 			Command::Exit => {
+				self.rcv_leave(s, f);
 				// Exiting after a No completes the discard.
 				if self.pending.take().is_some() {
 					self.modified = false;
@@ -1903,6 +2041,7 @@ impl<M: Measure + Clone> App<M> {
 				}
 			}
 		}
+		self.rcv_after(f);
 		self.sync_layout(s);
 		self.scroll(s);
 	}

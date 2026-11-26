@@ -46,6 +46,7 @@ use core::mem::MaybeUninit;
 use core::ptr::{null, null_mut};
 
 use gdi::GdiMeasure;
+use quill_app::recovery::Why;
 use quill_app::{App, Command, Dir, Files, Key, SaveMode, Scheme};
 use quill_formats::io::{Sink, Source};
 use quill_grid::Grid;
@@ -239,6 +240,34 @@ impl Files for Win32Files {
 			size
 		};
 		(size != u32::MAX).then_some(size)
+	}
+
+	/// Where a recovery copy goes when it has no place beside its document: `RECOVER\` beside the program, the program's own folder,
+	/// then the temporary folder.
+	fn recovery_dir(&mut self, n: u8, out: &mut [u8]) -> usize {
+		let mut path = [0u8; 300];
+		if n == 2 {
+			// SAFETY: the buffer is 300 bytes, and the call is told 280.
+			return unsafe { dialogs::temp_dir(&mut path[..280]) }
+				.filter(|t| *t <= out.len())
+				.map_or(0, |t| {
+					out[..t].copy_from_slice(&path[..t]);
+					t
+				});
+		}
+		// SAFETY: `path` holds 300 bytes and the call is told 260.
+		let len = unsafe { GetModuleFileNameA(null_mut(), path.as_mut_ptr(), 260) } as usize;
+		let dir = path
+			.get(..len)
+			.and_then(|p| p.iter().rposition(|b| *b == b'\\'))
+			.map_or(0, |i| i + 1);
+		let extra: &[u8] = if n == 0 { b"RECOVER\\" } else { b"" };
+		if n > 2 || dir == 0 || dir + extra.len() > out.len() {
+			return 0;
+		}
+		out[..dir].copy_from_slice(&path[..dir]);
+		out[dir..dir + extra.len()].copy_from_slice(extra);
+		dir + extra.len()
 	}
 }
 
@@ -1093,29 +1122,10 @@ unsafe fn end_session_query(hwnd: Handle, sh: &mut Shell) -> bool {
 	allowed
 }
 
-/// Writes the document to QUILL.RCV beside the program, or in the temporary folder when that folder refuses it.
+/// Writes a recovery copy of the document when it has unsaved work: beside the original, or in the central folder for a document
+/// with no name (`recovery_dir`).
 unsafe fn write_recovery(sh: &mut Shell) {
-	if !sh.app.unsaved_work() {
-		return;
-	}
-	let mut path = [0u8; 300];
-	// SAFETY: `path` holds 300 bytes and the call is told 260.
-	let n = GetModuleFileNameA(null_mut(), path.as_mut_ptr(), 260) as usize;
-	let dir = path
-		.get(..n)
-		.and_then(|p| p.iter().rposition(|b| *b == b'\\'))
-		.map_or(0, |i| i + 1);
-	let name = b"QUILL.RCV";
-	path[dir..dir + name.len()].copy_from_slice(name);
-	if sh.app.save_recovery(&mut sh.store, &mut sh.files, &path[..dir + name.len()]) {
-		return;
-	}
-	if let Some(t) = dialogs::temp_dir(&mut path[..280]) {
-		if t + name.len() <= path.len() {
-			path[t..t + name.len()].copy_from_slice(name);
-			sh.app.save_recovery(&mut sh.store, &mut sh.files, &path[..t + name.len()]);
-		}
-	}
+	sh.app.save_recovery(&mut sh.store, &mut sh.files, Why::EndOfSession);
 }
 
 /// Opens QUILL.HLP (beside the program) in WinHelp at its contents.

@@ -13,7 +13,7 @@ use crate::native::{Dialog, FindAction};
 use crate::{App, Command, Files, NAME_MAX};
 
 /// The most bytes of a question: a file name and its sentence.
-pub const ASK_MAX: usize = NAME_MAX + 64;
+pub const ASK_MAX: usize = NAME_MAX + 192;
 
 /// The most bytes of a notice, as long as a status-line message.
 pub const NOTICE_MAX: usize = 96;
@@ -26,14 +26,14 @@ pub struct Text<const N: usize> {
 }
 
 impl<const N: usize> Text<N> {
-	fn new() -> Self {
+	pub(crate) fn new() -> Self {
 		Text {
 			buf: [0; N],
 			len: 0,
 		}
 	}
 
-	fn from_parts(parts: &[&[u8]]) -> Self {
+	pub(crate) fn from_parts(parts: &[&[u8]]) -> Self {
 		let mut t = Text::new();
 		for p in parts {
 			t.push(p);
@@ -41,13 +41,14 @@ impl<const N: usize> Text<N> {
 		t
 	}
 
-	fn push(&mut self, b: &[u8]) {
+	pub(crate) fn push(&mut self, b: &[u8]) -> &mut Self {
 		for &c in b {
 			if let Some(slot) = self.buf.get_mut(self.len) {
 				*slot = c;
 				self.len += 1;
 			}
 		}
+		self
 	}
 
 	/// The bytes.
@@ -91,6 +92,11 @@ pub enum Buttons {
 	YesNoCancel,
 	/// Yes and No.
 	YesNo,
+	/// Recover, Discard and Later: the question at launch. Yes, No and Cancel (Esc); Recover is the default.
+	RecoverDiscardLater,
+	/// Recover, Open original and Discard: the question at Open. Yes, Cancel (Esc) and No; Recover is the default, and Esc never deletes
+	/// anything.
+	RecoverOriginalDiscard,
 }
 
 /// A question for a message box.
@@ -125,6 +131,14 @@ pub struct Notice {
 }
 
 impl Notice {
+	/// A line for the status bar with these words.
+	pub fn status(text: &[u8]) -> Self {
+		Notice {
+			text: Text::from_parts(&[text]),
+			kind: NoticeKind::Status,
+		}
+	}
+
 	fn of(kind: NoticeKind, text: &str) -> Self {
 		Notice {
 			text: Text::from_parts(&[text.as_bytes()]),
@@ -151,6 +165,40 @@ pub mod words {
 	pub const CANNOT_USE_PICTURE: &str = "Quill cannot use that picture.";
 	/// Print failed.
 	pub const CANNOT_PRINT: &str = "Quill could not print.";
+	/// A copy that failed its check was put aside.
+	pub const DAMAGED_RECOVERY: &str = "Quill found a damaged recovery file and set it aside.";
+	/// An autosave could not be written; said once a session.
+	pub const CANNOT_AUTOSAVE: &str = "Quill cannot autosave: the disk is full.";
+	/// A second window finds the document open in another one.
+	pub const SECOND_WINDOW_STATUS: &str =
+		"Another Quill window has this document. Changes made here are not autosaved.";
+	/// The second-window question follows the file name.
+	pub const SECOND_WINDOW: &str = " is open in another Quill window. Open it here as well? Changes made here are not autosaved.";
+	/// The launch question, before the file name.
+	pub const FOUND_CHANGES: &str = "Quill found changes to ";
+	/// The launch question for a document with no name.
+	pub const FOUND_UNTITLED: &str = "Quill found an untitled document that was not saved";
+	/// After the file name in the launch question.
+	pub const NOT_SAVED: &str = " that were not saved";
+	/// After the file name in the Open question.
+	pub const HAS_CHANGES: &str = " has changes that were not saved";
+	/// Before the time of the copy.
+	pub const FROM: &str = ", from ";
+	/// Before the file name when only a set-aside copy exists.
+	pub const OLDER_COPY: &str = "An older recovered copy of ";
+	/// After the file name when only a set-aside copy exists.
+	pub const EXISTS_FROM: &str = " exists, from ";
+	/// After a copy written after an internal error.
+	pub const INTERNAL_ERROR: &str = "Quill closed after an internal error and kept a copy of ";
+	/// The end of that sentence.
+	pub const MAY_BE_MISSING: &str = ". Parts of the last change may be missing.";
+	/// After the file name when the original was saved after the copy was made.
+	pub const SAVED_SINCE: &str =
+		" has been saved since then; the copy will open as a new document.";
+	/// After the file name when the original is gone; its folder follows.
+	pub const NO_LONGER_IN: &str = " is no longer in ";
+	/// When both copies exist.
+	pub const OLDER_ALSO_KEPT: &str = " An older copy is also kept.";
 }
 
 /// The fields of the Find and Replace dialog.
@@ -308,6 +356,11 @@ impl<M: quill_core::layout::Measure + Clone> App<M> {
 	/// What the Save As dialog starts with.
 	pub fn save_as_start(&self) -> SaveAsStart<'_> {
 		let own = self.name();
+		let own = if own.is_empty() {
+			self.suggested_name()
+		} else {
+			own
+		};
 		let base = own
 			.iter()
 			.rposition(|b| *b == b'\\' || *b == b':')

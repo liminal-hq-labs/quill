@@ -16,7 +16,12 @@ fn root() -> PathBuf {
 fn play(name: &str) {
 	let text = std::fs::read_to_string(root().join(format!("tests/flows/{name}.flow"))).unwrap();
 	let fl = parse_flow(&text).unwrap_or_else(|e| panic!("{name}.flow: {e}"));
-	let mut stub = NativeStub::new(flow_files(&fl, &root().join("tests/docs")));
+	let files = flow_files(&fl, &root().join("tests/docs"));
+	let mut stub = if fl.recovery {
+		NativeStub::with_recovery(files)
+	} else {
+		NativeStub::new(files)
+	};
 	let transcript = run_flow(&fl, &mut stub).unwrap_or_else(|e| panic!("{name}.flow: {e}"));
 	let golden = root().join(format!("tests/golden/flows/{name}.txt"));
 	if std::env::var_os("QUILL_UPDATE_GOLDEN").is_some() {
@@ -72,6 +77,19 @@ flows! {
 	fonts_dialog => "fonts",
 	insert_picture => "picture",
 	print_dialog => "print",
+	recover_at_launch => "recover",
+	recover_then_discard => "recover-discard",
+	recover_later => "recover-later",
+	recover_an_untitled_document => "recover-untitled",
+	recover_when_the_original_changed => "recover-original-changed",
+	recover_when_the_original_is_gone => "recover-original-deleted",
+	recover_a_damaged_copy => "recover-damaged",
+	open_with_a_recovery_copy => "open-with-recovery",
+	open_the_original_then_edit => "open-original-then-edit",
+	dont_save_restores_the_set_aside_copy => "dont-save-restores-set-aside",
+	open_with_only_a_set_aside_copy => "open-set-aside-only",
+	second_window => "second-window",
+	autosave_on_a_full_disk => "autosave-disk-full",
 }
 
 /// A script that expects something the editor does not do fails, and says which line.

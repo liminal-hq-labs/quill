@@ -1,0 +1,15 @@
+# The original is gone: the question says where it was, Recover opens the copy with no name, and Save As starts at the old folder and name.
+@recovery
+@file "C:\\DOCS\\LETTER.QLD" "dear sir"
+cmd Open
+choose "C:\\DOCS\\LETTER.QLD"
+type ", and madam"
+autosave
+rm "C:\\DOCS\\LETTER.QLD"
+restart
+expect recover "Quill found changes to LETTER.QLD that were not saved, from 25 Nov 2026 at 2:32 PM. LETTER.QLD is no longer in C:\\DOCS\\." default Yes
+answer recover
+dump
+cmd SaveAs
+expect file SaveAs folder="C:\\DOCS\\" name="LETTER.QLD" type=0
+cancel

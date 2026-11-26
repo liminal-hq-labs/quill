@@ -38,7 +38,8 @@ pub fn parse_token(t: &str) -> Option<Key> {
 
 /// One step of a scenario that has a pointer: a key, or a pointer action at a place. The place is a cell on the text screen and a
 /// pixel in graphics. `@click x y`, `@shiftclick x y`, `@dclick x y`, `@tclick x y`, `@drag x1 y1 x2 y2`, `@wheel n` and `@shiftwheel n` are the
-/// directives that spell them; `@move x y`, `@down x y` and `@up x y` are the parts of a click on their own (to hold a button down
+/// `@clock +Ns` and `@quiet Ns` move the clock on by `N` seconds (the second with no key in them). These are the directives that spell
+/// them; `@move x y`, `@down x y` and `@up x y` are the parts of a click on their own (to hold a button down
 /// for a frame, or to hover), and `@wait n` lets `n` ticks pass with the pointer where it is (a tip shows after about nine).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Step {
@@ -64,6 +65,10 @@ pub enum Step {
 	Up { x: i32, y: i32 },
 	/// Let this many ticks pass.
 	Wait(i32),
+	/// The clock moves on this many seconds (`@clock +Ns`): what the autosave timer measures its interval by.
+	Clock(i32),
+	/// The keyboard is quiet for this many seconds (`@quiet Ns`): what the autosave idle wait measures, and the clock moves on with it.
+	Quiet(i32),
 }
 
 /// Reads the pointer directive `name` and its numbers from `rest`. `None` when `name` is not one; a missing or bad number is `Err`.
@@ -72,7 +77,9 @@ pub fn parse_pointer<'a>(
 	rest: &mut impl Iterator<Item = &'a str>,
 ) -> Option<Result<Step, &'static str>> {
 	let mut num = || {
+		// A number may be written `+30s`, as the clock directives do.
 		rest.next()
+			.map(|t| t.trim_start_matches('+').trim_end_matches('s'))
 			.and_then(|t| t.parse::<i32>().ok())
 			.ok_or("a number is missing")
 	};
@@ -103,6 +110,14 @@ pub fn parse_pointer<'a>(
 			"@wheel" => Step::Wheel(num()?),
 			"@shiftwheel" => Step::ShiftWheel(num()?),
 			"@wait" => Step::Wait(num()?),
+			"@clock" | "@quiet" => {
+				let secs = num()?;
+				if name == "@clock" {
+					Step::Clock(secs)
+				} else {
+					Step::Quiet(secs)
+				}
+			}
 			"@move" | "@down" | "@up" => {
 				let (x, y) = two(&mut num)?;
 				match name {
@@ -209,6 +224,7 @@ impl Step {
 				*tick = at.wrapping_add(1);
 				return;
 			}
+			Step::Clock(_) | Step::Quiet(_) => {}
 			Step::Wait(n) => {
 				let now = at.wrapping_add(n.max(0) as u32);
 				f(

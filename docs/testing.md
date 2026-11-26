@@ -43,7 +43,10 @@ A script is lines of words; `#` starts a comment, a word may be `"quoted"` (with
 | `@copy NAME` | A file of `tests/docs` is on the disk under that name, in capitals |
 | `@file NAME "text"` | A file with this text is on the disk |
 | `@locked NAME` | The name cannot be created (a read-only file) |
-| `@full NAME` | Writing the name cannot be finished (a full disk) |
+| `@full NAME` | Writing the name cannot be finished (a full disk); `*.RCV` stands for every name that ends so |
+| `@recovery` | The editor runs the recovery protocol: the launch check, the questions at Open, the lock note and the list |
+| `@alive NAME` | Another Quill window has NAME open with changes: its lock note exists and its owner is provably alive |
+| `@drive PATH removable\|readonly\|missing` | Names that start with PATH are on that kind of place; anything else is a fixed disk |
 
 | Step | Meaning |
 |---|---|
@@ -51,7 +54,7 @@ A script is lines of words; `#` starts a comment, a word may be `"quoted"` (with
 | `key TOKEN...` | Keys: the `.keys` names, `ctrl-a`, `ctrlhome`, `ctrlend`, `shift-left` and its kin |
 | `cmd NAME [N]` | A menu command: `New`, `Open`, `Save`, `SaveAs`, `Exit`, `Print`, `Find`, `FindNext`, `Replace`, `Spelling`, `Fonts`, `Tabs`, `About`, `Picture`, `Undo`, `Redo`, `Recent N` and others |
 | `expect KIND ...` | Checks the next question, dialog or notice the editor raised |
-| `answer Yes\|No\|Cancel` | Answers a question |
+| `answer Yes\|No\|Cancel` | Answers a question; a recovery question also takes `recover`, `discard`, `later` and `original` |
 | `choose "PATH"` | Presses OK in a file dialog |
 | `cancel` | Dismisses the dialog (Esc) |
 | `find next\|replace\|all "text" [with="x"] [case] [word]` | A button of Find or Replace; the dialog stays open |
@@ -61,9 +64,15 @@ A script is lines of words; `#` starts a comment, a word may be `"quoted"` (with
 | `print "DEST"` | Print OK |
 | `close` | Closes Find, Tabs or About |
 | `rm NAME` | Removes a file from the disk, as another program might |
+| `put NAME "text"` | Writes a file as another program might, stamped with the time now |
+| `@clock +Ns` | The clock moves on N seconds (the DOS packed time every recovery copy and stamp carries; a flow starts at 25 November 2026, 14:32) |
+| `@quiet Ns` | The keyboard is quiet for N seconds, and the clock moves on with it |
+| `autosave` | The autosave timer fires: a recovery copy is written |
+| `restart` | The program is killed and started again on the same disk; the launch check runs |
+| `damage` | A byte of every recovery copy on the disk is flipped |
 | `dump` | Writes the state into the transcript |
 
-What `expect` checks, by kind: `ask "text" [default Yes] [buttons=YesNoCancel]`; `file SaveAs|Open|Picture [folder="..."] [name="..."] [type=N]`; `dialog Find|Replace|Tabs|Fonts|About|Print`; `spell "word" [with="..."]`; and `notice "text" [Info|Warn|Status]`. Anything not named is not checked, but it is in the transcript. A question or dialog may be answered without an `expect`; a notice may not, and a script that leaves one unexpected fails with its line number. Keys and commands are refused while a dialog is open. `Status` is a line for the status bar, not a box.
+What `expect` checks, by kind: `ask "text" [default Yes] [buttons=YesNoCancel]`; `file SaveAs|Open|Picture [folder="..."] [name="..."] [type=N]`; `recover "text" [default Yes] [buttons=RecoverDiscardLater]` (the recovery questions and the second window's); `dialog Find|Replace|Tabs|Fonts|About|Print`; `spell "word" [with="..."]`; and `notice "text" [Info|Warn|Status]`. Anything not named is not checked, but it is in the transcript. A question or dialog may be answered without an `expect`; a notice may not, and a script that leaves one unexpected fails with its line number. Keys and commands are refused while a dialog is open. `Status` is a line for the status bar, not a box.
 
 `QUILL_UPDATE_GOLDEN=1 cargo nextest run -p quill-host --test flows` rewrites the transcripts; review the diff like code. `every_script_is_listed` fails when a script has no test.
 

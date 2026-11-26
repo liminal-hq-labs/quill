@@ -8,10 +8,8 @@
 // with the same Save, Don't Save, Cancel question as File > Exit, and the verdict is `end_session_allowed`, here, so the two agree
 // (CORE-7). `unsaved_work` is the one dirty signal: the shells' shutdown block follows it, and they act only when it changes.
 use quill_core::layout::Measure;
-use quill_core::store::Store;
-use quill_formats::qld;
 
-use crate::{App, Files};
+use crate::App;
 
 /// The answer a Save / Don't Save / Cancel question returns: the Windows `IDYES` and `IDNO`. Anything else is a cancel.
 pub const ANSWER_SAVE: u32 = 6;
@@ -35,21 +33,6 @@ impl<M: Measure + Clone> App<M> {
 	/// True when the document holds changes that are not on disk: what a shell blocks a shutdown for.
 	pub fn unsaved_work(&self) -> bool {
 		self.modified
-	}
-
-	/// Writes the document, in the native format, to `name` without renaming it, clearing its modified flag or touching the recent
-	/// list: the copy a shell leaves when the session is ending and the person cannot be asked. False when nothing was written.
-	pub fn save_recovery<S: Store + ?Sized, F: Files>(
-		&self,
-		s: &mut S,
-		f: &mut F,
-		name: &[u8],
-	) -> bool {
-		if !self.modified {
-			return false;
-		}
-		let doc = &self.doc;
-		crate::safe::write_replace(f, name, |w| qld::write(doc, s, w)) == crate::safe::Saved::Done
 	}
 }
 

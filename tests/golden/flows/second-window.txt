@@ -1,0 +1,36 @@
+> cmd Open
+< file Open folder="" name="" type="0"
+> choose "C:\\DOCS\\LETTER.QLD"
+< recover "LETTER.QLD is open in another Quill window. Open it here as well? Changes made here are not autosaved." buttons="YesNo" default="No"
+> answer no
+> dump
+= state
+text: ""
+caret: 0  selection: none
+name: ""
+modified: false
+status: ""
+recent: []
+folder: "C:\\DOCS\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+> cmd Open
+< file Open folder="C:\\DOCS\\" name="" type="0"
+> choose "C:\\DOCS\\LETTER.QLD"
+< recover "LETTER.QLD is open in another Quill window. Open it here as well? Changes made here are not autosaved." buttons="YesNo" default="No"
+> answer yes
+> type ", and madam"
+> autosave
+> dump
+= state
+text: ", and madamdear sir"
+caret: 11  selection: none
+name: "C:\\DOCS\\LETTER.QLD"
+modified: true
+status: ""
+recent: ["C:\\DOCS\\LETTER.QLD"]
+folder: "C:\\DOCS\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false

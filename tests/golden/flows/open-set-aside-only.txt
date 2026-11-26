@@ -1,0 +1,40 @@
+> cmd Open
+< file Open folder="" name="" type="0"
+> choose "C:\\DOCS\\LETTER.QLD"
+> type ", and madam"
+> autosave
+> restart
+< recover "Quill found changes to LETTER.QLD that were not saved, from 25 Nov 2026 at 2:32 PM." buttons="RecoverDiscardLater" default="Yes"
+> answer later
+> cmd Open
+< file Open folder="C:\\DOCS\\" name="" type="0"
+> choose "C:\\DOCS\\LETTER.QLD"
+< recover "LETTER.QLD has changes that were not saved, from 25 Nov 2026 at 2:32 PM." buttons="RecoverOriginalDiscard" default="Yes"
+> cancel
+> type " yours"
+> @clock +600s
+> autosave
+> rm "C:\\DOCS\\~LETT941.RCV"
+> restart
+< recover "An older recovered copy of LETTER.QLD exists, from 25 Nov 2026 at 2:32 PM." buttons="RecoverDiscardLater" default="Yes"
+> answer later
+> cmd Open
+< file Open folder="C:\\DOCS\\" name="" type="0"
+> choose "C:\\DOCS\\LETTER.QLD"
+< recover "An older recovered copy of LETTER.QLD exists, from 25 Nov 2026 at 2:32 PM." buttons="RecoverOriginalDiscard" default="Yes"
+> answer recover
+> dump
+= state
+text: ", and madamdear sir"
+caret: 11  selection: none
+name: "C:\\DOCS\\LETTER.QLD"
+modified: true
+status: ""
+recent: ["C:\\DOCS\\LETTER.QLD"]
+folder: "C:\\DOCS\\"
+font: "Times New Roman" size=24 flags=0
+tabs: []
+quit: false
+file C:\DOCS\~LETT941.LCK: 32 bytes fnv1a=1354e1e35973011f
+file C:\DOCS\~LETT941.RC0: 354 bytes fnv1a=5625a54dcdaeb40d
+file QUILL.INI: 175 bytes "[Recent]\nFile1=C:\\DOCS\\LETTER.QLD\n[Quill]\nAsYouType=0\nFolder=C:\\DOCS\\\nZoom=Width\nToolbar=1\nRuler=1\nStatusBar=1\nFormattingBar=1\n[Recovery]\nFile1=C:\\DOCS\\LETTER.QLD\n"

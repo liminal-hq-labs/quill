@@ -1,0 +1,15 @@
+# Later keeps the copy and asks again at the next start; Esc is Later.
+@recovery
+@file "C:\\DOCS\\LETTER.QLD" "dear sir"
+cmd Open
+choose "C:\\DOCS\\LETTER.QLD"
+type ", and madam"
+autosave
+restart
+expect recover default Yes
+answer later
+dump
+restart
+expect recover default Yes
+cancel
+dump
