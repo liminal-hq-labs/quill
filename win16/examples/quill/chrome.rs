@@ -267,7 +267,8 @@ fn tab_mark(dc: u32, kind: u8, x: i32, y: i32) {
 	}
 }
 
-/// Paints the ruler across `width` pixels with its top at `top`.
+/// Paints the ruler across `width` pixels with its top at `top`, its scale drawn at `pct` percent: `text_left` and `text_w` are where the
+/// page's text column is in the window, in pixels, and an inch is `96 * pct / 100` of them.
 pub fn paint_ruler(
 	dc: u32,
 	top: i32,
@@ -276,6 +277,7 @@ pub fn paint_ruler(
 	text_w: i32,
 	st: &RulerState,
 	kind: u8,
+	pct: i32,
 ) {
 	fill(dc, 0, top, width, view::RULER_H, FACE);
 	fill(dc, 0, top + view::RULER_H - 1, width, 1, SHADOW);
@@ -286,7 +288,7 @@ pub fn paint_ruler(
 		let old = SelectObject(dc, chrome().ui_font);
 		SetBkMode(dc, TRANSPARENT);
 		SetTextColor(dc, BLACK);
-		for (dx, h, inch) in view::ruler_ticks(text_w) {
+		for (dx, h, inch) in view::ruler_ticks_at(text_w, pct) {
 			let x = text_left + dx;
 			if h > 0 {
 				fill(dc, x, top + 8 + h, 1, 7 - 2 * h, BLACK);
@@ -298,9 +300,9 @@ pub fn paint_ruler(
 		SelectObject(dc, old);
 	}
 	for (pos, k) in st.stops() {
-		tab_mark(dc, *k, view::tab_x(*pos, text_left), top + 14);
+		tab_mark(dc, *k, view::tab_x_at(*pos, text_left, pct), top + 14);
 	}
-	let (fx, lx, rx) = view::ruler_marks(st, text_left, text_w);
+	let (fx, lx, rx) = view::ruler_marks_at(st, text_left, text_w, pct);
 	triangle(
 		dc,
 		[(fx - 4, top + 1), (fx + 4, top + 1), (fx, top + 8)],

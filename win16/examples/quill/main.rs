@@ -131,6 +131,8 @@ struct Shell {
 	/// The kind of tab stop a click on the ruler makes: 0 left, 1 centre, 2 right, 3 decimal.
 	ruler_kind: u8,
 	drag: Option<view::Drag>,
+	/// A handle of the selected picture is held: the drag that sizes it.
+	pic_drag: Option<quill_app::picture_geom::HandleDrag>,
 	/// The left button went down in the text and is still down.
 	selecting: bool,
 	/// The page's scroll bars, child windows in the page area, and whether the horizontal one shows.
@@ -159,6 +161,7 @@ static mut SH: Shell = Shell {
 	hscroll: 0,
 	ruler_kind: 0,
 	drag: None,
+	pic_drag: None,
 	selecting: false,
 	vbar: 0,
 	hbar: 0,
@@ -547,13 +550,14 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 		}
 		let lay = layout(w, h, sh().hbar_on);
 		if rl > 0 && dt < tb + rl && db > tb {
-			let (left, tw) = view::text_extent(app, lay.page_w, sh().hscroll);
+			let pct = zoom_now(lay.page_w);
+			let (left, tw) = view::text_extent_at(app, lay.page_w, sh().hscroll, pct);
 			let st = sh()
 				.drag
 				.map_or_else(|| view::RulerState::of(app, s), |d| d.state);
 			#[cfg(feature = "bench")]
 			bench::add(bench::RULER, 1);
-			chrome::paint_ruler(dc, tb, w, left, tw, &st, sh().ruler_kind);
+			chrome::paint_ruler(dc, tb, w, left, tw, &st, sh().ruler_kind, pct);
 		}
 		let area = Rect16::new(0, tb + rl, lay.page_w, lay.page_bottom);
 		if db > tb + rl && dt < lay.page_bottom {
@@ -972,10 +976,11 @@ fn mouse_down(hwnd: u32, x: i32, y: i32, shift: bool) {
 	let chrome_h = view::chrome_height(app);
 	if app.show_ruler() && y < chrome_h {
 		let w = page_w(hwnd);
-		let (left, tw) = view::text_extent(app, w, sh().hscroll);
+		let pct = zoom_now(w);
+		let (left, tw) = view::text_extent_at(app, w, sh().hscroll, pct);
 		let st = view::RulerState::of(app, s);
 		let before = view::signature(app, s);
-		match view::ruler_hit(x, y, h0 + h1, left, tw, &st) {
+		match view::ruler_hit_at(x, y, h0 + h1, (left, tw), &st, 22, pct) {
 			Some(Hit::Kind) => sh().ruler_kind = (sh().ruler_kind + 1) % 4,
 			Some(Hit::Scale(t)) => app.add_tab(s, view::snap(t), sh().ruler_kind),
 			Some(hit) => {
@@ -998,6 +1003,9 @@ fn mouse_down(hwnd: u32, x: i32, y: i32, shift: bool) {
 	if y >= i32::from(area.bottom) {
 		return;
 	}
+	if picture_down(hwnd, x, y, shift) {
+		return;
+	}
 	if let Some((line, tx)) = gdi::hit(app, s, area, sh().hscroll, zoom_now(page_w(hwnd)), x, y) {
 		let before = view::signature(app, s);
 		app.click(s, line, tx, shift);
@@ -1011,12 +1019,70 @@ fn mouse_down(hwnd: u32, x: i32, y: i32, shift: bool) {
 	}
 }
 
+/// The point of the page the window's (`x`, `y`) is over, in the layout's own space where the core's hit tests work: page units from
+/// the first sheet's top left corner, with the distance from one sheet's top to the next.
+fn to_page(hwnd: u32, x: i32, y: i32) -> (i32, i32, i32) {
+	let (app, s) = (app(), store());
+	let area = page_area(hwnd);
+	let aw = i32::from(area.right - area.left);
+	let pct = zoom_now(page_w(hwnd));
+	let x0 = view::page_x0(aw, view::dev(view::page_width(app), pct), sh().hscroll);
+	let g = view::PageGeom::of(app, s);
+	(
+		view::log(x - i32::from(area.left) - x0, pct),
+		view::log(y - i32::from(area.top), pct) + g.top - view::PAGE_TOP,
+		g.page_h + view::PAGE_GAP,
+	)
+}
+
+/// A press on a picture: a handle of the selected one is taken (the drag sizes the picture), or the picture becomes the selection. The
+/// handle and its slop are a few screen pixels whatever the zoom, so they are turned into page units. True when the press was used.
+fn picture_down(hwnd: u32, x: i32, y: i32, shift: bool) -> bool {
+	use quill_app::picture_geom::{HANDLE, PicPress, SLOP};
+	let (app, s) = (app(), store());
+	let pct = zoom_now(page_w(hwnd));
+	let (px, py, stride) = to_page(hwnd, x, y);
+	let size = (view::log(HANDLE, pct).max(1), view::log(SLOP, pct));
+	match app.press_picture(s, (px, py, stride), size, shift) {
+		PicPress::Miss => false,
+		PicPress::Selected => {
+			sh().selecting = false;
+			invalidate_page(hwnd);
+			invalidate_status(hwnd);
+			true
+		}
+		PicPress::Handle(d) => {
+			sh().pic_drag = Some(d);
+			unsafe { SetCapture(hwnd) };
+			true
+		}
+	}
+}
+
+/// The pointer moved with a handle held: the picture takes the size the handle's new place gives.
+fn picture_drag(hwnd: u32, mut d: quill_app::picture_geom::HandleDrag, x: i32, y: i32) {
+	let (app, s) = (app(), store());
+	let (px, py, _) = to_page(hwnd, x, y);
+	let shift = unsafe { GetKeyState(0x10) } & 0x8000 != 0;
+	d.moved(app, s, px, py, shift);
+	sh().pic_drag = Some(d);
+	retitle(hwnd);
+	update_scroll(hwnd);
+	invalidate_page(hwnd);
+	invalidate_status(hwnd);
+}
+
 fn mouse_move(hwnd: u32, x: i32, y: i32) {
 	let (app, s) = (app(), store());
+	if let Some(d) = sh().pic_drag {
+		picture_drag(hwnd, d, x, y);
+		return;
+	}
 	if let Some(mut d) = sh().drag {
 		let w = page_w(hwnd);
-		let (left, tw) = view::text_extent(app, w, sh().hscroll);
-		view::drag_to(&mut d, x, left, tw);
+		let pct = zoom_now(w);
+		let (left, tw) = view::text_extent_at(app, w, sh().hscroll, pct);
+		view::drag_to_at(&mut d, x, left, tw, pct);
 		sh().drag = Some(d);
 		invalidate_ruler(hwnd);
 		return;
@@ -1045,12 +1111,20 @@ fn mouse_up(hwnd: u32, x: i32) {
 	let (app, s) = (app(), store());
 	sh().selecting = false;
 	unsafe { ReleaseCapture() };
+	// A handle let go: whatever the drag changed is one undo step.
+	if let Some(d) = sh().pic_drag.take() {
+		d.release(app);
+		update_scroll(hwnd);
+		invalidate_all(hwnd);
+		return;
+	}
 	let Some(mut d) = sh().drag.take() else {
 		return;
 	};
 	let w = page_w(hwnd);
-	let (left, tw) = view::text_extent(app, w, sh().hscroll);
-	view::drag_to(&mut d, x, left, tw);
+	let pct = zoom_now(w);
+	let (left, tw) = view::text_extent_at(app, w, sh().hscroll, pct);
+	view::drag_to_at(&mut d, x, left, tw, pct);
 	if matches!(d.hit, Hit::First | Hit::Left | Hit::Both | Hit::Right) {
 		app.set_indents(s, d.state.left, d.state.first - d.state.left, d.state.right);
 	}
@@ -1507,6 +1581,7 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				let k = match c {
 					0x0D => Some(Key::Enter),
 					0x08 => Some(Key::Backspace),
+					0x09 if GetKeyState(0x10) & 0x8000 != 0 => Some(Key::BackTab),
 					0x09 => Some(Key::Tab),
 					0x1B => Some(Key::Esc),
 					1..=26 => Some(Key::Ctrl(c + 0x60)),

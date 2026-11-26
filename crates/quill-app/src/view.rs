@@ -460,6 +460,21 @@ pub fn ruler_hit_with(
 	st: &RulerState,
 	kind_w: i32,
 ) -> Option<Hit> {
+	ruler_hit_at(x, y, top, (text_left, text_w), st, kind_w, 100)
+}
+
+/// [`ruler_hit_with`] for a ruler drawn at `pct` percent: `column` is the text's left edge and width in device pixels, and a position on
+/// the scale comes back in twips, as it would at 100.
+pub fn ruler_hit_at(
+	x: i32,
+	y: i32,
+	top: i32,
+	column: (i32, i32),
+	st: &RulerState,
+	kind_w: i32,
+	pct: i32,
+) -> Option<Hit> {
+	let (text_left, text_w) = column;
 	let y = y - top;
 	if !(0..RULER_H).contains(&y) {
 		return None;
@@ -468,11 +483,7 @@ pub fn ruler_hit_with(
 		return Some(Hit::Kind);
 	}
 	let near = |a: i32, b: i32| (a - b).abs() <= 4;
-	let (fx, lx, rx) = (
-		text_left + st.first / TWIPS_PX,
-		text_left + st.left / TWIPS_PX,
-		text_left + text_w - st.right / TWIPS_PX,
-	);
+	let (fx, lx, rx) = ruler_marks_at(st, text_left, text_w, pct);
 	if y < 9 && near(x, fx) {
 		return Some(Hit::First);
 	}
@@ -486,19 +497,26 @@ pub fn ruler_hit_with(
 		return Some(Hit::Right);
 	}
 	for (pos, _) in st.stops() {
-		if near(x, text_left + pos / TWIPS_PX) && y >= 8 {
+		if near(x, tab_x_at(*pos, text_left, pct)) && y >= 8 {
 			return Some(Hit::Tab(*pos));
 		}
 	}
 	if x >= text_left && x <= text_left + text_w && (8..15).contains(&y) {
-		return Some(Hit::Scale((x - text_left) * TWIPS_PX));
+		return Some(Hit::Scale(log(x - text_left, pct) * TWIPS_PX));
 	}
 	None
 }
 
 /// Applies the pointer position `x` to a drag, as a preview.
 pub fn drag_to(d: &mut Drag, x: i32, text_left: i32, text_w: i32) {
-	let t = snap((x - text_left) * TWIPS_PX).clamp(0, text_w * TWIPS_PX);
+	drag_to_at(d, x, text_left, text_w, 100);
+}
+
+/// [`drag_to`] on a ruler drawn at `pct` percent.
+pub fn drag_to_at(d: &mut Drag, x: i32, text_left: i32, text_w: i32, pct: i32) {
+	let wide = log(text_w, pct) * TWIPS_PX;
+	let at = log(x - text_left, pct) * TWIPS_PX;
+	let t = snap(at).clamp(0, wide);
 	match d.hit {
 		Hit::First => d.state.first = t,
 		Hit::Left => d.state.left = t,
@@ -507,10 +525,7 @@ pub fn drag_to(d: &mut Drag, x: i32, text_left: i32, text_w: i32) {
 			d.state.left = t;
 			d.state.first = (d.start.first + delta).max(0);
 		}
-		Hit::Right => {
-			d.state.right =
-				snap(text_w * TWIPS_PX - (x - text_left) * TWIPS_PX).clamp(0, text_w * TWIPS_PX)
-		}
+		Hit::Right => d.state.right = snap(wide - at).clamp(0, wide),
 		_ => {}
 	}
 }
@@ -518,7 +533,12 @@ pub fn drag_to(d: &mut Drag, x: i32, text_left: i32, text_w: i32) {
 /// Where a pixel of the ruler's scale is: the x of each tick from the text's left edge, every eighth of an inch, with its height (0 for
 /// a whole inch, which carries a number instead).
 pub fn ruler_ticks(text_w: i32) -> impl Iterator<Item = (i32, i32, i32)> {
-	(0..=(text_w * 8 / i32::from(DPI))).map(|i| {
+	ruler_ticks_at(text_w, 100)
+}
+
+/// [`ruler_ticks`] for a ruler drawn at `pct` percent, whose scale is `text_w` device pixels wide.
+pub fn ruler_ticks_at(text_w: i32, pct: i32) -> impl Iterator<Item = (i32, i32, i32)> {
+	(0..=(log(text_w, pct) * 8 / i32::from(DPI))).map(move |i| {
 		let h = if i % 8 == 0 {
 			0
 		} else if i % 4 == 0 {
@@ -526,22 +546,32 @@ pub fn ruler_ticks(text_w: i32) -> impl Iterator<Item = (i32, i32, i32)> {
 		} else {
 			5
 		};
-		(i * 12, h, i / 8)
+		(dev(i * 12, pct), h, i / 8)
 	})
 }
 
 /// Where the markers sit on the ruler: the first-line, left and right indents' x, for a text edge at `text_left`.
 pub fn ruler_marks(st: &RulerState, text_left: i32, text_w: i32) -> (i32, i32, i32) {
+	ruler_marks_at(st, text_left, text_w, 100)
+}
+
+/// [`ruler_marks`] for a ruler drawn at `pct` percent.
+pub fn ruler_marks_at(st: &RulerState, text_left: i32, text_w: i32, pct: i32) -> (i32, i32, i32) {
 	(
-		text_left + st.first / TWIPS_PX,
-		text_left + st.left / TWIPS_PX,
-		text_left + text_w - st.right / TWIPS_PX,
+		text_left + dev(st.first / TWIPS_PX, pct),
+		text_left + dev(st.left / TWIPS_PX, pct),
+		text_left + text_w - dev(st.right / TWIPS_PX, pct),
 	)
 }
 
 /// A tab stop's x on the ruler.
 pub fn tab_x(pos: i32, text_left: i32) -> i32 {
-	text_left + pos / TWIPS_PX
+	tab_x_at(pos, text_left, 100)
+}
+
+/// [`tab_x`] for a ruler drawn at `pct` percent.
+pub fn tab_x_at(pos: i32, text_left: i32, pct: i32) -> i32 {
+	text_left + dev(pos / TWIPS_PX, pct)
 }
 
 /// The page view's vertical geometry: pages one under another with a grey gap, the first line shown at `PAGE_TOP`.
@@ -838,5 +868,49 @@ mod tests {
 		// 8.5 by 11 inches at 96 dots per inch, and the largest zoom: what Windows 3.x's 16-bit coordinates have to hold.
 		assert!(dev(816, ZOOM_MAX) <= i32::from(i16::MAX));
 		assert!(dev(1056, ZOOM_MAX) <= i32::from(i16::MAX));
+	}
+
+	#[test]
+	fn the_ruler_at_100_is_the_ruler_at_96_dots_to_the_inch() {
+		let st = RulerState {
+			left: 720,
+			first: 360,
+			right: 180,
+			tabs: [(0, 0); 16],
+			ntabs: 0,
+		};
+		assert_eq!(ruler_marks(&st, 100, 576), (124, 148, 664));
+		assert_eq!(ruler_marks_at(&st, 100, 576, 100), (124, 148, 664));
+		assert_eq!(tab_x(2880, 100), 292);
+		assert_eq!(ruler_ticks(96).count(), 9);
+		assert!(ruler_ticks(96).eq(ruler_ticks_at(96, 100)));
+	}
+
+	#[test]
+	fn the_ruler_at_a_zoom_puts_its_marks_where_the_text_is() {
+		let st = RulerState {
+			left: 720,
+			first: 360,
+			right: 180,
+			tabs: [(0, 0); 16],
+			ntabs: 0,
+		};
+		// A column of 6 inches at 50 %: 288 pixels, an inch (a whole tick, labelled) every 48 and the indents half as far from the edges.
+		assert_eq!(ruler_marks_at(&st, 100, 288, 50), (112, 124, 100 + 288 - 6));
+		assert_eq!(ruler_ticks_at(288, 50).count(), 49);
+		assert_eq!(ruler_ticks_at(288, 50).nth(8), Some((48, 0, 1)));
+		assert_eq!(ruler_ticks_at(288, 50).nth(4), Some((24, 3, 0)));
+		// A click on the scale at 200 % is the twips the text has at 100 %, and a drag takes the indent there.
+		let hit = ruler_hit_at(100 + 192, 10, 0, (100, 1152), &st, 0, 200);
+		assert_eq!(hit, Some(Hit::Scale(1440)));
+		let mut d = Drag {
+			hit: Hit::Left,
+			state: st,
+			start: st,
+		};
+		drag_to_at(&mut d, 100 + 192, 100, 1152, 200);
+		assert_eq!(d.state.left, 1440);
+		drag_to_at(&mut d, 100 + 100_000, 100, 1152, 200);
+		assert_eq!(d.state.left, 576 * TWIPS_PX);
 	}
 }
