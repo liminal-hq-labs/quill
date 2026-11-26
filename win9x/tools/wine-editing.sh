@@ -111,19 +111,20 @@ echo "wine-editing: the text ends at x=$r and the caret is at x=$c"
 [ "$r" -gt 120 ] && [ "$((c - r))" -ge 0 ] && [ "$((c - r))" -le 8 ] || fail "the caret is not at the end of the text (text $r, caret $c)"
 xdotool key ctrl+a BackSpace
 
-# 2. Ctrl+I: Italic switches on (its button shows pressed, light grey) and no tab is typed.
+# 2. Ctrl+I: Italic switches on (its button turns from the toolbar's grey, F5F5F5, to the lighter pressed grey) and no tab is typed.
 xdotool type --delay 80 "abc"
 xdotool key ctrl+a ctrl+i
 sleep 1
 shot italic
-[ "$(px italic 343 98)" = "DFDFDF" ] || fail "Ctrl+I did not switch Italic on (button pixel $(px italic 343 98))"
+[ "$(px start 343 98)" = "F5F5F5" ] && [ "$(px italic 343 98)" = "FAFAFA" ] || fail "Ctrl+I did not switch Italic on (button pixel $(px italic 343 98))"
 
 # 3. A drag over text highlights it.
 xdotool mousemove 103 211 mousedown 1 mousemove 118 211 mouseup 1
 sleep 1
 shot drag
-sel=$(count drag 000080 90 195 90 30)
-[ "$sel" -gt 60 ] || fail "dragging over the text selected too little ($sel navy pixels)"
+# The selection is drawn in the system highlight colour, which is 3096FA under Wine 11.
+sel=$(count drag 3096FA 90 195 90 30)
+[ "$sel" -gt 60 ] || fail "dragging over the text selected too little ($sel highlight pixels)"
 
 # 4. Wheel: with the text long enough, three notches move the page.
 xdotool key ctrl+End
