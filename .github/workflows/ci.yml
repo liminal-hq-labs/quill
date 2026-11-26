@@ -27,6 +27,11 @@ defaults:
   run:
     shell: bash
 
+# Jobs run in the shared Liminal HQ images (liminal-hq/.github, docker/ci/Dockerfile), pinned by digest; a pin update is a pull request and
+# its checks run in the new image. `ci-rust` is the leanest tier (Rust 1.98.0, rustfmt, clippy, nextest, git). `ci-dos` is `ci-rust` plus
+# python3, mtools, DJGPP, DOSBox Staging and CWSDPMI under $DOS_TOOLCHAIN (/opt/dos-toolchain), so no job downloads the DOS tools. Three
+# jobs stay on the host runner (markdown: a Docker action; site: stdlib python3 only; banner and reactos-guest: apt packages and Chrome
+# that no image carries). See CI-1 in docs/decisions.md.
 jobs:
   markdown:
     name: Markdown lint
@@ -47,11 +52,16 @@ jobs:
     name: Licence headers
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    container:
+      image: ghcr.io/liminal-hq/ci-rust@sha256:f12097be8cc22eb5145a46bc9f75b38a67fedd5833add4392e11ce85023e64df
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+
+      - name: Trust the workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Check SPDX headers
         run: bash scripts/check-headers.sh
@@ -73,16 +83,13 @@ jobs:
     name: Try Quill cache busting
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    container:
+      image: ghcr.io/liminal-hq/ci-dos@sha256:08ef2d984d71ed635d38e1ba8e164c0d8d1be6b34265c3b466ccf4894d934930
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           persist-credentials: false
-
-      - name: Install mtools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends mtools
 
       # Builds the disk bundle three times from stand-in programs (FreeDOS and CuteMouse come from their pinned addresses) and checks that
       # the name follows the content, the manifest names the one bundle left, and the page's own versions are current.
@@ -115,9 +122,9 @@ jobs:
     name: Layers
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    env:
-      # The script only reads `cargo metadata --no-deps`, so the runner's own stable toolchain is enough.
-      RUSTUP_TOOLCHAIN: stable
+    # python3 and cargo together: only the DOS tier has both. The script reads `cargo metadata --no-deps`.
+    container:
+      image: ghcr.io/liminal-hq/ci-dos@sha256:08ef2d984d71ed635d38e1ba8e164c0d8d1be6b34265c3b466ccf4894d934930
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

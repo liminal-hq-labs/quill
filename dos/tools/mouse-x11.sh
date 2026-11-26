@@ -15,7 +15,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-VENDOR="${DOS_VENDOR:-$HERE/vendor}"
+VENDOR="$("$HERE/tools/vendor-dir.sh" "$HERE/vendor")"
 SHOTS="${1:-}"
 for t in Xvfb xdotool import; do
 	command -v "$t" > /dev/null || { echo "mouse-x11: $t not found; skipping"; exit 0; }

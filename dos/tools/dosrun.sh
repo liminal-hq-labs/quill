@@ -45,7 +45,7 @@
 # is the status.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-VENDOR="${DOS_VENDOR:-$HERE/vendor}"
+VENDOR="$("$HERE/tools/vendor-dir.sh" "$HERE/vendor")"
 
 [ $# -ge 2 ] || { sed -n '/^# usage/,/^$/p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 DIR="$(cd "$1" && pwd)"

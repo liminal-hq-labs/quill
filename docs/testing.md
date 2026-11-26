@@ -95,6 +95,7 @@ What `expect` checks, by kind: `ask "text" [default Yes] [buttons=YesNoCancel]`;
 
 ## Platform builds in CI
 
+- CI jobs run in the shared Liminal HQ images, pinned by digest: `ci-rust` for the Rust checks and `ci-dos` for the layers check, the Try Quill cache check and the Pages build (CI-1 in [decisions](decisions.md)). The DOS tools (DOSBox Staging, CWSDPMI) come from the image's `/opt/dos-toolchain`; on a developer's machine `dos/tools/fetch-tools.sh` downloads them into `dos/vendor` with pinned SHA-256 sums. To run a job as CI does: `docker run --rm -v "$PWD:/work" -w /work ghcr.io/liminal-hq/ci-dos@sha256:<digest> bash scripts/check-try.sh` (copy the checkout first if the job writes to it).
 - Every platform builds in CI with its pinned toolchain; the packer, the `.res` writer and the go32 packer run; `ne_dump.py` and a PE checker read the results back.
 - **Size checks** fail the build when a Win16 segment passes its budget, DGROUP statics pass theirs, or any executable passes its unpacked budget in the roadmap's release table; the report is posted as a job summary.
 - **Float ban** and **panic-site count** run on every build; the Win32 **instruction scan** fails on anything a Pentium lacks; the Win16 **branch check** fails on any near branch that leaves its segment.

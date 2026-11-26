@@ -70,7 +70,7 @@ Quill is a [Liminal HQ Labs](https://github.com/liminal-hq-labs) experiment: one
 
 - **Editor settings:** `.editorconfig` is authoritative: tabs everywhere except YAML, which uses spaces.
 - **Rust**, if the project uses it, is formatted with rustfmt using hard tabs (`rustfmt.toml`). Strictness comes from CI: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings` and the test suite.
-- **Shared CI images** come from [`liminal-hq/.github`](https://github.com/liminal-hq/.github) (`ci-rust`, `ci-web`, `tauri-ci-desktop` and others). Pick the leanest tier that fits and pin it by digest. A project image belongs here only when no shared tier covers it.
+- **Shared CI images** come from [`liminal-hq/.github`](https://github.com/liminal-hq/.github) (`ci-rust`, `ci-web`, `tauri-ci-desktop` and others). Pick the leanest tier that fits and pin it by digest. A project image belongs here only when no shared tier covers it. Quill's jobs run in `ci-rust` (format, clippy, tests, WebAssembly, bare metal, headers) and `ci-dos` (layers, Try Quill cache, Pages build; it has the DOS toolchain under `DOS_TOOLCHAIN`, which `dos/tools/vendor-dir.sh` finds, so nothing is downloaded); the markdown, site, banner and ReactOS jobs stay on the host runner (CI-1).
 - **Dependabot** is off. Add `.github/dependabot.yml` only when the project opts in (see `docs/new-project.md`).
 
 - **Toolchain:** Rust 1.98.0 (`rust-toolchain.toml`) for the host workspace. `make validate` is the single local gate: format check, clippy, `cargo nextest`, headers and the float ban. Set `CARGO_TARGET_DIR` outside the repository for big builds.
