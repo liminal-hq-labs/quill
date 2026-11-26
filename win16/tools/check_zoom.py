@@ -5,7 +5,10 @@
 #
 # usage: check_zoom.py click FRAME BX BY0           prints where to click: the fifth line of text, a little way along it
 #        check_zoom.py foot FRAME BX BY0            exits 0 when the foot of the last sheet is in the frame
-#        check_zoom.py check WORKDIR BX BY0         every comparison below; exits 1 and says why when one fails
+#        check_zoom.py check WORKDIR BX BY0         the text session's comparisons; exits 1 and says why when one fails
+#        check_zoom.py picture-at FRAME BX BY0      prints the middle of the first grey picture box
+#        check_zoom.py handle FRAME BX BY0          prints the middle of the selected picture's bottom right handle
+#        check_zoom.py pictures WORKDIR BX BY0      the picture session's comparisons
 #
 # BX is the x of the vertical scroll bar and BY0 the y of the top of the page area (find_vbar.py). Everything is measured from what the
 # layout fixes and Windows' fonts cannot change: the sheet's edges, and the caret, which is a two-pixel bar as tall as its line. The
@@ -26,6 +29,19 @@ FOOT_ROWS = 440
 PAPER = 816
 MARGIN = 120
 PAD = 8
+
+
+# The grey of a picture Windows 3.x does not draw, and the selection's navy, as the 64K-colour display shows them.
+FACE = (198, 195, 198)
+HANDLE = 7
+
+
+def face(px) -> bool:
+	return all(abs(a - b) <= 6 for a, b in zip(px, FACE))
+
+
+def navy(px) -> bool:
+	return px[0] < 40 and px[1] < 40 and 100 <= px[2] <= 160
 
 
 def dark(px) -> bool:
@@ -80,6 +96,69 @@ class Frame:
 					run = 0
 		return best if best[1] >= 6 else None
 
+	def face_box(self):
+		"""The bounding box (left, top, right, bottom, exclusive) of the first grey picture box in the page area, or None."""
+		start = next(
+			(
+				(x, y)
+				for y in range(self.top, self.top + ROWS)
+				for x in range(self.left, self.right)
+				if face(self.px[x, y]) and face(self.px[x + 3, y]) and face(self.px[x, y + 3])
+			),
+			None,
+		)
+		if start is None:
+			return None
+		seen, todo = {start}, [start]
+		x0, y0, x1, y1 = start[0], start[1], start[0], start[1]
+		while todo:
+			x, y = todo.pop()
+			x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+			for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+				if n not in seen and self.left <= n[0] < self.right and self.top <= n[1] < self.top + ROWS and face(self.px[n]):
+					seen.add(n)
+					todo.append(n)
+		return x0, y0, x1 + 1, y1 + 1
+
+	def handles(self, box):
+		"""The centres and sizes of the solid black squares around `box` (a picture's handles): [(cx, cy, size)]."""
+		x0, y0, x1, y1 = box
+		found = []
+		for y in range(max(self.top, y0 - 14), min(self.top + ROWS, y1 + 14)):
+			for x in range(max(self.left, x0 - 14), min(self.right, x1 + 14)):
+				if all(dark(self.px[x + i, y + j]) for i in range(HANDLE) for j in range(HANDLE)):
+					found.append((x, y))
+		# Each handle is one block of such windows; windows of one block touch.
+		blocks = []
+		for x, y in found:
+			for b in blocks:
+				if any(abs(x - bx) <= 2 and abs(y - by) <= 2 for bx, by in b):
+					b.append((x, y))
+					break
+			else:
+				blocks.append([(x, y)])
+		out = []
+		for b in blocks:
+			xs, ys = [p[0] for p in b], [p[1] for p in b]
+			size = max(max(xs) - min(xs), max(ys) - min(ys)) + HANDLE
+			out.append(((min(xs) + max(xs) + HANDLE) // 2, (min(ys) + max(ys) + HANDLE) // 2, size))
+		return out
+
+	def ruler_marks(self):
+		"""The x of every black pixel of the ruler's scale (the row a half-inch tick is drawn in), left of the vertical bar."""
+		y = self.top - 11
+		return [x for x in range(self.left + 24, self.right) if dark(self.px[x, y])]
+
+	def selection(self):
+		"""The bounding box of the navy selection in the page area, and whether its top rows have navy in every column of it."""
+		pts = [(x, y) for y in range(self.top, self.top + ROWS) for x in range(self.left, self.right) if navy(self.px[x, y])]
+		if not pts:
+			return None
+		x0, x1 = min(p[0] for p in pts), max(p[0] for p in pts) + 1
+		y0, y1 = min(p[1] for p in pts), max(p[1] for p in pts) + 1
+		solid = all(any(navy(self.px[x, y]) for y in range(y0, y0 + 3)) for x in range(x0, x1))
+		return x0, y0, x1, y1, solid
+
 	def foot(self) -> bool:
 		"""True when desk shows under the sheet in the middle of the page area (the sheet has ended above the window's bottom)."""
 		if self.page_left is None:
@@ -97,6 +176,66 @@ def click(argv: list[str]) -> int:
 	x, h, y = c
 	print(x + 300, y + 4 * (h + 2) + h // 2)
 	return 0
+
+
+def picture_at(argv: list[str]) -> int:
+	box = Frame(argv[0], int(argv[1]), int(argv[2])).face_box()
+	if box is None:
+		print("no grey picture box in the frame", file=sys.stderr)
+		return 1
+	print((box[0] + box[2]) // 2, (box[1] + box[3]) // 2)
+	return 0
+
+
+def handle(argv: list[str]) -> int:
+	f = Frame(argv[0], int(argv[1]), int(argv[2]))
+	box = f.face_box()
+	hs = f.handles(box) if box else []
+	if len(hs) != 8:
+		print(f"{len(hs)} handles in the frame, not 8", file=sys.stderr)
+		return 1
+	x, y, _ = max(hs, key=lambda h: h[0] + h[1])
+	print(x, y)
+	return 0
+
+
+def pictures(argv: list[str]) -> int:
+	work, bx, by0 = argv[0], int(argv[1]), int(argv[2])
+	ok = True
+
+	def need(cond: bool, why: str) -> None:
+		nonlocal ok
+		if not cond:
+			print("FAIL:", why, file=sys.stderr)
+			ok = False
+
+	sizes = {}
+	for name, pct in [("200-select", 200), ("150", 150), ("100", 100), ("50", 50)]:
+		f = Frame(f"{work}/zoompic-{name}.png", bx, by0)
+		box = f.face_box()
+		if box is None:
+			need(False, f"{name}: no grey picture box")
+			continue
+		w, h = box[2] - box[0], box[3] - box[1]
+		sizes[name] = (w, h)
+		# The box is the picture's size at the zoom, less the one-pixel edge each side.
+		need(abs(w - (64 * pct // 100 - 2)) <= 2 and abs(h - (48 * pct // 100 - 2)) <= 2, f"{name}: the picture is {w} by {h}, at {pct} percent it should be about {64 * pct // 100 - 2} by {48 * pct // 100 - 2}")
+		hs = f.handles(box)
+		need(len(hs) == 8, f"{name}: {len(hs)} handles around the picture, not 8")
+		need(all(abs(size - HANDLE) <= 1 for _, _, size in hs), f"{name}: the handles are {[size for _, _, size in hs]} pixels, not {HANDLE} at any zoom")
+		# Each handle is on the frame: at a corner or the middle of a side.
+		x0, y0, x1, y1 = box
+		anchors = [(x, y) for x in (x0, (x0 + x1) // 2, x1) for y in (y0, (y0 + y1) // 2, y1) if (x, y) != ((x0 + x1) // 2, (y0 + y1) // 2)]
+		need(all(min(abs(cx - ax) + abs(cy - ay) for ax, ay in anchors) <= 14 for cx, cy, _ in hs), f"{name}: a handle is not on the frame's corners or sides")
+	after = Frame(f"{work}/zoompic-100-dragged.png", bx, by0).face_box()
+	before = sizes.get("100")
+	need(after is not None and before is not None, "100: no picture box after the drag")
+	if after is not None and before is not None:
+		w, h = after[2] - after[0], after[3] - after[1]
+		need(w >= before[0] + 20, f"the drag of 32 pixels left the picture {w} wide, it was {before[0]}")
+		need(abs(h * before[0] - w * before[1]) <= 0.12 * w * before[1], f"the drag changed the picture's proportions: {before[0]} by {before[1]} to {w} by {h}")
+	print("check_zoom:", "ok" if ok else "failed", f"(picture boxes {sizes}, dragged to {after})")
+	return 0 if ok else 1
 
 
 def foot(argv: list[str]) -> int:
@@ -153,6 +292,30 @@ def check(argv: list[str]) -> int:
 		else:
 			need(near(f.page_left, f.left + PAD, 1), f"{name}: the sheet starts {f.page_left - f.left} pixels in, it should start {PAD}")
 
+	# The ruler's scale starts where the text does (one pixel before it) and a half inch is 48 page units; where the sheet fits, the scale
+	# ends where the column does. The same frames, so the page and the ruler agree at every zoom.
+	for name, pct, fits in [("200-top", 200, False), ("150", 150, False), ("100", 100, False), ("75", 75, True), ("50", 50, True), ("width", 0, True)]:
+		f = top if name == "200-top" else Frame(f"{work}/zoom-{name}.png", bx, by0)
+		if pct == 0:
+			pct = (f.right - f.left - 2 * PAD) * 100 // PAPER
+		marks = f.ruler_marks()
+		text_left = f.page_left + MARGIN * pct // 100
+		need(any(abs(m - (text_left - 1)) <= 1 for m in marks), f"{name}: the ruler's scale does not start at the text's edge, {text_left - 1} (black at {marks[:6]})")
+		half = text_left + 48 * pct // 100
+		need(any(abs(m - half) <= 1 for m in marks), f"{name}: the ruler has no half-inch tick at {half} (black at {marks[:8]})")
+		if fits:
+			end = text_left + 576 * pct // 100
+			need(any(abs(m - end) <= 1 for m in marks), f"{name}: the ruler's scale does not end with the column, at {end} (black at {marks[-4:]})")
+	# The selection is the cells from the caret back to the start of the line, one cell for each character with none missing between.
+	sel = Frame(f"{work}/zoom-200-select.png", bx, by0).selection()
+	need(sel is not None, "200: Shift+Home selected nothing")
+	if sel is not None:
+		x0, y0, x1, y1, solid = sel
+		need(near(y1 - y0, c1[1], 3), f"200: the selection is {y1 - y0} pixels tall, the line is {c1[1]}")
+		need(near(x0 - click_f.page_left, 2 * MARGIN, 3), f"200: the selection starts {x0 - click_f.page_left} pixels from the sheet's edge, at the text's {2 * MARGIN}")
+		need(near(x1, c1[0], 3), f"200: the selection ends at x={x1}, at the caret's {c1[0]}")
+		need(solid, "200: there are gaps between the selection's cells")
+
 	# The scroll range: the larger the zoom, the longer the page, so the more clicks on the track it takes to reach the foot.
 	n200, n50 = (int(open(f"{work}/clicks-{z}").read()) for z in ("200", "50"))
 	need(n200 >= n50 + 2, f"the foot took {n200} clicks at 200 percent and {n50} at 50: the range did not grow with the zoom")
@@ -172,7 +335,7 @@ def click_f_target(work: str, bx: int, by0: int) -> tuple[int, int]:
 
 
 def main() -> int:
-	modes = {"click": click, "foot": foot, "check": check}
+	modes = {"click": click, "foot": foot, "check": check, "picture-at": picture_at, "handle": handle, "pictures": pictures}
 	if len(sys.argv) < 5 or sys.argv[1] not in modes:
 		print(__doc__, file=sys.stderr)
 		return 2

@@ -6,6 +6,7 @@
 // The same drawing as the Win32 build's `gdi.rs`, with the Win16 calls: every handle is a 16-bit word, rectangles and points are
 // 16-bit, and fonts come from `CreateFontIndirect` with a 50-byte LOGFONT. Bitmaps are drawn by `picture.rs`; a picture it does not
 // draw (PNG) shows as a grey box the size it prints.
+use quill_app::picture_geom::{Frame, HANDLE, handles};
 use quill_app::view::{self, PageGeom};
 use quill_app::{App, ListCounters, line_label};
 use quill_core::doc::{CFmt, StoryKind, cflag};
@@ -542,6 +543,28 @@ impl At {
 	}
 }
 
+/// The selected picture's frame and eight handles in black when it is the whole selection, or a navy border two pixels wide inside its
+/// edge when it is part of a larger one. `r` is where the picture is drawn, in device pixels: the frame is one pixel and a handle seven
+/// whatever the zoom (`quill_app::picture_geom` takes both in the units it is given).
+fn picture_marks(dc: u32, r: &Frame, lone: bool) {
+	let edges = |q: &Frame, colour: u32| {
+		let (w, h) = (q.right - q.left, q.bottom - q.top);
+		fill(dc, q.left, q.top, w, 1, colour);
+		fill(dc, q.left, q.bottom - 1, w, 1, colour);
+		fill(dc, q.left, q.top, 1, h, colour);
+		fill(dc, q.right - 1, q.top, 1, h, colour);
+	};
+	if !lone {
+		edges(r, SELECTED_BG);
+		edges(&r.grow(-1), SELECTED_BG);
+		return;
+	}
+	edges(&r.grow(1), BLACK);
+	for b in handles(r, HANDLE) {
+		fill(dc, b.left, b.top, b.right - b.left, b.bottom - b.top, BLACK);
+	}
+}
+
 /// Draws one laid-out line, the text at its layout positions: at 100 percent in runs of one format, and zoomed a word at a time, each
 /// at the position the layout gave its first character, because the system rounds each advance of a scaled font alone and the error
 /// would build up along a line (decision D102 for Windows 95; here the font is made at the zoomed size and no mapping mode is set).
@@ -650,6 +673,15 @@ fn draw_line(
 					if !crate::picture::draw(dc, doc, s, idx, px0, py0, pw, ph) {
 						fill(dc, px0, py0, pw, ph, SHADOW);
 						fill(dc, px0 + 1, py0 + 1, pw - 2, ph - 2, FACE);
+					}
+					if selected {
+						let r = Frame {
+							left: px0,
+							top: py0,
+							right: px0 + pw,
+							bottom: py0 + ph,
+						};
+						picture_marks(dc, &r, sel.is_some_and(|(lo, hi)| hi == lo + 1));
 					}
 				} else if let Some(v) = text.object_at(s, p) {
 					// A field shows its value: the page it is on, the page count, the date or the file name.
