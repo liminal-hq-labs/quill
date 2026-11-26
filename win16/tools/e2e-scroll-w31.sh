@@ -82,7 +82,7 @@ cp "$EXE" "$WORK/d/QUILL.EXE"
 [ ! -f "$(dirname "$EXE")/QUILL.HLP" ] || cp "$(dirname "$EXE")/QUILL.HLP" "$WORK/d/"
 # The page is shown at 100 percent, wider than the window, so the horizontal bar is up and the vertical bar ends where find_vbar.py says
 # (Page Width, the default, fits the window and takes the bar away).
-printf '[Quill]\r\nZoom=100\r\n' > "$WORK/d/QUILL.INI"
+printf '[Quill]\r\nBlink=0\r\nZoom=100\r\n' > "$WORK/d/QUILL.INI"
 # WIN.INI's run= line takes the program with no arguments, as a double click would start it (CR LF line ends are kept).
 awk 'BEGIN { IGNORECASE = 1 } /^[ \t]*run[ \t]*=/ { printf "run=D:\\QUILL.EXE\r\n"; done = 1; next } { print } END { if (!done) exit 3 }' "$C/WIN.INI" > "$C/WIN.INI.new" || fail "WIN.INI has no run= line"
 mv "$C/WIN.INI.new" "$C/WIN.INI"

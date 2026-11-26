@@ -845,7 +845,7 @@ struct Shown {
 ///
 /// The layout and the scroll position are in page units, and everything here is turned into device pixels as it is drawn, so no
 /// coordinate is ever measured from the top of the document: only from the first line shown, which keeps 16-bit GDI in range at 200
-/// percent (a letter sheet is 2,112 pixels tall there).
+/// percent (a letter sheet is 2,112 pixels tall there). `caret` is the caret's blink phase: false while it is off.
 pub fn paint_page(
 	dc: u32,
 	area: Rect16,
@@ -854,6 +854,7 @@ pub fn paint_page(
 	pct: i32,
 	app: &QApp,
 	s: &FarStore,
+	caret: bool,
 ) -> usize {
 	let (left, top, right, bottom) = (
 		i32::from(area.left),
@@ -951,14 +952,9 @@ pub fn paint_page(
 			ts.done(dc);
 		}
 		// The caret: a two-pixel bar the height of its line.
-		if app.editing() {
-			if let Some((idx, l, x)) = app.caret_xy(s) {
-				if idx >= first {
-					let y_rel = g.line_y(&l, 0);
-					let y = top + z.d(y_rel);
-					let h = top + z.d(y_rel + l.ascent + l.descent) - y;
-					fill_in(dc, d, tx + z.d(x), y, 2, h.max(1), BLACK);
-				}
+		if caret {
+			if let Some((x, y, h)) = caret_bar(app, s, &g, z, tx, top) {
+				fill_in(dc, d, x, y, 2, h, BLACK);
 			}
 		}
 		RestoreDC(dc, saved);
@@ -967,6 +963,58 @@ pub fn paint_page(
 			.max(fitted.min(1))
 			.max(1)
 	}
+}
+
+/// Where the caret's bar is in the window: its left edge, its top and its height in pixels, or `None` when no caret shows. `tx` is the
+/// text's left edge and `top` the page area's top.
+fn caret_bar(
+	app: &QApp,
+	s: &FarStore,
+	g: &PageGeom,
+	z: Zoom,
+	tx: i32,
+	top: i32,
+) -> Option<(i32, i32, i32)> {
+	if !app.editing() {
+		return None;
+	}
+	let (idx, l, x) = app.caret_xy(s)?;
+	if idx < app.top_line() {
+		return None;
+	}
+	let y_rel = g.line_y(&l, 0);
+	let y = top + z.d(y_rel);
+	let h = top + z.d(y_rel + l.ascent + l.descent) - y;
+	Some((tx + z.d(x), y, h.max(1)))
+}
+
+/// The rectangle the caret covers (a little wider than its two pixels), for the blink to ask for and nothing else. `area`, `hscroll`
+/// and `pct` are what `paint_page` was given.
+pub fn caret_rect(
+	area: Rect16,
+	hscroll: i32,
+	pct: i32,
+	app: &QApp,
+	s: &FarStore,
+) -> Option<Rect16> {
+	let (left, top, right) = (
+		i32::from(area.left),
+		i32::from(area.top),
+		i32::from(area.right),
+	);
+	let z = Zoom(pct);
+	let page = &app.doc().page;
+	let x0 = left + view::page_x0(right - left, z.d(view::page_width(app)), hscroll);
+	let tx = x0 + z.d(quill_core::layout::to_units(page.margin_l, view::DPI));
+	let g = PageGeom::of(app, s);
+	let (x, y, h) = caret_bar(app, s, &g, z, tx, top)?;
+	let r = Rect16::new(
+		(x - 1).max(left),
+		(y - 1).max(top),
+		(x + 3).min(right),
+		(y + h + 1).min(i32::from(area.bottom)),
+	);
+	(r.right > r.left && r.bottom > r.top).then_some(r)
 }
 
 /// The page's left margin in the window and the line under (`x`, `y`), for a click in a page area whose top is `area_top` and which is

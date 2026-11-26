@@ -620,6 +620,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	fmt: u8,
 	/// The view's zoom: a percentage, or 0 for the page's width.
 	pub(crate) zoom: u16,
+	/// `[Quill] Blink=0` was read: a shell that blinks the caret keeps it steady. Written back so the setting survives a save.
+	blink_steady: bool,
 	/// What the editor keeps about recovery files (`recovery.rs`).
 	pub(crate) rcv: recovery::State,
 	/// What idle time keeps between passes: the autosave job and its clock.
@@ -691,6 +693,7 @@ impl<M: Measure + Clone> App<M> {
 			view: 0,
 			saved_view: (0, 0),
 			zoom: 0,
+			blink_steady: false,
 			rcv: recovery::State::new(),
 			idle: idle::State::new(),
 			#[cfg(feature = "text-file-dialog")]
@@ -723,6 +726,11 @@ impl<M: Measure + Clone> App<M> {
 	/// The view's zoom: a percentage from 25 to 200, or 0 for the page's width.
 	pub fn zoom(&self) -> u16 {
 		self.zoom
+	}
+
+	/// Whether `QUILL.INI` asks for a steady caret (`[Quill] Blink=0`). A shell that blinks the caret reads it once at start-up.
+	pub fn blink_steady(&self) -> bool {
+		self.blink_steady
 	}
 
 	/// Sets the view's zoom (0 for the page's width); other values are held between 25 and 200 percent.
@@ -971,6 +979,9 @@ impl<M: Measure + Clone> App<M> {
 				digits.get(i..).unwrap_or(&[])
 			},
 		);
+		if self.blink_steady {
+			f(b"Quill", b"Blink", b"0");
+		}
 		for (name, bit) in [
 			(&b"Toolbar"[..], 1u8),
 			(b"Ruler", 2),
@@ -1005,6 +1016,8 @@ impl<M: Measure + Clone> App<M> {
 			self.set_spell_live(value.first() != Some(&b'0'));
 		} else if is(b"Zoom") {
 			self.zoom = parse_zoom(value);
+		} else if is(b"Blink") {
+			self.blink_steady = value.first() == Some(&b'0');
 		} else if self.rcv_apply_setting(key, value) {
 		} else if is(b"Folder") {
 			let n = value.len().min(NAME_MAX);

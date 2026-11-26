@@ -92,7 +92,7 @@ cp "$SCRIPT" "$WORK/d/W16-TYPE.TXT"
 cp "$ROOT/tests/docs/letter.qld" "$WORK/d/LETTER.QLD"
 printf '/BENCH W16-TYPE.TXT /END\r\n' > "$WORK/d/QUILL.CMD"
 # The page is measured at 100 percent, which is what `bench-budget.json` gates; ZOOM=Width (or a percentage) measures another zoom.
-printf '[Quill]\r\nZoom=%s\r\n' "${ZOOM:-100}" > "$WORK/d/QUILL.INI"
+printf '[Quill]\r\nBlink=0\r\nZoom=%s\r\n' "${ZOOM:-100}" > "$WORK/d/QUILL.INI"
 awk 'BEGIN { IGNORECASE = 1 } /^[ \t]*run[ \t]*=/ { printf "run=D:\\QUILLB.EXE\r\n"; done = 1; next } { print } END { if (!done) exit 3 }' "$C/WIN.INI" > "$C/WIN.INI.new" || fail "WIN.INI has no run= line"
 mv "$C/WIN.INI.new" "$C/WIN.INI"
 if [ "$VIDEO" = vga ]; then

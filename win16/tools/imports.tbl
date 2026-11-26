@@ -81,6 +81,7 @@ GDI 87 GetStockObject w w
 KERNEL 166 WinExec pw w
 USER 10 SetTimer wwwl w
 USER 12 KillTimer ww w
+USER 169 GetCaretBlinkTime - w
 USER 13 GetTickCount - l
 USER 50 FindWindow ll w
 USER 84 DrawIcon wwww w

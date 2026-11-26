@@ -103,7 +103,7 @@ boot() {
 	cp "$EXE" "$WORK/d/QUILL.EXE"
 	[ ! -f "$(dirname "$EXE")/QUILL.HLP" ] || cp "$(dirname "$EXE")/QUILL.HLP" "$WORK/d/"
 	cp "$ROOT/tests/docs/$1" "$WORK/d/$doc"
-	printf '[Quill]\r\nZoom=%s\r\n' "$2" > "$WORK/d/QUILL.INI"
+	printf '[Quill]\r\nBlink=0\r\nZoom=%s\r\n' "$2" > "$WORK/d/QUILL.INI"
 	# WIN.INI's run= line takes no arguments, so Windows starts from the DOS prompt with the program and its file on the command line.
 	awk 'BEGIN { IGNORECASE = 1 } /^[ \t]*run[ \t]*=/ { printf "run=\r\n"; next } { print }' "$C/WIN.INI" > "$C/WIN.INI.new"
 	mv "$C/WIN.INI.new" "$C/WIN.INI"
