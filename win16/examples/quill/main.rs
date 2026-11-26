@@ -293,6 +293,11 @@ impl Files for Win16Files {
 		(n != u32::MAX).then_some(n)
 	}
 
+	// The status-line words of recovery are string resources: the data segment has no room for them.
+	fn string(&mut self, id: u8, out: &mut [u8]) -> usize {
+		unsafe { LoadString(w16::HINST, u32::from(id), np(out.as_mut_ptr()), out.len() as u32) as usize }
+	}
+
 	// Where a recovery copy goes when it has no place beside its document: `RECOVER\` beside the program, then the program's own folder.
 	fn recovery_dir(&mut self, n: u8, out: &mut [u8]) -> usize {
 		let here = unsafe { &*core::ptr::addr_of!(HERE) };

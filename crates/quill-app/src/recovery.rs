@@ -23,6 +23,29 @@ use crate::{datefmt, safe, App, Drive, Files, LockMade, Owner, NAME_MAX};
 
 /// The originals the `QUILL.INI` list keeps, newest first.
 pub const LIST_MAX: usize = 8;
+/// The status-line words a shell may keep in its own resources: `Files::string` asks for them by these numbers.
+pub const STR_DAMAGED: u8 = 1;
+/// See `STR_DAMAGED`.
+pub const STR_CANNOT_AUTOSAVE: u8 = 2;
+/// See `STR_DAMAGED`.
+pub const STR_SECOND_WINDOW: u8 = 3;
+
+/// The words for `id` (`STR_*`) written into `out`, and their length: what `Files::string` gives when the shell has no resources of
+/// its own. A shell that overrides `string` does not link these.
+pub fn default_string(id: u8, out: &mut [u8]) -> usize {
+	let text = match id {
+		STR_DAMAGED => words::DAMAGED_RECOVERY,
+		STR_CANNOT_AUTOSAVE => words::CANNOT_AUTOSAVE,
+		STR_SECOND_WINDOW => words::SECOND_WINDOW_STATUS,
+		_ => "",
+	};
+	let n = text.len().min(out.len());
+	if let (Some(d), Some(s)) = (out.get_mut(..n), text.as_bytes().get(..n)) {
+		d.copy_from_slice(s);
+	}
+	n
+}
+
 /// How many hash values a writer tries before it gives a slot up as taken.
 const PROBES: u8 = 8;
 /// The room for a recovery file's whole path: a folder, the longest name and its suffix.
@@ -273,7 +296,16 @@ fn dos_stem(p: &mut Path, file: &[u8], basis: &[u8], probe: u8) {
 	p.push(b"~");
 	for &c in file.get(..dot).unwrap_or(&[]).iter().take(4) {
 		let c = c.to_ascii_uppercase();
-		let ok = c.is_ascii_alphanumeric() || b"_-$!#&@^(){}'~%".contains(&c);
+		let ok = c.is_ascii_alphanumeric()
+			|| matches!(
+				c,
+				b'_' | b'-'
+					| b'$' | b'!' | b'#'
+					| b'&' | b'@' | b'^'
+					| b'(' | b')' | b'{'
+					| b'}' | b'\'' | b'~'
+					| b'%'
+			);
 		p.push(&[if ok { c } else { b'_' }]);
 	}
 	p.hex(hash12(basis).wrapping_add(u32::from(probe)) & 0xFFF, 3);
@@ -551,7 +583,8 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	fn style(&self) -> Style {
-		if self.rcv.flags & DOT != 0 {
+		// A build without the `dot-files` feature never names a copy as a dot-file, so the code for those names is not linked.
+		if cfg!(feature = "dot-files") && self.rcv.flags & DOT != 0 {
 			Style::Dot
 		} else {
 			Style::native()
@@ -868,6 +901,14 @@ impl<M: Measure + Clone> App<M> {
 		None
 	}
 
+	/// Puts the shell's string `id` on the status line.
+	fn say<F: Files>(&mut self, f: &mut F, id: u8) {
+		let mut buf = [0u8; 96];
+		let n = f.string(id, &mut buf);
+		self.msg.clear();
+		self.msg.push(buf.get(..n).unwrap_or(&[]));
+	}
+
 	/// Takes a damaged copy out of the way and says so.
 	fn set_bad<F: Files>(&mut self, f: &mut F, path: &Path) {
 		let bad = kind_of(path, self.style(), Kind::Bad);
@@ -875,7 +916,7 @@ impl<M: Measure + Clone> App<M> {
 		if !f.rename(path.bytes(), bad.bytes()) {
 			f.remove(path.bytes());
 		}
-		self.msg.set(words::DAMAGED_RECOVERY);
+		self.say(f, STR_DAMAGED);
 	}
 
 	/// Settles a slot left by a write that a power cut stopped: a temporary file that checks out and is newer than the current copy
@@ -1005,7 +1046,7 @@ impl<M: Measure + Clone> App<M> {
 		}
 		if why == Why::Autosave && self.rcv.flags & SAID_FULL == 0 {
 			self.rcv.flags |= SAID_FULL;
-			self.msg.set(words::CANNOT_AUTOSAVE);
+			self.say(f, STR_CANNOT_AUTOSAVE);
 		}
 		false
 	}
@@ -1094,7 +1135,7 @@ impl<M: Measure + Clone> App<M> {
 			LockMade::Exists => {
 				if f.lock_owner(lock.bytes()) == Owner::Alive {
 					self.rcv.flags |= SECOND;
-					self.msg.set(words::SECOND_WINDOW_STATUS);
+					self.say(f, STR_SECOND_WINDOW);
 				} else {
 					// A note nothing proves alive is what a crash leaves: take it over.
 					f.lock_drop(lock.bytes());

@@ -1,6 +1,11 @@
 {
 	"icons": [{ "id": 1, "file": "../../../assets/icon/QUILL31.ICO" }],
 	"bitmaps": [{ "id": 2, "file": "../../../assets/toolbar/toolbar.bmp" }],
+	"strings": {
+		"1": "Quill found a damaged recovery file and set it aside.",
+		"2": "Quill cannot autosave: the disk is full.",
+		"3": "Another Quill window has this document. Changes made here are not autosaved."
+	},
 	"rcdata": [{ "id": 100, "file": "../../../assets/codepages/CPAGES.BIN" }],
 	"dialog_files": ["../../../assets/dialogs/dialogs.json"]
 }

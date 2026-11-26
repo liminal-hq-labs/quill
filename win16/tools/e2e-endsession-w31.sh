@@ -13,10 +13,10 @@
 #   1. QUILL.EXE starts from WIN.INI's run= line and "Hello" is typed: the document is modified.
 #   2. Alt+Tab brings the Program Manager forward, Alt+F4 asks to exit Windows and Return confirms. Quill's question ("Save the
 #      changes to (Untitled) before Quill closes?") must come up on top, and Escape (Cancel) must leave Windows running: DOSBox-X
-#      is still up and QUILL.EXE has written no STACK.LOG (it writes one when its message loop ends). Quill also leaves QUILL.RCV
-#      holding "Hello" (a refused shutdown still copies the text aside, for systems such as ReactOS that shut down whatever the answer).
+#      is still up and QUILL.EXE has written no STACK.LOG (it writes one when its message loop ends). Quill also leaves a recovery copy
+#      (~Q and six hex digits, .RCV, beside the program: a document with no name) holding "Hello" (a refused shutdown still copies the text aside, for systems such as ReactOS that shut down whatever the answer).
 #   3. Exit Windows again and answer No (N). Windows must end (the container stops by itself: the autoexec's last line is `exit`),
-#      and QUILL.RCV, written again by WM_ENDSESSION, must be in D: and hold "Hello" (the Cancel step's copy is deleted first).
+#      and the recovery copy, written again by WM_ENDSESSION, must be in D: and hold "Hello" (the Cancel step's copy is deleted first).
 #
 # Needs the same as e2e-saveclose-w31.sh: Docker with quill16-dosbox-x:local, Xvfb, xdotool, ImageMagick; W31_TREE,
 # QUILL_ENDSESSION_DIR and W31_ENDSESSION_CONTAINER (here quill16-endsession-w31) work the same way. The tree is the owner's and
@@ -36,6 +36,8 @@ HOLD="${HOLD:-5}"
 END_WAIT="${END_WAIT:-40}"
 BASE="${QUILL_ENDSESSION_DIR:-$HOME/.cache/quill16-endsession}"
 
+# The recovery copy of the untitled document: ~Q and six hex digits, beside the program (the D: drive).
+rcv_copy() { for f in "$WORK"/d/~Q??????.RCV; do [ ! -f "$f" ] || { printf %s "$f"; return; }; done; }
 log() { printf '[e2e-endsession-w31 %s] %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 fail() {
 	log "FAIL: $*"
@@ -82,7 +84,7 @@ shot() {
 	[ -z "${SHOTS:-}" ] || cp "$WORK/$1.png" "$SHOTS/$1.png"
 }
 keep_logs() {
-	[ -z "${SHOTS:-}" ] || for f in STACK.LOG PICS.LOG QUILL.RCV; do [ ! -f "$WORK/d/$f" ] || cp "$WORK/d/$f" "$SHOTS/endsession-$f"; done
+	[ -z "${SHOTS:-}" ] || for f in STACK.LOG PICS.LOG; do [ ! -f "$WORK/d/$f" ] || cp "$WORK/d/$f" "$SHOTS/endsession-$f"; done; [ -z "$(rcv_copy)" ] || cp "$(rcv_copy)" "$SHOTS/endsession-recovery.RCV"
 }
 
 mkdir -p "$WORK/d" "$WORK/conf"
@@ -174,8 +176,8 @@ shot endsession-cancelled
 [ "$(docker inspect -f '{{.State.Running}}' "$NAME")" = true ] || fail "Windows ended although the question was cancelled"
 [ ! -f "$WORK/d/STACK.LOG" ] || { keep_logs; fail "Quill ended although the question was cancelled"; }
 # The copy of the text is made before the refusal, for systems that shut down whatever the answer (ReactOS).
-[ -f "$WORK/d/QUILL.RCV" ] && grep -qa 'Hello' "$WORK/d/QUILL.RCV" || fail "Cancel left no QUILL.RCV holding the typed text"
-rm -f "$WORK/d/QUILL.RCV"
+RCV="$(rcv_copy)"; [ -n "$RCV" ] && grep -qa 'Hello' "$RCV" || fail "Cancel left no recovery copy holding the typed text"
+rm -f "$RCV"
 log "cancel kept Windows running"
 
 # Again, and answer No: the session ends.
@@ -188,6 +190,6 @@ while [ "$t" -lt "$END_WAIT" ] && [ "$(docker inspect -f '{{.State.Running}}' "$
 done
 keep_logs
 [ "$(docker inspect -f '{{.State.Running}}' "$NAME")" != true ] || { shot endsession-stuck; fail "Windows did not end within ${END_WAIT} s of No"; }
-[ -f "$WORK/d/QUILL.RCV" ] || fail "no QUILL.RCV after Windows ended"
-grep -qa 'Hello' "$WORK/d/QUILL.RCV" || fail "QUILL.RCV does not hold the typed text"
-log "ok: Cancel kept Windows running; No ended it and left QUILL.RCV ($(wc -c < "$WORK/d/QUILL.RCV") bytes)"
+RCV="$(rcv_copy)"; [ -n "$RCV" ] || fail "no recovery copy after Windows ended"
+grep -qa 'Hello' "$RCV" || fail "the recovery copy does not hold the typed text"
+log "ok: Cancel kept Windows running; No ended it and left a recovery copy ($(wc -c < "$RCV") bytes)"

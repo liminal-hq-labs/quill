@@ -11,7 +11,7 @@ name = "quill-tty"
 path = "src/main.rs"
 
 [dependencies]
-quill-app = { path = "../../crates/quill-app" }
+quill-app = { path = "../../crates/quill-app", features = ["dot-files"] }
 quill-grid = { path = "../../crates/quill-grid" }
 quill-formats = { path = "../../crates/quill-formats" }
 quill-host = { path = "../../crates/quill-host" }

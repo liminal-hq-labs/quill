@@ -226,6 +226,11 @@ pub trait Files {
 	fn recovery_dir(&mut self, _n: u8, _out: &mut [u8]) -> usize {
 		0
 	}
+	/// The words `id` (`recovery::STR_*`) for the status line, written into `out`: the length. A shell that keeps its words in
+	/// resources (Windows 3.x, whose data segment has no room for them) overrides this, and the default is not linked into it.
+	fn string(&mut self, id: u8, out: &mut [u8]) -> usize {
+		recovery::default_string(id, out)
+	}
 	/// A number that tells this running program from another one (the Windows task or process, the Linux process).
 	fn instance(&mut self) -> u32 {
 		0

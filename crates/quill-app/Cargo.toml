@@ -19,6 +19,8 @@ quill-spell = { path = "../quill-spell" }
 [features]
 # File names up to a Windows path (260 bytes) instead of a DOS one (64); the Win32 build turns it on.
 long-names = []
+# Recovery copies may be named as dot-files (`.~Quill-NAME.rcv`), as the Linux builds keep them; without it the code for those names is not linked.
+dot-files = []
 
 [package.metadata.quill]
 layer = "editor"
