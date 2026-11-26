@@ -40,7 +40,7 @@ for root, _dirs, names in os.walk(dist):
 			continue
 		files[rel] = {"bytes": os.path.getsize(p), "sha256": sha256(p)}
 if parts:
-	parts["note"] = "one zstd file per 1 MiB chunk; the raw image's SHA-256 and the chunk list are in parts/manifest.json"
+	parts["note"] = "one zstd file per chunk (8 MiB by default; the size is "chunk" in parts/manifest.json); the raw image's SHA-256 and the chunk list are in parts/manifest.json"
 doc = {
 	"built": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
 	"pinned": {

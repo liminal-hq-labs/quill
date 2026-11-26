@@ -7,7 +7,7 @@
 # Usage: guest/build-all.sh            (from anywhere in the repository)
 #
 # Stages, each timed: install-golden.sh (unattended ReactOS install onto a raw disk) -> build-image.sh (trim, install Quill, apply the
-# settings in a build VM) -> zero-free.py (zero free clusters, punch holes) -> tools/make-parts.mjs (1 MiB zstd parts) -> harness/serve.ts
+# settings in a build VM) -> zero-free.py (zero free clusters, punch holes) -> tools/make-parts.mjs (8 MiB zstd parts) -> harness/serve.ts
 # and harness/build-state.ts in headless Chromium (boot in v86, save the machine state) -> zstd -22 --ultra.
 #
 # Outputs, in $DIST (default $WORK/dist): parts/ (manifest.json and the zstd parts of the disk), state.l22.bin.zst (the v86 saved state)
@@ -123,7 +123,7 @@ S=$(date +%s)
 RUNTIME=node
 command -v bun >/dev/null && RUNTIME=bun
 rm -rf "$DIST/parts"
-$RUNTIME "$TRY/tools/make-parts.mjs" "$IMG" "$DIST/parts" 1048576 19
+$RUNTIME "$TRY/tools/make-parts.mjs" "$IMG" "$DIST/parts" 8388608 19
 stage_end make-parts "$S"
 
 # 5. The saved state: serve the page and the image, boot in headless Chromium, save once Quill shows the demo letter.

@@ -1,5 +1,5 @@
-// Split a raw disk image into zstd-compressed 1 MiB parts that v86's chunked async disk reads: DIR/START-END.img.zst.
-// Usage: node tools/make-parts.mjs IMAGE OUTDIR [chunkBytes=1048576] [level=19]
+// Split a raw disk image into zstd-compressed 8 MiB parts that v86's chunked async disk reads: DIR/START-END.img.zst.
+// Usage: node tools/make-parts.mjs IMAGE OUTDIR [chunkBytes=8388608] [level=19]
 // Every chunk gets a file, including all-zero ones (a few bytes each), because v86 asks for any chunk the guest reads.
 // Writes OUTDIR/manifest.json with the sizes and the SHA-256 of the raw image.
 //
@@ -16,7 +16,7 @@ if (!image || !outDir) {
 	console.error("usage: node make-parts.mjs IMAGE OUTDIR [chunkBytes] [level]");
 	process.exit(2);
 }
-const chunk = Number(chunkArg || 1048576);
+const chunk = Number(chunkArg || 8388608);
 const level = Number(levelArg || 19);
 const size = fs.statSync(image).size;
 fs.mkdirSync(outDir, { recursive: true });

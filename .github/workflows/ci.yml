@@ -115,6 +115,10 @@ jobs:
       - name: Test the Afterglow pin, fetch and Quillify
         run: python3 -I -m unittest discover -s site/try-reactos/guest -p 'test_afterglow.py'
 
+      # The disk parts' size: make-parts.mjs, and the page, the build and the README agreeing on it.
+      - name: Test the disk parts
+        run: python3 -I -m unittest discover -s site/try-reactos/guest -p 'test_parts.py'
+
       - name: Check the guest scripts
         run: shellcheck -S warning site/try-reactos/guest/fetch-afterglow.sh site/try-reactos/guest/prepare-afterglow.sh site/try-reactos/guest/prepare-pointers.sh
 
