@@ -23,6 +23,7 @@ quill-formats = { path = "../../crates/quill-formats" }
 quill-grid = { path = "../../crates/quill-grid" }
 quill-heap = { path = "../../crates/quill-heap" }
 quill-image = { path = "../../crates/quill-image" }
+quill-pdfdoc = { path = "../../crates/quill-pdfdoc" }
 
 [features]
 # Counts every GDI and USER call of the paint and key paths, times their phases and writes both to a log (W9X-2). Off in the product.

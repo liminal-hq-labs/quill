@@ -1303,6 +1303,7 @@ pub fn menu_hint(sh: &Shell, id: usize) -> &'static str {
 		700..=704 => return "Replace the word with this suggestion",
 		705 => return "Leave this word alone for the rest of the session",
 		706 => return "Add this word to the user dictionary",
+		crate::pdf::ID_PRINT_PDF => return "Write the document to a PDF file",
 		_ => {}
 	}
 	id.checked_sub(100)

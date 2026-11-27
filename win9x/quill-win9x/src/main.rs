@@ -31,6 +31,7 @@ mod bench;
 mod chrome;
 mod dialogs;
 mod gdi;
+mod pdf;
 mod rt;
 mod scheme;
 mod sys;
@@ -481,6 +482,15 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			let alt = GetKeyState(VK_MENU) < 0;
 			// The shortcuts come from the key itself: with Ctrl held the character message for I is the one for Tab, for H the one for
 			// Backspace, and a program that waits for it inserts a tab where Italic was meant.
+			// Ctrl+Shift+P writes the PDF; plain Ctrl+P is Print.
+			if ctrl && shift && !alt && wparam == 0x50 {
+				if let Some(sh) = shell() {
+					if !sh.grid {
+						pdf::print_to_pdf(hwnd, sh);
+					}
+				}
+				return 0;
+			}
 			if let Some(a) = quill_app::accel::from_vk(wparam as u16, ctrl, shift, alt) {
 				match a {
 					quill_app::accel::Accel::Key(k) => press(hwnd, k),
@@ -812,11 +822,9 @@ unsafe fn build_menu(sh: &mut Shell, instance: Handle) -> Handle {
 			AppendMenuA(bar, MF_POPUP, pop as usize, title.as_ptr());
 		}
 	}
-	if from_res.is_null() {
-		bar
-	} else {
-		from_res
-	}
+	let menu = if from_res.is_null() { bar } else { from_res };
+	pdf::add_menu_item(menu);
+	menu
 }
 
 #[repr(C)]
@@ -1250,6 +1258,12 @@ unsafe fn menu_command(hwnd: Handle, id: usize) {
 	// A recent file.
 	if (ui::ID_RECENT..ui::ID_RECENT + quill_app::recent::RECENT_MAX).contains(&id) {
 		run_command(hwnd, Command::Recent((id - ui::ID_RECENT) as u8));
+		return;
+	}
+	if id == pdf::ID_PRINT_PDF {
+		if !sh.grid {
+			pdf::print_to_pdf(hwnd, sh);
+		}
 		return;
 	}
 	let Some(c) = id.checked_sub(100).and_then(|i| sh.cmds.get(i)).copied() else {
@@ -2127,6 +2141,7 @@ pub extern "C" fn start() -> ! {
 	let mut print_now = false;
 	let mut preview_start = false;
 	let mut print_to: Option<Vec<u8>> = None;
+	let mut pdf_to: Option<Vec<u8>> = None;
 	let mut it = argv.iter().skip(1);
 	let mut scripted_open: Option<Vec<u8>> = None;
 	while let Some(a) = it.next() {
@@ -2139,6 +2154,7 @@ pub extern "C" fn start() -> ! {
 			b"/P" => print_now = true,
 			b"/PREVIEW" => preview_start = true,
 			b"/PO" => print_to = it.next().cloned(),
+			b"/PDF" => pdf_to = it.next().cloned(),
 			b"/LINES" | b"/CAPTURE" => {
 				it.next();
 			}
@@ -2288,6 +2304,14 @@ pub extern "C" fn start() -> ! {
 				.as_ref()
 				.is_some_and(|s| print_job(null_mut(), s, false, print_to.as_deref()));
 			ExitProcess(if ok { 0 } else { 1 });
+		}
+		// `/PDF OUT` writes the document as a PDF and exits.
+		if let Some(out) = &pdf_to {
+			if let Some(s) = SHELL.as_mut() {
+				ui::refresh_clock(s);
+				let ok = pdf::write_document(s, out);
+				ExitProcess(if ok { 0 } else { 1 });
+			}
 		}
 		if playing {
 			PLAY = alloc::boxed::Box::into_raw(alloc::boxed::Box::new(Play {
