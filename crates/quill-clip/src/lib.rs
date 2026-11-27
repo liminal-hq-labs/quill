@@ -24,10 +24,15 @@ use quill_formats::FormatError;
 mod convert;
 #[cfg(feature = "dib")]
 mod dib;
+mod merge;
+mod shared;
 mod store;
 
-pub use convert::{copy, paste_fragment};
-pub use store::{StoreClipboard, StoreReader, StoreWriter, MAX_DIB, MAX_RTF, MAX_TEXT};
+pub use convert::{copy, empty_doc, paste_fragment};
+pub use merge::{insert_fragment, PasteStyle};
+pub use store::{
+	Held, HeldClip, StoreClipboard, StoreReader, StoreWriter, MAX_DIB, MAX_RTF, MAX_TEXT,
+};
 
 /// One representation of the clipboard's contents.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

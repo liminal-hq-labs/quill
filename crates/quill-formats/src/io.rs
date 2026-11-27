@@ -7,6 +7,14 @@
 pub trait Source {
 	/// Reads up to `out.len()` bytes and returns how many. Fewer than asked means the end of the input.
 	fn read(&mut self, out: &mut [u8]) -> usize;
+
+	/// [`Source::read`] for a source whose bytes are in the store the reader is building into (the editor's clipboard keeps its data in
+	/// the document's chunks, and the reader holds the store for its own writes, so it lends the source a view of it). A source that
+	/// has its bytes of its own ignores `store`.
+	fn read_in(&mut self, store: &dyn quill_core::store::ReadStore, out: &mut [u8]) -> usize {
+		let _ = store;
+		self.read(out)
+	}
 }
 
 /// Where a writer puts its bytes.

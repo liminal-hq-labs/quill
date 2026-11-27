@@ -10,7 +10,7 @@ use quill_core::doc::{
 	cflag, CFmt, Colour, Doc, Font, PFmt, StoryKind, TabSet, TabStop, MAX_COLOURS, MAX_FONTS,
 	MAX_STOPS, NO_TABS, PAGE_LIMIT,
 };
-use quill_core::store::{ReadStore, Store};
+use quill_core::store::{DynRead, ReadStore, Store};
 use quill_core::text::MAX_TEXT;
 use quill_text::codepage::CodePage;
 use quill_text::utf8::Refused;
@@ -23,13 +23,13 @@ const MAX_WORD: usize = 32;
 
 // ---------------------------------------------------------------------------------------------------------------- writer
 
-struct Out<'a, K: Sink> {
+struct Out<'a, K: Sink + ?Sized> {
 	k: &'a mut K,
 	ok: bool,
 	col: usize,
 }
 
-impl<K: Sink> Out<'_, K> {
+impl<K: Sink + ?Sized> Out<'_, K> {
 	fn put(&mut self, d: &[u8]) {
 		if self.ok && !self.k.write(d) {
 			self.ok = false;
@@ -83,6 +83,11 @@ fn family_word(f: u8) -> &'static str {
 
 /// Writes `doc` as RTF. The same document always gives the same bytes.
 pub fn write<S: ReadStore + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Result<()> {
+	// One writer for every store and sink type: the executables of the retro builds hold one copy of it, whoever calls.
+	write_impl(doc, &DynRead(s), k)
+}
+
+fn write_impl(doc: &Doc, s: &dyn ReadStore, k: &mut dyn Sink) -> Result<()> {
 	let mut o = Out {
 		k,
 		ok: true,
@@ -160,7 +165,7 @@ pub fn write<S: ReadStore + ?Sized, K: Sink>(doc: &Doc, s: &S, k: &mut K) -> Res
 	}
 }
 
-fn write_story<S: ReadStore + ?Sized, K: Sink>(
+fn write_story<S: ReadStore + ?Sized, K: Sink + ?Sized>(
 	o: &mut Out<'_, K>,
 	doc: &Doc,
 	s: &S,
@@ -230,7 +235,12 @@ fn write_story<S: ReadStore + ?Sized, K: Sink>(
 }
 
 /// Writes picture `idx` as a `\pict` group: PNG as `\pngblip`, a BMP as a `\dibitmap0` without its file header.
-fn picture<S: ReadStore + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, idx: u32) {
+fn picture<S: ReadStore + ?Sized, K: Sink + ?Sized>(
+	o: &mut Out<'_, K>,
+	doc: &Doc,
+	s: &S,
+	idx: u32,
+) {
 	let Some(p) = doc.pictures.get(s, idx) else {
 		return;
 	};
@@ -270,7 +280,7 @@ fn picture<S: ReadStore + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S,
 	o.s("}");
 }
 
-fn field<K: Sink>(o: &mut Out<'_, K>, start: Option<u32>) {
+fn field<K: Sink + ?Sized>(o: &mut Out<'_, K>, start: Option<u32>) {
 	let (name, shown) = match start.map(|v| v >> 16) {
 		Some(1) => ("PAGE", "1"),
 		Some(2) => ("NUMPAGES", "1"),
@@ -312,7 +322,12 @@ fn para_end<S: ReadStore + ?Sized>(doc: &Doc, s: &S, kind: StoryKind, from: u32)
 	None
 }
 
-fn para_props<S: ReadStore + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, pf: &PFmt) {
+fn para_props<S: ReadStore + ?Sized, K: Sink + ?Sized>(
+	o: &mut Out<'_, K>,
+	doc: &Doc,
+	s: &S,
+	pf: &PFmt,
+) {
 	let mut group = false;
 	o.s("\\pard");
 	o.s(match pf.align {
@@ -402,7 +417,12 @@ fn para_props<S: ReadStore + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: 
 	}
 }
 
-fn char_props<S: ReadStore + ?Sized, K: Sink>(o: &mut Out<'_, K>, doc: &Doc, s: &S, cf: u16) {
+fn char_props<S: ReadStore + ?Sized, K: Sink + ?Sized>(
+	o: &mut Out<'_, K>,
+	doc: &Doc,
+	s: &S,
+	cf: u16,
+) {
 	let c = doc.cfmts.get(s, cf).unwrap_or(CFmt {
 		font: 0,
 		size: 24,
@@ -543,21 +563,21 @@ struct Group {
 	story: u8,
 }
 
-struct Reader<'a, R: Source> {
-	r: &'a mut R,
+struct Reader<'a> {
+	r: &'a mut dyn Source,
 	peeked: Option<u8>,
 	buf: [u8; 256],
 	at: usize,
 	len: usize,
 }
 
-impl<R: Source> Reader<'_, R> {
-	fn next(&mut self) -> Option<u8> {
+impl Reader<'_> {
+	fn next(&mut self, s: &dyn ReadStore) -> Option<u8> {
 		if let Some(b) = self.peeked.take() {
 			return Some(b);
 		}
 		if self.at >= self.len {
-			self.len = self.r.read(&mut self.buf);
+			self.len = self.r.read_in(s, &mut self.buf);
 			self.at = 0;
 			if self.len == 0 {
 				return None;
@@ -982,6 +1002,16 @@ pub fn read_counted<S: Store + ?Sized, R: Source>(
 	s: &mut S,
 	r: &mut R,
 ) -> Result<Refused> {
+	// One reader for every source type, so the editor's clipboard and a file share the code.
+	read_dyn(doc, s, r)
+}
+
+/// [`read_counted`] over a source that is not named.
+pub fn read_dyn<S: Store + ?Sized>(
+	doc: &mut Doc,
+	s: &mut S,
+	r: &mut dyn Source,
+) -> Result<Refused> {
 	// The tables come from the file; only Automatic, colour 0, is ours.
 	doc.reset(s);
 	doc.colours.intern(s, Colour { r: 0, g: 0, b: 0 })?;
@@ -1046,7 +1076,7 @@ pub fn read_counted<S: Store + ?Sized, R: Source>(
 	let mut seen_rtf = false;
 	let mut deeper = 0u32; // groups past the nesting limit, skipped
 
-	while let Some(b) = rd.next() {
+	while let Some(b) = rd.next(&DynRead(&*st.s)) {
 		match b {
 			b'{' => {
 				if depth + 1 >= MAX_DEPTH {
@@ -1110,7 +1140,7 @@ pub fn read_counted<S: Store + ?Sized, R: Source>(
 				}
 			}
 			b'\\' => {
-				let Some(c) = rd.next() else {
+				let Some(c) = rd.next(&DynRead(&*st.s)) else {
 					break;
 				};
 				match c {
@@ -1127,10 +1157,10 @@ pub fn read_counted<S: Store + ?Sized, R: Source>(
 					}
 					b'\'' => {
 						// Two hexadecimal digits; a damaged escape ends where the digits do and costs nothing else.
-						let Some(h) = hex_digit(&mut rd) else {
+						let Some(h) = hex_digit(&mut rd, &DynRead(&*st.s)) else {
 							continue;
 						};
-						let Some(l) = hex_digit(&mut rd) else {
+						let Some(l) = hex_digit(&mut rd, &DynRead(&*st.s)) else {
 							continue;
 						};
 						let v = (h << 4) | l;
@@ -1179,7 +1209,7 @@ pub fn read_counted<S: Store + ?Sized, R: Source>(
 						let mut n = 0;
 						word[0] = c;
 						n += 1;
-						let mut next = rd.next();
+						let mut next = rd.next(&DynRead(&*st.s));
 						while let Some(ch) = next {
 							if !ch.is_ascii_alphabetic() {
 								break;
@@ -1191,13 +1221,13 @@ pub fn read_counted<S: Store + ?Sized, R: Source>(
 								*w = ch;
 							}
 							n += 1;
-							next = rd.next();
+							next = rd.next(&DynRead(&*st.s));
 						}
 						let mut neg = false;
 						let mut num: Option<i64> = None;
 						if next == Some(b'-') {
 							neg = true;
-							next = rd.next();
+							next = rd.next(&DynRead(&*st.s));
 						}
 						while let Some(ch) = next {
 							if !ch.is_ascii_digit() {
@@ -1208,7 +1238,7 @@ pub fn read_counted<S: Store + ?Sized, R: Source>(
 								return Err(FormatError::BadFile);
 							}
 							num = Some(v);
-							next = rd.next();
+							next = rd.next(&DynRead(&*st.s));
 						}
 						match next {
 							Some(b' ') | None => {}
@@ -1298,8 +1328,8 @@ pub fn read_counted<S: Store + ?Sized, R: Source>(
 }
 
 /// The next byte as a hexadecimal digit. Anything else is not consumed, so a damaged `\'` cannot eat a brace.
-fn hex_digit<R: Source>(rd: &mut Reader<'_, R>) -> Option<u8> {
-	let b = rd.next()?;
+fn hex_digit(rd: &mut Reader<'_>, s: &dyn ReadStore) -> Option<u8> {
+	let b = rd.next(s)?;
 	let v = match b {
 		b'0'..=b'9' => b - b'0',
 		b'a'..=b'f' => b - b'a' + 10,

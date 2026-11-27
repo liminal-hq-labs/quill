@@ -6,7 +6,7 @@
 use core::ops::Range;
 
 use quill_core::doc::Doc;
-use quill_core::store::Store;
+use quill_core::store::{ReadStore, Store};
 use quill_formats::io::{Sink, Source};
 use quill_image::bmp;
 
@@ -16,7 +16,7 @@ use crate::ClipError;
 const FILE_HEADER: u32 = 14;
 
 /// The index of the BMP picture when `range` is exactly one inline picture and nothing else.
-pub(crate) fn lone_bmp<S: Store + ?Sized>(doc: &Doc, s: &S, range: &Range<u32>) -> Option<u16> {
+pub(crate) fn lone_bmp<S: ReadStore + ?Sized>(doc: &Doc, s: &S, range: &Range<u32>) -> Option<u16> {
 	if range.end.checked_sub(range.start) != Some(1) {
 		return None;
 	}
@@ -30,14 +30,14 @@ pub(crate) fn lone_bmp<S: Store + ?Sized>(doc: &Doc, s: &S, range: &Range<u32>) 
 }
 
 /// A picture's file bytes as a source.
-struct PictureSource<'a, S: Store + ?Sized> {
+struct PictureSource<'a, S: ReadStore + ?Sized> {
 	doc: &'a Doc,
 	s: &'a S,
 	idx: u16,
 	pos: u32,
 }
 
-impl<S: Store + ?Sized> Source for PictureSource<'_, S> {
+impl<S: ReadStore + ?Sized> Source for PictureSource<'_, S> {
 	fn read(&mut self, out: &mut [u8]) -> usize {
 		let n = self.doc.picture_bytes(self.s, self.idx, self.pos, out);
 		self.pos += n as u32;
@@ -47,7 +47,7 @@ impl<S: Store + ?Sized> Source for PictureSource<'_, S> {
 
 /// Writes the DIB of BMP picture `idx`: the file without its 14-byte header. A bitmap Quill cannot decode is not offered, since
 /// a program that pastes it could not show it either.
-pub(crate) fn write<S: Store + ?Sized, K: Sink>(
+pub(crate) fn write<S: ReadStore + ?Sized, K: Sink>(
 	doc: &Doc,
 	s: &S,
 	idx: u16,

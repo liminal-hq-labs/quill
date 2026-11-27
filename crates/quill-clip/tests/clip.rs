@@ -519,3 +519,46 @@ fn the_scratch_document_is_small_enough_for_a_win16_stack() {
 	let n = std::mem::size_of::<Doc>();
 	assert!(n < 8192, "Doc is {n} bytes");
 }
+
+#[test]
+fn a_held_clipboard_in_the_documents_own_store_copies_pastes_and_frees() {
+	use quill_clip::{insert_fragment, Held, PasteStyle};
+	let mut s = HeapStore::new();
+	let mut doc = build(
+		&mut s,
+		&[(vec![("abc".to_string(), 1), ("def".to_string(), 3)], 1)],
+	);
+	let mut held: Held<4, 0> = Held::new(256);
+	let base = s.live_chunks();
+	let n = doc.body.len();
+	held.copy_from(&doc, &mut s, 0..n - 1, Flavours::TEXT_AND_RTF)
+		.unwrap();
+	assert!(held.ready().has(Flavour::Rtf) && held.ready().has(Flavour::Text1252));
+	assert!(!held.ready().has(Flavour::Dib));
+	let mut frag = Doc::new();
+	assert_eq!(
+		held.paste_to(&[Flavour::Rtf, Flavour::Text1252], &mut s, &mut frag),
+		Ok(Flavour::Rtf)
+	);
+	let mut done = 0;
+	insert_fragment(
+		&mut doc,
+		&mut s,
+		&frag,
+		n - 1,
+		PasteStyle::Rich {
+			first_pfmt: Some(0),
+		},
+		1,
+		&mut done,
+	)
+	.unwrap();
+	assert_eq!(done, 6);
+	assert_eq!(doc.body.len(), n + 6);
+	frag.reset(&mut s);
+	held.clear(&mut s);
+	assert!(held.is_empty());
+	// Only what the document took remains: nothing of the clipboard or the fragment.
+	doc.reset(&mut s);
+	assert_eq!(s.live_chunks(), 0, "{base}");
+}

@@ -6,12 +6,19 @@
 use core::ops::Range;
 
 use quill_core::doc::{Doc, Picture};
-use quill_core::store::Store;
+use quill_core::store::{DynRead, ReadStore, Store};
 use quill_core::text::SRC_OBJECT;
 use quill_formats::io::Source;
 use quill_formats::{rtf, text};
 
 use crate::{ClipError, ClipWrite, Clipboard, Flavour, Flavours};
+
+/// An empty document for a fragment or a selection. One function builds every one of them, so a build holds one copy of the empty
+/// document's initial bytes (about a kilobyte of the Windows 3.x data segment) and not one for each place that needs one.
+#[inline(never)]
+pub fn empty_doc() -> Doc {
+	Doc::new()
+}
 
 /// How many characters one piece of the selection is copied in. Runs longer than this are copied as several pieces of one format,
 /// which the text merges again.
@@ -38,19 +45,22 @@ pub fn copy<S: Store + ?Sized, C: Clipboard>(
 	if !cb.clear() {
 		return Err(ClipError::Refused);
 	}
-	let mut scratch = Doc::new();
+	let mut scratch = empty_doc();
 	let built = build(doc, s, &range, &mut scratch);
 	let result = match built {
-		Ok(chars) => put_all(doc, s, &range, &scratch, chars, want, cb),
+		Ok(chars) => put_all(doc, &DynRead(&*s), &range, &scratch, chars, want, cb),
 		Err(e) => Err(e),
 	};
 	scratch.reset(s);
 	result
 }
 
-fn put_all<S: Store + ?Sized, C: Clipboard>(
+/// Writes `scratch` (the selection, `chars` characters of it) to `cb` in the flavours of `want`. Reads the store, never writes it: a
+/// clipboard that keeps its data there is given a view of the store of its own (see [`crate::Held::copy_from`]).
+#[inline(never)]
+pub(crate) fn put_all<C: Clipboard>(
 	doc: &Doc,
-	s: &S,
+	s: &dyn ReadStore,
 	range: &Range<u32>,
 	scratch: &Doc,
 	chars: u32,
@@ -107,7 +117,8 @@ fn write_with<W: ClipWrite>(
 }
 
 /// Fills `scratch` with the selection and returns how many characters (not pictures) it holds.
-fn build<S: Store + ?Sized>(
+#[inline(never)]
+pub(crate) fn build<S: Store + ?Sized>(
 	doc: &Doc,
 	s: &mut S,
 	range: &Range<u32>,
@@ -161,7 +172,7 @@ fn build<S: Store + ?Sized>(
 }
 
 /// Copies picture `idx` of `doc` into `scratch` and returns its new index.
-fn copy_picture<S: Store + ?Sized>(
+pub(crate) fn copy_picture<S: Store + ?Sized>(
 	doc: &Doc,
 	s: &mut S,
 	scratch: &mut Doc,
@@ -236,31 +247,43 @@ pub fn paste_fragment<S: Store + ?Sized, C: Clipboard>(
 }
 
 /// A source that remembers the end of what it passed on.
-struct Tail<'a, R: Source> {
-	r: &'a mut R,
+struct Tail<'a> {
+	r: &'a mut dyn Source,
 	tail: [u8; 32],
 }
 
-impl<R: Source> Source for Tail<'_, R> {
+impl Source for Tail<'_> {
 	fn read(&mut self, out: &mut [u8]) -> usize {
 		let n = self.r.read(out);
+		self.remember(out, n);
+		n
+	}
+
+	fn read_in(&mut self, store: &dyn ReadStore, out: &mut [u8]) -> usize {
+		let n = self.r.read_in(store, out);
+		self.remember(out, n);
+		n
+	}
+}
+
+impl Tail<'_> {
+	fn remember(&mut self, out: &[u8], n: usize) {
 		let keep = n.min(self.tail.len());
 		self.tail.rotate_left(keep);
 		let at = self.tail.len() - keep;
 		if let (Some(dst), Some(src)) = (self.tail.get_mut(at..), out.get(n - keep..n)) {
 			dst.copy_from_slice(src);
 		}
-		n
 	}
 }
 
-fn read_rtf<S: Store + ?Sized, R: Source>(
-	r: &mut R,
+fn read_rtf<S: Store + ?Sized>(
+	r: &mut dyn Source,
 	s: &mut S,
 	out: &mut Doc,
 ) -> Result<(), ClipError> {
 	let mut t = Tail { r, tail: [0; 32] };
-	rtf::read(out, s, &mut t)?;
+	rtf::read_dyn(out, s, &mut t)?;
 	let trimmed = t
 		.tail
 		.iter()
@@ -269,8 +292,8 @@ fn read_rtf<S: Store + ?Sized, R: Source>(
 	finish(s, out, trimmed.ends_with(b"\\par"))
 }
 
-fn read_text<S: Store + ?Sized, R: Source>(
-	r: &mut R,
+fn read_text<S: Store + ?Sized>(
+	r: &mut dyn Source,
 	s: &mut S,
 	out: &mut Doc,
 ) -> Result<(), ClipError> {
