@@ -245,6 +245,39 @@ jobs:
         working-directory: site/try-reactos/packages/host-link
         run: bun run check:built
 
+  ac97:
+    name: AC'97 sound card tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install the package's tools
+        working-directory: site/try-reactos/packages/ac97
+        run: bun install --frozen-lockfile
+
+      # The chip model, the v86 glue on a fake machine and the output on a fake audio context; the pinned v86 version is checked against tools/fetch-v86.sh.
+      - name: Test the package
+        working-directory: site/try-reactos/packages/ac97
+        run: bun test
+
+      - name: Check the types
+        working-directory: site/try-reactos/packages/ac97
+        run: bun run typecheck
+
+      # site/try-reactos/lib/ac97.js is what the page loads: it must be what the package builds, within its 24 KB budget.
+      - name: Check the built module is current
+        working-directory: site/try-reactos/packages/ac97
+        run: bun run check:built
+
   layers:
     name: Layers
     runs-on: ubuntu-24.04

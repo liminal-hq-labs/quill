@@ -90,10 +90,37 @@
 	flex-wrap: wrap;
 }
 
+/* The Sound button and the volume slider, kept together on one line. */
+.sound {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.sound-volume {
+	width: 7rem;
+	min-height: 2.75rem;
+	accent-color: var(--button-bg);
+}
+
+.sound-volume:disabled,
+.sound .button:disabled {
+	opacity: 0.6;
+}
+
 @media (max-width: 40rem) {
 	.player-controls .button {
 		flex: 1 1 auto;
 		padding-inline: 0.75rem;
+	}
+
+	.sound {
+		flex: 1 1 100%;
+	}
+
+	.sound-volume {
+		flex: 1 1 auto;
+		width: auto;
 	}
 
 	.diag-form label {

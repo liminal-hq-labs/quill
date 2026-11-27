@@ -1,5 +1,6 @@
 // Boot the disk in headless Chromium, open Quill32 on the sample letter, let the disk go quiet and save the machine state.
-// The page posts the raw state to the server, which stores it in the images folder as NAME.bin.
+// The page posts the raw state to the server, which stores it in the images folder as NAME.bin, and the sound card's registers as NAME.audio.json
+// (SITE-53: the page adds the card on a cold boot, and the state is saved with the machine halted and no sound playing).
 // Usage: node build-state.ts [--name state-q32] [--manual] [--zero] [--param k=v ...]
 // --manual: launch Quill with the Run box from a CD (phase 1). Without it the image opens the demo letter itself, from its Run key.
 // --zero: before saving, run the guest's RAM-zeroing step (see the README) so free memory compresses.
@@ -77,11 +78,22 @@ try {
 		await sleep(20000);
 		await quiet(10);
 	}
+	// The sound card: present (the cold boot added it), driven by the guest's own driver, and idle, so that only its registers matter.
+	if ((await ev<boolean>("Boolean(window.tryReactos.soundHandle)")) === false) throw new Error("the page did not add the sound card: the state would have none");
+	const idleSince = Date.now();
+	while (await ev<boolean>("window.tryReactos.soundHandle.stats().playing || window.tryReactos.soundHandle.stats().interrupt")) {
+		if (Date.now() - idleSince > 60000) throw new Error("the sound card is still playing, or holding its interrupt, after a minute: a state saved now would resume a sound");
+		await sleep(500);
+	}
+	const cardUsed = await ev<boolean>("window.tryReactos.soundHandle.stats().counters.bdlReads >= 0 && window.tryReactos.soundHandle.stats().registered");
+	if (!cardUsed) throw new Error("the sound card was never registered");
 	const f = await grab(s.page);
 	if (f) save(path.join(here, "..", "out", name), "before-save.png", f.png);
 	const t0 = Date.now();
 	await s.cdp.send("Network.disable"); // the protocol would otherwise echo the whole state as a request body
 	const info = await s.page.evaluate(async (base) => {
+		// The page lets the card go when the machine stops, so take hold of its handle first; its registers stay readable.
+		const card = window.tryReactos.soundHandle;
 		await window.tryReactos.emulator.stop();
 		const t = performance.now();
 		const st = await window.tryReactos.emulator.save_state();
@@ -92,7 +104,12 @@ try {
 			const r = await fetch(`${base}/__put/${window.tryReactos.stateName}.bin?offset=${o}`, { method: "POST", body: st.slice(o, o + piece) });
 			if (!r.ok) throw new Error("put failed at " + o);
 		}
-		return { bytes: st.byteLength, saveMs };
+		// The registers, with the machine halted: they cannot change between this and the state.
+		const audio = card.getAc97State();
+		const body = JSON.stringify(audio) + "\n";
+		const r = await fetch(`${base}/__put/${window.tryReactos.stateName}.audio.json`, { method: "POST", body });
+		if (!r.ok) throw new Error("put of the sound card's registers failed");
+		return { bytes: st.byteLength, saveMs, audioBytes: body.length, codecReady: audio.nam[0x26 >> 1], guestVolume: audio.nam[0x18 >> 1], pcmOutBase: audio.ch[1].bdbar };
 	}, BASE);
 	console.log(JSON.stringify(info), "total ms", Date.now() - t0);
 } finally {

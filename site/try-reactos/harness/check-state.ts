@@ -7,7 +7,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { PROFILES, grab, launch, pageUrl, save, sleep, waitFor } from "./lib.ts";
+import { BASE, PROFILES, grab, launch, pageUrl, save, sleep, waitFor } from "./lib.ts";
 
 const args = process.argv.slice(2);
 const outDir = args[0];
@@ -19,6 +19,9 @@ args.forEach((arg, index) => {
 		params[args[index + 1].slice(0, eq)] = args[index + 1].slice(eq + 1);
 	}
 });
+
+// A state built with the sound card has its registers beside it (build-state.sh); restore them when they are there.
+if (!("audio" in params) && (await fetch(new URL("/images/state.audio.json", BASE), { method: "HEAD" }).then((r) => r.ok, () => false))) params.audio = "/images/state.audio.json";
 
 const whiteFraction =
 	"(() => { const c = window.tryReactos.canvas(); if (!c || !c.width) return 0; const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 16) if (d[i] > 250 && d[i+1] > 250 && d[i+2] > 250) n++; return n / (d.length / 16); })()";
@@ -39,6 +42,13 @@ try {
 	const quillMs = await waitFor(session.page, `${whiteFraction} > 0.3`, 60000);
 	if (quillMs === null) failures.push("no Quill window (a large white document area) after the restore");
 	await sleep(4000);
+	// With the card's registers the restored machine has the card, and it took them.
+	const card = await session.page.evaluate(() => {
+		const h = window.tryReactos.soundHandle;
+		return h ? { registered: h.stats().registered, stateError: h.stats().stateError, guestRate: h.stats().guestRate } : null;
+	});
+	if (params.audio && (!card || !card.registered || card.stateError)) failures.push("the sound card did not come back with the state: " + JSON.stringify(card));
+	if (!params.audio && card) failures.push("a state without the card's registers got a card");
 	const restored = await grab(session.page);
 	if (restored) save(outDir, "restored.png", restored.png);
 	const quillShare = await session.page.evaluate(whiteFraction);
@@ -63,7 +73,7 @@ try {
 	}, before);
 	if (changedShare < 0.02) failures.push(`File > Open changed only ${(changedShare * 100).toFixed(2)}% of the screen`);
 	await press([[0x01]]);
-	console.log(JSON.stringify({ desktopMs, quillMs, quillWhiteShare: quillShare, openDialogChangedShare: changedShare, failures }));
+	console.log(JSON.stringify({ desktopMs, quillMs, card, quillWhiteShare: quillShare, openDialogChangedShare: changedShare, failures }));
 } finally {
 	await session.close();
 }

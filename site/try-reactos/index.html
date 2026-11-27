@@ -17,8 +17,8 @@
 		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
 		<link rel="stylesheet" href="../css/site.css?v=a4d3a119">
 		<link rel="stylesheet" href="../css/try.css?v=fc9dccd7">
-		<link rel="stylesheet" href="try-reactos.css?v=924254e1">
-		<script src="try-reactos.js?v=430e706f" type="module"></script>
+		<link rel="stylesheet" href="try-reactos.css?v=d0ccd692">
+		<script src="try-reactos.js?v=b8cb8668" type="module"></script>
 	</head>
 	<body>
 		<main id="main">
@@ -35,6 +35,10 @@
 							<button class="button button--alt" type="button" data-fullscreen disabled>Full screen</button>
 							<button class="button button--alt" type="button" data-reset disabled>Reset</button>
 							<button class="button button--alt" type="button" data-stop disabled>Stop</button>
+							<span class="sound" role="group" aria-label="Sound">
+								<button class="button button--alt" type="button" data-sound aria-pressed="true">Sound on</button>
+								<input class="sound-volume" type="range" min="0" max="100" step="5" value="70" data-volume aria-label="Volume">
+							</span>
 							<p class="player-status" id="player-status" role="status" aria-live="polite" data-status>Not started. The first start downloads about 16 MB, then the desktop is up in a second or two.</p>
 						</div>
 						<div class="stage stage--reactos" data-stage tabindex="0" aria-label="ReactOS running in an emulated PC">
@@ -48,6 +52,7 @@
 							<li>Select the screen to give it the keyboard and the mouse. Press <kbd>Esc</kbd> to let the mouse go. In Firefox on Linux the screen follows the mouse without holding it: move off the screen, or click outside it.</li>
 							<li><strong>Full screen</strong> gives the biggest picture. Add <code>?scale=int</code> (whole-number sizes), <code>?scale=crisp</code> (sharp pixels) or <code>?scale=smooth</code> (smoothed) to the address to choose how the screen is scaled.</li>
 							<li>The <strong>Windows 3.x, slow</strong> icon runs inside WineVDM: that is emulation inside emulation, so it takes a few seconds to appear and types more slowly. The 32-bit build is the fast one.</li>
+							<li><strong>Sound</strong> starts on at 70 percent when you select <strong>Start</strong>. The button mutes and unmutes it, the slider sets the level, and the page remembers both in this browser. A browser that holds the sound back leaves the machine running silently: select the button to turn it on.</li>
 							<li><strong>Reset</strong> loads the saved desktop again. Nothing you type is kept.</li>
 							<li>If you choose <strong>Shut Down</strong> in ReactOS, the screen dims and the page says so: <strong>Turn on</strong> brings the saved desktop back. A full boot of the disk, without the saved desktop, is in the builder and diagnostics.</li>
 						</ul>
@@ -73,6 +78,7 @@
 							<label>Disk chunk (bytes, blank = the parts' own size) <input name="chunk" type="text" placeholder="8388608" size="8"></label>
 							<label>CD URL <input name="cdrom" type="text" placeholder="/images/cd.iso" size="40"></label>
 							<label>State URL <input name="state" type="text" placeholder="/images/state.bin.zst" size="40"></label>
+							<label>Sound registers URL (a state named here needs them) <input name="audio" type="text" placeholder="/images/state.audio.json" size="40"></label>
 							<label>Pointer speed <input name="speed" type="number" min="0.25" max="6" step="0.25" value="1.5" size="4"></label>
 							<label>Pointer lock
 								<select name="lock">
@@ -90,6 +96,7 @@
 						</form>
 						<dl class="diag-readout" data-readout aria-live="off"></dl>
 						<dl class="diag-readout" data-link-readout aria-live="off"><dt>Link</dt><dd>off</dd></dl>
+						<dl class="diag-readout" data-sound-readout aria-live="off"><dt>Sound</dt><dd>off</dd></dl>
 						<p class="diag-buttons">
 							<button class="button button--alt" type="button" data-shot>Screenshot (PNG)</button>
 							<button class="button button--alt" type="button" data-save-state>Save state</button>
