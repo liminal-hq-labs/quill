@@ -254,7 +254,10 @@ impl<M: Measure + Clone> App<M> {
 		TabSet::default()
 	}
 
-	/// The index of the preset the paragraph at the caret matches exactly (paragraph format and the character format at its start), if any.
+	/// The index of the preset the paragraph at the caret matches (paragraph format and the character format at its start), if any.
+	/// An exact match wins. Failing that, a paragraph that matches in indents, list flags, size and the bold, italic and underline
+	/// bits still reads as that preset, whatever its alignment, space before and after and line spacing (CORE-142): most RTF writes
+	/// Normal body text with `\sa120`. The first preset in table order wins.
 	pub fn style_of<S: ReadStore + ?Sized>(&self, s: &S) -> Option<usize> {
 		let pf = self.para_pfmt(s, self.caret);
 		let start = self.para_start(s, self.caret);
@@ -263,18 +266,24 @@ impl<M: Measure + Clone> App<M> {
 			.body
 			.cfmt_at(s, start)
 			.and_then(|i| self.doc.cfmts.get(s, i))?;
-		PRESETS.iter().position(|p| {
-			pf.align == p.align
-				&& pf.left == p.left
+		let loose = |p: &Preset| {
+			pf.left == p.left
 				&& pf.right == p.right
 				&& pf.first == p.first
-				&& pf.before == p.before
-				&& pf.after == p.after
-				&& pf.spacing == 0
 				&& pf.flags & 5 == 0
 				&& cf.size == p.size
 				&& cf.flags & STYLE_BITS == p.flags
-		})
+		};
+		PRESETS
+			.iter()
+			.position(|p| {
+				loose(p)
+					&& pf.align == p.align
+					&& pf.before == p.before
+					&& pf.after == p.after
+					&& pf.spacing == 0
+			})
+			.or_else(|| PRESETS.iter().position(loose))
 	}
 
 	/// Applies preset `n` to every paragraph the selection touches, as one undo step: the paragraph format, and the size and the bold,

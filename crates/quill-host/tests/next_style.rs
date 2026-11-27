@@ -202,7 +202,10 @@ fn title_then_enter_then_type() {
 #[test]
 fn a_heading_that_was_changed_afterwards_keeps_the_old_behaviour() {
 	let mut r = build(&[("Heading", H1)]);
+	// A new alignment keeps the heading a heading (CORE-142); an indent no preset has does not.
 	r.0.command(&mut r.1, &mut r.2, Command::Align(2));
+	assert_eq!(style(&r.0, &r.1), Some(H1));
+	r.0.set_indents(&mut r.1, 100, 0, 0);
 	assert_eq!(style(&r.0, &r.1), None);
 	r.0.place_caret(&r.1, 7, false);
 	enter(&mut r);
