@@ -16,6 +16,11 @@ pub const ID_STYLE: u32 = 303;
 pub const ID_FACE: u32 = 301;
 pub const ID_SIZE: u32 = 302;
 pub const ID_COLOUR: u32 = 500;
+/// The zoom list's items: `ID_ZOOM` plus the level's place in `quill_app::zoom_field::ZOOM_LEVELS`.
+pub const ID_ZOOM: u32 = 520;
+/// The zoom box's width at the right end of the status bar, and the narrowest client area that has room for it.
+const ZOOM_W: i32 = 80;
+const ZOOM_MIN_CLIENT: i32 = 560;
 
 const CB_ADDSTRING: u32 = WM_USER + 3;
 const CB_GETCURSEL: u32 = WM_USER + 7;
@@ -323,9 +328,15 @@ pub fn paint_ruler(
 	tab_mark(dc, kind, 8 + i32::from(kind == 2) * 3, top + 14);
 }
 
-/// Paints the status bar: a sunken panel across the bottom with the editor's status text in it.
-pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8]) {
+/// Where the zoom box starts in a status bar `width` wide, or `None` when the window is too narrow to have one.
+pub fn zoom_box_left(width: i32) -> Option<i32> {
+	(width >= ZOOM_MIN_CLIENT).then_some(width - ZOOM_W)
+}
+
+/// Paints the status bar: a sunken panel across the bottom with the editor's status text in it, and the zoom box at the right end.
+pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8], zoom: &[u8]) {
 	let h = status_h();
+	let text_right = zoom_box_left(width).unwrap_or(width) - 2;
 	fill(dc, 0, top, width, h, FACE);
 	fill(dc, 0, top, width, 1, WHITE);
 	fill(dc, 2, top + 2, width - 4, 1, SHADOW);
@@ -336,7 +347,7 @@ pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8]) {
 		let old = SelectObject(dc, chrome().ui_font);
 		SetBkMode(dc, TRANSPARENT);
 		SetTextColor(dc, BLACK);
-		let r = Rect16::new(4, top + 3, width - 4, top + h - 2);
+		let r = Rect16::new(4, top + 3, text_right - 4, top + h - 2);
 		let saved = SaveDC(dc);
 		IntersectClipRect(
 			dc,
@@ -353,7 +364,42 @@ pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8]) {
 			text.len() as u32,
 		);
 		RestoreDC(dc, saved);
+		if let Some(left) = zoom_box_left(width) {
+			// A raised box, like a button, with the zoom in it.
+			bevel(dc, left, top + 1, ZOOM_W - 2, h - 2, false);
+			TextOut(
+				dc,
+				(left + 6) as u32,
+				(top + 3) as u32,
+				np(zoom.as_ptr()),
+				zoom.len() as u32,
+			);
+		}
 		SelectObject(dc, old);
+	}
+}
+
+/// Drops the list of zoom levels above (`x`, `y`) in the client area, the current level ticked; the choice comes back as a
+/// WM_COMMAND of `ID_ZOOM` plus the level's place in the list.
+pub fn zoom_menu(hwnd: u32, x: i32, y: i32, current: Option<usize>) {
+	unsafe {
+		let m = CreatePopupMenu();
+		for (i, level) in quill_app::zoom_field::ZOOM_LEVELS.iter().enumerate() {
+			// The text is at most ZOOM_TEXT_MAX bytes; the byte after it stays zero.
+			let mut z = [0u8; quill_app::zoom_field::ZOOM_TEXT_MAX + 1];
+			if let Some((text, _)) =
+				z.split_first_chunk_mut::<{ quill_app::zoom_field::ZOOM_TEXT_MAX }>()
+			{
+				quill_app::zoom_field::zoom_text(*level, text);
+			}
+			let ticked = if current == Some(i) { 8 } else { 0 };
+			AppendMenu(m, ticked, ID_ZOOM + i as u32, np(z.as_ptr()));
+		}
+		let mut p = [x as i16, y as i16];
+		ClientToScreen(hwnd, np(p.as_mut_ptr()));
+		// TPM_RIGHTALIGN: the list ends at the box's right edge; Windows 3.1 moves it up to fit the screen.
+		TrackPopupMenu(m, 8, p[0] as u16 as u32, p[1] as u16 as u32, 0, hwnd, 0);
+		DestroyMenu(m);
 	}
 }
 
