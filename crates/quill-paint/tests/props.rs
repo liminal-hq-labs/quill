@@ -48,7 +48,7 @@ impl Surface for Rec<'_> {
 	fn clip(&mut self, _: Option<Rect>) {}
 	fn font(&mut self, f: &FontRef) -> StrikeFont {
 		let (id, scale) = self.strikes.strike_for(f);
-		StrikeFont { id, scale }
+		StrikeFont { id, scale, want: 0 }
 	}
 	fn advance(&mut self, f: StrikeFont, ch: u8) -> i32 {
 		i32::from(self.strikes.advance(f.id, ch)) * i32::from(f.scale)
@@ -80,7 +80,11 @@ fn paint_big(app: &TApp, s: &HostStore) -> (Rec<'static>, i32) {
 		&mut rec,
 		app,
 		s,
-		&PageView { area, hscroll: 0 },
+		&PageView {
+			area,
+			hscroll: 0,
+			pct: 100,
+		},
 		&mut window,
 	);
 	let page_w = to_units(app.doc().page.paper_w, 96);
@@ -357,13 +361,13 @@ proptest! {
 		let mut window = Box::new([0u8; WINDOW]);
 		{
 			let mut sf = Planar4::new(&mut buf, *strikes(), &mut src).unwrap();
-			paint_page(&mut sf, &app, &s, &PageView { area, hscroll }, &mut window);
+			paint_page(&mut sf, &app, &s, &PageView { area, hscroll, pct: 100 }, &mut window);
 		}
 		prop_assert!(outside_planar_unchanged(&before, &buf, area));
 		let mut lin = vec![seed; 640 * 480];
 		{
 			let mut sf = Linear8::new(&mut lin, 640, 480, 640, *strikes(), &mut src).unwrap();
-			paint_page(&mut sf, &app, &s, &PageView { area, hscroll }, &mut window);
+			paint_page(&mut sf, &app, &s, &PageView { area, hscroll, pct: 100 }, &mut window);
 		}
 		for y in 0..480usize {
 			let row = &lin[y * 640..y * 640 + 640];
@@ -678,7 +682,7 @@ proptest! {
 			paint_sheet(&mut sf, &app, &mut m, &s, 8, 8, page, 2, Rect::new(0, 0, 640, 480), &mut window);
 		}
 		let mut rec = Rec::new();
-		paint_page(&mut rec, &app, &s, &PageView { area: Rect::new(-100, -100, 5000, 5000), hscroll: 7 }, &mut window);
+		paint_page(&mut rec, &app, &s, &PageView { area: Rect::new(-100, -100, 5000, 5000), hscroll: 7, pct: 100 }, &mut window);
 	}
 }
 

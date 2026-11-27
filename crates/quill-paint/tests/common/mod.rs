@@ -62,6 +62,8 @@ pub fn new_app() -> (TApp, HostStore, MemFiles) {
 	let mut s = HostStore::new();
 	let mut app = App::with_measure(StrikeMeasure::new(strikes()));
 	app.reset(&mut s).unwrap();
+	// The graphics screen starts at 100 percent unless the settings say otherwise.
+	app.set_zoom(quill_paint::shell::START_ZOOM);
 	(app, s, MemFiles::default())
 }
 
@@ -85,6 +87,7 @@ pub fn view() -> PageView {
 	PageView {
 		area: AREA,
 		hscroll: 0,
+		pct: 100,
 	}
 }
 

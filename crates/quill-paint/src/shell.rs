@@ -12,19 +12,20 @@ use quill_app::mouse::{PageHit, PageSpace, PointerTarget};
 use quill_app::picture::WINDOW;
 use quill_app::picture_geom::{HANDLE, SLOP};
 use quill_app::view::{
-	hscroll_max, page_width, page_x0, ruler_marks, ruler_ticks, tab_x, text_extent, PageGeom,
-	RulerState, PAGE_GAP, PAGE_PAD, PAGE_TOP, RULER_H,
+	dev, hscroll_max_at, log, page_width, page_x0, ruler_marks_at, ruler_ticks_at, tab_x_at,
+	text_extent_at, zoom_pct, PageGeom, RulerState, PAGE_GAP, PAGE_PAD, PAGE_TOP, RULER_H,
 };
+use quill_app::zoom_field::ZoomPart;
 use quill_app::{status_text, App, Overlay};
 use quill_core::layout::{to_units, Measure};
 use quill_core::store::{ReadStore, Store};
 
-use crate::layout::Layout;
+use crate::layout::{Layout, BAR};
 use crate::page::{paint_page, PageInfo, PageView};
 use crate::pointer::{View, KIND_W};
 use crate::scroll;
 use crate::ui::{bevel, Ui, FACE, INK, LIGHT, SHADOW};
-use crate::{dialog, drop, filedlg, menu, tip, toolbar};
+use crate::{dialog, drop, filedlg, menu, tip, toolbar, zoombox};
 use crate::{Rect, Surface};
 
 /// The screen's width.
@@ -36,13 +37,25 @@ pub const MENU_H: i32 = 20;
 /// The height of the status line.
 pub const STATUS_H: i32 = 20;
 
+/// The zoom in percent the page is drawn at now: the setting, or for Page Width the largest zoom up to 100 percent at which the sheet
+/// fits the page area with `PAGE_PAD` pixels of desk either side. It depends on the app alone (the page area is as wide as the
+/// screen less the scroll bar whatever the View menu hides), so the painter, the pointer and the scroll bars agree on it.
+pub fn pct<M: Measure + Clone>(app: &App<M>) -> i32 {
+	zoom_pct(app, SCREEN_W - BAR)
+}
+
+/// The zoom a graphics screen starts at when `QUILL.INI` does not say: 100 percent, the size the strikes are drawn at.
+pub const START_ZOOM: u16 = 100;
+
 /// Tells the app how big the page area is, so scrolling keeps the caret in view and Page Up and Page Down move a screenful, and
 /// brings the sideways scroll back inside what the content needs. The page area changes with the View menu (a hidden toolbar gives
 /// its rows to the page) and the content with every edit, so the shell calls this after every key.
 pub fn sync_view<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s: &S) {
 	let page = Layout::of(app).page;
-	app.set_view_height(page.height());
-	app.set_rows((page.height() / 16).max(1) as usize);
+	// The scroll position and the lines the window holds are in page units, 96 to the inch.
+	let high = log(page.height(), pct(app));
+	app.set_view_height(high);
+	app.set_rows((high / 16).max(1) as usize);
 	hclamp(app, s);
 }
 
@@ -51,13 +64,14 @@ pub fn sync_view<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s:
 pub fn spell_view<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s: &S) {
 	let page = Layout::of(app).page;
 	let g = quill_app::view::PageGeom::of(app, s);
+	let at = pct(app);
 	let first = app.top_line();
 	let (mut lo, mut hi) = (u32::MAX, 0);
 	app.for_each_line_from(s, first, |i, l| {
 		if i < first {
 			return true;
 		}
-		if g.line_y(l, page.top) > page.bottom {
+		if page.top + dev(g.line_y(l, 0), at) > page.bottom {
 			return false;
 		}
 		lo = lo.min(l.start);
@@ -72,8 +86,11 @@ pub fn spell_view<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s
 /// The text column's left edge is at the left edge of a page area `client_w` wide: where the page is scrolled sideways when nothing is
 /// wider than the area.
 fn hbase<M: Measure + Clone>(app: &App<M>, client_w: i32) -> i32 {
-	let margin = to_units(app.doc().page.margin_l, 96);
-	(margin + PAGE_PAD).min(hscroll_max(app, client_w)).max(0)
+	let at = pct(app);
+	let margin = dev(to_units(app.doc().page.margin_l, 96), at);
+	(margin + PAGE_PAD)
+		.min(hscroll_max_at(app, client_w, at))
+		.max(0)
 }
 
 /// How far the page is scrolled sideways in a page area `client_w` wide: the text column at the left edge, plus the app's sideways
@@ -89,13 +106,14 @@ pub fn hrange<M: Measure + Clone, S: ReadStore + ?Sized>(
 	s: &S,
 	client_w: i32,
 ) -> i32 {
-	if client_w >= page_width(app) + 2 * PAGE_PAD {
+	let at = pct(app);
+	if client_w >= dev(page_width(app), at) + 2 * PAGE_PAD {
 		return 0;
 	}
-	let ml = to_units(app.doc().page.margin_l, 96);
+	let ml = dev(to_units(app.doc().page.margin_l, 96), at);
 	let col = to_units(app.doc().page.text_w(), 96);
 	let lines = (app.page_rows() as u32).max(1) * 3;
-	let content = col.max(app.content_right(s, lines));
+	let content = dev(col.max(app.content_right(s, lines)), at);
 	(ml + PAGE_PAD - hbase(app, client_w) + content - client_w).max(0)
 }
 
@@ -134,7 +152,7 @@ pub fn follow_caret<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>,
 	};
 	let margin = to_units(app.doc().page.margin_l, 96);
 	// The caret's column in the area, as the page is scrolled now.
-	let at = PAGE_PAD + margin + x - hscroll(app, w);
+	let at = PAGE_PAD + dev(margin + x, pct(app)) - hscroll(app, w);
 	let slack = 32.min(w / 4);
 	let pos = app.hscroll_pos();
 	let to = if at < slack {
@@ -191,7 +209,8 @@ fn ruler<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 	sf.clip(Some(r));
 	sf.fill_rect(r, FACE);
 	sf.hline(0, SCREEN_W, top + RULER_H - 1, SHADOW);
-	let (text_left, text_w) = text_extent(app, client_w, hs);
+	let at = pct(app);
+	let (text_left, text_w) = text_extent_at(app, client_w, hs, at);
 	// The scale: white over the text width, grey in the margins.
 	sf.fill_rect(
 		Rect::new(text_left, top + 8, text_left + text_w, top + 15),
@@ -199,7 +218,7 @@ fn ruler<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 	);
 	sf.vline(text_left - 1, top + 8, top + 15, INK);
 	sf.vline(text_left + text_w, top + 8, top + 15, INK);
-	for (dx, h, inch) in ruler_ticks(text_w) {
+	for (dx, h, inch) in ruler_ticks_at(text_w, at) {
 		let x = text_left + dx;
 		if h > 0 {
 			sf.vline(x, top + 8 + h, top + 15 - h, INK);
@@ -228,9 +247,9 @@ fn ruler<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 	bevel(sf, Rect::new(2, top + 2, 20, top + 20), true);
 	tab_mark(sf, kind, 8 + i32::from(kind == 2) * 3, top + 14);
 	for (pos, k) in st.stops() {
-		tab_mark(sf, *k, tab_x(*pos, text_left), top + 15);
+		tab_mark(sf, *k, tab_x_at(*pos, text_left, at), top + 15);
 	}
-	let (fx, lx, rx) = ruler_marks(&st, text_left, text_w);
+	let (fx, lx, rx) = ruler_marks_at(&st, text_left, text_w, at);
 	marker_down(sf, fx, top + 1);
 	marker_up(sf, lx, top + 14);
 	marker_up(sf, rx, top + 14);
@@ -243,23 +262,26 @@ fn status_line<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 	app: &App<M>,
 	s: &St,
 	r: Rect,
+	held: Option<ZoomPart>,
 ) {
 	sf.clip(Some(r));
 	sf.fill_rect(r, FACE);
 	sf.hline(0, SCREEN_W, r.top, INK);
-	let inset = Rect::new(4, r.top + 3, SCREEN_W - 4, r.bottom - 2);
+	let right = zoombox::text_right();
+	let inset = Rect::new(4, r.top + 3, right, r.bottom - 2);
 	bevel(sf, inset, false);
 	let mut buf = [0u8; 96];
 	let n = status_text(app, s, &mut buf);
 	let y = inset.top + (inset.height() - ui.height) / 2;
 	if let Some(t) = buf.get(..n) {
-		let max = SCREEN_W - 16;
+		let max = inset.width() - 8;
 		let mut t = t;
 		while ui.width(sf, t) > max && !t.is_empty() {
 			t = t.get(..t.len() - 1).unwrap_or(&[]);
 		}
 		ui.text(sf, inset.left + 4, y, t, INK);
 	}
+	zoombox::draw(sf, ui, app, r, held);
 	sf.clip(None);
 }
 
@@ -325,6 +347,7 @@ pub fn paint_screen_view<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me
 		&PageView {
 			area: lay.page,
 			hscroll: hs,
+			pct: pct(app),
 		},
 		window,
 	);
@@ -374,7 +397,7 @@ fn rest<F: Copy, M: Measure + Clone, St: Store + ?Sized>(
 	menu::draw_bar(sf, ui, open.map(|(m, _)| m));
 	scroll_bars(sf, app, s, lay);
 	if let Some(r) = lay.status {
-		status_line(sf, ui, app, s, r);
+		status_line(sf, ui, app, s, r, view.zoom);
 	}
 	over(sf, app, s, lay, view, ui);
 }
@@ -471,7 +494,7 @@ pub fn pos_at_pixel<M: Measure + Clone, St: quill_core::store::ReadStore + ?Size
 	let margin = to_units(app.doc().page.margin_l, 96);
 	PageHit {
 		pos: app.pos_at_point(s, px, py, g.page_h + PAGE_GAP),
-		margin: px < margin - 4 && px >= -PAGE_PAD,
+		margin: px < margin - 4 && px >= -log(PAGE_PAD, pct(app)),
 	}
 }
 
@@ -484,12 +507,17 @@ pub fn page_space_at<M: Measure + Clone, St: quill_core::store::ReadStore + ?Siz
 ) -> PageSpace {
 	let area = Layout::of(app).page;
 	let g = PageGeom::of(app, s);
+	let at = pct(app);
+	let sheet = dev(page_width(app), at);
 	PageSpace {
-		x: x - area.left - page_x0(area.width(), page_width(app), hscroll(app, area.width())),
-		y: y - area.top - PAGE_TOP + g.top,
+		x: log(
+			x - area.left - page_x0(area.width(), sheet, hscroll(app, area.width())),
+			at,
+		),
+		y: log(y - area.top, at) - PAGE_TOP + g.top,
 		stride: g.page_h + PAGE_GAP,
-		handle: HANDLE,
-		slop: SLOP,
+		handle: log(HANDLE, at).max(1),
+		slop: log(SLOP, at),
 	}
 }
 

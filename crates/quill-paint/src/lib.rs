@@ -40,6 +40,7 @@ pub mod shell;
 pub mod tip;
 pub mod toolbar;
 pub mod ui;
+pub mod zoombox;
 
 use quill_core::layout::FontRef;
 
@@ -126,6 +127,13 @@ pub trait Surface {
 	fn clip(&mut self, r: Option<Rect>);
 	/// The font the surface will draw `f` with.
 	fn font(&mut self, f: &FontRef) -> Self::Font;
+	/// The font the surface will draw `f` with on a page zoomed to `pct` percent: `f`'s size at the zoom, as near as the surface's fonts
+	/// come (the layout still comes from the 100 percent font; each character is placed where the layout says). A surface with no
+	/// zoomed fonts draws `f` as it is.
+	fn font_at(&mut self, f: &FontRef, pct: i32) -> Self::Font {
+		let _ = pct;
+		self.font(f)
+	}
 	/// The advance in pixels of character `ch` in a font; the integers layout used.
 	fn advance(&mut self, f: Self::Font, ch: u8) -> i32;
 	/// Fills a rectangle.

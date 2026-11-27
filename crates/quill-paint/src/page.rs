@@ -4,11 +4,15 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 //! A port of the Windows 95 painter's `draw_line`, `paint_page` and `paper_sheet` to [`Surface`]. It draws at 100 %, 96 dots to the
-//! inch, with the vertical scroll the app keeps (by line), and reads only the app's public API.
+//! inch, with the vertical scroll the app keeps (by line), and reads only the app's public API. A page zoomed to `pct` percent
+//! takes each position of the layout through [`dev`] (every edge measured from the first line shown, rounded down, so two edges that
+//! meet in the layout meet on the screen), draws each character at its layout position in the font of the size wanted
+//! ([`Surface::font_at`]), and scales the lines of a tab leader, a picture and the sheet; the caret and the selection's edges are
+//! the layout's. At 100 percent every number is the one the layout gave.
 
 use quill_app::picture::{self, WINDOW};
 use quill_app::picture_geom::{self as geom, Frame};
-use quill_app::view::{page_x0, PageGeom};
+use quill_app::view::{dev, page_x0, PageGeom};
 use quill_app::{line_label, App, ListCounters};
 use quill_core::doc::{cflag, CFmt, Doc, StoryKind};
 use quill_core::layout::{
@@ -31,6 +35,8 @@ pub struct PageView {
 	pub area: Rect,
 	/// Pixels the page is scrolled sideways.
 	pub hscroll: i32,
+	/// The zoom in percent: 100 draws the layout as it is.
+	pub pct: i32,
 }
 
 /// What painting worked out.
@@ -75,7 +81,11 @@ struct LinePainter<'a, M: Measure + Clone, St: Store + ?Sized> {
 	page: u32,
 	fields: Option<u32>,
 	area: Rect,
-	tx: i32,
+	/// The x of the sheet's left edge, and where the text column starts from it, in layout units.
+	left: i32,
+	text_left: i32,
+	/// The zoom in percent.
+	pct: i32,
 	y_top: i32,
 	ascent: i32,
 	descent: i32,
@@ -113,14 +123,37 @@ impl<M: Measure + Clone, St: Store + ?Sized> Clone for LineCtx<'_, M, St> {
 
 impl<M: Measure + Clone, St: Store + ?Sized> Copy for LineCtx<'_, M, St> {}
 
+/// Where a line is drawn: the sheet's left edge and the text column's start from it (layout units), the zoom, and the line's top, ascent
+/// and descent on the screen.
+struct Place {
+	left: i32,
+	text_left: i32,
+	pct: i32,
+	y_top: i32,
+	ascent: i32,
+	descent: i32,
+}
+
+impl Place {
+	/// A line whose top is `y` layout units below `area_top` and whose ascent and descent are those of `l`, at `pct` percent: its
+	/// top, baseline and bottom are each the layout's edge taken to the screen, so lines that touch in the layout touch on it.
+	fn new(left: i32, text_left: i32, pct: i32, area_top: i32, y: i32, l: &Line) -> Self {
+		let top = area_top.saturating_add(dev(y, pct));
+		let base = area_top.saturating_add(dev(y.saturating_add(l.ascent), pct));
+		let bottom = area_top.saturating_add(dev(y.saturating_add(l.ascent + l.descent), pct));
+		Place {
+			left,
+			text_left,
+			pct,
+			y_top: top,
+			ascent: base - top,
+			descent: bottom - base,
+		}
+	}
+}
+
 impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
-	fn new(
-		cx: &LineCtx<'a, M, St>,
-		l: &Line,
-		tx: i32,
-		y_top: i32,
-		window: &'a mut [u8; WINDOW],
-	) -> Self {
+	fn new(cx: &LineCtx<'a, M, St>, l: &Line, at: &Place, window: &'a mut [u8; WINDOW]) -> Self {
 		let mut lp = LinePainter {
 			doc: cx.doc,
 			s: cx.s,
@@ -130,10 +163,12 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 			page: cx.page,
 			fields: cx.fields,
 			area: cx.area,
-			tx,
-			y_top,
-			ascent: l.ascent,
-			descent: l.descent,
+			left: at.left,
+			text_left: at.text_left,
+			pct: at.pct,
+			y_top: at.y_top,
+			ascent: at.ascent,
+			descent: at.descent,
 			window,
 			run: [(0, 0); 64],
 			n: 0,
@@ -162,10 +197,16 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 		self.y_top.saturating_add(self.ascent)
 	}
 
+	/// The screen x of layout x `x` (from the text column's left edge).
+	fn dx(&self, x: i32) -> i32 {
+		self.left
+			.saturating_add(dev(self.text_left.saturating_add(x), self.pct))
+	}
+
 	/// Draws `chars` from `x` on the baseline, each at the advance of the one before.
 	fn text<Sf: Surface>(&mut self, sf: &mut Sf, chars: &[u8], x: i32, cf: u16, selected: bool) {
 		let (fr, _, cfmt) = font_ref(self.doc, self.s, cf);
-		let font = sf.font(&fr);
+		let font = sf.font_at(&fr, self.pct);
 		let mut glyphs = [(0u8, 0i32); 32];
 		let mut at = x;
 		let mut n = 0;
@@ -203,7 +244,7 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 				.story(self.kind)
 				.cfmt_at(self.s, l.start)
 				.unwrap_or(0);
-			let at = self.tx.saturating_add(first as i32);
+			let at = self.dx(first as i32);
 			if let Some(text) = lab.get(..n.min(16)) {
 				let text = text.get(..text.len().min(32)).unwrap_or(&[]);
 				self.text(sf, text, at, cf, false);
@@ -216,7 +257,7 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 			return;
 		}
 		let (fr, vpos, cfmt) = font_ref(self.doc, self.s, self.run_cf);
-		let font = sf.font(&fr);
+		let font = sf.font_at(&fr, self.pct);
 		let shift = match vpos {
 			1 => -(self.ascent / 3),
 			2 => self.ascent / 4,
@@ -263,11 +304,13 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 		cf: u16,
 	) {
 		let selected = self.sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
-		let ax = self.tx.saturating_add(x);
+		let ax = self.dx(x);
+		let ex = self.dx(x.saturating_add(w));
+		let w = ex - ax;
 		for m in self.marks.iter_mut().take(self.marked) {
 			if p >= m.0 && p < m.1 {
 				m.2 = m.2.min(ax);
-				m.3 = m.3.max(ax.saturating_add(w));
+				m.3 = m.3.max(ex);
 			}
 		}
 		let text = self.doc.story(self.kind);
@@ -315,7 +358,7 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 			self.flush(sf);
 			if w > 0 {
 				let (fr, _, cfmt) = font_ref(self.doc, self.s, cf);
-				let font = sf.font(&fr);
+				let font = sf.font_at(&fr, self.pct);
 				let fg = if selected {
 					sf.fill_rect(
 						Rect::new(
@@ -359,7 +402,7 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 			*slot = (c, ax);
 			self.n += 1;
 		}
-		self.run_end = ax.saturating_add(w);
+		self.run_end = ex;
 	}
 
 	/// Draws the picture at `p` if there is one: a silver box first, then its rows.
@@ -369,8 +412,8 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 			return false;
 		};
 		let idx = text.object_at(self.s, p).map_or(0, |v| v & 0xFFFF) as u16;
-		let pw = pw.clamp(1, MAX_OUT as i32);
-		let ph = ph.max(1);
+		let pw = dev(pw, self.pct).clamp(1, MAX_OUT as i32);
+		let ph = dev(ph, self.pct).max(1);
 		let top = self.base().saturating_sub(ph);
 		let r = Rect::new(ax, top, ax.saturating_add(pw), top.saturating_add(ph));
 		if r.intersect(self.area).is_empty() {
@@ -455,6 +498,7 @@ pub fn paint_page<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	window: &mut [u8; WINDOW],
 ) -> PageInfo {
 	let area = view.area;
+	let pct = view.pct;
 	sf.clip(Some(area));
 	sf.fill_rect(area, DESK);
 	let doc = app.doc();
@@ -462,18 +506,20 @@ pub fn paint_page<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	let page_w = to_units(page.paper_w, 96);
 	let page_h = to_units(page.paper_h, 96);
 	let margin_l = to_units(page.margin_l, 96);
-	let x0 = area.left + page_x0(area.width(), page_w, view.hscroll);
+	let sheet_w = dev(page_w, pct);
+	let x0 = area.left + page_x0(area.width(), sheet_w, view.hscroll);
 	let g = PageGeom::of(app, s);
 	let pages = app.page_total(s).max(1);
 	for p in 0..pages as i32 {
-		let top = g.page_y(p, area.top);
+		let top = area.top + dev(g.page_y(p, 0), pct);
 		if top > area.bottom + 4 {
 			break;
 		}
-		if top.saturating_add(page_h) + 4 < area.top {
+		let bottom = area.top + dev(g.page_y(p, 0) + page_h, pct);
+		if bottom + 4 < area.top {
 			continue;
 		}
-		paper_sheet(sf, x0, top, page_w, page_h);
+		paper_sheet(sf, x0, top, sheet_w, bottom - top);
 	}
 	let cx = LineCtx {
 		doc,
@@ -486,23 +532,22 @@ pub fn paint_page<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 		area,
 		wave: true,
 	};
-	let tx = x0 + margin_l;
 	let mut counters: ListCounters = [[0; 9]; 4];
 	let mut line_h = 16;
 	app.for_each_line_from(s, app.top_line(), |_, l| {
 		let label = line_label(app, s, l, &mut counters, 96);
-		let y_top = g.line_y(l, area.top);
-		let h = (l.ascent + l.descent).max(1);
-		if y_top > area.bottom + 4 {
+		let at = Place::new(x0, margin_l, pct, area.top, g.line_y(l, 0), l);
+		let h = (at.ascent + at.descent).max(1);
+		if at.y_top > area.bottom + 4 {
 			// Below the window: nothing later is shown either.
 			return false;
 		}
-		if y_top + h < area.top - 4 {
+		if at.y_top + h < area.top - 4 {
 			return true;
 		}
 		line_h = h.max(8);
 		let cx = LineCtx { page: l.page, ..cx };
-		let mut lp = LinePainter::new(&cx, l, tx, y_top, window);
+		let mut lp = LinePainter::new(&cx, l, &at, window);
 		lp.begin(sf, l, label);
 		app.walk_chars(s, l, |p, c, x, w, leader, cf| {
 			lp.char(sf, p, c, x, w, leader, cf)
@@ -512,9 +557,10 @@ pub fn paint_page<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	});
 	if app.editing() {
 		if let Some((_, l, x)) = app.caret_xy(s) {
-			let y = g.line_y(&l, area.top);
+			let at = Place::new(x0, margin_l, pct, area.top, g.line_y(&l, 0), &l);
+			let cx = x0 + dev(margin_l + x, pct);
 			sf.fill_rect(
-				Rect::new(tx + x, y, tx + x + 2, y + l.ascent + l.descent),
+				Rect::new(cx, at.y_top, cx + 2, at.y_top + at.ascent + at.descent),
 				Rgb::BLACK,
 			);
 		}
@@ -595,7 +641,8 @@ pub fn paint_sheet_editing<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 	let setup = doc.page;
 	let u = |tw: i32| to_units(tw, 96);
 	paper_sheet(sf, left, top, u(setup.paper_w), u(setup.paper_h));
-	let tx = left + u(setup.margin_l);
+	let tx = left;
+	let tl = u(setup.margin_l);
 	let first = page == 1 && setup.flags & 1 != 0;
 	for (kind, from_bottom, dist) in [
 		(
@@ -652,7 +699,8 @@ pub fn paint_sheet_editing<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 			wave: false,
 		};
 		for l in lines.iter().flatten() {
-			let mut lp = LinePainter::new(&cx, l, tx, y0 + l.y, window);
+			let at = Place::new(tx, tl, 100, 0, y0 + l.y, l);
+			let mut lp = LinePainter::new(&cx, l, &at, window);
 			lp.begin(sf, l, None);
 			walk_line(doc, s, m, kind, l, |p, c, x, w, leader, cf| {
 				lp.char(sf, p, c, x, w, leader, cf)
@@ -680,7 +728,8 @@ pub fn paint_sheet_editing<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 		if l.page != page {
 			return true;
 		}
-		let mut lp = LinePainter::new(&cx, l, tx, top + u(setup.margin_t) + l.y, window);
+		let at = Place::new(tx, tl, 100, 0, top + u(setup.margin_t) + l.y, l);
+		let mut lp = LinePainter::new(&cx, l, &at, window);
 		lp.begin(sf, l, label);
 		app.walk_chars(s, l, |p, c, x, w, leader, cf| {
 			lp.char(sf, p, c, x, w, leader, cf)

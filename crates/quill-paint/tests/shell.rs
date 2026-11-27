@@ -550,6 +550,16 @@ fn the_pointer_on_the_scroll_bar_at_256_colours() {
 }
 
 #[test]
+fn the_zoom_at_16_colours() {
+	golden_of(Mode::C16, "g11-gfx-zoom");
+}
+
+#[test]
+fn the_zoom_at_256_colours() {
+	golden_of(Mode::C256, "g11-gfx-zoom");
+}
+
+#[test]
 fn the_horizontal_scroll_bar_at_16_colours() {
 	golden_of(Mode::C16, "g8-gfx-hscroll");
 }
