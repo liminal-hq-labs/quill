@@ -455,6 +455,34 @@ fn zoom_is_remembered_in_the_settings_and_clamped() {
 }
 
 #[test]
+fn the_zoom_box_follows_the_zoom_and_choosing_a_level_sets_it() {
+	use quill_app::zoom_field::{zoom_command, ZOOM_LEVELS, ZOOM_TEXT_MAX};
+	let (mut app, mut s, mut f) = setup();
+	let mut text = [0u8; ZOOM_TEXT_MAX];
+	let n = app.zoom_field_text(&mut text);
+	assert_eq!(&text[..n], b"Page Width");
+	assert_eq!(app.zoom_field_current(), Some(0));
+	for (index, level) in ZOOM_LEVELS.iter().enumerate() {
+		let command = zoom_command(index).unwrap();
+		app.command(&mut s, &mut f, command);
+		assert_eq!(app.zoom(), *level);
+		assert_eq!(app.zoom_field_current(), Some(index));
+		let n = app.zoom_field_text(&mut text);
+		let want = if *level == 0 {
+			"Page Width".to_string()
+		} else {
+			format!("{level}%")
+		};
+		assert_eq!(std::str::from_utf8(&text[..n]).unwrap(), want);
+	}
+	// A zoom from `QUILL.INI` that the list lacks shows its own percentage and ticks nothing.
+	app.set_zoom(90);
+	let n = app.zoom_field_text(&mut text);
+	assert_eq!(&text[..n], b"90%");
+	assert_eq!(app.zoom_field_current(), None);
+}
+
+#[test]
 fn a_steady_caret_setting_is_read_and_kept() {
 	let (mut app, _, mut f) = setup();
 	assert!(

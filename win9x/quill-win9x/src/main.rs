@@ -321,7 +321,9 @@ struct Shell {
 	/// The status bar control, its height (0 when hidden), the text now in each pane, and how many pages the preview shows.
 	sb: Handle,
 	status_h: i32,
-	sb_text: [Vec<u8>; 5],
+	sb_text: [Vec<u8>; 6],
+	/// The status bar's own window procedure, which the shell's replaces to hear a click on the zoom box (0 until it does).
+	sb_proc: isize,
 	pv_pages: u32,
 	/// The scroll bars, which are controls placed in the page area, and whether each shows.
 	vbar: Handle,
@@ -1459,8 +1461,8 @@ const ID_SPELL: usize = 700;
 const ID_SPELL_IGNORE: usize = 705;
 const ID_SPELL_ADD: usize = 706;
 const MF_GRAYED: u32 = 1;
-const TPM_RIGHTBUTTON: u32 = 2;
-const TPM_RETURNCMD: u32 = 0x100;
+pub(crate) const TPM_RIGHTBUTTON: u32 = 2;
+pub(crate) const TPM_RETURNCMD: u32 = 0x100;
 
 /// The context menu was asked for, with the pointer at (`x`, `y`) in the client area or, from the keyboard (Shift+F10 or the menu key),
 /// at the caret: over a misspelt word it opens a menu of the word's suggestions, Ignore All and Add to Dictionary.
@@ -2247,6 +2249,7 @@ pub extern "C" fn start() -> ! {
 		sb: null_mut(),
 		status_h: 0,
 		sb_text: Default::default(),
+		sb_proc: 0,
 		pv_pages: 1,
 		vbar: null_mut(),
 		hbar: null_mut(),
@@ -2385,6 +2388,7 @@ pub extern "C" fn start() -> ! {
 				sh.pv_btns = ui::create_preview_buttons(hwnd, instance);
 				(sh.vbar, sh.hbar) = ui::create_bars(hwnd, instance);
 				sh.sb = ui::create_status(hwnd, instance);
+				ui::status_hook(sh);
 				ui::status_layout(hwnd, sh);
 				sh.wheel_msg = RegisterWindowMessageA(b"MSWHEEL_ROLLMSG\0".as_ptr());
 				sh.tips = tips::Tips::new(hwnd, instance);

@@ -62,6 +62,7 @@ kernel32.dll!WriteFile
 user32.dll!AdjustWindowRect
 user32.dll!AppendMenuA
 user32.dll!BeginPaint
+user32.dll!CallWindowProcA
 user32.dll!CheckDlgButton
 user32.dll!CheckMenuItem
 user32.dll!CheckRadioButton
@@ -105,6 +106,7 @@ user32.dll!SetDlgItemTextA
 user32.dll!SetFocus
 user32.dll!SetScrollInfo
 user32.dll!SetTimer
+user32.dll!SetWindowLongA
 user32.dll!SetWindowPos
 user32.dll!SetWindowTextA
 user32.dll!ShowWindow
