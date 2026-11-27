@@ -296,7 +296,7 @@ run_mouse_gfx() { # <label> <machine> <arguments> <16|256> [scenario, default g8
 	local file="$ROOT/tests/scenarios/$scen.keys"
 	local doc open=""
 	doc="$(grep '^@copy' "$file" | sed 's/#.*//' | awk '{print $2}')"
-	open="$(grep '^@open' "$file" | sed 's/#.*//' | awk '{print $2}')"
+	open="$(grep '^@open' "$file" | sed 's/#.*//' | awk '{print $2}' || true)"
 	local disk="$WORK/disk-$label"
 	rm -rf "$disk" "$WORK/keep"
 	mkdir -p "$disk"
@@ -320,6 +320,7 @@ run_mouse_gfx() { # <label> <machine> <arguments> <16|256> [scenario, default g8
 		fail "$label: the video memory differs from the frame drawn"
 	fi
 	echo "e2e: $label: all $(grep -c '^frame' "$WORK/$label-frames.txt") frames equal the host's, and the video memory read back equals each frame"
+	[ -n "$open" ] || return 0
 	cmp "$disk/$open" "$ROOT/tests/golden/files/$scen.rtf" || fail "$label: the saved $open differs from the host's"
 	echo "e2e: $label: the saved $open is byte-identical to the host's"
 }
@@ -333,6 +334,10 @@ for scen in menus dialogs toolbar scroll hscroll fields ruler; do
 	run_mouse_gfx "g8-gfx-$scen-12h" svga_s3 /G16 16 "g8-gfx-$scen"
 	run_mouse_gfx "g8-gfx-$scen-vbe" svga_s3 /G 256 "g8-gfx-$scen"
 done
+# Check Spelling as You Type in graphics (tests/scenarios/g10-gfx-spell.keys): `@spell` runs the whole scan after each frame, as the host's
+# does, and the waves are in the frames' CRCs.
+run_mouse_gfx g10-gfx-spell-12h svga_s3 /G16 16 g10-gfx-spell
+run_mouse_gfx g10-gfx-spell-vbe svga_s3 /G 256 g10-gfx-spell
 # The file dialog in graphics (tests/scenarios/g9-gfx-*.keys): the dialog's folders, dates and sizes come from a real disk, as in the text
 # scenarios (`stage_disk`), and the keys are played from a file (Alt chords and waits). The program and its font sit in the folder QUILL,
 # out of every listing; the CRC-32 of every frame must equal the host's in both graphics modes, and the video memory read back equal each

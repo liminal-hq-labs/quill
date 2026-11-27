@@ -46,6 +46,29 @@ pub fn sync_view<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s:
 	hclamp(app, s);
 }
 
+/// Tells the spelling scanner which lines the page area shows (Check Spelling as You Type): the first position of the first line to the
+/// end of the last that begins above the area's bottom.
+pub fn spell_view<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s: &S) {
+	let page = Layout::of(app).page;
+	let g = quill_app::view::PageGeom::of(app, s);
+	let first = app.top_line();
+	let (mut lo, mut hi) = (u32::MAX, 0);
+	app.for_each_line_from(s, first, |i, l| {
+		if i < first {
+			return true;
+		}
+		if g.line_y(l, page.top) > page.bottom {
+			return false;
+		}
+		lo = lo.min(l.start);
+		hi = hi.max(l.start + l.len);
+		true
+	});
+	if lo < hi {
+		app.spell_set_view(lo, hi);
+	}
+}
+
 /// The text column's left edge is at the left edge of a page area `client_w` wide: where the page is scrolled sideways when nothing is
 /// wider than the area.
 fn hbase<M: Measure + Clone>(app: &App<M>, client_w: i32) -> i32 {

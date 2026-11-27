@@ -37,7 +37,7 @@ use quill_grid::{Grid, GridMeasure};
 use quill_heap::HeapStore;
 use quill_mouse::Ev;
 use quill_paint::pointer::{Gfx, View};
-use quill_paint::raster::{Linear8, Planar4};
+use quill_paint::raster::AnyRaster;
 use quill_paint::shell::{self, Graphics};
 use quill_strike::{StrikeMeasure, Strikes};
 use rt::dos::{File, Mode};
@@ -164,7 +164,7 @@ impl Spell {
 		app: &mut App<ScreenMeasure>,
 		store: &mut HeapStore,
 		files: &mut files::DosFiles,
-		text_rows: usize,
+		text_rows: Option<usize>,
 	) -> bool {
 		if self.done || !app.spell_live() || !app.editing() {
 			return false;
@@ -173,7 +173,12 @@ impl Spell {
 			if mouse::ticks().wrapping_sub(self.last_input) < SPELL_QUIET {
 				return false;
 			}
-			app.spell_view_rows(store, text_rows);
+			match text_rows {
+				Some(rows) => {
+					app.spell_view_rows(store, rows);
+				}
+				None => shell::spell_view(app, store),
+			}
 			self.scanning = true;
 		}
 		if !app.spell_live_ready(store, files) {
@@ -415,7 +420,7 @@ fn run(rows: usize, kept: &Kept) -> i32 {
 				});
 			}
 			// Nothing happened and the keyboard is quiet: a few words of spelling, and the screen again when a mark came or went.
-			if !any && spell.step(&mut app, &mut store, &mut files, rows - 2) {
+			if !any && spell.step(&mut app, &mut store, &mut files, Some(rows - 2)) {
 				any = true;
 				clicked = true;
 			}
@@ -457,17 +462,13 @@ fn paint(
 	view: &View,
 ) {
 	let mut ui = StrikeMeasure::new(strikes);
-	match scr.kind {
-		gfx::Kind::Planar16 => {
-			if let Some(mut sf) = Planar4::new(&mut scr.shadow, *strikes, fnt) {
-				shell::paint_screen_view(&mut sf, app, &mut ui, store, window, view);
-			}
-		}
-		gfx::Kind::Linear256 => {
-			if let Some(mut sf) = Linear8::new(&mut scr.shadow, 640, 480, 640, *strikes, fnt) {
-				shell::paint_screen_view(&mut sf, app, &mut ui, store, window, view);
-			}
-		}
+	// One surface for both modes, so the painter is linked once (DOS-43).
+	let sf = match scr.kind {
+		gfx::Kind::Planar16 => AnyRaster::planar(&mut scr.shadow, *strikes, fnt),
+		gfx::Kind::Linear256 => AnyRaster::linear(&mut scr.shadow, 640, 480, 640, *strikes, fnt),
+	};
+	if let Some(mut sf) = sf {
+		shell::paint_screen_view(&mut sf, app, &mut ui, store, window, view);
 	}
 }
 
@@ -511,6 +512,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 	let mut gfx = Gfx::new(&mut StrikeMeasure::new(strikes));
 	let mut at: Option<(i32, i32)> = None;
 	let mut repaint = true;
+	let mut spell = Spell::new();
 	loop {
 		if repaint {
 			// A pass over the laid-out lines is what the painter does several times a screen; timing one shows what layout costs.
@@ -557,6 +559,12 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 				scr.show_pointer(p);
 			}
 			repaint = false;
+			// A test script goes quiet after each frame: the whole scan runs, as the host's does, and the marks show from the next
+			// frame on.
+			if steps.is_some() && app.spell_live() && app.spell_live_ready(&mut store, &mut files) {
+				shell::spell_view(&mut app, &store);
+				while app.spell_idle(&mut store, SPELL_WORDS) {}
+			}
 		} else if let Some(p) = at {
 			if scr.pointer() != Some(p) {
 				scr.show_pointer(p);
@@ -608,6 +616,9 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 							shift: keys::shift_down(),
 							tick: mouse::ticks(),
 						};
+						if !matches!(ev, Ev::Move { .. }) {
+							spell.input();
+						}
 						clock_for(&mut app, ev);
 						// A press, a release, the wheel, a drag, a lit menu item, a held button: whatever the pointer changed on the
 						// screen. A plain move is the arrow's.
@@ -619,6 +630,11 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 						tick: mouse::ticks(),
 					};
 					if gfx.handle(&mut app, &mut store, &mut files, Ev::Tick, ctx) {
+						moved = true;
+						any = true;
+					}
+					// Nothing happened and the keyboard is quiet: a few words of spelling, and the page again when a mark came or went.
+					if !any && spell.step(&mut app, &mut store, &mut files, None) {
 						moved = true;
 						any = true;
 					}
@@ -638,6 +654,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 			}
 		};
 		if let Some(k) = key {
+			spell.input();
 			// An open drop-down list takes its own keys; every other key goes to the app.
 			if !gfx.key(&mut app, &mut store, k) {
 				clock::set(&mut app);

@@ -388,7 +388,7 @@ Every build keeps every property of the document. The table says what each shows
 | Caret | Blinks at the system's rate (W16-17) | Blinks at the system's rate (W9X-12) | Steady | Steady |
 | Printing | Windows printer drivers | Windows printer drivers | Plain text | Plain text; PostScript stretch |
 | Clipboard | Windows: RTF, DIB, text | Windows: RTF, DIB, text | Own; Windows text in a DOS box | As text mode |
-| Spelling as you type | Off by default; wave and pop-up menu (W16-21) | On by default | Off by default; a red background, reverse in mono (DOS-41) | Not built yet |
+| Spelling as you type | Off by default; wave and pop-up menu (W16-21) | On by default | Off by default; a red background, reverse in mono (DOS-41) | Off by default; a red wave (DOS-43) |
 | Help | WinHelp 3.1 | WinHelp 4 (same file) | Own viewer, `QUILL.HLX` | As text mode |
 | File names | 8.3 | Long names | 8.3 | 8.3 |
 | Common dialogs | `COMMDLG.DLL` | `COMDLG32.DLL` | Quill's own | Quill's own |

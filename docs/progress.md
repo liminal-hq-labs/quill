@@ -194,6 +194,12 @@ Built on the Windows 95 build (D201, D202): the scanner is in `quill-app` (`spel
 - **Checked by.** `win16/tools/e2e-spell-w31.sh` on Windows 3.11 in DOSBox-X: the wave, the right button's menu, a suggestion replacing a word, Shift+F10, File > Exit with the stack margin, and `AsYouType=1` kept.
 - **Pictures.** `quill-spell-win16-typed.png`, `-menu.png`, `-fixed.png` and `-keymenu.png`.
 
+#### DOS graphics (DOS-43)
+
+- **How it runs.** The graphics loop runs the same idle scan as the text screen; `LinePainter` in `quill-paint` draws the wave, so the page painter every shared surface uses has it. Off by default.
+- **Bytes.** The two copies of the generic painter are one (`AnyDev`): `QUILLDOS.EXE` 429,056 to 412,672 bytes with the waves and the scan in, against the 432,128 budget (19,456 left for the graphics zoom). Paint time +1.1 % in mode 12h and +3.4 % in VBE at 25,000 cycles.
+- **Checked by.** `g10-gfx-spell` (host goldens in both modes with a picture of the waves, and QUILLDOS.EXE under DOSBox giving the same CRC-32 for every frame), and every other graphics scenario unchanged.
+
 ### Windows 95 paint and key cost (W9X-2)
 
 Measured with `win9x/build.sh --bench` (the `bench` feature, decision W9X-2) and `win9x/tools/w95-spell-bench.sh --off --zoom Width|100`, in DOSBox-X at `cycles=fixed N` on Windows 95 OSR2.5 at 640 by 480 and 8 bits a pixel (the base image's own depth), Times New Roman 12 point, the bench document of 1,344 visible characters, 14 keys typed 2 s apart (6 s at 3,000), Check Spelling as You Type off. `QUILL32-BENCH.EXE` adds only `QueryPerformanceCounter` and `QueryPerformanceFrequency` to the imports; the product's import table is byte for byte what it was. The calls are counted at Quill's own call sites, so the call rows are the same on any machine; the time rows are DOSBox-X's. Two runs at 12,000 cycles and Page Width agreed to 0.04 percent (key to paint median 968.7 and 969.0 ms, paint mean 781.1 and 781.5 ms). "Paint" is the paint a key causes, the mean of 14; one paint is `BeginPaint` to `EndPaint`.

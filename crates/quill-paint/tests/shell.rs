@@ -65,6 +65,7 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 	let mut files = MemFiles::default();
 	stage(&mut files, &sc, &root().join("tests/docs"));
 	let (mut app, mut s, _) = new_app();
+	app.set_spell_live_default(sc.live);
 	app.load_settings(&mut files);
 	app.set_about("Host test run");
 	// The shell shows the file dialog as the DOS graphics shell does, unless the scenario brings the name prompt back (`@prompt`).
@@ -91,6 +92,14 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 	)];
 	let mut gfx = Gfx::new(&mut StrikeMeasure::new(strikes()));
 	let mut tick = 0;
+	// Check Spelling as You Type (`@spell`): the keyboard goes quiet after each frame and the whole scan runs, as the DOS shell does.
+	let settle = |app: &mut TApp, s: &mut quill_host::HostStore, files: &mut MemFiles| {
+		if app.spell_live() {
+			shell::spell_view(app, s);
+			app.drain(s, files, 0);
+		}
+	};
+	settle(&mut app, &mut s, &mut files);
 	for step in &sc.steps {
 		match step {
 			quill_app::script::Step::Key(k) => {
@@ -113,6 +122,7 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 				view: gfx.view(),
 			},
 		));
+		settle(&mut app, &mut s, &mut files);
 		if app.quit() {
 			break;
 		}
@@ -175,7 +185,21 @@ fn golden_of(mode: Mode, name: &str) -> Vec<Frame> {
 			&png,
 		);
 	}
-	if !name.starts_with("g7-") && !name.starts_with("g9-") {
+	if name == "g10-gfx-spell" {
+		// The frame after the words are checked, as a picture: a wave under each misspelt word.
+		let png = encode_indexed(
+			640,
+			480,
+			mode.depth(),
+			&mode.palette(),
+			&frames[frames.len() - 1].pixels,
+		);
+		compare_bytes(
+			&format!("tests/golden/gfx/{name}.{}.marked.png", mode.name()),
+			&png,
+		);
+	}
+	if !name.starts_with("g7-") && !name.starts_with("g9-") && name != "g10-gfx-spell" {
 		let text =
 			std::fs::read_to_string(root().join(format!("tests/scenarios/{name}.keys"))).unwrap();
 		let opened = parse_script(&text).open.unwrap().to_ascii_uppercase();
@@ -226,6 +250,16 @@ fn the_real_driver_scenario_ends_on_the_same_frame_at_16_colours() {
 #[test]
 fn the_real_driver_scenario_ends_on_the_same_frame_at_256_colours() {
 	real_driver_final(Mode::C256);
+}
+
+#[test]
+fn spelling_as_you_type_in_graphics_at_16_colours() {
+	golden_of(Mode::C16, "g10-gfx-spell");
+}
+
+#[test]
+fn spelling_as_you_type_in_graphics_at_256_colours() {
+	golden_of(Mode::C256, "g10-gfx-spell");
 }
 
 #[test]
