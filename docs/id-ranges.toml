@@ -1,0 +1,449 @@
+# Decision-id range registry: every block of decision ids a plan or a package has reserved, per prefix.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+#
+# Reserve a block with `scripts/next-id.sh PREFIX COUNT OWNER` before writing a plan; do not edit blocks by hand
+# except to change a status (reserved, in use, retired) or to correct an owner or source. `python3 scripts/check-ids.py`
+# checks this file against docs/decisions.md, and `--write` regenerates docs/id-ranges.md from it. Legacy `D` numbers are
+# frozen history and are not recorded here.
+
+# Ids that `docs/decisions.md` uses twice today. Neither row is renumbered (the SPEC and the code cite both); the checker
+# accepts exactly these and fails if one stops being a duplicate.
+[[known_duplicate]]
+id = "CORE-64"
+note = "The default-extension rule and the page view scrolling in pixels; docs/work-packages.md, Found while planning, says the second takes a sub-number under CORE-65 the next time it is touched."
+
+# Two blocks that overlap today. Recorded, not renumbered; the owner settles which keeps the ids.
+[[known_overlap]]
+prefix = "W9X"
+owners = ["Reveal Codes (WP-CODES)", "Host integration (WP-HOST)"]
+note = "docs/work-packages.md reserves W9X-100 to W9X-104 for Reveal Codes, and docs/plans/host-integration.md reserves W9X-100 and W9X-101 for itself. docs/plans/preferences.md and host-integration.md say W9X-95 to W9X-99 belong to Reveal Codes; no block records that, so W9X-95 to W9X-99 are unreserved."
+
+# Pull requests that are open and add ids. Blocks they reserve carry the pull request as their source.
+[[open_pr]]
+number = 182
+branch = "docs/status-bar-plan"
+note = "Plans one status bar layout. Reserves the Status bar blocks in its docs/work-packages.md; adds no rows to docs/decisions.md yet."
+
+# Ids already in `docs/decisions.md` outside every block when the registry began: decisions from before blocks were recorded.
+# They are accepted as they stand and never renumbered. A new id outside a block is an error.
+[[grandfather]]
+prefix = "ARCH"
+numbers = [1, 2, 3, 4, 5]
+
+[[grandfather]]
+prefix = "CI"
+numbers = [1]
+
+[[grandfather]]
+prefix = "CORE"
+numbers = [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 39, 40, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70]
+
+[[grandfather]]
+prefix = "DOS"
+numbers = [1, 2, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48]
+
+[[grandfather]]
+prefix = "INS"
+numbers = [1, 2, 3, 4, 5, 6, 7]
+
+[[grandfather]]
+prefix = "LNX"
+numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 26, 27, 28]
+
+[[grandfather]]
+prefix = "SITE"
+numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+
+[[grandfather]]
+prefix = "W16"
+numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+
+[[grandfather]]
+prefix = "W9X"
+numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+
+[[block]]
+prefix = "ARCH"
+first = 6
+last = 10
+owner = "Editor track (WP-ED)"
+status = "in use"
+source = "docs/work-packages.md#decision-ids"
+
+[[block]]
+prefix = "ARCH"
+first = 11
+last = 29
+owner = "Editor track (WP-ED), ARCH packages"
+status = "in use"
+source = "docs/work-packages.md#decision-ids"
+
+[[block]]
+prefix = "ARCH"
+first = 30
+last = 34
+owner = "Preferences (WP-PREF)"
+status = "in use"
+source = "docs/plans/preferences.md"
+
+[[block]]
+prefix = "ARCH"
+first = 35
+last = 35
+owner = "Reveal Codes (WP-CODES)"
+status = "reserved"
+source = "docs/plans/reveal-codes.md"
+
+[[block]]
+prefix = "ARCH"
+first = 40
+last = 42
+owner = "Optional modules (WP-MOD)"
+status = "reserved"
+source = "docs/plans/modules.md"
+
+[[block]]
+prefix = "CORE"
+first = 41
+last = 47
+owner = "Editing review"
+status = "in use"
+source = "docs/work-packages.md#decision-ids"
+
+[[block]]
+prefix = "CORE"
+first = 55
+last = 55
+owner = "Editing review"
+status = "reserved"
+source = "docs/work-packages.md#decision-ids"
+
+[[block]]
+prefix = "CORE"
+first = 90
+last = 99
+owner = "Optional modules (WP-MOD)"
+status = "reserved"
+source = "docs/plans/modules.md"
+
+[[block]]
+prefix = "CORE"
+first = 100
+last = 139
+owner = "Editor track (WP-ED)"
+status = "reserved"
+source = "docs/work-packages.md#decision-ids"
+
+[[block]]
+prefix = "CORE"
+first = 140
+last = 144
+owner = "Zoom review"
+status = "in use"
+source = "docs/plans/zoom-review.md"
+
+[[block]]
+prefix = "CORE"
+first = 150
+last = 169
+owner = "Preferences (WP-PREF)"
+status = "in use"
+source = "docs/plans/preferences.md"
+
+[[block]]
+prefix = "CORE"
+first = 180
+last = 199
+owner = "Reveal Codes (WP-CODES)"
+status = "reserved"
+source = "docs/plans/reveal-codes.md"
+
+[[block]]
+prefix = "CORE"
+first = 200
+last = 209
+owner = "Status bar (WP-BAR)"
+status = "reserved"
+source = "https://github.com/liminal-hq-labs/quill/pull/182"
+
+[[block]]
+prefix = "DOS"
+first = 50
+last = 59
+owner = "Optional modules (WP-MOD)"
+status = "reserved"
+source = "docs/plans/modules.md"
+
+[[block]]
+prefix = "DOS"
+first = 70
+last = 79
+owner = "Editor track (WP-ED)"
+status = "in use"
+source = "docs/work-packages.md#decision-ids"
+
+[[block]]
+prefix = "DOS"
+first = 80
+last = 89
+owner = "Preferences (WP-PREF)"
+status = "reserved"
+source = "docs/plans/preferences.md"
+
+[[block]]
+prefix = "DOS"
+first = 90
+last = 99
+owner = "Reveal Codes (WP-CODES)"
+status = "reserved"
+source = "docs/plans/reveal-codes.md"
+
+[[block]]
+prefix = "DOS"
+first = 100
+last = 109
+owner = "Status bar (WP-BAR)"
+status = "reserved"
+source = "https://github.com/liminal-hq-labs/quill/pull/182"
+
+[[block]]
+prefix = "INS"
+first = 8
+last = 9
+owner = "Preferences (WP-PREF)"
+status = "reserved"
+source = "docs/plans/preferences.md"
+
+[[block]]
+prefix = "INS"
+first = 20
+last = 22
+owner = "Optional modules (WP-MOD)"
+status = "reserved"
+source = "docs/plans/modules.md"
+
+[[block]]
+prefix = "LNX"
+first = 21
+last = 24
+owner = "UI track (WP-GTK, WP-WINUI)"
+status = "in use"
+source = "docs/ui-track.md"
+
+[[block]]
+prefix = "LNX"
+first = 60
+last = 64
+owner = "Preferences (WP-PREF)"
+status = "reserved"
+source = "docs/plans/preferences.md"
+
+[[block]]
+prefix = "LNX"
+first = 65
+last = 69
+owner = "Editor track (WP-ED)"
+status = "reserved"
+source = "docs/work-packages.md#decision-ids"
+
+[[block]]
+prefix = "LNX"
+first = 70
+last = 74
+owner = "Reveal Codes (WP-CODES)"
+status = "reserved"
+source = "docs/plans/reveal-codes.md"
+
+[[block]]
+prefix = "LNX"
+first = 80
+last = 89
+owner = "GTK printing, help and dark paper (WP-GTK)"
+status = "in use"
+source = "docs/plans/gtk-print-help.md"
+
+[[block]]
+prefix = "LNX"
+first = 90
+last = 94
+owner = "Status bar (WP-BAR)"
+status = "reserved"
+source = "https://github.com/liminal-hq-labs/quill/pull/182"
+
+[[block]]
+prefix = "SITE"
+first = 14
+last = 19
+owner = "Web demo (WP-WEB)"
+status = "in use"
+source = "docs/plans/web-demo.md"
+
+[[block]]
+prefix = "SITE"
+first = 20
+last = 24
+owner = "Pointer (WP-PTR)"
+status = "in use"
+source = "docs/plans/pointer.md"
+
+[[block]]
+prefix = "SITE"
+first = 30
+last = 39
+owner = "Host integration (WP-HOST)"
+status = "in use"
+source = "docs/plans/host-integration.md"
+
+[[block]]
+prefix = "W16"
+first = 40
+last = 49
+owner = "Optional modules (WP-MOD)"
+status = "reserved"
+source = "docs/plans/modules.md"
+
+[[block]]
+prefix = "W16"
+first = 60
+last = 79
+owner = "Editor track (WP-ED)"
+status = "in use"
+source = "docs/work-packages.md#decision-ids"
+
+[[block]]
+prefix = "W16"
+first = 80
+last = 84
+owner = "Zoom review"
+status = "in use"
+source = "docs/plans/zoom-review.md"
+
+[[block]]
+prefix = "W16"
+first = 90
+last = 99
+owner = "Preferences (WP-PREF)"
+status = "reserved"
+source = "docs/plans/preferences.md"
+
+[[block]]
+prefix = "W16"
+first = 100
+last = 104
+owner = "Reveal Codes (WP-CODES)"
+status = "reserved"
+source = "docs/plans/reveal-codes.md"
+
+[[block]]
+prefix = "W16"
+first = 110
+last = 114
+owner = "Status bar (WP-BAR)"
+status = "reserved"
+source = "https://github.com/liminal-hq-labs/quill/pull/182"
+
+[[block]]
+prefix = "W9X"
+first = 40
+last = 41
+owner = "Optional modules (WP-MOD)"
+status = "reserved"
+source = "docs/plans/modules.md"
+
+[[block]]
+prefix = "W9X"
+first = 60
+last = 79
+owner = "Editor track (WP-ED)"
+status = "reserved"
+source = "docs/work-packages.md#decision-ids"
+
+[[block]]
+prefix = "W9X"
+first = 80
+last = 84
+owner = "Zoom review"
+status = "in use"
+source = "docs/plans/zoom-review.md"
+
+[[block]]
+prefix = "W9X"
+first = 90
+last = 94
+owner = "Print to PDF (WP-WEB-3)"
+status = "in use"
+source = "docs/plans/web-demo.md"
+
+[[block]]
+prefix = "W9X"
+first = 100
+last = 101
+owner = "Host integration (WP-HOST)"
+status = "reserved"
+source = "docs/plans/host-integration.md"
+
+[[block]]
+prefix = "W9X"
+first = 100
+last = 104
+owner = "Reveal Codes (WP-CODES)"
+status = "reserved"
+source = "docs/plans/reveal-codes.md"
+
+[[block]]
+prefix = "W9X"
+first = 110
+last = 119
+owner = "Preferences (WP-PREF)"
+status = "reserved"
+source = "docs/plans/preferences.md"
+
+[[block]]
+prefix = "W9X"
+first = 120
+last = 124
+owner = "Status bar (WP-BAR)"
+status = "reserved"
+source = "https://github.com/liminal-hq-labs/quill/pull/182"
+
+[[block]]
+prefix = "WUI"
+first = 1
+last = 2
+owner = "UI track (WP-GTK, WP-WINUI)"
+status = "in use"
+source = "docs/ui-track.md"
+
+[[block]]
+prefix = "WUI"
+first = 60
+last = 64
+owner = "Preferences (WP-PREF)"
+status = "reserved"
+source = "docs/plans/preferences.md"
+
+[[block]]
+prefix = "WUI"
+first = 65
+last = 69
+owner = "Editor track (WP-ED)"
+status = "reserved"
+source = "docs/work-packages.md#decision-ids"
+
+[[block]]
+prefix = "WUI"
+first = 70
+last = 74
+owner = "Reveal Codes (WP-CODES)"
+status = "reserved"
+source = "docs/plans/reveal-codes.md"
+
+[[block]]
+prefix = "WUI"
+first = 80
+last = 84
+owner = "Status bar (WP-BAR)"
+status = "reserved"
+source = "https://github.com/liminal-hq-labs/quill/pull/182"

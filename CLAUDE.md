@@ -17,7 +17,7 @@ Quill is a Liminal HQ Labs experiment: one word processor for DOS, Windows 3.1 a
 - **Headers.** SPDX header on every source, script, YAML, TOML and SVG file: summary line, blank, "(c) Copyright 2026 Liminal HQ, Scott Morris", `SPDX-License-Identifier: Apache-2.0 OR MIT`.
 - **CI.** One job per check. Test results reach the PR through the pr-results publisher (`publish-test-results.yml`, pinned by SHA) from the `rust-test-results` and `event-file` artefacts. Shared images come from `liminal-hq/.github` (`ci-rust`, `ci-dos`), pinned by digest; the DOS tools come from the image's `DOS_TOOLCHAIN`, not a download (CI-1). Dependabot is off unless the project opts in.
 - **Docs.** Update `SPEC.md` and `docs/decisions.md` in the same change as the behaviour.
-- **Decision IDs.** New decisions in `docs/decisions.md` take an area prefix (`CORE`, `ARCH`, `DOS`, `W16`, `W9X`, `LNX`, `WUI`, `WEB`, `DSK`, `INS`, `SITE`) and a number, such as `LNX-1`, with sub-decisions as `LNX-1.1`. Legacy `D1` to `D2xx` numbers are frozen and stay valid as references; nothing new takes one.
+- **Decision IDs.** New decisions in `docs/decisions.md` take an area prefix (`CORE`, `ARCH`, `DOS`, `W16`, `W9X`, `LNX`, `WUI`, `WEB`, `DSK`, `INS`, `SITE`, `CI`) and a number, such as `LNX-1`, with sub-decisions as `LNX-1.1`. Legacy `D1` to `D2xx` numbers are frozen and stay valid as references; nothing new takes one. **Reserve a block with `scripts/next-id.sh PREFIX COUNT OWNER` before writing a plan** (it records the block in `docs/id-ranges.toml` and regenerates `docs/id-ranges.md`); a package takes ids from inside its owner's block, and `python3 scripts/check-ids.py` fails on overlapping blocks, a duplicate id or an id outside every block. Never renumber to fix a clash: record it.
 
 ## Commands
 
@@ -30,5 +30,6 @@ python3 -I scripts/check-site.py # links and assets in site/, the GitHub Pages p
 bash scripts/build-try.sh --build        # the Try Quill disk bundle, site/try/quill.<hash>.jsdos and try-manifest.json (FreeDOS 1.3 + QUILLDOS.EXE for js-dos; needs mtools)
 bash scripts/check-try.sh        # the Try Quill cache busting: hashed bundle, manifest, page versions (needs mtools)
 python3 -I tools/test_icons.py   # the committed icons; bash tools/make-icons.sh rebuilds them
+python3 -I scripts/check-ids.py   # decision-id registry; scripts/next-id.sh PREFIX COUNT OWNER reserves a block
 docker run --rm -v "$PWD:/workdir" davidanson/markdownlint-cli2:v0.17.2 "**/*.md"
 ```
