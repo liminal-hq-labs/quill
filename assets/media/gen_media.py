@@ -135,13 +135,11 @@ WIN_YELLOW = "#ffff00"
 # Afterglow dusk: the boot palette of liminal-hq/afterglow-themes desktop/boot/palette.json, night to gold
 DUSK = ("#1f2554", "#2a3164", "#35366a", "#42396c", "#523d6c", "#643f68", "#7a4562", "#b8893a", "#e89930", "#ffaa40", "#ffd08e")
 RUST = "#a4441c"
-AFTERGLOW_GOLD, AFTERGLOW_GOLD_LIGHT = "#ffaa40", "#ffd08e"  # the Afterglow Start button's face and its light
 
 FONT_DIR = os.path.join(ROOT, "assets", "fonts", "desk")
 ICON_SVG = os.path.join(ROOT, "assets", "icon", "quill.svg")
 ICON_31 = os.path.join(ROOT, "assets", "icon", "QUILL31.ICO")
 ICON_ALL = os.path.join(ROOT, "assets", "icon", "QUILL.ICO")
-START_ORB = os.path.join(HERE, "vendor", "afterglow-start-orb.svg")
 MEDIA_DIR = os.path.join(ROOT, "docs", "media")
 
 FACES = {
@@ -649,38 +647,12 @@ def menu_panel(x, y, width, items, highlight, row=4.2, sidebar=None):
 	return "".join(out), height
 
 
-def start_orb(x, y, size, prefix):
-	"""The Afterglow Start orb (vendor/afterglow-start-orb.svg, the master of the ReactOS remaster's Start button): a dusk disc with a
-	half-set gold sun, its left 160 x 160 square, ids given a prefix."""
-	source = open(START_ORB).read()
-	body = source[source.index(">", source.index("<svg")) + 1: source.rindex("</svg>")]
-	body = re.sub(r"<title>.*?</title>", "", body)
-	body = re.sub(r'id="([^"]+)"', lambda match: 'id="%s-%s"' % (prefix, match.group(1)), body)
-	body = re.sub(r"url\(#([^)]+)\)", lambda match: "url(#%s-%s)" % (prefix, match.group(1)), body)
-	return '<svg x="%s" y="%s" width="%s" height="%s" viewBox="0 0 160 160">%s</svg>' % (
-		number(x), number(y), number(size), number(size), body)
-
-
-_orb_count = [0]
-
-
 def start_button(x, y, width, height, pressed=False):
-	"""A Start button in the Afterglow look of the ReactOS remaster: the gold face, the dusk orb and the word Start in ink."""
-	_orb_count[0] += 1
-	face, light, shadow = AFTERGLOW_GOLD, AFTERGLOW_GOLD_LIGHT, GOLD_LOW
-	if pressed:
-		light, shadow = shadow, light
-	depth = 0.3
-	out = [rect(x, y, width, height, face)]
-	out.append(rect(x, y + height - depth, width, depth, INK_800))
-	out.append(rect(x + width - depth, y, depth, height, INK_800))
-	out.append(rect(x, y, width - depth, depth, light))
-	out.append(rect(x, y, depth, height - depth, light))
-	out.append(rect(x, y + height - 2 * depth, width - depth, depth, shadow))
-	out.append(rect(x + width - 2 * depth, y, depth, height - depth, shadow))
-	icon = height - 1.2
-	out.append(start_orb(x + 0.7, y + 0.6, icon, "orb%d" % _orb_count[0]))
-	out.append(text("Start", x + 1.2 + icon, y + height * 0.7, 7.0, "sans-bold", INK_800))
+	"""The classic grey Windows 95 Start button, with the small 16-colour Quill icon where the flag would be and the word Start."""
+	out = [bevel(x, y, width, height, raised=not pressed, depth=0.3)]
+	icon = height - 1.6
+	out.append(pixel_icon(x + 0.9, y + 0.8, icon, pixels=16))
+	out.append(text("Start", x + 1.6 + icon, y + height * 0.7, 7.0, "sans-bold", WIN_DARK))
 	return "".join(out)
 
 
@@ -1164,7 +1136,7 @@ def sticker_w31():
 	out = [round_ground(WIN_FACE)]
 	window, client_top = win31_window(8.0, 9.0, STICKER - 16.0, 25.0, "Quill", title_points=7.0)
 	out.append(window)
-	out.append(emblem(R - 5.0, client_top + 2.6, 10.0, "s-w31-emblem", tile=True))
+	out.append(pixel_icon(R - 5.0, client_top + 2.6, 10.0))
 	caption_width = text_width("Quill", "sans", 6.5) + 1.2
 	out.append(rect(R - caption_width / 2, client_top + 13.6, caption_width, 3.0, WIN_NAVY))
 	out.append(text("Quill", R, client_top + 15.9, 6.5, "sans", WIN_LIGHT, "middle"))
@@ -1207,9 +1179,8 @@ def sticker_rust():
 	out.append("".join(teeth))
 	out.append(circle(R, R, R - 4.3, PARCHMENT_200))
 	out.append(circle(R, R, R - 5.6, RUST))
-	out.append(text("MADE IN", R, 20.0, 8.0, "sans-bold", PARCHMENT_200, "middle", tracking=0.6))
-	out.append(text("RUST", R, 31.0, 20, "serif-bold", PARCHMENT_200, "middle", tracking=0.8))
-	out.append(text("no C compiler", R, 37.5, 6.6, "mono", PARCHMENT_200, "middle"))
+	out.append(text("MADE IN", R, 21.5, 8.0, "sans-bold", PARCHMENT_200, "middle", tracking=0.6))
+	out.append(text("RUST", R, 33.0, 20, "serif-bold", PARCHMENT_200, "middle", tracking=0.8))
 	return "round", "".join(out)
 
 
