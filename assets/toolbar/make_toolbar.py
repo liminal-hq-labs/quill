@@ -214,11 +214,23 @@ def glyph_bold(c):
     c.art(3, 4, [r for r in GLYPH_B][0:1] and [""], {})
 
 
+GLYPH_ITALIC = [
+    "....XXXX",
+    ".....XX.",
+    "....XX..",
+    "....XX..",
+    "...XX...",
+    "...XX...",
+    "..XX....",
+    "..XX....",
+    ".XXXX...",
+]
+
+
 def glyph_italic(c):
-    c.line(10, 3, 6, 11, BLACK)
-    c.line(11, 3, 7, 11, BLACK)
-    c.line(8, 3, 12, 3, BLACK)
-    c.line(4, 11, 8, 11, BLACK)
+    # A slanted I on the rows of the underline glyph: a two-pixel stem that moves one pixel left every two rows, and a four-pixel serif
+    # centred on each end of it.
+    c.art(4, 2, GLYPH_ITALIC, {"X": BLACK})
 
 
 def glyph_underline(c):
