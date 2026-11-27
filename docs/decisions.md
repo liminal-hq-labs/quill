@@ -6,6 +6,8 @@ Each decision is numbered and stays here even when superseded, with a note on wh
 
 New decisions use an area prefix, not a global number, so parallel work does not clash. An ID is the prefix and a number (`LNX-1`), and a sub-decision adds a dot (`LNX-1.1`, `LNX-1.2`) under the decision it refines. Each area counts from 1 in its own rows.
 
+**Reserve a block with `scripts/next-id.sh PREFIX COUNT OWNER` before writing a plan.** Every block of ids a plan or a package has reserved is in [id-ranges.md](id-ranges.md) (rendered from `id-ranges.toml`), a row takes its id from inside its owner's block, and `python3 scripts/check-ids.py` fails in CI on two overlapping blocks, an id used twice or an id outside every block. Clashes already on `main` are recorded there, not renumbered.
+
 | Prefix | Area |
 |---|---|
 | CORE | Shared core crates |

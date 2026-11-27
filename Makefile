@@ -3,9 +3,9 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-.PHONY: installer disks installer-dos installer-w31 installer-w95 dos gtk validate fmt clippy test headers floats layers goldens wasm bare
+.PHONY: installer disks installer-dos installer-w31 installer-w95 dos gtk validate fmt clippy test headers floats layers ids goldens wasm bare
 
-validate: fmt clippy test headers floats layers magic wasm bare
+validate: fmt clippy test headers floats layers ids magic wasm bare
 	@echo "validate: ok"
 
 fmt:
@@ -36,6 +36,10 @@ bare:
 
 layers:
 	python3 -I scripts/check-layers.py
+
+ids:
+	python3 -I scripts/test_check_ids.py
+	python3 -I scripts/check-ids.py
 
 magic:
 	bash scripts/check-magic.sh

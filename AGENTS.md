@@ -97,7 +97,7 @@ Use `#` comments for shell, YAML, TOML and Dockerfiles, and an XML comment for S
 - **One file format.** Only `quill-formats` reads or writes documents, and every build saves the same bytes for the same document.
 - **Win32 and DOS lead, Win16 follows.** Windows UI lands on Win32 first and editing behaviour on DOS text mode first; Win16 ports a working design (D34, D37).
 - **SPEC first.** A change to behaviour, interfaces, settings or defaults updates `SPEC.md` in the same change.
-- **Decision IDs.** New decisions in `docs/decisions.md` take an area prefix (`CORE`, `ARCH`, `DOS`, `W16`, `W9X`, `LNX`, `WUI`, `WEB`, `DSK`, `INS`, `SITE`) and a number, such as `LNX-1`, with sub-decisions as `LNX-1.1`. Legacy `D1` to `D2xx` numbers are frozen and stay valid as references; nothing new takes one.
+- **Decision IDs.** New decisions in `docs/decisions.md` take an area prefix (`CORE`, `ARCH`, `DOS`, `W16`, `W9X`, `LNX`, `WUI`, `WEB`, `DSK`, `INS`, `SITE`, `CI`) and a number, such as `LNX-1`, with sub-decisions as `LNX-1.1`. Legacy `D1` to `D2xx` numbers are frozen and stay valid as references; nothing new takes one. **Reserve a block with `scripts/next-id.sh PREFIX COUNT OWNER` before writing a plan** (it records the block in `docs/id-ranges.toml` and regenerates `docs/id-ranges.md`); a package takes ids from inside its owner's block, and `python3 scripts/check-ids.py` fails on overlapping blocks, a duplicate id or an id outside every block. Never renumber to fix a clash: record it.
 
 ## Testing
 
@@ -105,6 +105,7 @@ Use `#` comments for shell, YAML, TOML and Dockerfiles, and an XML comment for S
 - `python3 -I tools/test_icons.py` — structure, depths, palettes and masks of the committed icons (needs Pillow and numpy); `bash tools/make-icons.sh` regenerates them, in Docker if the host lacks `rsvg-convert`, Pillow or numpy
 - `bash scripts/check-banner.sh` — hero banner rules and text fit (needs `xmllint`, `rsvg-convert`, `python3` and Chromium; `--shots DIR` writes frames to look at)
 - `python3 -I scripts/check-site.py` — every link, image, script and stylesheet in the product site (`site/`) resolves, with alt text, titles and heading order; `--external` fetches the outside links too
+- `python3 -I scripts/check-ids.py` — the decision-id registry (`docs/id-ranges.toml`): no overlapping blocks, no duplicate or out-of-block ids, `docs/id-ranges.md` current (`--write` regenerates it; `python3 -I scripts/test_check_ids.py` tests the checker); `scripts/next-id.sh PREFIX COUNT OWNER` reserves the next free block
 - `docker run --rm -v "$PWD:/workdir" davidanson/markdownlint-cli2:v0.17.2 "**/*.md"` — markdown
 - `docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable scripts/*.sh` — shell scripts
 - `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint` — workflows
