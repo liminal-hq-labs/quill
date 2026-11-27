@@ -2,6 +2,8 @@
 
 Checkpoint A of the autosave and recovery plan asks whether a Win32 `CreateThread` worker can serialize a 1 MB document from an owned copy while the main thread keeps typing and painting, and post its completion back with `PostMessageA`, on the systems Quill32 has to run on. The code is throwaway and lives in `spikes/w32-worker/`, apart from `win9x/` and every workspace; nothing in `QUILL32.EXE` changed. The decision is [W9X-13](decisions.md).
 
+**Status.** The inline path this report recommends has since shipped: `App::idle` runs autosave in abortable slices from the idle loop (CORE and W9X decisions of the same name, #125). The spike code in `spikes/w32-worker/` is unchanged and still stands alone: it shares no code with `quill-app` and is outside `QUILL32.EXE` and `make validate`.
+
 ## Table of contents
 
 - [Answer](#answer)
