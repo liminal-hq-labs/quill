@@ -1,0 +1,14 @@
+# What Quill's remix removes beyond the Afterglow remaster's `base` trim: the network card drivers v86 does not emulate.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+#
+# The base profile keeps the network stack and every card driver. The Try ReactOS page runs in v86, which emulates an NE2000 and
+# nothing else, so these six drivers are dead weight there. `check-trim.sh` proves the base profile plus this file removes exactly
+# what the old guest/trim-list-1.txt to trim-list-3.txt removed.
+f ReactOS/system32/drivers/e1000.sys
+f ReactOS/system32/drivers/rtl8139.sys
+f ReactOS/system32/drivers/pcnet.sys
+f ReactOS/system32/drivers/dc21x4.sys
+f ReactOS/system32/drivers/nvnet.sys
+f ReactOS/system32/drivers/netkvm.sys

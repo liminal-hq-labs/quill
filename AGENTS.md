@@ -127,7 +127,7 @@ docs/          architecture, decisions, roadmap, toolchain needs, testing, docum
 scripts/       header check, banner check and its Chromium text-fit harness, site link check
 tools/         the icon generator (`make_icons.py`, `make-icons.sh` for Docker) and its checks, and the site's link-preview card (`make_social_card.py`)
 installer/     Quill's own installer, built with Liminal Installer (`tools/liminst.sh` finds the pinned `liminst`, `tools/stage.sh` fills `dist/`)
-site/          the product page published to GitHub Pages, with the Try Quill page that runs the DOS build on FreeDOS in js-dos (see `site/README.md`; `scripts/build-try.sh` builds its disk, named by its hash, and the manifest that names it; `scripts/check-try.sh` tests that, SITE-4)
+site/          the product page published to GitHub Pages, with the Try Quill page that runs the DOS build on FreeDOS in js-dos (see `site/README.md`; `scripts/build-try.sh` builds its disk, named by its hash, and the manifest that names it; `scripts/check-try.sh` tests that, SITE-4); `site/try-reactos/` is the ReactOS page, and `site/try-reactos/qagrr/` is its recipe for `rl` (reactos-liminal), pinned by `reactos-liminal.pin` and built by `build-with-rl.sh` (SITE-10)
 .github/       CI and Pages workflows, issue and pull request templates, release notes configuration
 ```
 
