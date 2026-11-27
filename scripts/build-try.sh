@@ -15,7 +15,8 @@
 # FreeDOS 1.3's floppy edition is downloaded from the pinned address and checked against the pinned SHA-256 before anything is
 # unpacked; only its boot floppy's kernel, shell and boot sector are used, and they are not modified. The disk image is made by
 # scripts/make-freedos-image.py (needs mtools), its files are in scripts/try-disk, and the DOSBox settings are
-# scripts/try-dosbox.conf. Nothing here is committed: the bundle is a build output that the Pages workflow makes. Work files go to
+# scripts/try-dosbox.conf. Beside it the bundle carries two empty hard disk images, c.img (the guest's) and d.img (the page's), made by
+# scripts/make-bridge-disks.py, which the page and FreeDOS share (docs/plans/dos-page-bridge.md); SYNC.COM on the floppy flushes them. Nothing here is committed: the bundle is a build output that the Pages workflow makes. Work files go to
 # $QUILL_TRY_DIR (default ~/.cache/quill16-try), not the checkout.
 #
 # Cache busting (SITE-4). The bundle is named by its content: quill.<first 12 hex of its SHA-256>.jsdos, so one name is only ever one
@@ -104,18 +105,22 @@ cp "$ROOT/tests/docs/plain.qld" "$tree/QUILL/SAMPLES/PLAIN.QLD"
 cp "$ROOT/samples/demo.rtf" "$tree/QUILL/SAMPLES/DEMO.RTF"
 cp "$ROOT/tests/docs/pictures.rtf" "$tree/QUILL/SAMPLES/PICTURES.RTF"
 
+# The two hard disks the page shares with FreeDOS (SITE-60) and SYNC.COM, which goes on A:\ beside the batch files.
+python3 -I "$HERE/make-bridge-disks.py" "$WORK/bridge"
+cp "$WORK/bridge/SYNC.COM" "$tree/SYNC.COM"
+
 python3 -I "$HERE/make-freedos-image.py" "$WORK/fl.img" "$boot" "$tree"
 
-# The js-dos bundle is a zip: the settings in .jsdos/ and the floppy image beside them. Fixed times keep the zip repeatable, so the same
+# The js-dos bundle is a zip: the settings in .jsdos/, the floppy image and the two hard disks beside them. Fixed times keep the zip repeatable, so the same
 # inputs give the same bytes and so the same name.
 mkdir -p "$OUTDIR"
 tmp="$OUTDIR/.quill-bundle.tmp"
-python3 -I - "$tmp" "$HERE/try-dosbox.conf" "$WORK/fl.img" <<'PY'
+python3 -I - "$tmp" "$HERE/try-dosbox.conf" "$WORK/fl.img" "$WORK/bridge/c.img" "$WORK/bridge/d.img" <<'PY'
 import sys, zipfile
 
-out, conf, image = sys.argv[1:4]
+out, conf, image, c_image, d_image = sys.argv[1:6]
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-	for name, path in ((".jsdos/dosbox.conf", conf), ("fl.img", image)):
+	for name, path in ((".jsdos/dosbox.conf", conf), ("fl.img", image), ("c.img", c_image), ("d.img", d_image)):
 		info = zipfile.ZipInfo(name, (2026, 1, 1, 0, 0, 0))
 		info.compress_type = zipfile.ZIP_DEFLATED
 		info.external_attr = 0o644 << 16
