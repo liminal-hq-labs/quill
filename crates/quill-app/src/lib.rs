@@ -1364,9 +1364,19 @@ impl<M: Measure + Clone> App<M> {
 		self.insert_next(s, c, None);
 	}
 
+	/// Inserts `c` as part of a paste (CORE-43): a paragraph mark does not close the undo group, so the whole paste undoes as one step.
+	pub(crate) fn insert_pasted<S: Store + ?Sized>(&mut self, s: &mut S, c: u8) {
+		self.insert_in(s, c, None, false);
+	}
+
 	/// Inserts `c` at the caret. After a paragraph mark, `next` is the preset the new paragraph (the one the caret is in) takes, in the
 	/// same undo step as the mark.
 	fn insert_next<S: Store + ?Sized>(&mut self, s: &mut S, c: u8, next: Option<usize>) {
+		self.insert_in(s, c, next, true);
+	}
+
+	/// `insert_next`; `close` says whether a paragraph mark ends the typing group.
+	fn insert_in<S: Store + ?Sized>(&mut self, s: &mut S, c: u8, next: Option<usize>, close: bool) {
 		if self.selection().is_some() {
 			self.end_typing();
 			self.doc.body.begin_group(label::TYPING);
@@ -1423,7 +1433,9 @@ impl<M: Measure + Clone> App<M> {
 				let at = self.caret;
 				self.apply_preset(s, n, at, at);
 			}
-			self.end_typing();
+			if close {
+				self.end_typing();
+			}
 			self.typing_fmt = None;
 		}
 	}

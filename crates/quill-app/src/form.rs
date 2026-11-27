@@ -384,12 +384,17 @@ impl<M: Measure + Clone> App<M> {
 		self.para_command(s, move |p| PFmt { tabset: idx, ..p });
 	}
 
-	/// Copies the selection to the clipboard, which lives until Quill exits.
+	/// Copies the selection to the clipboard, which lives until Quill exits. A selection the clipboard cannot hold is refused with
+	/// the "too large" message and nothing changes, so Cut never deletes text it did not keep (CORE-44).
 	pub(crate) fn clip_copy<S: ReadStore + ?Sized>(&mut self, s: &S) -> bool {
 		let Some((lo, hi)) = self.selection() else {
 			return false;
 		};
-		let n = ((hi - lo) as usize).min(self.clip.len());
+		let n = (hi - lo) as usize;
+		if n > self.clip.len() {
+			self.msg.set("The document is too large for Quill.");
+			return false;
+		}
 		self.clip_len = self
 			.clip
 			.get_mut(..n)
@@ -418,7 +423,7 @@ impl<M: Measure + Clone> App<M> {
 					self.delete_selection(s);
 				}
 				for &b in text.get(..n).unwrap_or(&[]) {
-					self.insert(s, b);
+					self.insert_pasted(s, b);
 				}
 				self.end_typing();
 			}

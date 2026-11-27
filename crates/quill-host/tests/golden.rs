@@ -330,6 +330,18 @@ fn m14_pagebreak_enter_script_matches_its_golden_screens() {
 }
 
 #[test]
+fn m14_paste_undo_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("m14-paste-undo");
+	compare("tests/golden/screens/m14-paste-undo.frames.txt", &frames);
+}
+
+#[test]
+fn m14_cut_guard_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("m14-cut-guard");
+	compare("tests/golden/screens/m14-cut-guard.frames.txt", &frames);
+}
+
+#[test]
 fn m2_headers_script_matches_its_golden_screens() {
 	let (_, frames) = scenario("m2-headers");
 	compare("tests/golden/screens/m2-headers.frames.txt", &frames);

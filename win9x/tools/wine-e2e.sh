@@ -23,7 +23,7 @@ fail() { echo "wine-e2e: FAIL: $*" >&2; exit 1; }
 # scenario name, saved file, golden saved file
 declare -A SAVED=([m1-edit]="PLAIN.QLD m1-edit.qld" [m2-letter]="OUT.RTF m2-letter.rtf" [m4-about]="QUILL.INI m4-quill.ini" [m4-print]="OUT.PRN letter.print.txt" [m4-print-headers]="OUT.PRN headers.print.txt" [m7-picture]="OUT.QLD m7-picture.qld" [m8-spelling]="QUILL.UDC m8-quill.udc")
 names=("$@")
-[ ${#names[@]} -gt 0 ] || names=(m1-edit m2-letter m2-mono m2-find m2-lists m2-headers m2-dialogs m4-about m4-print m4-print-headers m7-picture m8-spelling m15-picture-select m14-pagebreak-enter)
+[ ${#names[@]} -gt 0 ] || names=(m1-edit m2-letter m2-mono m2-find m2-lists m2-headers m2-dialogs m4-about m4-print m4-print-headers m7-picture m8-spelling m15-picture-select m14-pagebreak-enter m14-paste-undo m14-cut-guard)
 for name in "${names[@]}"; do
 	d="$WORK/$name"
 	mkdir -p "$d"
