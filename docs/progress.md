@@ -187,6 +187,13 @@ Built on the Windows 95 build (D201, D202): the scanner is in `quill-app` (`spel
 - **Size.** `QUILLDOS.EXE` 422,912 to 429,056 bytes, against the new 432,128 of DOS-42. The scanner is about 5 KB of it.
 - **Pictures.** `quill-spell-dos-text-colour.png` and `quill-spell-dos-text-mono.png` (`dos/tools/shot-text.sh`).
 
+#### Windows 3.x (W16-21)
+
+- **How it runs.** `SPELL_TIMER` arms 300 ms after a key, a click, a scroll or a command when the setting is on and checks four words every 55 ms; the lines whose marks changed are painted again, and `draw_line` draws the wave. The right button or Shift+F10 opens a pop-up menu of suggestions; Windows 3.1 sends the choice as `WM_COMMAND`. Off by default; Find > Check Spelling as You Type or `AsYouType=1` turns it on.
+- **Bytes.** Data segment 29,428 to 29,540 (data + 29,696 stack + 4,096 heap = 63,332 of 65,536, 2,204 free). Code 313,883 to 324,585 bytes; segments 1: 44,271, 3: 34,441, 4: 5,169, 5: 17,917, 6: 57,034, 7: 58,106, 8: 57,854, 9: 49,793, all under 64 KB. Stack at the end of the spelling session 20,130 of 29,696 (9,070 to spare).
+- **Checked by.** `win16/tools/e2e-spell-w31.sh` on Windows 3.11 in DOSBox-X: the wave, the right button's menu, a suggestion replacing a word, Shift+F10, File > Exit with the stack margin, and `AsYouType=1` kept.
+- **Pictures.** `quill-spell-win16-typed.png`, `-menu.png`, `-fixed.png` and `-keymenu.png`.
+
 ### Windows 95 paint and key cost (W9X-2)
 
 Measured with `win9x/build.sh --bench` (the `bench` feature, decision W9X-2) and `win9x/tools/w95-spell-bench.sh --off --zoom Width|100`, in DOSBox-X at `cycles=fixed N` on Windows 95 OSR2.5 at 640 by 480 and 8 bits a pixel (the base image's own depth), Times New Roman 12 point, the bench document of 1,344 visible characters, 14 keys typed 2 s apart (6 s at 3,000), Check Spelling as You Type off. `QUILL32-BENCH.EXE` adds only `QueryPerformanceCounter` and `QueryPerformanceFrequency` to the imports; the product's import table is byte for byte what it was. The calls are counted at Quill's own call sites, so the call rows are the same on any machine; the time rows are DOSBox-X's. Two runs at 12,000 cycles and Page Width agreed to 0.04 percent (key to paint median 968.7 and 969.0 ms, paint mean 781.1 and 781.5 ms). "Paint" is the paint a key causes, the mean of 14; one paint is `BeginPaint` to `EndPaint`.
