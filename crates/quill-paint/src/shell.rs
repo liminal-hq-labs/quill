@@ -55,6 +55,8 @@ pub fn sync_view<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s:
 	// The scroll position and the lines the window holds are in page units, 96 to the inch.
 	let high = log(page.height(), pct(app));
 	app.set_view_height(high);
+	// The zoom keys step from the percentage shown, which for Page Width is not the setting.
+	app.set_shown_zoom(pct(app));
 	app.set_rows((high / 16).max(1) as usize);
 	hclamp(app, s);
 }

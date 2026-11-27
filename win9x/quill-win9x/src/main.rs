@@ -623,7 +623,14 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 		// WM_MOUSEWHEEL, on Windows 98, Me and NT: the distance is the high word of `wParam`.
 		0x020A => {
 			if let Some(sh) = shell() {
-				ui::wheel(hwnd, sh, ((wparam >> 16) & 0xFFFF) as u16 as i16 as i32);
+				let delta = ((wparam >> 16) & 0xFFFF) as u16 as i16 as i32;
+				// MK_CONTROL (8) in the low word: Ctrl and the wheel zoom about the pointer, which this message gives in screen pixels.
+				if wparam & 8 != 0 && !sh.grid && sh.preview.is_none() {
+					let (x, y) = (lparam as i16 as i32, (lparam >> 16) as i16 as i32);
+					ui::wheel_zoom(hwnd, sh, delta, x, y);
+				} else {
+					ui::wheel(hwnd, sh, delta);
+				}
 			}
 			0
 		}
@@ -767,7 +774,15 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			// the focus, with the distance in `wParam`.
 			if let Some(sh) = shell() {
 				if sh.wheel_msg != 0 && msg == sh.wheel_msg {
-					ui::wheel(hwnd, sh, wparam as u16 as i16 as i32);
+					let delta = wparam as u16 as i16 as i32;
+					// The driver's message carries no key state: read Ctrl from the thread's own, and the pointer from the cursor.
+					if GetKeyState(VK_CONTROL) < 0 && !sh.grid && sh.preview.is_none() {
+						let mut at = Point { x: 0, y: 0 };
+						GetCursorPos(&mut at);
+						ui::wheel_zoom(hwnd, sh, delta, at.x, at.y);
+					} else {
+						ui::wheel(hwnd, sh, delta);
+					}
 					return 0;
 				}
 			}
@@ -1278,6 +1293,11 @@ unsafe fn run_command(hwnd: Handle, c: Command) {
 		return;
 	};
 	ui::blink_restart(hwnd, sh);
+	if matches!(c, Command::ZoomIn | Command::ZoomOut) {
+		// The same step the buttons take, from the zoom shown now (which for Page Width depends on the window).
+		let (w, _) = client_size(hwnd);
+		sh.app.set_shown_zoom(view::zoom_pct(&sh.app, w));
+	}
 	match c {
 		Command::Preview if !sh.grid => {
 			let first = 1;
@@ -1298,6 +1318,8 @@ unsafe fn run_command(hwnd: Handle, c: Command) {
 			c,
 			Command::Chrome(_)
 				| Command::Zoom(_)
+				| Command::ZoomIn
+				| Command::ZoomOut
 				| Command::Recent(_)
 				| Command::Open
 				| Command::SaveAs

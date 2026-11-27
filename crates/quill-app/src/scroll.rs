@@ -8,7 +8,7 @@
 use quill_core::layout::{to_units, Line, Measure};
 use quill_core::store::ReadStore;
 
-use crate::App;
+use crate::{App, Command};
 
 /// The grey gap between pages, and above the first sheet at the scroll origin.
 pub const PAGE_GAP: i32 = 10;
@@ -339,7 +339,41 @@ pub fn zoom_level_index(zoom: u16) -> Option<usize> {
 	ZOOM_LEVELS.iter().position(|&l| l == zoom)
 }
 
+/// The command a click on the minus (`up` false) or plus (`up` true) button runs, or `None` when there is no level that way, which is
+/// when a shell greys the button. `shown` is the percentage the page is drawn at now, which is not the setting while it is Page
+/// Width. Minus goes to the largest percentage below it and plus to the smallest above it, so Page Width, which has no step of its
+/// own, is left by either button and reached only from the list. The keys and View > Zoom In and Zoom Out take the same step (`Command::ZoomIn`, `ZoomOut`).
+pub fn zoom_step(shown: i32, up: bool) -> Option<Command> {
+	let mut found: Option<u16> = None;
+	for &level in ZOOM_LEVELS.iter().filter(|&&level| level != 0) {
+		let level_pct = i32::from(level);
+		let better = if up {
+			level_pct > shown && found.is_none_or(|best| level < best)
+		} else {
+			level_pct < shown && found.is_none_or(|best| level > best)
+		};
+		if better {
+			found = Some(level);
+		}
+	}
+	found.map(Command::Zoom)
+}
+
 impl<M: Measure + Clone> App<M> {
+	/// Tells the zoom keys what percentage the page is drawn at now, which for Page Width depends on the window; the shell says it whenever it lays the page out.
+	pub fn set_shown_zoom(&mut self, pct: i32) {
+		self.zoom_shown = pct.clamp(25, 200) as u16;
+	}
+
+	/// The percentage the page is drawn at now: the zoom chosen, or for Page Width what the shell last said.
+	pub fn zoom_shown(&self) -> i32 {
+		if self.zoom == 0 {
+			i32::from(self.zoom_shown)
+		} else {
+			i32::from(self.zoom)
+		}
+	}
+
 	/// The box's text now: the view's zoom as `Page Width` or a percentage. Returns the length written to `out`.
 	pub fn zoom_field_text(&self, out: &mut [u8; ZOOM_TEXT_MAX]) -> usize {
 		zoom_text(self.zoom(), out)

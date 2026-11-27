@@ -87,11 +87,13 @@
 			{ "text": "&Ruler", "id": 153 },
 			{ "text": "&Status Bar", "id": 154 },
 			{ "separator": true },
-			{ "text": "&Zoom", "items": [ { "text": "&Page Width", "id": 155 }, { "text": "&150%", "id": 156 }, { "text": "1&00%", "id": 157 }, { "text": "&75%", "id": 158 }, { "text": "&50%", "id": 159 } ] }
+			{ "text": "Zoom &In\tCtrl+Num +", "id": 155 },
+			{ "text": "Zoom &Out\tCtrl+-", "id": 156 },
+			{ "text": "&Zoom", "items": [ { "text": "&Page Width", "id": 157 }, { "text": "&150%", "id": 158 }, { "text": "1&00%", "id": 159 }, { "text": "&75%", "id": 160 }, { "text": "&50%", "id": 161 } ] }
 		] },
 		{ "title": "&Help", "items": [
-			{ "text": "&Contents\tF1", "id": 160 },
-			{ "text": "&About Quill...", "id": 161 }
+			{ "text": "&Contents\tF1", "id": 162 },
+			{ "text": "&About Quill...", "id": 163 }
 		] }
 	]
 }

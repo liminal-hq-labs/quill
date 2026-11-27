@@ -319,6 +319,10 @@ impl<M: Measure + Clone> crate::App<M> {
 		let disabled = match c {
 			Command::Cut | Command::Copy => self.selection().is_none(),
 			Command::Paste => !self.clip_can_paste(),
+			// No level that way from the zoom shown: the menu greys it as the status bar greys its button.
+			Command::ZoomIn | Command::ZoomOut => {
+				crate::scroll::zoom_step(self.zoom_shown(), c == Command::ZoomIn).is_none()
+			}
 			_ => false,
 		};
 		Mark { checked, disabled }

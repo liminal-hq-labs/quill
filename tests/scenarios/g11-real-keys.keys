@@ -1,0 +1,12 @@
+# G11: the DOS zoom keys made through the real INT 16h of DOSBox's keyboard (dos/tools/keys-x11.sh sends Alt+keypad plus, Alt+minus,
+# Alt+keypad minus and Alt+0 with xdotool in a virtual X server). From 100 percent: 125, 100, 75, 100, 125, Page Width, 75. The run's
+# last frame before it exits must be this scenario's last frame.
+@copy letter.rtf
+@open LETTER.RTF
+altplus
+altminus
+altminus
+altplus
+altplus
+alt0
+altplus

@@ -8,7 +8,7 @@
 
 use quill_app::{combo_tip, command_tip, menu_items_for, Command, COLOUR_TIP, MENU_COUNT};
 use quill_chrome::view::{Act, TOOLBAR};
-use quill_chrome::zoom_field::{zoom_tip, ZoomPart, RESET_TIP_DOS};
+use quill_chrome::zoom_field::{zoom_tip, ZoomPart, MINUS_TIP_DOS, PLUS_TIP_DOS, RESET_TIP_DOS};
 
 use crate::layout::Layout;
 use crate::shell::{SCREEN_H, SCREEN_W};
@@ -56,6 +56,8 @@ pub fn text(t: Target, out: &mut [u8; TIP_MAX]) -> usize {
 			None => ("", ""),
 		},
 		Target::Zoom(ZoomPart::Reset) => (RESET_TIP_DOS, ""),
+		Target::Zoom(ZoomPart::Minus) => (MINUS_TIP_DOS, ""),
+		Target::Zoom(ZoomPart::Plus) => (PLUS_TIP_DOS, ""),
 		Target::Zoom(part) => (zoom_tip(part), ""),
 		Target::Box(b) => (
 			combo_tip(match b {

@@ -74,6 +74,9 @@ pub fn action_name(c: Command) -> String {
 		Command::Align(n) => format!("align-{n}"),
 		Command::Spacing(n) => format!("spacing-{n}"),
 		Command::Zoom(z) => format!("zoom-{z}"),
+		// The actions the window already has for Ctrl+numpad plus and Ctrl+minus (WP-BAR-1K).
+		Command::ZoomIn => "zoom-in".into(),
+		Command::ZoomOut => "zoom-out".into(),
 	}
 }
 
@@ -117,6 +120,8 @@ pub fn parse_action(name: &str) -> Option<Command> {
 		"strike" => Command::Strike,
 		"superscript" => Command::Super,
 		"subscript" => Command::Sub,
+		"zoom-in" => Command::ZoomIn,
+		"zoom-out" => Command::ZoomOut,
 		_ => {
 			if let Some(v) = n("view-") {
 				Command::View(v as u8)

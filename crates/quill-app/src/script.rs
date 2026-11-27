@@ -28,6 +28,9 @@ pub fn parse_token(t: &str) -> Option<Key> {
 		"period" => Key::Char(b'.'),
 		"minus" => Key::Char(b'-'),
 		"insert" => Key::Insert,
+		// The DOS zoom keys: Alt with the minus key (scan code 82h) or the keypad's minus (4Ah), and with the keypad's plus (4Eh).
+		"altminus" => Key::Alt(b'-'),
+		"altplus" => Key::Alt(b'+'),
 		#[cfg(feature = "text-file-dialog")]
 		"backslash" => Key::Char(b'\\'),
 		#[cfg(feature = "text-file-dialog")]

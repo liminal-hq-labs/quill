@@ -259,6 +259,26 @@ fn real_driver_final(mode: Mode) {
 	);
 }
 
+/// The frame `dos/tools/keys-x11.sh` compares with: the last one of the scenario whose zoom keys a real keyboard is made to type.
+fn real_keys_final(mode: Mode) {
+	let (frames, _) = play_file(mode, "g11-real-keys");
+	let last = frames.last().unwrap();
+	compare_bytes(
+		&format!("tests/golden/gfx/g11-real-keys.{}.final", mode.name()),
+		format!("crc32 {:08x}\n", crc32(&last.native)).as_bytes(),
+	);
+}
+
+#[test]
+fn the_real_keyboard_zoom_scenario_ends_on_the_same_frame_at_16_colours() {
+	real_keys_final(Mode::C16);
+}
+
+#[test]
+fn the_real_keyboard_zoom_scenario_ends_on_the_same_frame_at_256_colours() {
+	real_keys_final(Mode::C256);
+}
+
 #[test]
 fn the_real_driver_scenario_ends_on_the_same_frame_at_16_colours() {
 	real_driver_final(Mode::C16);
