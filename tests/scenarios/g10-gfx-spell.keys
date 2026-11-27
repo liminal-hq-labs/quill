@@ -1,0 +1,8 @@
+@spell
+@copy en_ca.dic
+# G10 (graphics): Check Spelling as You Type. The words that are not in the dictionary have a red wave under them; the scan runs after
+# each frame, so the wave shows from the next frame. Played on the host through quill-paint, and into QUILLDOS.EXE from a QUILL_MOUSE
+# file, so every frame's CRC-32 must be equal in both graphics modes.
+T e h space q u i c k space b r o w n space f o x space j u m p d space o v e r space
+home right right right bspace bspace bspace    # the word is taken out: its wave goes with it
+T h e space

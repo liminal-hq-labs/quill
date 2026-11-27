@@ -110,6 +110,8 @@ impl Rgb {
 	pub const GREY: Rgb = Rgb(128, 128, 128);
 	/// Navy, the selection.
 	pub const NAVY: Rgb = Rgb(0, 0, 128);
+	/// Red, the wave under a misspelt word.
+	pub const RED: Rgb = Rgb(255, 0, 0);
 }
 
 /// What the painter draws through. It is integer and pixel-addressed. Every call is clipped to the surface and to the clip set

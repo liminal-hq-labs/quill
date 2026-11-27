@@ -85,6 +85,10 @@ struct LinePainter<'a, M: Measure + Clone, St: Store + ?Sized> {
 	run_cf: u16,
 	run_sel: bool,
 	run_end: i32,
+	/// The misspelt words of this line (Check Spelling as You Type), four at most: first and last position, and the x of the first
+	/// and last character as the walk placed them.
+	marks: [(u32, u32, i32, i32); 4],
+	marked: usize,
 }
 
 /// What a line needs to know about where it is drawn and what is around it.
@@ -97,6 +101,8 @@ struct LineCtx<'a, M: Measure + Clone, St: Store + ?Sized> {
 	page: u32,
 	fields: Option<u32>,
 	area: Rect,
+	/// Draw the misspelt words' wave: the editing views of the body, not a print preview or a header.
+	wave: bool,
 }
 
 impl<M: Measure + Clone, St: Store + ?Sized> Clone for LineCtx<'_, M, St> {
@@ -115,7 +121,7 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 		y_top: i32,
 		window: &'a mut [u8; WINDOW],
 	) -> Self {
-		LinePainter {
+		let mut lp = LinePainter {
 			doc: cx.doc,
 			s: cx.s,
 			app: cx.app,
@@ -134,7 +140,22 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 			run_cf: 0,
 			run_sel: false,
 			run_end: 0,
+			marks: [(0, 0, i32::MAX, i32::MIN); 4],
+			marked: 0,
+		};
+		if cx.wave && cx.kind == StoryKind::Body {
+			for (st, en) in cx
+				.app
+				.spell_marks(cx.s, l.start, l.start + l.len)
+				.take(lp.marks.len())
+			{
+				if let Some(m) = lp.marks.get_mut(lp.marked) {
+					*m = (st, en, i32::MAX, i32::MIN);
+					lp.marked += 1;
+				}
+			}
 		}
+		lp
 	}
 
 	fn base(&self) -> i32 {
@@ -243,6 +264,12 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 	) {
 		let selected = self.sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
 		let ax = self.tx.saturating_add(x);
+		for m in self.marks.iter_mut().take(self.marked) {
+			if p >= m.0 && p < m.1 {
+				m.2 = m.2.min(ax);
+				m.3 = m.3.max(ax.saturating_add(w));
+			}
+		}
 		let text = self.doc.story(self.kind);
 		if c == 0x01 {
 			self.flush(sf);
@@ -401,6 +428,20 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 
 	fn finish<Sf: Surface>(&mut self, sf: &mut Sf) {
 		self.flush(sf);
+		// The wave goes in after the text, under the first to the last character of each misspelt word: a zig-zag of two-pixel
+		// strokes, a pixel lower on every other one, in the pixels the descent leaves.
+		let y = self.base() + 1;
+		let drop = i32::from(self.descent > 2);
+		for m in self.marks.iter().take(self.marked) {
+			let mut x = m.2;
+			let mut low = false;
+			while x < m.3 {
+				let end = (x + 2).min(m.3);
+				sf.hline(x, end, y + i32::from(low) * drop, Rgb::RED);
+				x = end;
+				low = !low;
+			}
+		}
 	}
 }
 
@@ -443,6 +484,7 @@ pub fn paint_page<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 		page: 1,
 		fields: (app.story_view() == 0).then_some(pages),
 		area,
+		wave: true,
 	};
 	let tx = x0 + margin_l;
 	let mut counters: ListCounters = [[0; 9]; 4];
@@ -607,6 +649,7 @@ pub fn paint_sheet_editing<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 			page,
 			fields: Some(pages),
 			area,
+			wave: false,
 		};
 		for l in lines.iter().flatten() {
 			let mut lp = LinePainter::new(&cx, l, tx, y0 + l.y, window);
@@ -626,6 +669,7 @@ pub fn paint_sheet_editing<Sf: Surface, M: Measure + Clone, St: Store + ?Sized>(
 		page,
 		fields: Some(pages),
 		area,
+		wave: on_body,
 	};
 	let mut counters: ListCounters = [[0; 9]; 4];
 	app.for_each_line_from_page(s, page, |_, l| {

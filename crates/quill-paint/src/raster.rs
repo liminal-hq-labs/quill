@@ -132,6 +132,60 @@ impl Device for LinearDev<'_> {
 	}
 }
 
+/// Either device, chosen when the surface is made: one `Raster<AnyDev, _>` is the program's only surface, so the painter's generic code
+/// (the page, the chrome, the dialogs) is compiled once and not once for each device (DOS-43). Each call is one branch on the variant.
+pub enum AnyDev<'a> {
+	/// Mode 12h.
+	Planar(PlanarDev<'a>),
+	/// A linear frame buffer.
+	Linear(LinearDev<'a>),
+}
+
+impl Device for AnyDev<'_> {
+	fn width(&self) -> i32 {
+		match self {
+			AnyDev::Planar(d) => d.width(),
+			AnyDev::Linear(d) => d.width(),
+		}
+	}
+	fn height(&self) -> i32 {
+		match self {
+			AnyDev::Planar(d) => d.height(),
+			AnyDev::Linear(d) => d.height(),
+		}
+	}
+	fn index(&self, c: Rgb) -> u8 {
+		match self {
+			AnyDev::Planar(d) => d.index(c),
+			AnyDev::Linear(d) => d.index(c),
+		}
+	}
+	fn dither(&self, rgb: [u8; 3], x: i32, y: i32) -> u8 {
+		match self {
+			AnyDev::Planar(d) => d.dither(rgb, x, y),
+			AnyDev::Linear(d) => d.dither(rgb, x, y),
+		}
+	}
+	fn put(&mut self, x: i32, y: i32, i: u8) {
+		match self {
+			AnyDev::Planar(d) => d.put(x, y, i),
+			AnyDev::Linear(d) => d.put(x, y, i),
+		}
+	}
+	fn span(&mut self, y: i32, x0: i32, x1: i32, i: u8) {
+		match self {
+			AnyDev::Planar(d) => d.span(y, x0, x1, i),
+			AnyDev::Linear(d) => d.span(y, x0, x1, i),
+		}
+	}
+	fn invert(&mut self, x: i32, y: i32) {
+		match self {
+			AnyDev::Planar(d) => d.invert(x, y),
+			AnyDev::Linear(d) => d.invert(x, y),
+		}
+	}
+}
+
 /// A font as the surfaces draw it: a strike and the scale it is drawn at.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct StrikeFont {
@@ -156,6 +210,43 @@ pub struct Raster<'a, D: Device, S: StrikeSource> {
 pub type Planar4<'a, S> = Raster<'a, PlanarDev<'a>, S>;
 /// A one-byte-a-pixel surface.
 pub type Linear8<'a, S> = Raster<'a, LinearDev<'a>, S>;
+
+/// A surface over either device.
+pub type AnyRaster<'a, S> = Raster<'a, AnyDev<'a>, S>;
+
+impl<'a, S: StrikeSource> AnyRaster<'a, S> {
+	/// The same as [`Planar4::new`], as an [`AnyRaster`].
+	pub fn planar(buf: &'a mut [u8], strikes: Strikes<'a>, src: &'a mut S) -> Option<Self> {
+		if buf.len() < PLANAR_BYTES {
+			return None;
+		}
+		Some(Raster::over(
+			AnyDev::Planar(PlanarDev { buf }),
+			strikes,
+			src,
+		))
+	}
+
+	/// The same as [`Linear8::new`], as an [`AnyRaster`].
+	pub fn linear(
+		buf: &'a mut [u8],
+		w: i32,
+		h: i32,
+		pitch: usize,
+		strikes: Strikes<'a>,
+		src: &'a mut S,
+	) -> Option<Self> {
+		let need = pitch.checked_mul(usize::try_from(h).ok()?)?;
+		if w <= 0 || h <= 0 || pitch < w as usize || buf.len() < need {
+			return None;
+		}
+		Some(Raster::over(
+			AnyDev::Linear(LinearDev { buf, w, h, pitch }),
+			strikes,
+			src,
+		))
+	}
+}
 
 impl<'a, S: StrikeSource> Planar4<'a, S> {
 	/// A surface over the four planes in `buf` (153,600 bytes), or `None` when `buf` is shorter.
