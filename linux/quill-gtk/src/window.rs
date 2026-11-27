@@ -455,7 +455,13 @@ impl Ui {
 		let tree = menu::tree(&[]);
 		let mut commands = menu::commands(&tree);
 		commands.extend((0..4).map(Command::Recent));
+		// The status bar's list has every level of the shared list, which the View menu does not.
 		commands.dedup();
+		for level in quill_app::zoom_field::ZOOM_LEVELS {
+			if !commands.contains(&Command::Zoom(level)) {
+				commands.push(Command::Zoom(level));
+			}
+		}
 		for c in commands {
 			ui.add_command_action(c);
 		}
@@ -472,6 +478,9 @@ impl Ui {
 		act("zoom-in", Box::new(|u| u.zoom(|v, a| v.zoom_in(a))));
 		act("zoom-out", Box::new(|u| u.zoom(|v, a| v.zoom_out(a))));
 		act("zoom-reset", Box::new(|u| u.zoom(|v, _| v.zoom_reset())));
+		// The status bar's minus and plus buttons: the next level of the shared list, from the zoom drawn now.
+		act("zoom-step-down", Box::new(|u| u.zoom_step(false)));
+		act("zoom-step-up", Box::new(|u| u.zoom_step(true)));
 		act(
 			"zoom-width",
 			Box::new(|u| u.zoom(|v, _| v.set_zoom(Zoom::Width, None))),
@@ -1435,6 +1444,14 @@ impl Ui {
 			inside.then_some((px * scale, py * scale)),
 		);
 		self.changed();
+	}
+
+	/// The status bar's minus (`up` false) or plus button: chooses the next level of `ZOOM_LEVELS` below or above the zoom drawn now.
+	fn zoom_step(self: &Rc<Self>, up: bool) {
+		let shown = self.view.borrow().effective_zoom() as i32;
+		if let Some(command) = quill_app::zoom_field::zoom_step(shown, up) {
+			self.run_command(command);
+		}
 	}
 
 	/// Ctrl+wheel: one step a notch; a smooth wheel adds up to a step.

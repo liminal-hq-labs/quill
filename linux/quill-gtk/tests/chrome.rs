@@ -172,11 +172,31 @@ fn the_status_bar_reports_the_page_the_caret_the_font_and_the_changed_mark() {
 	assert_eq!(st.position, "Ln 1, Col 1");
 	assert_eq!(st.font, "Arial 16");
 	assert_eq!(st.zoom, "100%");
+	// At 100 percent there is a level either way, and none past the ends.
+	assert!(st.can_zoom_in && st.can_zoom_out);
 	assert!(!st.modified);
 	type_text(&mut doc, "ab");
 	let st = StatusInfo::of(&doc, &view);
 	assert_eq!(st.position, "Ln 1, Col 3");
 	assert!(st.modified);
+}
+
+#[test]
+fn the_zoom_buttons_grey_at_the_ends_of_the_shared_list() {
+	let cfg = tempfile::tempdir().unwrap();
+	let mut doc = document(cfg.path());
+	letter(&mut doc);
+	let mut view = View::new(Zoom::Percent(200));
+	view.set_geometry(doc.geometry());
+	let st = StatusInfo::of(&doc, &view);
+	assert_eq!(st.zoom, "200%");
+	assert!(!st.can_zoom_in && st.can_zoom_out);
+	view.set_zoom(Zoom::Percent(50), None);
+	let st = StatusInfo::of(&doc, &view);
+	assert!(st.can_zoom_in && !st.can_zoom_out);
+	view.set_zoom(Zoom::Percent(90), None);
+	let st = StatusInfo::of(&doc, &view);
+	assert!(st.can_zoom_in && st.can_zoom_out);
 }
 
 #[test]

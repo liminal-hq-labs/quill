@@ -69,7 +69,10 @@ shot() {
 		sleep 0.8
 	done
 	DISPLAY=":$n" import -window root "$work/full.png"
-	magick "$work/full.png" -crop 1020x720+0+0 +repage "$out/$name.png"
+	# A popover that opens below the window (the zoom list) is a window of its own, so its shot keeps the screen below the frame.
+	local crop=1020x720
+	[[ "$name" == *-list-* ]] && crop=1020x1000
+	magick "$work/full.png" -crop "$crop+0+0" +repage "$out/$name.png"
 	kill "$app" 2>/dev/null || true
 	wait "$app" 2>/dev/null || true
 	# A frame taken before the window mapped is a blank one: take it again.
@@ -86,6 +89,9 @@ done
 shot chrome-menu-character-dark "c:232,61" --dark "$doc"
 shot chrome-menu-view-light "c:476,61" --light "$doc"
 shot chrome-font-dropdown-dark "c:250,134" --dark "$doc"
+shot chrome-zoom-list-light "c:908,676" --light "$doc"
+shot chrome-zoom-max-light "" --light --zoom 200 "$doc"
+shot chrome-zoom-min-dark "" --dark --zoom 50 "$doc"
 # A centre tab and a right tab set by clicking the scale; the kind button (left of the ruler) cycles the kind.
 shot chrome-ruler-tabs-light "c:14,164 c:330,163 c:14,164 c:14,164 c:560,163" --light "$doc"
 shot chrome-bars-hidden-light "c:476,61 c:520,129 c:476,61 c:540,161 c:476,61 c:510,193" --light "$doc"

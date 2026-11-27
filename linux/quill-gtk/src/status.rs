@@ -4,10 +4,14 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // `StatusInfo` is read from the shared editor state (`status_position`, `char_state`) and the view, and is tested without a
-// display. The bar is an Adwaita-styled strip of captions with the zoom as a menu button.
+// display. The bar is an Adwaita-styled strip of captions with the zoom control at its right end: a minus button, the zoom as a menu
+// button that lists the shared levels, and a plus button, then a margin (`quill_app::zoom_field`, CORE-67).
 
 use gtk::gio;
 use gtk::prelude::*;
+use quill_app::zoom_field::{
+	zoom_command, zoom_step, zoom_text, ZOOM_LEVELS, ZOOM_MARGIN, ZOOM_TEXT_MAX,
+};
 use quill_app::Command;
 
 use crate::actions::action_name;
@@ -30,6 +34,10 @@ pub struct StatusInfo {
 	pub modified: bool,
 	/// The zoom as shown: `100%`.
 	pub zoom: String,
+	/// Whether the minus button has a level to step down to.
+	pub can_zoom_out: bool,
+	/// Whether the plus button has a level to step up to.
+	pub can_zoom_in: bool,
 }
 
 impl StatusInfo {
@@ -59,6 +67,8 @@ impl StatusInfo {
 			font,
 			modified: doc.modified(),
 			zoom: crate::view::zoom_label(view.effective_zoom()),
+			can_zoom_out: zoom_step(view.effective_zoom() as i32, false).is_some(),
+			can_zoom_in: zoom_step(view.effective_zoom() as i32, true).is_some(),
 		}
 	}
 }
@@ -73,6 +83,8 @@ pub struct Status {
 	font: gtk::Label,
 	modified: gtk::Label,
 	zoom: gtk::MenuButton,
+	zoom_out: gtk::Button,
+	zoom_in: gtk::Button,
 }
 
 fn caption(text: &str) -> gtk::Label {
@@ -82,28 +94,34 @@ fn caption(text: &str) -> gtk::Label {
 		.build()
 }
 
-/// The menu the zoom button opens: the zoom items of the View menu and the steps.
+/// The menu the zoom button opens: the levels of the shared list, Page Width first, each the action of its command.
 fn zoom_menu() -> gio::Menu {
 	let menu = gio::Menu::new();
-	let presets = gio::Menu::new();
-	for (label, z) in [
-		("Page Width", 0),
-		("150%", 150),
-		("100%", 100),
-		("75%", 75),
-		("50%", 50),
-	] {
-		presets.append(
-			Some(label),
-			Some(&format!("win.{}", action_name(Command::Zoom(z)))),
+	for index in 0..ZOOM_LEVELS.len() {
+		let Some(Command::Zoom(level)) = zoom_command(index) else {
+			continue;
+		};
+		let mut text = [0u8; ZOOM_TEXT_MAX];
+		let len = zoom_text(level, &mut text);
+		let label = String::from_utf8_lossy(text.get(..len).unwrap_or(&[])).into_owned();
+		menu.append(
+			Some(&label),
+			Some(&format!("win.{}", action_name(Command::Zoom(level)))),
 		);
 	}
-	menu.append_section(None, &presets);
-	let steps = gio::Menu::new();
-	steps.append(Some("Zoom In"), Some("win.zoom-in"));
-	steps.append(Some("Zoom Out"), Some("win.zoom-out"));
-	menu.append_section(None, &steps);
 	menu
+}
+
+/// A flat zoom step button with a symbolic icon.
+fn step_button(icon: &str, tooltip: &str, action: &str) -> gtk::Button {
+	let button = gtk::Button::builder()
+		.icon_name(icon)
+		.tooltip_text(tooltip)
+		.action_name(action)
+		.build();
+	button.add_css_class("flat");
+	button.add_css_class("caption");
+	button
 }
 
 impl Status {
@@ -129,17 +147,25 @@ impl Status {
 			.build();
 		zoom.add_css_class("flat");
 		zoom.add_css_class("caption");
+		let zoom_out = step_button("list-remove-symbolic", "Zoom out", "win.zoom-step-down");
+		let zoom_in = step_button("list-add-symbolic", "Zoom in", "win.zoom-step-up");
+		// The control is the minus button, the box and the plus button, close together.
+		let control = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+		control.append(&zoom_out);
+		control.append(&zoom);
+		control.append(&zoom_in);
 		let widget = gtk::Box::new(gtk::Orientation::Horizontal, 16);
 		widget.add_css_class("quill-status");
 		widget.set_margin_start(12);
-		widget.set_margin_end(4);
+		// The gap at the bar's right edge, the same on every build.
+		widget.set_margin_end(ZOOM_MARGIN);
 		for w in [
 			message.upcast_ref::<gtk::Widget>(),
 			page.upcast_ref(),
 			position.upcast_ref(),
 			font.upcast_ref(),
 			modified.upcast_ref(),
-			zoom.upcast_ref(),
+			control.upcast_ref(),
 		] {
 			widget.append(w);
 		}
@@ -151,6 +177,8 @@ impl Status {
 			font,
 			modified,
 			zoom,
+			zoom_out,
+			zoom_in,
 		}
 	}
 
@@ -162,5 +190,7 @@ impl Status {
 		self.font.set_text(&info.font);
 		self.modified.set_visible(info.modified);
 		self.zoom.set_label(&info.zoom);
+		self.zoom_out.set_sensitive(info.can_zoom_out);
+		self.zoom_in.set_sensitive(info.can_zoom_in);
 	}
 }
