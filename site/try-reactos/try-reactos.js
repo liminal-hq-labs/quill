@@ -4,6 +4,11 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+// The ?v= on a module's address is the first 8 hex of its SHA-256; tools/stamp-web.py keeps them current (SITE-14).
+import { applyManifest, buildLine, emulatorFiles, loadManifest, refetchFresh } from "./manifest.js?v=73de4d88";
+import * as hostFiles from "./host-files.js?v=7524586a";
+import * as sound from "./sound.js?v=295d6486";
+
 const player = document.querySelector("[data-player]");
 const startButton = player.querySelector("[data-start]");
 const stopButton = player.querySelector("[data-stop]");
@@ -15,6 +20,8 @@ const stage = player.querySelector("[data-stage]");
 const screen = player.querySelector("[data-screen]");
 const form = document.querySelector("[data-config]");
 const readout = document.querySelector("[data-readout]");
+const buildLineEl = document.querySelector("[data-build]");
+const freshLink = document.querySelector("[data-fresh]");
 
 const BOOT = { auto: 0, cd: 0x213, hd: 0x132 };
 const MB = 1024 * 1024;
@@ -22,6 +29,9 @@ const MB = 1024 * 1024;
 let emulator = null;
 let startedAt = 0;
 let tick = null;
+// The web-manifest.json the page started from (see manifest.js); settled before Start does anything.
+let loadedManifest = { status: "none", manifest: null, url: "", message: "" };
+let manifestReady = Promise.resolve();
 
 const stats = {
 	startedAt: 0,
@@ -49,7 +59,7 @@ function canRun() {
 	}
 }
 
-// Fill the panel from the query string, so a run can be named by its URL.
+// Fill the panel from the query string, so a run can be named by its URL. The page adds nothing to the address.
 function readQuery() {
 	const q = new URLSearchParams(location.search);
 	for (const el of form.elements) {
@@ -57,11 +67,29 @@ function readQuery() {
 		if (el.type === "checkbox") el.checked = q.get(el.name) !== "0";
 		else el.value = q.get(el.name);
 	}
-	if (!form.elements.run.value) form.elements.run.value = "r" + Math.random().toString(36).slice(2, 8);
-	// The server reads the run id from the Referer, so it belongs in the page's own address.
-	const url = new URL(location.href);
-	url.searchParams.set("run", form.elements.run.value);
-	history.replaceState(null, "", url);
+}
+
+// Read web-manifest.json, fill the panel's disk and state from it (the address bar's own fields win) and show its build line.
+function loadWebManifest() {
+	const q = new URLSearchParams(location.search);
+	manifestReady = loadManifest(q.get("manifest") || "", false).then((loaded) => {
+		loadedManifest = loaded;
+		if (loaded.status === "ready") applyManifest(form, q, loaded);
+		else if (loaded.status !== "none") {
+			document.querySelector("[data-diag]").open = true;
+			say(loaded.message);
+		}
+		buildLineEl.textContent = buildLine(loaded);
+	});
+}
+
+// Replace the browser's copy of the manifest and the emulator files, then load the page again at the same address.
+async function forceFresh(event) {
+	event.preventDefault();
+	say("Fetching fresh copies…");
+	await manifestReady;
+	await refetchFresh(loadedManifest);
+	location.reload();
 }
 
 function config(overrides) {
@@ -164,14 +192,19 @@ async function start(overrides) {
 	startButton.disabled = true;
 	say("Loading the emulator…");
 	try {
-		const { V86 } = await import("./v86/libv86.mjs?run=" + encodeURIComponent(form.elements.run.value));
+		await manifestReady;
+		const run = form.elements.run.value.trim();
+		// The saved state belongs to the emulator build the manifest names; it is used only when the state is the manifest's own.
+		const named = loadedManifest.status === "ready" && c.state && new URL(c.state, location.href).pathname.endsWith(loadedManifest.manifest.state.split("/").pop());
+		const files = await emulatorFiles(named ? loadedManifest.manifest : null, run ? "run=" + encodeURIComponent(run) : "", false);
+		const { V86 } = await import(files.libv86);
 		const opts = {
-			wasm_path: "v86/v86.wasm",
+			wasm_path: files.wasm,
 			memory_size: c.ram * MB,
 			vga_memory_size: c.vga * MB,
 			screen: { container: screen },
-			bios: { url: "v86/bios/seabios.bin" },
-			vga_bios: { url: "v86/bios/vgabios.bin" },
+			bios: { url: files.bios },
+			vga_bios: { url: files.vgabios },
 			acpi: c.acpi,
 			disable_jit: !c.jit,
 			boot_order: BOOT[c.boot] || 0,
@@ -188,6 +221,8 @@ async function start(overrides) {
 		say("Starting…");
 		emulator = new V86(opts);
 		hook(emulator);
+		hostFiles.attach(emulator);
+		sound.attach(emulator);
 		window.tryReactos.emulator = emulator;
 		window.tryReactos.config = c;
 		tick = setInterval(sample, 1000);
@@ -206,6 +241,8 @@ async function start(overrides) {
 async function stop() {
 	if (!emulator) return;
 	clearInterval(tick);
+	hostFiles.detach();
+	sound.detach();
 	if (pointer.following) stopFollowing();
 	try {
 		await emulator.destroy();
@@ -571,6 +608,8 @@ if (!canRun()) {
 	say("This browser can't run the emulator.");
 } else {
 	readQuery();
+	loadWebManifest();
+	if (freshLink) freshLink.addEventListener("click", forceFresh);
 	startButton.addEventListener("click", () => start().catch(() => {}));
 	stopButton.addEventListener("click", stop);
 	fullButton.addEventListener("click", () => {
