@@ -9,7 +9,7 @@ The product page published at <http://labs.liminalhq.ca/quill/>. The organizatio
 | `index.html` | The page |
 | `404.html` | The page GitHub Pages shows for a missing path |
 | `css/site.css` | Styles, the light and dark themes (Quill's palette, D70) |
-| `try/` | The Try Quill page (`index.html`, `try.js`, `licences.html`), the vendored js-dos player in `try/js-dos/` (see its `PROVENANCE.md`) and, built and not committed, `quill.<hash>.jsdos` and `try-manifest.json` |
+| `try/` | The Try Quill page (`index.html`, `try.js`, `bridge.js`, `licences.html`), the DOS bridge module `try/lib/dos-bridge.js` built from `try/packages/dos-bridge/`, the vendored js-dos player in `try/js-dos/` (see its `PROVENANCE.md`) and, built and not committed, `quill.<hash>.jsdos` and `try-manifest.json` |
 | `css/try.css` | The Try Quill page's styles |
 | `js/site.js` | The theme toggle and the screenshot lightbox; the page works without it |
 | `js/pointer.js`, `js/pointer-metric.js` | The pointer module for the demo pages and its direction-error measure (see *The pointer*); no page loads them yet |
@@ -24,6 +24,26 @@ Every URL in `index.html` is relative, so the page works from `http://labs.limin
 `try/` runs `QUILLDOS.EXE` on FreeDOS 1.3 in the visitor's browser with js-dos (SITE-1). The disk bundle `try/quill.<hash>.jsdos` and the manifest `try/try-manifest.json` that names it are build outputs, ignored by git (SITE-4: the bundle is named by its content, and the page asks the manifest for the current name): `bash scripts/build-try.sh --build` makes it (the Pages workflow runs the same command), and without `--build` it packs the programs named by `QUILLDOS_EXE`, `QUILL_FNT` and `QUILL_DICT`. It needs mtools and, with `--build`, the pinned Rust toolchain. `bash scripts/stamp-try.py` writes the `?v=` versions of the page's own files into `try/index.html` (a build does too), which is committed; `bash scripts/check-try.sh` tests the scheme. Without the bundle the page loads and Start reports that the disk could not be fetched.
 
 The player is loaded only when Start is selected, and makes no request outside the site. After updating `try/js-dos/`, open the page with the network panel open and start it. `scripts/check-site.py` does not scan the vendored player.
+
+## The DOS page's disks
+
+The DOS page reaches its guest through two small hard disks that the page and FreeDOS share (SITE-60; the plan is [docs/plans/dos-page-bridge.md](../docs/plans/dos-page-bridge.md)), because js-dos has no serial link or shared folder to use. `C:` (`c.img`, 8 MB, FAT12, label `QUILLDOCS`) is the guest's: only DOS writes it, and the page only reads its image. `D:` (`d.img`, 32 MB, FAT16, label `FROMPC`) is the page's: only the page writes it, rebuilding it whole, and DOS only reads it. Each disk has one writer, so no protocol is needed. Both images are in the bundle, empty (`scripts/make-bridge-disks.py` makes them), and `scripts/try-dosbox.conf` mounts them before FreeDOS boots.
+
+Each side has to be told about the other's writes, because each caches. Before DOS reads `D:` it resets its disks (INT 21h function 0Dh), or it answers from its buffers; after DOS writes `C:` it resets and then reads one sector of the disk (INT 13h), or the last sector it wrote stays in the emulator's buffer and the page reads zeros. `SYNC` on `A:\` does both, and the start-up batch files run it. At the prompt, run `SYNC` after copying a file to `C:`, and before listing `D:` after the page has changed it.
+
+What the page puts on `D:` today is `SETDATE.BAT`, which sets FreeDOS's date to the visitor's (it was 25 July 1998 on every start). `bridge.js` writes it when the player is ready, before FreeDOS's start-up menu is answered, and the batch files call it if it is there. A line under the screen shows the state (`bridge: on, D: written 47 ms, date 12-25-2026`). `?bridge=off` turns the bridge off: `bridge.js` does nothing and the module is not fetched (the disks stay mounted, and the date is 1998 again).
+
+`try/packages/dos-bridge/` is the page's side, a TypeScript package laid out like `host-link` and `ac97` (`fat.ts`, `names.ts`, `disks.ts`, `index.ts`); `bun run build` writes `try/lib/dos-bridge.js`, which is committed, and `bun run check:built` fails on drift. `try.js` has one line for the bridge, on `ci-ready`. `scripts/stamp-try.py` stamps `bridge.js` and the module (through the script tag's `data-module`) with `?v=` like the page's other files.
+
+```sh
+cd site/try/packages/dos-bridge && bun install --frozen-lockfile && bun test && bun run typecheck && bun run check:built
+python3 -I tests/dos-bridge/make-goldens.py    # rewrites the FAT12 and FAT16 images the tests read (needs mtools)
+bash scripts/build-try.sh                      # the bundle, with the two disks (needs the programs, or --build)
+cd site/try-reactos/harness && bun install --frozen-lockfile   # once
+env -u WAYLAND_DISPLAY DISPLAY=:97 PLAYWRIGHT_SKIP_BROWSER_GC=1 PORT=18431 PIDFILE=/tmp/dos-bridge.pid bun check-dos-bridge.ts /tmp/dos-bridge-out
+```
+
+The check starts its own server on 127.0.0.1, runs the page in headless Chromium and Firefox in each display mode with the browser's clock fixed to 25 December 2026, and fails unless `DATE` says so, a file the page writes on `D:` is in DOS after `SYNC`, a file DOS writes on `C:` is read by the page after `SYNC`, `?bridge=off` gives 25 July 1998, and every request is a plain GET to the server. Set `BASELINE_SITE` to a site folder built from `main` to compare Quill's first screen with `?bridge=off` pixel for pixel.
 
 ## The pointer
 

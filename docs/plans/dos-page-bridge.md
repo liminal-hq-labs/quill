@@ -2,6 +2,8 @@
 
 A plan for giving the DOS Try Quill page (`site/try/`, js-dos 8.5.3 running FreeDOS 1.3 and `QUILLDOS.EXE`) the same host features the ReactOS page gets through the host link: the shared clipboard with formatting, files both ways, a printout as a PDF, the clock, Fit to window and a phone keyboard. The owner, 2026-11-27: "Can we bridge the DOS Try Quill page too so there's a complete feature set?" Written on 2026-11-27 against `main` at `4ff6973`, with WP-ED-5 (pull request 196), the host link spike (WP-HOST-1, pull request 197), the guest helper (WP-HOST-3, pull request 200) open, and the page clipboard (WP-HOST-4) and the DOS page's pointer fix (WP-PTR-3, branch `feat/dos-page-pointer`) running. Where this plan and [decisions.md](../decisions.md) disagree later, the decisions win.
 
+**Status, 2026-11-27.** WP-DOSWEB-1 (the disks, the date and the package core) is built: SITE-60 is **Decided**, with SITE-61 and SITE-62 written; the other packages are not started. The one line `try.js` needs is in; it is the only change there, and WP-PTR-3 has not merged yet. Two details of the built version differ from the text below: Quill stays in `A:\QUILL` while it runs (`QUILLDOS.EXE` reads `QUILL.FNT` and `QUILL.INI` from the working folder), with `Folder=C:\` in `QUILL.INI` so its file dialogs open on `C:`, and the start-up batch files move to `C:` when it ends; and a name's spaces become `_` in a short name, as *Files into the PC* says (`MY_LET~1.RTF`).
+
 ## Table of contents
 
 - [Recommendation](#recommendation)
@@ -154,11 +156,11 @@ Each feature says what the visitor gets, how it works, what it costs, its limits
 
 ### 2. Files into the PC
 
-**For the visitor.** Drag a file onto the screen, or **Send a file to the PC** (needed on phones). It appears in `D:\`, and Quill's Open dialog shows it on drive D:. A note under the screen lists each file with its DOS name: *My letter (draft).rtf is D:\MYLETT~1.RTF*.
+**For the visitor.** Drag a file onto the screen, or **Send a file to the PC** (needed on phones). It appears in `D:\`, and Quill's Open dialog shows it on drive D:. A note under the screen lists each file with its DOS name: *My letter (draft).rtf is D:\MY_LET~1.RTF*.
 
 **Mechanism.** The page keeps the dropped files in memory and rebuilds `D:` whole with `fat.ts` from the empty template (the bundle's `d.img`), adding the files, `PASTE.*` if any, `SETDATE.BAT` and `NAMES.TXT`; `fsWriteFile` replaces the image. Quill's file dialog resets the cache before listing; at the prompt, `SYNC` then `DIR D:`.
 
-**8.3 names** (`names.ts`). The name is folded to ASCII (accents dropped, so `é` gives `E`), upper-cased; every character other than letters, digits, `!#$%&'()-@^_{}~` and the backtick becomes `_`; the extension is the part after the last dot, cut to 3; the base is cut to 8; a name that collides (or was cut) becomes the first 6 characters, `~` and a number (`MYLETT~1.RTF`, then `~2`, and 5 characters with `~10`); a base that is a device name (`CON`, `PRN`, `AUX`, `NUL`, `COM1` to `COM9`, `LPT1` to `LPT9`, `CLOCK$`) gets `_` in front; an empty base is `FILE`. `NAMES.TXT` lists every short name with the long name. Dropping a file with the same long name again replaces it.
+**8.3 names** (`names.ts`). The name is folded to ASCII (accents dropped, so `é` gives `E`), upper-cased; every character other than letters, digits, `!#$%&'()-@^_{}~` and the backtick becomes `_`; the extension is the part after the last dot, cut to 3; the base is cut to 8; a name that collides (or was cut) becomes the first 6 characters, `~` and a number (`MY_LET~1.RTF`, then `~2`, and 5 characters with `~10`); a base that is a device name (`CON`, `PRN`, `AUX`, `NUL`, `COM1` to `COM9`, `LPT1` to `LPT9`, `CLOCK$`) gets `_` in front; an empty base is `FILE`. `NAMES.TXT` lists every short name with the long name. Dropping a file with the same long name again replaces it.
 
 **Limits.** 32 MiB a file (the ReactOS page's limit); `D:` holds about 31 MB in all and 500 files in its root; over either, the page refuses with the size and the limit and writes nothing. Folders dropped are refused. The files live in the tab's memory and go on Restart.
 
