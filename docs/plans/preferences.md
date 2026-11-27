@@ -154,7 +154,7 @@ A reader checks the magic, refuses a newer major version and bounds every offset
 |---|---|---|
 | DOS (text and graphics) | `QUILL.INI` beside `QUILLDOS.EXE`; `QUILLDEF.INI` beside it | `IniFile` over `Files`, safe save (temporary file, then rename) |
 | Windows 3.x | `QUILL.INI` in the Windows directory (B2 fixed, W16-90); `QUILLDEF.INI` in the program's folder | `GetPrivateProfileString` and `WritePrivateProfileString`, already imported |
-| Windows 95 and later | The same `QUILL.INI`, sharing it with Windows 3.x; `*32` family keys and `[Recent32]` | The profile functions, one key at a time. Not the registry (W9X-91): the file is shared with the Windows 3.x build, the import list has no registry calls, and an export is the file. On NT without a manifest, Windows' file virtualization keeps a per-user copy when the Windows directory is not writable |
+| Windows 95 and later | The same `QUILL.INI`, sharing it with Windows 3.x; `*32` family keys and `[Recent32]` | The profile functions, one key at a time. Not the registry (W9X-111): the file is shared with the Windows 3.x build, the import list has no registry calls, and an export is the file. On NT without a manifest, Windows' file virtualization keeps a per-user copy when the Windows directory is not writable |
 | Linux terminal and GTK | `$XDG_CONFIG_HOME/quill/QUILL.INI` (`[RecentLinux]`, B7 fixed); `gtk.ini` beside it for the GTK window | `IniFile` over `std::fs`; not GSettings (LNX-60), which needs a compiled schema installed system-wide and would split the settings from the file the command and an export read |
 | WinUI | `%APPDATA%\Quill\QUILL.INI` (`*WinUI` family keys, `[RecentWinUI]`) | `IniFile` over `std::fs`; not `ApplicationData.LocalSettings`, which needs package identity an unpackaged build lacks (WUI-60) |
 
@@ -224,7 +224,7 @@ Word 2.0's Tools > Options: a **Category** list on the left, the category's cont
 
 ### Windows 95 and later
 
-A property sheet (`PropertySheetA`, the 40-byte V1 structure sizes so retail Windows 95 takes it) with the tabs General, New documents, Spelling, Save and View; OK, Cancel and Apply; any change sends `PSM_CHANGED`, `PSN_KILLACTIVE` validates with the flow's messages, `PSN_APPLY` commits; What's This through `WinHelpA` with `HELP_WM_HELP` and `HELP_CONTEXTMENU` and a generated control-to-topic array (W9X-90). The recovery folder has `Browse...` through `SHBrowseForFolderA` (W9X-92). Controls are standard, each label before its control in the tab order, so MSAA and the keyboard find them.
+A property sheet (`PropertySheetA`, the 40-byte V1 structure sizes so retail Windows 95 takes it) with the tabs General, New documents, Spelling, Save and View; OK, Cancel and Apply; any change sends `PSM_CHANGED`, `PSN_KILLACTIVE` validates with the flow's messages, `PSN_APPLY` commits; What's This through `WinHelpA` with `HELP_WM_HELP` and `HELP_CONTEXTMENU` and a generated control-to-topic array (W9X-110). The recovery folder has `Browse...` through `SHBrowseForFolderA` (W9X-112). Controls are standard, each label before its control in the tab order, so MSAA and the keyboard find them.
 
 ### GTK
 
@@ -240,7 +240,7 @@ The web demo would draw a `<dialog>` from the schema with `QUILL.INI` text in In
 
 ## Decisions
 
-Ranges reserved for this series, above every id on `main` and in the other plans. **DOS-80 to DOS-89 are carved out of the editor track's DOS-70 to DOS-89** (it keeps DOS-70 to DOS-79, where its own are); LNX-60 to LNX-69 and WUI-60 to WUI-69 are the editor track's ranges for a UI slice it builds itself, which these are. The ids WP-ED-13 to WP-ED-16 named (CORE-106 to CORE-109, ARCH-19, DOS-73, W16-62, W16-66, W9X-63) stay spare and are not reused.
+Ranges reserved for this series, above every id on `main` and in the other plans. The Windows 95 range is W9X-110 to W9X-119 because W9X-90 to W9X-94 went to Print to PDF (WP-WEB-3) and W9X-95 to W9X-99 are reserved by the Reveal Codes plan. **DOS-80 to DOS-89 are carved out of the editor track's DOS-70 to DOS-89** (it keeps DOS-70 to DOS-79, where its own are); LNX-60 to LNX-69 and WUI-60 to WUI-69 are the editor track's ranges for a UI slice it builds itself, which these are. The ids WP-ED-13 to WP-ED-16 named (CORE-106 to CORE-109, ARCH-19, DOS-73, W16-62, W16-66, W9X-63) stay spare and are not reused.
 
 | Area | Range |
 |---|---|
@@ -248,7 +248,7 @@ Ranges reserved for this series, above every id on `main` and in the other plans
 | ARCH | ARCH-30 to ARCH-34 |
 | DOS | DOS-80 to DOS-89 |
 | W16 | W16-90 to W16-99 |
-| W9X | W9X-90 to W9X-99 |
+| W9X | W9X-110 to W9X-119 |
 | LNX | LNX-60 to LNX-64 |
 | WUI | WUI-60 to WUI-64 |
 | INS | INS-8 and INS-9 |
@@ -279,9 +279,9 @@ ARCH-30 is recorded in `docs/decisions.md` with this plan; each package records 
 | W16-90 | `QUILL.INI` through the profile functions in the Windows directory | WP-PREF-3 |
 | W16-91 | The schema from `RT_RCDATA`; the draft on the dialog's stack | WP-PREF-2 |
 | W16-92 | One category dialog template with Apply; its code in the `OPTIONS` segment | WP-PREF-8 |
-| W9X-90 | A COMCTL32 4.00 property sheet with V1 sizes, Apply and What's This | WP-PREF-7 |
-| W9X-91 | Settings stay in `QUILL.INI` through the profile functions, not the registry | WP-PREF-7 |
-| W9X-92 | The recovery folder's Browse through `SHBrowseForFolderA` | WP-PREF-7 |
+| W9X-110 | A COMCTL32 4.00 property sheet with V1 sizes, Apply and What's This | WP-PREF-7 |
+| W9X-111 | Settings stay in `QUILL.INI` through the profile functions, not the registry | WP-PREF-7 |
+| W9X-112 | The recovery folder's Browse through `SHBrowseForFolderA` | WP-PREF-7 |
 | LNX-60 | `AdwPreferencesDialog`, live apply, writes after 500 ms of quiet, Ctrl+,; `QUILL.INI`, not GSettings | WP-PREF-10 |
 | LNX-61 | The terminal reuses the DOS text dialog and keeps `[RecentLinux]` | WP-PREF-9 |
 | WUI-60 | A Settings page in the window with a navigation pane and cards, live apply; `%APPDATA%\Quill\QUILL.INI` | WP-PREF-11 |
@@ -409,7 +409,7 @@ Every package uses work-packages.md's rules (owned files, branch late, rebase, t
 ### WP-PREF-7 — The Options property sheet on Windows 95 (replaces half of WP-ED-16, side)
 
 - **Finish line:** the sheet of [Windows 95 and later](#windows-95-and-later) from `dialogs.json` pages whose controls carry `"setting": "<id>"`; the Tools item enabled; Browse for the recovery folder; What's This.
-- **Owns:** the Options entries in `assets/dialogs/dialogs.json` (regenerating `generated.rs`); the Options code in `win9x/quill-win9x/src/dialogs.rs`; `res_pack.py` styles for the sheet's pages; `win9x/tools/imports.allow`; W9X-90 to W9X-92.
+- **Owns:** the Options entries in `assets/dialogs/dialogs.json` (regenerating `generated.rs`); the Options code in `win9x/quill-win9x/src/dialogs.rs`; `res_pack.py` styles for the sheet's pages; `win9x/tools/imports.allow`; W9X-110 to W9X-112.
 - **Depends on:** WP-PREF-5.
 - **Budget:** the import list as named under [Budgets](#budgets).
 - **Tests:** the binding test; G-W32 (Wine opens every tab, Apply writes a key that reads back, Cancel leaves the file byte-identical, the import and Pentium scans); G-DISK; G-MD.
@@ -697,7 +697,7 @@ WinHelpA; Browse with SHBrowseForFolderA, SHGetPathFromIDListA and SHGetMalloc. 
 to imports.allow. dialogs.json rule: append; on a conflict in generated.rs rerun emit-resources
 --dialogs. Binding test. Gates: G-W32 (imports, Pentium scan, Wine: every tab, Apply reads back,
 Cancel leaves the file byte-identical), G-HOST, G-DISK, G-MD. Evidence: every tab on win32-wine; Save
-and What's This on win95. Decisions W9X-90 to W9X-92. PR: "Add the Options property sheet to Windows
+and What's This on win95. Decisions W9X-110 to W9X-112. PR: "Add the Options property sheet to Windows
 95".
 ```
 
@@ -779,7 +779,7 @@ Each default below is taken so no builder waits; the last column is where to swa
 | The schema as one byte table on every build? | Yes (ARCH-31) | WP-PREF-1; the alternative is a Rust const table with `RT_RCDATA` on Windows 3.x only |
 | Autosave Off keeps the copies already written? | Yes (CORE-158) | WP-PREF-5's flow |
 | Export leaves out paths and recent files? | Yes (CORE-155) | `exported` in `settings.json` |
-| Windows 95: `QUILL.INI`, not the registry? | `QUILL.INI` through the profile functions (W9X-91) | WP-PREF-7 |
+| Windows 95: `QUILL.INI`, not the registry? | `QUILL.INI` through the profile functions (W9X-111) | WP-PREF-7 |
 | GTK: `QUILL.INI`, not GSettings? | `QUILL.INI` (LNX-60) | WP-PREF-10 |
 | WinUI: `%APPDATA%\Quill\QUILL.INI`? | Yes (WUI-60) | WP-PREF-11 |
 | Offer "open the last document at start"? | Yes, `Startup=blank` by default (CORE-159) | The `Startup` row in `settings.json` |
