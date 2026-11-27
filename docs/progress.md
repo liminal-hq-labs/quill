@@ -14,6 +14,7 @@ What is built, how it was shown to work, what is blocked and what was assumed. U
 | Step | State | Notes |
 |---|---|---|
 | GTK4 and WinUI 3 UI track (LNX-21 to LNX-24, WUI-1, WUI-2) | Planned | [ui-track.md](ui-track.md) orders the rest of both clients as work packages: `WP-GTK-1` dialogs and keyboard (G3), `WP-GTK-2` system clipboard (G5, waits for the shared clipboard bridge), `WP-GTK-3` printing and preview (G6), `WP-GTK-4` libadwaita finish and dark mode, `WP-GTK-5` accessibility (G7), `WP-GTK-6` spelling marks and header editing on the page, `WP-GTK-7` the parked block's dialogs, `WP-GTK-8` help, `WP-GTK-9` packaging; then `WP-WINUI-1` (the hosting decision, S0c) and `WP-WINUI-2` (a host-tested core), both startable now, and `WP-WINUI-3` to `WP-WINUI-11` (viewer, editing, menus and dialogs, bars, clipboard, Mica and dark mode, Narrator and input methods, printing, packaging). The WinUI client has no viewer yet: only the S0a and S0b spikes exist, and S0b did not reach a go |
+| Architecture follow-ups and editor features (ARCH-6) | Planned; no package started | Nine `WP-ARCH-*` and nineteen `WP-ED-*` packages in [work-packages.md](work-packages.md), in build order, with owned files, budgets and briefs. WP-ARCH-1 (`quill-chrome`), WP-ED-1 and WP-ED-2 can start now beside the DOS autosave branch; `quill-session` waits for that branch to merge. DOS budget rule DOS-70, Win16 data rule W16-60 |
 | DOS graphics zoom (Z3, DOS-44 to DOS-46) | Done on the host and in DOSBox in both graphics modes (every frame of `g11-gfx-zoom` the host's, the video memory read back equal); not run on a real card or a real 486 | The graphics screens draw the page at Page Width, 200, 150, 125, 100, 75 and 50 percent: positions from the 100 percent layout through `view::dev`, the strike nearest the size wanted, and glyphs resampled by area where none is near (50 percent type is half the height of the 100 percent type, on the same baseline). The status line has the control of CORE-67 (a minus button, the box, a plus button and an 8-pixel margin), the box lists the levels, the buttons step and grey at 50 and 200, and View > Zoom opens the list from the keyboard. The screen starts at 100 percent (an owner decision to confirm, DOS-45). `QUILLDOS.EXE` 412,672 to 418,304 bytes (budget 432,128); a key costs +0.9 % in mode 12h and +1.0 % in VBE at 100 percent and less at every zoom under it |
 | Win16 zoom, ruler and pictures (Z2, W16-16) | Done on the host and on Windows 3.11 under DOSBox-X; the DOS and Win32 builds were not changed (the DOS graphics screen and the Linux viewer call the ruler functions at 100) | The ruler's scale, markers and tab stops are drawn at the zoom and clicks and drags on it work in it. Windows 3.x did not select a picture with the mouse at all: a click now selects it, shows the one-pixel frame and eight 7-pixel handles at any zoom (a navy border inside a larger selection), a handle drags it (one undo step), and Shift+Tab goes back a picture. `win16/tools/e2e-zoom-w31.sh` has a second Windows 3.11 session for pictures and reads the ruler and the selection in the first; against Z1 it fails at the ruler (every zoom but 100) and finds no handles (`docs/media/win16-zoom-ruler-200-after-w311.png`, `win16-zoom-picture-select-200-after-w311.png`, `win16-zoom-selection-200-after-w311.png`; the page before is `win16-zoom-200-after-w311.png`). Data segment 29,388 bytes (2,356 free; this change added 128), largest code segment 58,047, stack margin 9,118 bytes. Not run: dragging a side handle or a picture past the window's edge, and Windows 3.1 on a real machine |
 | Win16 zoom, page and clicks (Z1, W16-15, CORE-65) | Done on the host and on Windows 3.11 under DOSBox-X; the DOS and Win32 builds were not changed | The Windows 3.x shell had View > Zoom and kept the choice in `QUILL.INI`, but nothing drew it. The page, its text, pictures, shadows, desk and caret are drawn at the zoom now (positions scaled into device pixels, fonts made at the zoomed height, a word at a time as D102 does a character), clicks and drags map back to page units, both scroll bars work in the zoom, Page Width is the largest zoom up to 100 % that fits, and the menu ticks the zoom chosen. `win16/tools/e2e-zoom-w31.sh` fails on the build before (every frame is the 100 % page) and passes after (`docs/media/win16-zoom-200-before-w311.png`, `win16-zoom-200-after-w311.png`, `win16-zoom-50-after-w311.png`); data segment 29,108 bytes before and after (2,636 free), stack margin 9,318 bytes, largest code segment 57,046. A typed key on the letter document is 99 calls at 100 %, as before, and 205 at Page Width (the new default), against 99. The menu stops at 150 %; 200 % is reached from `QUILL.INI`. Not run: Windows 3.1 on a real machine, a printer at any zoom (printing and preview do not use the view's zoom) |
@@ -45,6 +46,41 @@ What is built, how it was shown to work, what is blocked and what was assumed. U
 | T1 Register probes | Done for Windows 3.11 at the fast profile | `win16/` copied from `rust-win16` with provenance; two-task probe program; findings below. Wine, the 386SX profile and Windows ME not run |
 | T4 DOS foundation | Done | `dos/` copied with `dos/PROVENANCE.md`; `QUILLDOS.EXE` draws the `quill-grid` hello screen and `dos/tools/e2e.sh` compares it with the host golden |
 | M0 Foundations | Done on the host, with two items open | The workspace, `Store` and `FarVec`, the piece table with undo, the document, layout, the `.QLD` reader and writer, `quill-render`. The fuzz smoke job is not set up (needs nightly and `cargo-fuzz`); the property tests include damaged-file and random-byte inputs in its place |
+
+### Work packages
+
+One line per package of [work-packages.md](work-packages.md), in its order; a package's line says where it stands and links its pull request once one is open.
+
+| Package | State |
+|---|---|
+| WP-ARCH-1 `quill-chrome` | Ready (brief written) |
+| WP-ARCH-2 `quill-picture` | Waits for WP-ARCH-1 |
+| WP-ARCH-3 `quill-session` | Waits for WP-ARCH-2 and the DOS autosave branch |
+| WP-ARCH-4 `quill-input` | Waits for WP-ARCH-2 |
+| WP-ARCH-5 `quill-menu` | Waits for WP-ARCH-4 and the DOS autosave branch |
+| WP-ARCH-6 `quill-settings` | Waits for WP-ARCH-5 |
+| WP-ARCH-7 `quill-flow` | Waits for WP-ARCH-6 |
+| WP-ARCH-8 `quill-a11y` | Waits for WP-ARCH-1, WP-ED-11 and WP-GTK-5; lands before or with WP-WINUI-9 |
+| WP-ARCH-9 Win16 hints from string resources | Waits for WP-ARCH-5 |
+| WP-ED-1 Enter flags (review PR 2) | Ready |
+| WP-ED-2 Paste undo and the cut guard (review PR 4) | Ready |
+| WP-ED-3 End affinity (review PR 3) | Waits for WP-ED-1, WP-ARCH-1 and the DOS autosave branch |
+| WP-ED-4 Unicode U1a | Waits for WP-ED-1 to WP-ED-3 |
+| WP-ED-5 Rich clipboard in the editor | Waits for WP-ED-2 |
+| WP-ED-6 Rich clipboard on Windows | Waits for WP-ED-5 |
+| WP-ED-7 Word keys (review PR 5) | Waits for WP-ARCH-4 and WP-ED-3 |
+| WP-ED-8 Page Break, Shift+Enter, list Tab (review PR 6) | Waits for WP-ARCH-5 and WP-ED-7 |
+| WP-ED-9 Edit menu state | Waits for WP-ARCH-5 |
+| WP-ED-10 Unicode U1b (freeze) | Waits for WP-ARCH-7 and WP-ED-4 |
+| WP-ED-11 Unicode U2 (freeze) | Waits for WP-ED-10 |
+| WP-ED-12 Default tab stops in the document | Waits for WP-ED-11 |
+| WP-ED-13 Settings by id | Waits for WP-ARCH-6, WP-ARCH-7 and WP-ED-11 |
+| WP-ED-14 Win16 profile functions | Waits for WP-ED-13 |
+| WP-ED-15 Tools > Options on DOS | Waits for WP-ED-12, WP-ED-13 and WP-ED-9 |
+| WP-ED-16 Options on Windows | Waits for WP-ED-14, WP-ED-15 and WP-ARCH-9 |
+| WP-ED-17 Page Layout dialog | Waits for WP-ARCH-7 and WP-ED-11 |
+| WP-ED-18 Numbering dialog | Waits for WP-ED-17 |
+| WP-ED-19 Header and Footer dialogs | Waits for WP-ED-17 |
 
 ## Evidence
 
