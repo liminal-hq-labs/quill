@@ -345,7 +345,7 @@ prefix = "W9X"
 first = 40
 last = 41
 owner = "Optional modules (WP-MOD)"
-status = "reserved"
+status = "in use"
 source = "docs/plans/modules.md"
 
 [[block]]
@@ -523,3 +523,19 @@ last = 50
 owner = "First demo launch (WP-LAUNCH)"
 status = "reserved"
 source = "docs/plans/first-demo-launch.md"
+
+[[block]]
+prefix = "W9X"
+first = 130
+last = 139
+owner = "Optional modules on Windows 95 (WP-MOD)"
+status = "reserved"
+source = "docs/plans/modules.md"
+
+[[block]]
+prefix = "INS"
+first = 26
+last = 28
+owner = "Optional modules on Windows 95 (WP-MOD)"
+status = "reserved"
+source = "docs/plans/modules.md"
