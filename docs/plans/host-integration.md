@@ -454,6 +454,7 @@ The next free decision numbers on `main` are SITE-15 (reserved by the web demo p
 - **Tests.** Levels 1, 4 and 5 for the clipboard.
 - **Evidence.** The chip in each state (Playwright shots of the page), the level 4 table with timings, the LibreOffice import result.
 - **Parallel.** With WP-HOST-3.
+- **Status.** Built (pull request stacked on WP-HOST-3's). The decisions are SITE-70 to SITE-73 (the ids SITE-33 to SITE-35 above were never reserved). Not built here, as the owner's brief for this package narrowed it: the LibreOffice import check (`scripts/check-clip-html-libreoffice.sh`) and the converters' goldens beyond the unit tests, the Cmd-key mapping on a Mac (written, not run on a Mac), and the `execCommand` fallback for a page with no async clipboard (written, not run). Done differently: the converters are `rtf.ts` and `dib.ts` (the plan's model with `html.ts` and a shared document model became a small RTF reader and an HTML-to-RTF writer, each rebuilding its output), there is one browser check with a `--browser` flag instead of `check-clipboard.ts` and `check-clipboard-ff.ts`, and the paste box and chip are in `host-link.js` and `index.html` as planned. The state builder's half of the held hello is WP-WEB-8's.
 
 ### WP-HOST-5 Files both ways, and Print to PDF to the list
 

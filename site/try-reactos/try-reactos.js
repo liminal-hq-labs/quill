@@ -6,7 +6,7 @@
 
 // The ?v= on a module's address is the first 8 hex of its SHA-256; tools/stamp-web.py keeps them current (SITE-14).
 import { applyManifest, buildLine, emulatorFiles, loadManifest, refetchFresh } from "./manifest.js?v=73de4d88";
-import * as hostLink from "./host-link.js?v=01f7d6f8";
+import * as hostLink from "./host-link.js?v=ffd25fbe";
 import * as sound from "./sound.js?v=295d6486";
 import * as power from "./power.js?v=bda0a706";
 
@@ -255,7 +255,7 @@ async function start(overrides) {
 		startedSeen = false;
 		emulator = new V86(opts);
 		hook(emulator);
-		hostLink.attach(emulator);
+		hostLink.attach(emulator, { restored: !!c.state });
 		sound.attach(emulator);
 		seamsAttached = true;
 		const machine = emulator;
@@ -718,6 +718,12 @@ if (!canRun()) {
 	});
 	document.querySelector("[data-save-state]").addEventListener("click", async () => {
 		if (!emulator) return;
+		// A state saved with bytes waiting in the serial port restores with a helper that cannot hear the page (SITE-91).
+		const quiet = hostLink.saveCheck();
+		if (!quiet.ok) {
+			say(quiet.why);
+			return;
+		}
 		say("Saving state…");
 		const s = await emulator.save_state();
 		download("state.bin", new Blob([s]));

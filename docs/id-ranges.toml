@@ -531,3 +531,11 @@ last = 91
 owner = "Host integration: guest helper (WP-HOST-3)"
 status = "in use"
 source = "docs/plans/host-integration.md"
+
+[[block]]
+prefix = "SITE"
+first = 70
+last = 73
+owner = "Host integration: page clipboard (WP-HOST-4)"
+status = "in use"
+source = "docs/plans/host-integration.md"

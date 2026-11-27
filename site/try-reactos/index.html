@@ -17,8 +17,8 @@
 		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
 		<link rel="stylesheet" href="../css/site.css?v=a4d3a119">
 		<link rel="stylesheet" href="../css/try.css?v=fc9dccd7">
-		<link rel="stylesheet" href="try-reactos.css?v=924254e1">
-		<script src="try-reactos.js?v=430e706f" type="module"></script>
+		<link rel="stylesheet" href="try-reactos.css?v=d6e7c22b">
+		<script src="try-reactos.js?v=0104fc97" type="module"></script>
 	</head>
 	<body>
 		<main id="main">
@@ -37,6 +37,20 @@
 							<button class="button button--alt" type="button" data-stop disabled>Stop</button>
 							<p class="player-status" id="player-status" role="status" aria-live="polite" data-status>Not started. The first start downloads about 16 MB, then the desktop is up in a second or two.</p>
 						</div>
+						<div class="clip-bar" data-clip-bar role="group" aria-label="Clipboard" hidden>
+							<span class="clip-chip" data-clip-chip data-state="off" role="status" aria-live="polite">Clipboard: off</span>
+							<progress class="clip-progress" data-clip-progress max="100" value="0" aria-label="Clipboard transfer" hidden></progress>
+							<button class="button button--alt" type="button" data-clip-cancel hidden>Cancel</button>
+							<button class="button button--alt" type="button" data-clip-copy disabled>Copy from ReactOS</button>
+							<button class="button button--alt" type="button" data-clip-paste disabled>Paste into ReactOS</button>
+							<label class="clip-toggle"><input type="checkbox" data-clip-toggle checked> Share the clipboard</label>
+						</div>
+						<div class="clip-dialog" data-clip-dialog hidden>
+							<label>Paste your text here, then send it to ReactOS
+								<textarea data-clip-dialog-text rows="4" autocomplete="off"></textarea>
+							</label>
+							<button class="button" type="button" data-clip-dialog-send>Send to ReactOS</button>
+						</div>
 						<div class="stage stage--reactos" data-stage tabindex="0" aria-label="ReactOS running in an emulated PC">
 							<div class="screen" data-screen>
 								<div class="screen-text"></div>
@@ -52,6 +66,18 @@
 							<li>If you choose <strong>Shut Down</strong> in ReactOS, the screen dims and the page says so: <strong>Turn on</strong> brings the saved desktop back. A full boot of the disk, without the saved desktop, is in the builder and diagnostics.</li>
 						</ul>
 					</div>
+
+					<section class="help-copy" aria-labelledby="copy-title">
+						<h2 id="copy-title">Copy and paste</h2>
+						<ul class="hint-list">
+							<li>Copy and paste work between this page and ReactOS, for text, formatted text and pictures. Select the screen first (one click on it): sharing starts then, and not before.</li>
+							<li><strong>Copy in ReactOS</strong> as you would in Windows (<kbd>Ctrl</kbd>+<kbd>C</kbd>, or Edit then Copy), and your own clipboard has it, ready to paste anywhere on your computer. A web page may only write your clipboard just after you press a key or click, so a copy you make with the menu or a long while after pressing may show <strong>Copy from ReactOS</strong>: press it to finish. A large picture, such as a full screen, always takes that button.</li>
+							<li><strong>To paste into ReactOS</strong>, press <kbd>Ctrl</kbd>+<kbd>V</kbd> (<kbd>Cmd</kbd>+<kbd>V</kbd> on a Mac) while the screen is selected, or press <strong>Paste into ReactOS</strong> and then paste in ReactOS. A large paste shows its progress and can be cancelled with <kbd>Esc</kbd> or <strong>Cancel</strong>. The page reads your clipboard only when you do one of those, never on its own.</li>
+							<li>Text may be up to 1 MB, formatted text up to 4 MB and a picture up to 4 MB. Rich text reaches your computer as HTML next to the plain text (a web page cannot write RTF).</li>
+							<li>Nothing leaves this tab: the clipboard goes between the page and the emulated PC only, and is forgotten when you stop. <strong>Share the clipboard</strong> turns it all off (the setting is remembered), and so does <code>?clipboard=off</code> in the address.</li>
+							<li>If the chip says the guest helper was not found, the saved desktop is an older one without the helper, and everything else works as before.</li>
+						</ul>
+					</section>
 
 					<details class="diag" data-diag>
 						<summary>Builder and diagnostics</summary>
@@ -90,6 +116,7 @@
 						</form>
 						<dl class="diag-readout" data-readout aria-live="off"></dl>
 						<dl class="diag-readout" data-link-readout aria-live="off"><dt>Link</dt><dd>off</dd></dl>
+						<dl class="diag-readout" data-clip-readout aria-live="off"><dt>Clipboard</dt><dd>off</dd></dl>
 						<p class="diag-buttons">
 							<button class="button button--alt" type="button" data-shot>Screenshot (PNG)</button>
 							<button class="button button--alt" type="button" data-save-state>Save state</button>

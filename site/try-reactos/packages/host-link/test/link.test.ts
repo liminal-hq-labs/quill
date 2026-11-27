@@ -394,3 +394,45 @@ describe("attach", () => {
 		host.detach();
 	});
 });
+
+describe("a held hello (SITE-91)", () => {
+	test("a held start sends nothing, not even on the retry, until the guest has spoken a frame", () => {
+		const { link, guest, clock } = rig();
+		link.start({ hold: true });
+		clock.now += 30_000;
+		link.tick();
+		expect(guest.ops()).toEqual([]);
+		expect(link.heard).toBe(false);
+		// Console noise is not a frame and does not end the hold.
+		link.receive(text("login: \r\n"));
+		expect(guest.ops()).toEqual([]);
+		guest.hello(4352);
+		expect(link.heard).toBe(true);
+		expect(link.state).toBe("ready");
+		// The helper's hello is the first thing the page answers; the page speaks once.
+		expect(guest.ops()).toEqual(["hello"]);
+	});
+
+	test("a held start ends on the first frame of any kind, and the page's hello follows", () => {
+		const { link, guest } = rig();
+		link.start({ hold: true });
+		guest.send("clip", "offer", [["seq", 1], ["text", 3]]);
+		expect(guest.ops()).toEqual(["hello"]);
+		expect(link.state).toBe("waiting");
+	});
+
+	test("cancel drops a queued message and the packets of one half written", () => {
+		const { link, guest } = rig();
+		link.start();
+		guest.hello(4352);
+		const a = link.send("clip", "part", [["seq", 1], ["fmt", "text"]], new Uint8Array(20_000))!;
+		const b = link.send("clip", "set", [["seq", 2]])!;
+		expect(link.stats().queued).toBeGreaterThan(3);
+		link.cancel([a, b]);
+		expect(link.stats().queued).toBe(0);
+		// No credit has come: the queue is empty, and a later message goes on its own.
+		guest.send("ctl", "credit", [["n", 5000]]);
+		link.send("clip", "get", [["seq", 3], ["fmt", "text"]]);
+		expect(guest.ops("clip").at(-1)).toBe("get");
+	});
+});
