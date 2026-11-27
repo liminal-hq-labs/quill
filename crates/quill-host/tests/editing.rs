@@ -832,3 +832,87 @@ fn the_status_position_counts_page_line_and_column_from_one() {
 	app.key(&mut s, &mut f, Key::CtrlHome);
 	assert_eq!(app.status_position(&s), (1, 1, 1));
 }
+
+// Enter and the flags that belong to where a paragraph starts (CORE-41): page break before and restart numbering (restart shares the page break's mask in `clear_start_flags`; no key or file reader sets it, so only the break is exercised).
+
+const BREAK: u16 = 2;
+
+/// A document of "First." and then "Chapter two." with a page break before it, the caret at `caret` in the second paragraph.
+fn chapter_with_break(caret: u32) -> (App, HostStore, MemFiles) {
+	let (mut app, mut s, mut f) = setup();
+	let rtf = b"{\\rtf1\\ansi{\\fonttbl{\\f0 Arial;}}\\pard\\f0 First.\\par\\pard\\pagebb\\fs24 Chapter two.\\par}";
+	f.files.insert("D.RTF".into(), rtf.to_vec());
+	app.open(&mut s, &mut f, b"D.RTF").unwrap();
+	app.place_caret(&s, 7 + caret, false);
+	(app, s, f)
+}
+
+/// The flags of each paragraph, in order.
+fn flags(app: &App, s: &HostStore) -> Vec<u16> {
+	let body = &app.doc().body;
+	let mut bytes = vec![0u8; body.len() as usize];
+	let n = body.read(s, 0, &mut bytes);
+	bytes[..n]
+		.iter()
+		.enumerate()
+		.filter(|(_, b)| **b == 0x0D)
+		.map(|(i, _)| {
+			body.pfmt_at(s, i as u32)
+				.and_then(|ix| app.doc().pfmts.get(s, ix))
+				.map_or(0, |p| p.flags)
+		})
+		.collect()
+}
+
+#[test]
+fn enter_at_the_end_of_a_page_break_paragraph_makes_a_paragraph_with_no_break() {
+	let (mut app, mut s, mut f) = chapter_with_break(12);
+	assert_eq!(flags(&app, &s), vec![0, BREAK]);
+	app.key(&mut s, &mut f, Key::Enter);
+	assert_eq!(flags(&app, &s), vec![0, BREAK, 0]);
+	assert_eq!(app.status_position(&s).0, 2);
+	// Every further Enter stays on the same page.
+	app.key(&mut s, &mut f, Key::Enter);
+	assert_eq!(flags(&app, &s), vec![0, BREAK, 0, 0]);
+	assert_eq!(app.status_position(&s).0, 2);
+}
+
+#[test]
+fn enter_in_the_middle_keeps_the_break_on_the_first_half_only() {
+	let (mut app, mut s, mut f) = chapter_with_break(7);
+	app.key(&mut s, &mut f, Key::Enter);
+	assert_eq!(flags(&app, &s), vec![0, BREAK, 0]);
+	assert_eq!(app.status_position(&s).0, 2);
+}
+
+#[test]
+fn enter_at_the_start_leaves_one_break_above_the_text() {
+	let (mut app, mut s, mut f) = chapter_with_break(0);
+	app.key(&mut s, &mut f, Key::Enter);
+	// The empty paragraph above carries nothing; the text keeps the break, so there is still one.
+	assert_eq!(flags(&app, &s), vec![0, 0, BREAK]);
+	assert_eq!(
+		flags(&app, &s).iter().filter(|f| **f & BREAK != 0).count(),
+		1
+	);
+}
+
+proptest! {
+	#[test]
+	fn enter_then_backspace_gives_the_flags_back(at in 0u32..13) {
+		let (mut app, mut s, mut f) = chapter_with_break(at);
+		let before = (flags(&app, &s), paragraphs(&app, &s));
+		app.key(&mut s, &mut f, Key::Enter);
+		app.key(&mut s, &mut f, Key::Backspace);
+		prop_assert_eq!((flags(&app, &s), paragraphs(&app, &s)), before);
+	}
+
+	#[test]
+	fn enter_never_adds_a_break(at in 0u32..13, presses in 1usize..4) {
+		let (mut app, mut s, mut f) = chapter_with_break(at);
+		for _ in 0..presses {
+			app.key(&mut s, &mut f, Key::Enter);
+		}
+		prop_assert_eq!(flags(&app, &s).iter().filter(|f| **f & BREAK != 0).count(), 1);
+	}
+}

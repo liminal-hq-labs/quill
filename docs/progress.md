@@ -381,6 +381,14 @@ Enter at the end of a heading or title now starts a Normal paragraph, and text t
 - **Tests.** `quill-host/tests/next_style.rs` (14 tests, two of them properties over every preset and caret position) and the `m14-heading-enter` scenario with `tests/docs/heading.rtf`. Every existing host, app, core and formats test and golden passes unchanged; the one golden that moved is the graphics scenario `g6-gfx`, which types at the start of a bold, underlined paragraph (CORE-40).
 - **Not done.** A paragraph that was changed after its preset (a centred heading) keeps the old behaviour until paragraph styles are stored; Undo does not restore the caret (a later step in the editing rules review).
 
+### Enter and the page break (CORE-41)
+
+The paragraph Enter creates no longer carries "page break before" or "restart numbering", so Enter after a manual page break no longer starts another page.
+
+- **Behaviour.** `App::clear_start_flags` clears both flags on the half Enter creates (the empty paragraph above, at the start of a paragraph), inside the Enter's undo group. Enter then Backspace gives every flag back.
+- **Tests.** Five tests in `quill-host/tests/editing.rs` (end, middle, start, and two properties) and the `m14-pagebreak-enter` scenario with `tests/docs/pgbreak.rtf`; its golden is new and no existing golden moved.
+- **Not done.** A test of the restart flag, which nothing can set yet.
+
 ### The Win16 data segment and pictures (experiment, D200)
 
 `docs/win16-data-segment.md` has the table of what fills the segment (65,240 of 65,536 bytes before), what moved (3.3 KB of statics to far memory, 2.2 KB of stack margin from the main frame: 3,838 to 6,042 bytes on Windows 3.11), what happens when it is pushed, and the picture path. Proven on Windows for Workgroups 3.11 under DOSBox-X: the `m1-edit` play-back equal to the golden 20 of 20 times (and 5 of 5 on the tree with its Startup group, on an earlier build), BMPs of 1, 8 and 24 bits from 64 by 48 to 1024 by 768 drawn on the page, and a clean grey box when `GlobalAlloc` refuses. Not proven: PNG (grey box), other displays, Windows 3.1 without the Workgroups update, real hardware, printing a picture.
