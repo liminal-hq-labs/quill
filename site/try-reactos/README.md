@@ -11,11 +11,12 @@ ReactOS 0.4.16 with Quill, running in [v86](https://copy.sh/v86/) (an x86 emulat
 | `harness/serve.ts` | The local server: static files, HTTP range requests, per-client byte counters, a JSON request log |
 | `harness/measure.ts`, `lib.ts`, `inpage.js` | The measurement run, on `playwright-core` driving the installed Chromium |
 | `harness/desktop-shot.ts` | Restores the saved state and saves the guest's own pixels (the emulator canvas) as it restores and with the desktop shown, for checking a build headlessly |
+| `harness/check-state.ts` | Restores a state over disk parts and checks the themed taskbar, Quill's window and a File > Open dialog from the canvas |
 | `harness/watch.ts`, `explore.ts`, `build-state.ts`, `run-all.sh`, `summarise.ts`, `chunk-session.ts` | Screenshots on a timer, key-sequence exploration, saved-state builder, the full measurement set, the results table, a disk-touching session for comparing part sizes |
 | `tools/fetch-v86.sh`, `make-parts.mjs`, `build-manifest.py`, `job-summary.py` | Downloads and checks the pinned v86; splits a raw disk image into zstd parts for v86's chunked disk; writes the build manifest; prints it as a CI job summary |
 | `demo/` | The pitch document Quill opens: `demo.rtf` and `demo.qld`, and `demo16.*` for the Windows 3.x icon; `make-demo.sh` rebuilds them |
 | `guest/` | Builds the guest disk and the artifacts from the official ReactOS install CD: `build-all.sh` (the whole chain), `install-golden.sh` with `unattend.inf` (the unattended install), `build-image.sh` with the trim lists, registry settings, wallpaper, desktop icon (`make_desk_icon.py`), shortcut writer and the build VM scripts (see [Build everything with one command](#build-everything-with-one-command) and [Rebuild the trimmed guest](#rebuild-the-trimmed-guest)) |
-| `qagrr/` | The Quill Afterglow Remaster Remix (QAGRR), the recipe that replaces `guest/` and `tools/` one piece at a time: `qagrr.toml` (extends the Afterglow base recipe in reactos-liminal, with Quill's names, programs, documents and shortcuts), `trim-extra.txt` (the six network card drivers), `quill-run.reg` (the cold-boot `Run` key and the error-report switches), `reactos-liminal.pin` (the pinned reactos-liminal commit) and `build-with-rl.sh` (fetches that commit and runs `rl`); see [Build with rl](#build-with-rl) |
+| `qagrr/` | The Quill Afterglow Remaster Remix (QAGRR), the recipe that replaces `guest/` and `tools/` one piece at a time: `qagrr.toml` (extends the Afterglow base recipe in reactos-liminal, with Quill's names, programs, documents and shortcuts), `trim-extra.txt` (the six network card drivers), `quill-run.reg` (the cold-boot `Run` key and the error-report switches), `reactos-liminal.pin` (the pinned reactos-liminal commit) `build-with-rl.sh` (fetches that commit and runs `rl`), `build-state.sh` (the saved v86 state for those parts) and `check-state.sh` (restores it and looks); see [Build with rl](#build-with-rl) |
 
 The disk images, CDs, states and parts live outside git, in `~/.cache/reactos/web/` (the server maps it to `/images/`; override with `IMAGES_DIR`). Never copy them into the repository.
 
@@ -106,9 +107,20 @@ site/try-reactos/qagrr/build-with-rl.sh --quill-dir DIR --work DIR   # install, 
 
 `build-with-rl.sh` fetches the commit in `qagrr/reactos-liminal.pin` into `~/.cache/quill-reactos-liminal` (outside the repository), then runs `rl explain`, `fetch`, `install`, `image`, `parts` and `manifest`. Before the image it renders the wallpaper with `guest/quillify.py` (the base recipe's pinned Afterglow scene with the Quill emblem on its sun), which the recipe lists in `[[files]]`; rl then skips its own scene. rl's `base` trim keeps the Applications Manager and the browser stub, which the old lists removed, so `--check-trim` expects those three entries to differ. `--work` is rl's work directory. Set `RL_QEMU_LOCK` to a lock file to run the two QEMU steps under `flock`. The `reactos-qagrr.yml` workflow does the same on a runner, by hand only.
 
-Not yet moved, so the page still uses the old chain (`build-all.sh`) until a later change retires it (the new build has been booted in QEMU, but not in the page):
+### The saved state
 
-- the saved v86 state (`harness/build-state.ts`).
+```sh
+site/try-reactos/qagrr/build-state.sh DIST   # DIST holds parts/ from build-with-rl.sh; writes DIST/state.l22.bin.zst
+site/try-reactos/qagrr/check-state.sh DIST    # restores it in headless Chromium: desktop, Quill window, File > Open; then the session numbers
+```
+
+`build-state.sh` serves `DIST` with `harness/serve.ts` on 127.0.0.1 (port 18086), boots `DIST/parts` in v86 in headless Chromium through `harness/build-state.ts`, waits for the Afterglow desktop, then for Quill's window with the demo letter (the `Run` key from `quill-run.reg` opens it on a cold boot) and for the disk to go quiet, saves the machine state through the page's own `save_state()` and compresses it with `zstd -22 --ultra`. Nothing touches the host desktop: input goes through the page's emulator API and pixels come from the emulator canvas. The raw state (about 111 MB) is deleted afterwards; the compressed file is about 14 MB.
+
+The state is not reproducible byte for byte: it is a snapshot of a boot whose timing depends on the host, so two runs differ and the compressed size moves by a few per cent. The disk parts are the checked artefact (SHA-256 in the build manifest); `check-state.sh` checks what the state shows instead. A state belongs with the parts it was taken from. `check-state.sh` runs `harness/check-state.ts` (the themed taskbar, a Quill window with the demo letter, and a File > Open dialog that changes at least 2% of the screen; it saves `restored.png` and `open-dialog.png` from the canvas) and then `harness/chunk-session.ts`, which prints the seconds to the live desktop, the disk bytes and requests, and the IDE reads of a session that opens menus and dialogs.
+
+Measured on the first QAGRR build (4 GiB image, 512 parts of 8 MiB, 51.4 MB of parts, 466 of them empty): the state build took 95 s with the zstd step, 2.5 s of it the save; the state is 111,037,796 bytes raw and 14,259,534 compressed. A restore over the parts fetched 16.9 MB of state and 9.0 MB of parts in 8 disk requests (19 requests in all, 25.9 MB served), and showed the desktop in 0.3 s unthrottled and 3.3 s at 50 Mbit/s with 40 ms latency.
+
+The old chain's state (`guest/build-all.sh`, which still runs `harness/build-state.ts` itself) stays until the owner retires it.
 
 ## Build everything with one command
 

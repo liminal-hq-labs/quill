@@ -26,6 +26,8 @@
 			if (Math.abs(d[i] - 212) < 10 && Math.abs(d[i + 1] - 208) < 10 && Math.abs(d[i + 2] - 200) < 10) hit++;
 			else if (Math.abs(d[i] - 12) < 3 && Math.abs(d[i + 1] - 12) < 3 && Math.abs(d[i + 2] - 16) < 3) hit++;
 			else if (Math.abs(d[i] - 20) < 3 && Math.abs(d[i + 1] - 22) < 3 && Math.abs(d[i + 2] - 29) < 3) hit++;
+			// The Afterglow taskbar is a vertical gradient from (12, 12, 16) to (27, 30, 40): dark and slightly blue, never pure black.
+			else if (d[i] >= 8 && d[i] <= 40 && d[i + 2] >= d[i] + 3 && d[i + 2] <= 48 && d[i + 1] >= 8 && d[i + 1] <= 44) hit++;
 		}
 		return hit / (d.length / 4);
 	};
