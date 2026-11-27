@@ -19,6 +19,7 @@
 pub mod bytes;
 pub mod doc;
 pub mod farvec;
+pub mod fit;
 pub mod layout;
 pub mod store;
 pub mod text;
