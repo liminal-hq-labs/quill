@@ -104,11 +104,11 @@ Today the page boots only when the address names the disk and the state (`?state
 | Option | Verdict |
 |---|---|
 | A system printer: a PostScript or Unidrv driver on `FILE:` or `COM1:`, the spool file converted on the page | **No.** ReactOS 0.4.16 ships no printer driver (measured), Microsoft's are not redistributable, and Wine's `wineps.drv` is not an NT driver. Even with a driver, the page would need a PostScript interpreter (Ghostscript in WebAssembly is about 15 MB and AGPL) |
-| **Quill's own Print to PDF, raster** | **Recommended.** `gdi::print_document` already lays out and draws each page on any device context through `draw_page`; a memory DC with a DIB section at 150 dpi gives the page exactly as ReactOS's GDI draws it, and a small writer wraps the rows as Flate-compressed images. No text layer, as LNX-22 accepts for GTK printing |
-| Quill's text-layer PDF (`quill to-pdf`, P7b in `docs/linux.md`) | Later. Selectable text, but it needs font subsetting from the guest's TrueType files (`GetFontData`), and P7b is not built |
+| **Quill's own Print to PDF, with a text layer** | **Recommended, and built** (W9X-90 to W9X-93; the owner chose it over a 150 dpi raster). `gdi::print_document` already lays out and draws each page on any device context; `quill-pdfdoc` does the same walk into `quill-pdf`, which writes the words as selectable text in the standard 14 fonts, each character at the layout's position, with pictures as images |
+| A raster PDF (the page drawn into a DIB at 150 dpi and wrapped as an image) | No. 6.3 MB a page to draw, no text to select or search; the owner asked for a text layer from the start |
 | The page makes the PDF: the guest sends the `.QLD`, the page converts it with Quill's core in WebAssembly | Later. Needs P7b and a wasm build; attractive once both exist, because it would work for the Windows 3.x build too |
 
-**Recommended: File > Print to PDF… in `QUILL32.EXE`.** Its own menu item, beside Print, so it works on a ReactOS that has no printer. It asks for a file name (a Save As dialog with the PDF type, default `C:\Printed\<document>.pdf`, the folder made if missing), lays the document out at 150 dpi in a memory DC, draws each page with `draw_page` into a 24-bit DIB section (8.5 × 11 in is 1,275 × 1,650 pixels, 6.3 MB per page, released after each page), and hands the rows to `quill-pdf`. `quill-pdf` is a new `no_std` + `alloc` crate: a PDF 1.4 writer with one `/Image` XObject per page (`/FlateDecode`, `/DeviceRGB`, 8 bits), page size from the document's paper, the title, `/Producer (Quill)` and a fixed date when asked for (so tests are repeatable), and its own deflate encoder (fixed Huffman codes and a hash-chain LZ77 matcher, a few hundred lines in the style of `quill-inflate`), so no crate is added. A text page should be well under 0.5 MB at 150 dpi; WP-WEB-3 measures it. The Win16 build is out of scope.
+**Recommended: File > Print to PDF… in `QUILL32.EXE`** (built: W9X-90 to W9X-94). Its own menu item, beside Print, so it works on a ReactOS that has no printer. It asks for a file name (a Save As dialog with the PDF type, default `C:\Printed\<document>.pdf`, the folder made if missing), lays the document out with the screen's fonts (at 96 dpi by default, so the lines break as the window breaks them; `[Print] PdfDpi` changes it) and hands the laid-out lines to `quill-pdfdoc`, which gives `quill-pdf` text runs, rules and pictures. `quill-pdf` is a `no_std` + `alloc` crate: a PDF 1.4 writer whose pages hold selectable text in the standard 14 fonts (Helvetica, Times, Courier, chosen from the face), each character placed at the layout's own position, pictures as Flate-compressed `/Image` XObjects, the page size from the document's paper, the title, `/Producer (Quill)` and a creation date only when asked for (so output is repeatable), and its own deflate encoder (fixed Huffman codes and a hash-chain LZ77 matcher), so no crate is added. A text page is a few KB. The Win16 build is out of scope. Fonts are not embedded (W9X-92 lists the limits and the later step).
 
 ### The channel to the page
 
@@ -219,11 +219,11 @@ With the cap of three builders: WP-WEB-1, WP-WEB-3 and WP-WEB-4 start together (
 
 ### WP-WEB-3 Print to PDF in `QUILL32.EXE` and `quill-pdf`
 
-- **Finish line.** File > Print to PDF… in the Win32 build writes a PDF whose pages, rendered by `pdftoppm` at 150 dpi, match the memory-DC bitmaps Quill drew (exactly, since the PDF holds those pixels), with the document's page count and size; `qpdf --check` passes. Under Wine and on the QAGRR disk the demo letter makes a one-page PDF. With `[Web] HostPort=COM1` in `QUILL.INI`, Quill also writes the WP-WEB-2 frame with its SHA-256 to that port and says so in the status bar; without it, nothing is sent.
+- **Finish line.** File > Print to PDF… in the Win32 build writes a PDF with a real text layer whose pages, rendered by `pdftoppm`, look as the screen shows them (the same lines, the same fonts' positions), with the document's page count and size; `qpdf --check` passes and `pdftotext` returns the words in order. Under Wine and on the QAGRR disk the demo letter makes a one-page PDF. With `[Web] HostPort=COM1` in `QUILL.INI`, Quill also writes the WP-WEB-2 frame with its SHA-256 to that port and says so in the status bar; without it, nothing is sent.
 - **Files owned.** New `crates/quill-pdf/` (`no_std` + `alloc`: the writer and its deflate encoder, tests, `Cargo.toml` with the house `[package.metadata.quill]` layer `core`), the root `Cargo.toml` members line and `Cargo.lock` (the new crate only), `win9x/quill-win9x/Cargo.toml`, `src/main.rs` (the command, the menu item, the INI key), `src/gdi.rs` (a `render_pages_to_dib` beside `print_document`, sharing `draw_page`), `src/dialogs.rs` (the PDF save filter), the menu and string tables the Win32 build reads, `docs/decisions.md` (the next `W9X-` or `D` number for the command and the INI key, as the area's prefix rule says), `SPEC.md`'s printing row for Windows 95 (one sentence), `docs/progress.md` (one row).
 - **Must not touch.** `win16/**`, `dos/**`, `linux/**`, `winui/**`, `site/**` (the page side is WP-WEB-2's), `crates/quill-core/**` and other shared crates beyond reading them. If the print layout cannot be drawn into a memory DC without a change in `quill-core`, stop and report.
 - **Dependencies.** None for the crate and the command; the send-to-port step uses WP-WEB-2's frame (the text above is the contract, so it can be built before WP-WEB-2 merges).
-- **Tests.** `quill-pdf`: the deflate encoder round-trips through `quill-inflate` on random and real rows; a PDF of two synthetic pages parses (`qpdf --check` and `pdfinfo` when present on the host, skipped with a message when not) and `pdftoppm` gives the input pixels back; the fixed-date mode is byte-repeatable. Win32: a Wine run (as `docs/testing.md`'s Wine stage runs the Win32 build) exports `tests/docs/letter.qld` and the demo to PDF and compares page counts and a rendered page with the preview's own bitmap; the size of the demo's PDF is recorded (target under 0.5 MB a page).
+- **Tests.** `quill-pdf`: the deflate encoder round-trips through `quill-inflate` on random and real rows; a PDF of two synthetic pages parses (`qpdf --check` and `pdfinfo` when present on the host, skipped with a message when not), `pdftotext` returns its words and their positions and `pdftoppm` gives a picture's pixels back; the output is byte-repeatable and has a golden. `quill-pdfdoc`: the letter, headers, footers, fields, lists and pictures of the test documents, with a golden. Win32: a Wine run (as `docs/testing.md`'s Wine stage runs the Win32 build) exports `tests/docs/letter.qld` and the demo to PDF and compares page counts and a rendered page with the preview's own bitmap; the size of the demo's PDF is recorded (target under 0.5 MB a page).
 - **Evidence.** The Print to PDF dialog on ReactOS (QEMU `screendump`), the PDF's first page rendered beside the screen, the file sizes.
 - **Parallel.** With WP-WEB-2 and WP-WEB-4.
 
@@ -455,18 +455,15 @@ GdiMeasure) and src/main.rs (print_job, the File menu, QUILL.INI handling); crat
 lint set for a no_std codec); docs/testing.md (the Wine scenarios) and the W9X- decisions; AGENTS.md on new
 crates and layers.
 
-Build: (1) crates/quill-pdf, no_std + alloc, forbid(unsafe_code), the house clippy denies: a deflate
-encoder (zlib wrapper, fixed Huffman, hash-chain matcher with a bounded chain) and a writer that takes pages
-as (width, height, dpi, RGB rows) and the title, and returns the PDF bytes; tests as in the plan. (2)
-gdi::render_pages: a memory DC compatible with the screen, a 24-bit top-down DIB section per page at 150 dpi
-(an INI key [Print] PdfDpi, 72 to 300), GdiMeasure at that dpi, draw_page exactly as print_document calls
-it, rows handed to quill-pdf; release each DIB before the next. (3) File > Print to PDF... after Print, with
-an accelerator only if one is free; a Save As with the PDF type and C:\Printed\<name>.pdf as the default
-(create the folder); status bar "Printed to <path>". (4) With [Web] HostPort=COM1 (any COMn), open the port
-(CreateFileA, GENERIC_WRITE, OPEN_EXISTING), write the frame with the file's SHA-256 (add a small sha256 in
-quill-pdf or a separate module; no new external crate), close, status "Sent to the page". (5) Wine: a run of
-the Win32 build (docs/testing.md, the Wine stage) exports tests/docs/letter.qld and the demo; compare with the preview's bitmap. (6) On a
-local QAGRR build, QEMU screendump of the menu and the dialog, and the file pulled out with mtools.
+Build (owner change: a text layer from the start, not a raster): (1) crates/quill-pdf, no_std + alloc,
+forbid(unsafe_code), the house clippy denies: a deflate encoder and a writer for text runs in the standard 14
+fonts, rectangles and images; (2) crates/quill-pdfdoc, which walks a laid-out document as draw_page does;
+(3) File > Print to PDF... after Print Setup, Ctrl+Shift+P, a Save As with the PDF type and C:\Printed\<name>.pdf
+as the default (create the folder), status bar "Printed to <name>", /PDF OUT on the command line, [Print] PdfDpi;
+(4) with [Web] HostPort=COM1 (any COMn), open the port, write the frame with the file's SHA-256, close, status
+"Sent to the page": a later step, after WP-WEB-2's frame is merged; (5) Wine: a run of the Win32 build
+(win9x/tools/wine-pdf.sh) exports tests/docs/letter.qld and the demo; (6) on a local QAGRR build, QEMU screendump
+of the menu and the dialog, and the file pulled out with mtools.
 
 Must not touch: win16/**, dos/**, linux/**, winui/**, site/**, shared crates other than the new quill-pdf
 (stop and report if the layout needs a quill-core change). Finish line, tests and evidence: the plan's
@@ -525,7 +522,7 @@ Each is taken with the default so no package waits; the last column is where to 
 | Question | Default taken | Where to swap |
 |---|---|---|
 | A system-wide PDF printer, or Quill's own Print to PDF? | Quill's own (no printer driver exists for ReactOS 0.4.16) | Goal 2; WP-WEB-3 |
-| Raster PDF now, text-layer later? | Raster at 150 dpi now; P7b later | WP-WEB-3's `[Print] PdfDpi` and `docs/linux.md` P7b |
+| Raster PDF now, text-layer later? | **Decided by the owner: a text layer from the start** (W9X-91); embedded font subsets later (W9X-92) | WP-WEB-3's `[Print] PdfDpi` (now the layout resolution, W9X-94) and `docs/linux.md` P7b |
 | Which port carries files to the page? | COM1 with the `LHQ-FILE` frame | SITE-15 (WP-WEB-2) |
 | Generic "Send to this computer" for any file? | Yes, `SENDHOST.CMD` and a desktop drop-target shortcut; Send To once rl supports it | WP-WEB-2; the reactos-liminal table |
 | Sound through a page-side AC'97 device, a v86 fork, or none? | Page-side device if WP-WEB-4 says go; otherwise PC speaker only until the owner picks the fork | WP-WEB-4's report; the order table |
@@ -547,7 +544,7 @@ Each is taken with the default so no package waits; the last column is where to 
 ## What was not verified
 
 - That ReactOS in **v86** (not QEMU) installs and drives an AC'97 device: WP-WEB-4's question.
-- That Quill's print layout draws into a memory DC unchanged, and the size of a 150 dpi page: WP-WEB-3.
+- That Quill's print layout reaches a PDF through `quill-pdfdoc` from the shell's own measure, and what a page weighs: WP-WEB-3 (W9X-90 to W9X-94).
 - A drop on a desktop shortcut passing the path in ReactOS 0.4.16.
 - Throughput and correctness of COM1 under throttled CPU (the machine was shared and loaded), and on Firefox and Safari.
 - Pages' behaviour for `.zst` files (content type, on-the-fly compression); v86 decompresses the bytes itself, so only a changed byte would matter, and none is expected.

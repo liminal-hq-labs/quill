@@ -131,7 +131,7 @@ Everything below describes the Windows builds; the DOS build follows it with the
 
 ### Menus and accelerators
 
-Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis on items that open a dialog, check marks on toggles, unavailable items greyed out (Cut and Copy with no selection, Paste with nothing on the clipboard, Redo with nothing to redo). Every title and item has one mnemonic, written with `&` in the menu tree and shown underlined by Windows (CORE-1). A rule separates the groups of a menu, as in Windows 95 and Word 97: File holds New and Open, then Save and Save As, then Print, Print Preview and Print Setup, then the recent files, then Exit; Edit holds Undo and Redo, then Cut, Copy and Paste, then Select All; Character and Paragraph group their alignments, spacings and lists the same way. The DOS text menu draws the same rules (D98).
+Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis on items that open a dialog, check marks on toggles, unavailable items greyed out (Cut and Copy with no selection, Paste with nothing on the clipboard, Redo with nothing to redo). Every title and item has one mnemonic, written with `&` in the menu tree and shown underlined by Windows (CORE-1). A rule separates the groups of a menu, as in Windows 95 and Word 97: File holds New and Open, then Save and Save As, then Print, Print Preview and Print Setup (and Print to PDF on the Windows 95 build), then the recent files, then Exit; Edit holds Undo and Redo, then Cut, Copy and Paste, then Select All; Character and Paragraph group their alignments, spacings and lists the same way. The DOS text menu draws the same rules (D98).
 
 | Menu | Item | Accelerator |
 |---|---|---|
@@ -142,6 +142,7 @@ Menus follow the Windows 3.1 conventions: a mnemonic on every item, an ellipsis 
 | | Print... | Ctrl+P |
 | | Print Preview | |
 | | Print Setup... | |
+| | Print to PDF... (Windows 95 build) | Ctrl+Shift+P |
 | | 1–4 recent files | |
 | | Exit | Alt+F4 |
 | Edit | Undo `<action>` | Ctrl+Z, Alt+Backspace |
@@ -308,6 +309,7 @@ The Edit menu names what Undo and Redo will do: `Undo Typing`, `Undo Bold`, `Red
 
 - **Print...** opens the common print dialog for copies, page range (all, selection or pages) and printer. Printing shows `Printing LETTER.QLD on HP LaserJet III on LPT1:` with Cancel, which stops between pages.
 - **Print Setup...** opens the print dialog's setup page; changing the printer or paper lays the document out again.
+- **Print to PDF...** (Windows 95 build, Ctrl+Shift+P; W9X-90) writes the document to a PDF file without a printer. It asks for a name in Save As (type PDF, the document's own name with `.pdf`, in `C:\Printed`, made when missing) and says `Printed to NAME.PDF` in the status bar. The file holds every page at the document's paper size, in the layout the window shows (`[Print] PdfDpi` in `QUILL.INI` lays it out at 96 to 1,200 dots to the inch instead; default 96, W9X-94), with real text: selectable and searchable, in the standard 14 fonts (Helvetica, Times or Courier, chosen from the face and its family) with every character at the position the layout gave it, headers, footers, list labels and fields with their printed values, underline and strikeout, colour, and pictures as images (W9X-91, W9X-92). The document's text is Windows-1252 and the file keeps it, accents and curly quotes included; a face that is not a look-alike of a standard font prints in the nearest one, so its shapes change and its positions do not. Fonts are not embedded. `QUILL32.EXE FILE /PDF OUT` does the same without a window.
 - **Page Layout...** sets the margins (default 1.25 inch left and right, 1 inch top and bottom), the header and footer distances (default 0.5 inch), the starting page number and the measurement units.
 - **Print Preview** replaces the view with one or two whole pages, headers and footers included, under a bar of push buttons, each with a tooltip and a status line sentence: Print, Next Page, Previous Page, Two Pages (One Page while two show), Zoom (the whole page, or its actual size with scroll bars) and Close. The toolbars and the drop-down boxes are hidden while it shows. On Windows 95 each sheet's text is drawn in device pixels at the preview's scale, as the zoomed page's is (a word at a time, fitted to the layout), so it reads the same whatever a system does to scaled fonts (W9X-81). Page Up and Page Down change pages; Escape and Close leave it, and the page view comes back with the scroll position and centring it had (D100).
 
@@ -388,7 +390,7 @@ Every build keeps every property of the document. The table says what each shows
 | Zoom (stretch) | Yes | Yes | No | Yes (DOS-44) |
 | Zoom box in the status bar, with minus and plus | Yes (W16-18, W16-19) | Yes (W9X-14, W9X-15) | No | Yes (DOS-46) |
 | Caret | Blinks at the system's rate (W16-17) | Blinks at the system's rate (W9X-12) | Steady | Steady |
-| Printing | Windows printer drivers | Windows printer drivers | Plain text | Plain text; PostScript stretch |
+| Printing | Windows printer drivers | Windows printer drivers, and Print to PDF with a text layer (W9X-90) | Plain text | Plain text; PostScript stretch |
 | Clipboard | Windows: RTF, DIB, text | Windows: RTF, DIB, text | Own; Windows text in a DOS box | As text mode |
 | Spelling as you type | Off by default; wave and pop-up menu (W16-21) | On by default | Off by default; a red background, reverse in mono (DOS-41) | Off by default; a red wave (DOS-43) |
 | Help | WinHelp 3.1 | WinHelp 4 (same file) | Own viewer, `QUILL.HLX` | As text mode |
@@ -413,6 +415,7 @@ The same forms work for `QUILL32.EXE` and `QUILLDOS.EXE`; options are case-insen
 | `QUILL.EXE` | Open a new, untitled document |
 | `QUILL.EXE FILE` | Open `FILE`, of any supported type |
 | `QUILL.EXE /P FILE` | Print `FILE` on the default printer (DOS: to `LPT1`), then exit |
+| `QUILL32.EXE FILE /PDF OUT` | Write `FILE` as a PDF to `OUT` (Windows 95 build), then exit |
 | `QUILL.EXE /SELFTEST SCRIPT` | Run a test script, write results to `QUILL.LOG` and exit (on Windows 3.1, exit Windows too). Test builds only; see [docs/testing.md](docs/testing.md) |
 | `QUILLDOS.EXE /50`, `/G`, `/G16`, `/T`, `/MONO` | 80 × 50 text mode (a screen with no 50-row mode stays at 80 × 25; the switch is not saved), graphics mode (`/GFX` is the same as `/G`; a VBE 640 × 480 mode with 256 colours if the card has one, else mode 12h), graphics mode 12h only, text mode over a saved `Graphics=` setting, the mono attribute scheme (D124, DOS-3) |
 
@@ -517,7 +520,7 @@ Quill's help is written in `.qhm` files (Quill help markup, a small Markdown dia
 
 ### Settings file
 
-Settings live in `QUILL.INI` in the Windows directory (both Windows builds share it) or, for the DOS build, beside `QUILLDOS.EXE`. It is read at start and written when a setting changes. The Win32 build reads and writes its settings one key at a time through the profile functions, so what other builds keep in the same file is left alone, and keeps its recent files in `[Recent32]`, because they may be long names the Win16 build cannot open. The Linux builds keep `QUILL.INI` in `$XDG_CONFIG_HOME/quill` (`~/.config/quill`), and the GTK client also keeps its window's size in `gtk.ini` beside it.
+Settings live in `QUILL.INI` in the Windows directory (both Windows builds share it) or, for the DOS build, beside `QUILLDOS.EXE`. It is read at start and written when a setting changes. The Win32 build reads and writes its settings one key at a time through the profile functions, so what other builds keep in the same file is left alone, and keeps its recent files in `[Recent32]`, because they may be long names the Win16 build cannot open. It also reads `[Print] PdfDpi` (96 to 1,200, default 96), the resolution Print to PDF lays the pages out at (W9X-94); nothing writes it. The Linux builds keep `QUILL.INI` in `$XDG_CONFIG_HOME/quill` (`~/.config/quill`), and the GTK client also keeps its window's size in `gtk.ini` beside it.
 
 ## Settings and defaults
 

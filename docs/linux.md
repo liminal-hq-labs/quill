@@ -401,7 +401,7 @@ Items marked *new files* touch only new files and one line of the root `Cargo.to
 | P5 | `crates/quill-raster` | Pixel goldens (within 2, at most 0.1 % of pixels differ); caret and glyph property tests | `line_label` and `walk_chars` from the Windows 95 branches |
 | P6 | `quill-thumbnailer` and `linux/data` | `desktop-file-validate` and `appstreamcli validate`; Nautilus shows a page-1 thumbnail | P5 and the magic branch |
 | P7a | HTML writer in `quill-formats` and `quill to-html` | Golden HTML; LibreOffice opens it with the same counts | New code in `quill-formats` |
-| P7b | `quill to-pdf` with `pdf-writer` and subset fonts | `pdftotext` gives the text; the page count matches | P5 |
+| P7b | `quill to-pdf` on `quill-pdf` and `quill-pdfdoc` (the writer and the document walk the Windows 95 Print to PDF already has, W9X-91; `Std14Measure` lays out with no font files), then subset fonts for the faces the standard 14 do not look like (W9X-92) | `pdftotext` gives the text; the page count matches | P5 |
 | G0 | The GTK4 spike | A 1.5× screenshot shows a one-pixel checkerboard with no blur | P5. **Built**, see [linux-spike.md](linux-spike.md) |
 | G1 | Read-only viewer | Opens every file in `tests/docs`; layout equals the goldens | G0. **Built**, see [The GTK4 viewer (G1)](#the-gtk4-viewer-g1) |
 | G2 | Editing: keys, IME, caret, mouse | The host's editing scenarios replayed through the GTK command layer save identical bytes | G1 and the pointer work |
