@@ -161,8 +161,10 @@ unsafe fn fill(dc: Handle, x: i32, y: i32, w: i32, h: i32, colour: u32) {
 	DeleteObject(b);
 }
 
-/// The strip as drawn: a copy whose silver background and light-grey shading are the scheme's face and its light colour.
-static mut LIVE_STRIP: Vec<u8> = Vec::new();
+/// The strip as drawn, in two copies: one whose silver background is the scheme's face (a glyph on a flat, raised or pressed button) and
+/// one whose background is its light colour (a glyph on a switched-on toggle), so the picture's cell is never a square of another colour.
+/// In both, the light grey of a highlight is the scheme's light colour.
+static mut LIVE_STRIP: [Vec<u8>; 2] = [Vec::new(), Vec::new()];
 
 /// Palette entries of the strip that are chrome colours rather than picture: the silver background and the light grey of a highlight.
 const STRIP_FACE: usize = 0;
@@ -170,22 +172,27 @@ const STRIP_LIGHT: usize = 11;
 /// Where the strip's palette starts: the 14-byte file header and the 40-byte information header.
 const STRIP_PALETTE: usize = 54;
 
-/// Rebuilds the glyph strip for the current scheme, so a button's picture sits on the button's face on any theme.
+/// Rebuilds the glyph strips for the current scheme, so a button's picture sits on the button's base colour on any theme.
 pub fn recolour_strip() {
-	let mut v = STRIP.to_vec();
-	for (entry, colour) in [(STRIP_FACE, scheme::face()), (STRIP_LIGHT, light())] {
-		if let Some(p) = v.get_mut(STRIP_PALETTE + 4 * entry..STRIP_PALETTE + 4 * entry + 4) {
-			p.copy_from_slice(&[(colour >> 16) as u8, (colour >> 8) as u8, colour as u8, 0]);
+	let build = |background: u32| {
+		let mut v = STRIP.to_vec();
+		for (entry, colour) in [(STRIP_FACE, background), (STRIP_LIGHT, light())] {
+			if let Some(p) = v.get_mut(STRIP_PALETTE + 4 * entry..STRIP_PALETTE + 4 * entry + 4) {
+				p.copy_from_slice(&[(colour >> 16) as u8, (colour >> 8) as u8, colour as u8, 0]);
+			}
 		}
-	}
-	// SAFETY: the shell is single-threaded; nothing else reads the strip while the scheme is being applied.
+		v
+	};
+	let strips = [build(scheme::face()), build(light())];
+	// SAFETY: the shell is single-threaded; nothing else reads the strips while the scheme is being applied.
 	unsafe {
-		*core::ptr::addr_of_mut!(LIVE_STRIP) = v;
+		*core::ptr::addr_of_mut!(LIVE_STRIP) = strips;
 	}
 }
 
-unsafe fn glyph(dc: Handle, k: i32, x: i32, y: i32) {
-	let live = &*core::ptr::addr_of!(LIVE_STRIP);
+/// Draws glyph `k` at (`x`, `y`) over a button whose base is the face colour, or the light colour when `lit`.
+unsafe fn glyph(dc: Handle, k: i32, x: i32, y: i32, lit: bool) {
+	let live = &(*core::ptr::addr_of!(LIVE_STRIP))[usize::from(lit)];
 	let strip: &[u8] = if live.len() == STRIP.len() { live } else { STRIP };
 	let off = u32::from_le_bytes([strip[10], strip[11], strip[12], strip[13]]) as usize;
 	let info = strip.as_ptr().add(14).cast::<BitmapInfoHeader>();
@@ -298,7 +305,7 @@ pub unsafe fn paint_toolbar(
 			};
 			button_face(dc, b.x, top + 2, BTN_W, BTN_H, face, on);
 			let off = i32::from(face == Face::Down);
-			glyph(dc, b.glyph, b.x + 4 + off, top + 6 + off);
+			glyph(dc, b.glyph, b.x + 4 + off, top + 6 + off, face == Face::Down && on);
 			if b.act == Act::Colour {
 				// The colour button shows the text colour under the A.
 				if let Some((r, g, bl)) = app.char_state(s).colour {
