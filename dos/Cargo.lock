@@ -30,6 +30,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "desk-module"
+version = "0.0.0"
+
+[[package]]
 name = "desk-pic"
 version = "0.0.0"
 dependencies = [
@@ -160,6 +164,10 @@ name = "quill-job"
 version = "0.0.0"
 
 [[package]]
+name = "quill-modabi"
+version = "0.0.0"
+
+[[package]]
 name = "quill-mouse"
 version = "0.0.0"
 
@@ -210,12 +218,15 @@ name = "rt"
 version = "0.0.0"
 dependencies = [
  "desk-hal",
+ "desk-module",
  "desk-pic",
+ "quill-modabi",
 ]
 
 [[package]]
 name = "rt-test"
 version = "0.0.0"
 dependencies = [
+ "quill-modabi",
  "rt",
 ]

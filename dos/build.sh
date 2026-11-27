@@ -18,8 +18,11 @@ VENDOR="$(tools/vendor-dir.sh "$PWD/vendor")"
 STUB="$VENDOR/cwsdpmi/bin/CWSDSTUB.EXE"
 [ -f "$STUB" ] || { echo "build: $STUB not found; run dos/tools/fetch-tools.sh" >&2; exit 1; }
 
-RUSTC_BOOTSTRAP=1 cargo build --release --locked
+# Only the program: building the whole workspace would turn on `rt`'s `module` feature for it too (rt-test needs it), and an unreferenced
+# loader still moves the linker's layout. `quill-dos` asks for the feature itself, in the package that first loads a module.
+RUSTC_BOOTSTRAP=1 cargo build --release --locked -p quill-dos
 TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/target}"
 mkdir -p dist
 tools/elf2go32.py "$STUB" "$TARGET_DIR/dos-elf/release/quill-dos" dist/QUILLDOS.EXE
 echo "build: dist/QUILLDOS.EXE ($(wc -c < dist/QUILLDOS.EXE) bytes)"
+tools/build-mods.sh

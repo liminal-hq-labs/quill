@@ -15,10 +15,17 @@ license = "Apache-2.0 OR MIT"
 # The panic handler is a lang item that `std` defines for itself, so a program that links `std` turns this off.
 default = ["panic-handler"]
 panic-handler = []
+# The loader for optional modules (`.DMD` files, CORE-90 to CORE-95, DOS-50 to DOS-54). Off by default, so a program that does not load modules
+# carries none of it; `quill-dos` turns it on with the package that first loads one.
+module = ["dep:desk-module", "dep:quill-modabi"]
+# Places modules in a 64 KiB arena inside the program's own `.bss` instead of the heap, and skips widening CS (DOS-53's fallback).
+module-arena = ["module"]
 
 [dependencies]
 desk-hal = { path = "../hal/hal" }
 desk-pic = { path = "../hal/drivers/pic" }
+desk-module = { path = "../module/format", optional = true }
+quill-modabi = { path = "../../crates/quill-modabi", optional = true }
 
 [package.metadata.quill]
 layer = "shell"

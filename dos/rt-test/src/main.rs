@@ -7,10 +7,13 @@
 //! `PATH SIZE` line each. `RTTEST.EXE self` checks drives, rename, the critical-error stub and the invalid-drive answer, printing
 //! `ok NAME` or `FAIL NAME` and exiting 1 on any failure. `RTTEST.EXE time DIR` times directory reads with the BIOS tick
 //! counter. `RTTEST.EXE probe DIR` prints what DOS says about the odd cases (attributes, dot entries, drives) as facts.
+//! `RTTEST.EXE mod DIR BUILD` and its relatives check the module loader (`modtest.rs`).
 #![no_std]
 #![no_main]
 
 extern crate alloc;
+
+mod modtest;
 
 use alloc::format;
 use alloc::string::String;
@@ -368,8 +371,21 @@ fn main() -> i32 {
 		"self" => cmd_self(),
 
 		"probe" => cmd_probe(dir),
+		"mod" | "mod-find" | "mod-nomem" | "mod-nowiden" | "mod-widen" | "mod-time" | "mod-panic" => {
+			// The build id the modules were built with is the last word: `RTTEST mod C:\\MODS 3489044284`.
+			let build = args.get(2).and_then(|text| text.parse::<u32>().ok()).unwrap_or(0);
+			match cmd {
+				"mod" => modtest::cmd_mod(dir, build),
+				"mod-find" => modtest::cmd_find(args.get(1).and_then(|text| text.parse::<u32>().ok()).unwrap_or(0)),
+				"mod-nomem" => modtest::cmd_nomem(dir, build),
+				"mod-nowiden" => modtest::cmd_nowiden(dir, build),
+				"mod-widen" => modtest::cmd_widen(dir, build),
+				"mod-time" => modtest::cmd_time(dir, build),
+				_ => modtest::cmd_panic(dir, build),
+			}
+		}
 		_ => {
-			println!("usage: RTTEST list|time|probe DIR | self");
+			println!("usage: RTTEST list|time|probe DIR | self | mod|mod-nomem|mod-nowiden|mod-panic DIR BUILD | mod-find BUILD");
 			64
 		}
 	}
