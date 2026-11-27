@@ -86,7 +86,7 @@ Measured at the branch point and again before the pull request; the pull request
 | DOS, Windows 3.x and Windows 95 floppies | DOS 437,248 bytes free before autosave, about 427,000 after (DOS-48) | Each feature package reports `installer/tools/verify-disks.sh` for the disks it grows |
 | `QUILL32.EXE` imports | `win9x/tools/imports.allow` | A new import is named in the brief and added to the list in the same change |
 
-The DOS ledger the track expects, all **[E]**: moves 0; WP-ED-1 to WP-ED-4 about +1 KB; WP-ED-5 +2 to +4; WP-ED-7 +1 to +1.5; WP-ED-8 +0.5; WP-ED-9 +1; WP-ED-10 +0 to +1.5; WP-ED-11 +5 to +8; WP-ED-12 +0.3; WP-ED-13 +2 to +4; WP-ED-15 +6 to +10; WP-ED-17 to WP-ED-19 +3 to +5 each. That is +31 to +48 KB, about 467 to 484 KB, so the stop at 480 KB is likely to be reached near the dialogs, and the DOS floppy (which packs the executable to about 58 %) still has room. Reveal Codes adds +11 to +16.5 KB more after WP-ED-19 ([plans/reveal-codes.md](plans/reveal-codes.md#budgets)), so it is the package set most likely to meet that stop.
+The DOS ledger the track expects, all **[E]**: moves 0; WP-ED-1 to WP-ED-4 about +1 KB; WP-ED-5 +2 to +4; WP-ED-7 +1 to +1.5; WP-ED-8 +0.5; WP-ED-9 +1; WP-ED-10 +0 to +1.5; WP-ED-11 +5 to +8; WP-ED-12 +0.3; WP-ED-13 +2 to +4; WP-ED-15 +6 to +10; WP-ED-17 to WP-ED-19 +3 to +5 each. That is +31 to +48 KB, about 467 to 484 KB, so the stop at 480 KB is likely to be reached near the dialogs, and the DOS floppy (which packs the executable to about 58 %) still has room. Reveal Codes adds +11 to +16.5 KB more after WP-ED-19 ([plans/reveal-codes.md](plans/reveal-codes.md#budgets)), so it is the package set most likely to meet that stop. [plans/modules.md](plans/modules.md) moves the DOS file dialog and the modal dialogs into `QUILLDLG.DMD`, which would leave the executable at about 438 to 458 KB with Reveal Codes in.
 
 ## Decision ids
 
@@ -106,6 +106,7 @@ Ranges reserved for this track, above every id on `main`, in the autosave branch
 | CORE, ARCH, DOS, W16, W9X, LNX, WUI, INS | CORE-150 to CORE-169, ARCH-30 to ARCH-34, DOS-80 to DOS-89 (carved out of the range above, which keeps DOS-70 to DOS-79), W16-90 to W16-99, W9X-110 to W9X-119, LNX-60 to LNX-64, WUI-60 to WUI-64, INS-8 and INS-9 | The preferences series, [plans/preferences.md](plans/preferences.md) (ARCH-30). The ids WP-ED-13 to WP-ED-16 named stay spare |
 | LNX | LNX-80 to LNX-89 | GTK printing, help and dark paper, [plans/gtk-print-help.md](plans/gtk-print-help.md) |
 | CORE, ARCH, DOS, W16, W9X, LNX, WUI | CORE-180 to CORE-199, ARCH-35, DOS-90 to DOS-99, W16-100 to W16-104, W9X-100 to W9X-104, LNX-70 to LNX-74, WUI-70 to WUI-74 | Reveal Codes, [plans/reveal-codes.md](plans/reveal-codes.md) |
+| CORE, DOS, W16, W9X, INS, ARCH | CORE-90 to CORE-99, DOS-50 to DOS-59, W16-40 to W16-49, W9X-40 and W9X-41, INS-20 to INS-22, ARCH-40 to ARCH-42 | Optional modules, [plans/modules.md](plans/modules.md) (WP-MOD-1 to WP-MOD-8). DOS-52 revises DOS-70's budget rule once a module exists |
 
 ## Gates and evidence
 
