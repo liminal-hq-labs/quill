@@ -194,6 +194,44 @@ run_mouse_text() { # <name> <arguments> [normalise]
 	echo "e2e: $name: every screen matches the host's, with the keys and pointer played from a file"
 }
 run_mouse_text g8-mouse "LETTER.RTF"
+# Check Spelling as You Type (tests/scenarios/m10-spell-text*.keys): `@spell` turns it on; after each step the program runs the whole scan, as
+# the host's drain does, and the misspelt words show in the screens' attributes (a red background, reverse in mono).
+run_mouse_text m10-spell-text ""
+run_mouse_text m10-spell-text-mono ""
+# The real idle path (no script): with `AsYouType=1` in QUILL.INI the program checks the words 0.3 s after the last key, from its wait for a
+# key, and draws the screen again with the misspelt word in a red background. The keys are typed 0.8 s apart, so the quiet comes between them.
+if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = m10-spell-idle ]; then
+	disk="$WORK/disk-m10-spell-idle"
+	rm -rf "$disk" "$WORK/keep"
+	mkdir -p "$disk"
+	cp "$HERE/dist/QUILLDOS.EXE" "$disk/"
+	cp "$ROOT/tests/docs/en_ca.dic" "$disk/EN_CA.DIC"
+	printf '[Quill]\r\nAsYouType=1\r\n' > "$disk/QUILL.INI"
+	export DOS_ENV='QUILL_DUMP=D:\DUMP.TXT'
+	export DOS_KEEP="$WORK/keep"
+	export DOS_AUTOTYPE="-w 2 -p 0.8 T e h space q u i c k space f10 end enter right enter"
+	export DOS_TIMEOUT=240
+	rc=0
+	"$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE" > "$WORK/m10-spell-idle.out" || rc=$?
+	[ "$rc" = 0 ] || fail "m10-spell-idle: QUILLDOS.EXE exited with $rc"
+	tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/m10-spell-idle-frames.txt"
+	# "Teh" is on screen with attribute 47 (light grey on red) under it, and "quick" is not marked.
+	python3 - "$WORK/m10-spell-idle-frames.txt" <<'PY' || fail "m10-spell-idle: no screen shows the misspelt word in red"
+import sys
+frames = open(sys.argv[1]).read().split("=== screen ")[1:]
+for frame in frames:
+    text, _, attrs = frame.partition("--- attributes ---\n")
+    rows, arows = text.split("\n")[1:], attrs.split("\n")
+    for row, arow in zip(rows, arows):
+        at = row.find("Teh quick")
+        if at >= 0:
+            marked = [arow[2 * i : 2 * i + 2] for i in range(at, at + 9)]
+            if marked[:3] == ["47"] * 3 and marked[3] != "47" and all(m != "47" for m in marked[4:]):
+                sys.exit(0)
+sys.exit(1)
+PY
+	echo "e2e: m10-spell-idle: with no key waiting, the idle loop checked the words and \"Teh\" showed in a red background"
+fi
 # The file dialog (tests/scenarios/m16-*.keys): the folders, dates and sizes of a real disk, the sorting, the type-ahead, the places, Save As.
 for scen in m16-open m16-open-50 m16-open-mono m16-big m16-errors; do
 	run_mouse_text "$scen" "" normalise

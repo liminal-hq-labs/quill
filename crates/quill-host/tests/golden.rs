@@ -223,6 +223,23 @@ fn m10_spell_live_script_matches_its_golden_screens_and_marks() {
 }
 
 #[test]
+fn m10_spell_text_script_paints_the_marks_in_the_screens_attributes() {
+	let (_, frames) = scenario("m10-spell-text");
+	compare("tests/golden/screens/m10-spell-text.frames.txt", &frames);
+	// A misspelt word has a red background in the colour scheme; the selection shows over it.
+	assert!(frames.contains("474747"), "no misspelt word was painted");
+}
+
+#[test]
+fn m10_spell_text_mono_script_paints_the_marks_in_reverse() {
+	let (_, frames) = scenario("m10-spell-text-mono");
+	compare(
+		"tests/golden/screens/m10-spell-text-mono.frames.txt",
+		&frames,
+	);
+}
+
+#[test]
 fn m1_edit_script_matches_its_golden_screens_and_file() {
 	let (files, frames) = scenario("m1-edit");
 	compare("tests/golden/screens/m1-edit.frames.txt", &frames);
