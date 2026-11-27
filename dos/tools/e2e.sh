@@ -135,7 +135,7 @@ stage_disk() { # <scenario file> <disk>
 				truncate -s $(((i * 7919) % 90000 + 1)) "$name"
 				m=$(((i * 5) % 12 + 1))
 				dd=$(((i * 3) % 28 + 1))
-				touch -d "$(printf '%d-%02d-%02d %02d:%02d' $((2024 + i % 3)) "$m" "$dd" $((i % 24)) $((i % 60)))" "$name"
+				touch -d "$(printf '%d-%02d-%02d %02d:%02d' $((2021 + i % 3)) "$m" "$dd" $((i % 24)) $((i % 60)))" "$name"
 			done
 			;;
 		esac

@@ -568,7 +568,7 @@ pub fn stage(files: &mut MemFiles, script: &Script, docs: &std::path::Path) {
 			files.stamps.insert(
 				key.clone(),
 				dos_stamp(
-					2024 + (i % 3) as u16,
+					2021 + (i % 3) as u16,
 					m as u16,
 					d as u16,
 					(i % 24) as u16,
