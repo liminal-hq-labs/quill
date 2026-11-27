@@ -356,8 +356,8 @@ fn draw_picture<S: ReadStore + ?Sized, M: Measure + Clone>(
 	}
 	// Grey where the picture does not decode, as the screen shows it.
 	rgb.resize(px_w * px_h as usize * 3, 0xC0);
-	let mut window = alloc::boxed::Box::new([0u8; quill_app::picture::WINDOW]);
-	let _ = quill_app::picture::render(cx.doc, cx.s, idx, px_w, px_h, &mut window, |row, line| {
+	let mut window = alloc::boxed::Box::new([0u8; quill_picture::WINDOW]);
+	let _ = quill_picture::render(cx.doc, cx.s, idx, px_w, px_h, &mut window, |row, line| {
 		// Row 0 is the bottom of the picture; a PDF image's first row is the top.
 		let at = (px_h - 1 - row.min(px_h - 1)) as usize * px_w * 3;
 		if let (Some(dst), Some(src)) = (rgb.get_mut(at..at + px_w * 3), line.get(..px_w * 3)) {

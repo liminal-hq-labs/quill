@@ -8,11 +8,11 @@ mod common;
 use std::fmt::Write as _;
 
 use common::*;
-use quill_app::picture::WINDOW;
 use quill_app::{Command, Key};
 use quill_host::png::encode_indexed;
 use quill_paint::page::paint_sheet;
 use quill_paint::{crc32, Rect, Surface};
+use quill_picture::WINDOW;
 use quill_strike::StrikeMeasure;
 
 const DOCS: [&str; 5] = [

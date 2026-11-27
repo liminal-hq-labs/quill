@@ -8,7 +8,6 @@ mod common;
 use std::fmt::Write as _;
 
 use common::*;
-use quill_app::picture::WINDOW;
 use quill_app::recovery::AutosaveMode;
 use quill_host::png::encode_indexed;
 use quill_host::script::{parse_script, stage, MemFiles};
@@ -18,6 +17,7 @@ use quill_paint::pointer::{Gfx, View};
 use quill_paint::raster::{Planar4, PLANAR_BYTES, PLANE_BYTES};
 use quill_paint::shell::{self, paint_screen, paint_screen_view, Graphics};
 use quill_paint::{crc32, Surface};
+use quill_picture::WINDOW;
 use quill_strike::{SliceSource, StrikeMeasure};
 
 fn update() -> bool {

@@ -421,7 +421,6 @@ dependencies = [
  "quill-formats",
  "quill-grid",
  "quill-image",
- "quill-inflate",
  "quill-job",
  "quill-mouse",
  "quill-spell",
@@ -506,6 +505,7 @@ dependencies = [
  "quill-formats",
  "quill-host",
  "quill-paint",
+ "quill-picture",
  "skrifa",
 ]
 
@@ -593,6 +593,7 @@ dependencies = [
  "quill-host",
  "quill-image",
  "quill-mouse",
+ "quill-picture",
  "quill-strike",
 ]
 
@@ -612,6 +613,17 @@ dependencies = [
  "quill-host",
  "quill-image",
  "quill-pdf",
+ "quill-picture",
+]
+
+[[package]]
+name = "quill-picture"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+ "quill-formats",
+ "quill-image",
+ "quill-inflate",
 ]
 
 [[package]]

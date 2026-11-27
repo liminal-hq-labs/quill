@@ -32,7 +32,6 @@ pub mod mouse;
 mod native;
 mod overlay;
 mod paint;
-pub mod picture;
 pub mod picture_geom;
 pub mod platform;
 mod pointer;

@@ -23,6 +23,7 @@ quill-dlg = { path = "../../crates/quill-dlg" }
 quill-formats = { path = "../../crates/quill-formats" }
 quill-heap = { path = "../../crates/quill-heap" }
 quill-core = { path = "../../crates/quill-core" }
+quill-picture = { path = "../../crates/quill-picture" }
 quill-strike = { path = "../../crates/quill-strike" }
 quill-paint = { path = "../../crates/quill-paint" }
 quill-mouse = { path = "../../crates/quill-mouse" }

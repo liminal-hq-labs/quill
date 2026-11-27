@@ -708,7 +708,6 @@ dependencies = [
  "quill-formats",
  "quill-grid",
  "quill-image",
- "quill-inflate",
  "quill-job",
  "quill-mouse",
  "quill-spell",
@@ -782,6 +781,7 @@ dependencies = [
  "quill-formats",
  "quill-host",
  "quill-paint",
+ "quill-picture",
  "quill-tty",
  "tempfile",
 ]
@@ -836,7 +836,18 @@ dependencies = [
  "quill-core",
  "quill-dlg",
  "quill-image",
+ "quill-picture",
  "quill-strike",
+]
+
+[[package]]
+name = "quill-picture"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+ "quill-formats",
+ "quill-image",
+ "quill-inflate",
 ]
 
 [[package]]
