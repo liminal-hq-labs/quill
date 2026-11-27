@@ -7,7 +7,7 @@ use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
-use quill_app::{Files, SaveMode};
+use quill_app::{Drive, Files, SaveMode, Stamp};
 use quill_dlg::fs::{DriveKind, FileSystem, Found, FsError, ATTR_DIR};
 use quill_dlg::name83::PathBuf;
 use quill_formats::io::{Sink, Source};
@@ -71,6 +71,95 @@ impl Files for DosFiles {
 
 	fn len(&mut self, name: &[u8]) -> Option<u32> {
 		File::open(core::str::from_utf8(name).ok()?, Mode::Read).ok()?.len().ok()
+	}
+
+	fn now(&mut self) -> u32 {
+		crate::clock::packed()
+	}
+
+	fn stamp(&mut self, name: &[u8]) -> Option<Stamp> {
+		let e = rt::dos::find_first(core::str::from_utf8(name).ok()?, 0).ok()?;
+		Some(Stamp {
+			size: e.size,
+			time: (u32::from(e.date) << 16) | u32::from(e.time),
+		})
+	}
+
+	/// Where the file is: a floppy takes no recovery copy beside it, and a CD-ROM none at all (the copy goes to the central folder), and
+	/// a drive letter nothing answers to is not there. Nothing here reads the media.
+	fn drive(&mut self, name: &[u8]) -> Drive {
+		let letter = match name {
+			[l, b':', ..] => l.to_ascii_uppercase().wrapping_sub(b'A'),
+			_ => rt::dos::current_drive(),
+		};
+		if letter < 26 && !rt::dos::drive_valid(letter) {
+			return Drive::Missing;
+		}
+		match self.drive_kind(b'A' + letter) {
+			DriveKind::Removable => Drive::Removable,
+			DriveKind::CdRom => Drive::ReadOnly,
+			_ => Drive::Fixed,
+		}
+	}
+
+	fn make_dir(&mut self, dir: &[u8]) -> bool {
+		let Ok(text) = core::str::from_utf8(dir) else {
+			return false;
+		};
+		// A folder is named without its closing backslash, except a root.
+		let bare = match text.strip_suffix('\\') {
+			Some(b) if b.len() > 2 => b,
+			_ => text,
+		};
+		if rt::dos::attributes(bare).is_ok_and(|a| a & u16::from(ATTR_DIR) != 0) {
+			return true;
+		}
+		rt::dos::mkdir(bare).is_ok()
+	}
+
+	fn find_nth(&mut self, pattern: &[u8], n: usize, out: &mut [u8]) -> usize {
+		let Ok(text) = core::str::from_utf8(pattern) else {
+			return 0;
+		};
+		let mut seen = 0;
+		let mut len = 0;
+		let _ = rt::dos::find_each(text, 0, |e| {
+			if seen == n {
+				let name = e.name_bytes();
+				len = name.len().min(out.len());
+				if let (Some(d), Some(s)) = (out.get_mut(..len), name.get(..len)) {
+					d.copy_from_slice(s);
+				}
+			}
+			seen += 1;
+		});
+		len
+	}
+
+	/// Where a recovery copy goes when it has no place beside its document: `RECOVER\` in the program's folder, then the program's own
+	/// folder.
+	fn recovery_dir(&mut self, n: u8, out: &mut [u8]) -> usize {
+		let Some(exe) = rt::env::program_path() else {
+			return 0;
+		};
+		let Some(cut) = exe.as_bytes().iter().rposition(|b| *b == b'\\') else {
+			return 0;
+		};
+		let dir = exe.as_bytes().get(..=cut).unwrap_or(&[]);
+		let extra: &[u8] = match n {
+			0 => b"RECOVER\\",
+			1 => b"",
+			_ => return 0,
+		};
+		if dir.len() + extra.len() > out.len() {
+			return 0;
+		}
+		let (head, tail) = out.split_at_mut(dir.len());
+		head.copy_from_slice(dir);
+		if let Some(e) = tail.get_mut(..extra.len()) {
+			e.copy_from_slice(extra);
+		}
+		dir.len() + extra.len()
 	}
 }
 

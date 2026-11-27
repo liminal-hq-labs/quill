@@ -16,6 +16,18 @@ fn date() -> (u32, u32, u32) {
 	(cx & 0xFFFF, (dx >> 8) & 0xFF, dx & 0xFF)
 }
 
+/// The date and time now as DOS packs them, the date in the high word: what a recovery copy's age and a file's stamp are measured in.
+pub fn packed() -> u32 {
+	let (y, m, d) = date();
+	let cx: u32;
+	let dx: u32;
+	// SAFETY: INT 21h AH=2Ch takes no pointer and only sets CX and DX.
+	unsafe { asm!("int 0x21", inout("eax") 0x2C00u32 => _, out("ecx") cx, out("edx") dx, options(nostack)) };
+	let (h, min, sec) = ((cx >> 8) & 0xFF, cx & 0xFF, (dx >> 8) & 0xFF);
+	let date = (y.saturating_sub(1980) << 9) | (m << 5) | d;
+	(date << 16) | (h << 11) | (min << 5) | (sec / 2)
+}
+
 /// The time now (AH=2Ch): hour and minute.
 fn time() -> (u32, u32) {
 	let cx: u32;

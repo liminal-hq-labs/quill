@@ -96,7 +96,7 @@ pub fn shift_down() -> bool {
 }
 
 /// True when a key is waiting in the BIOS buffer (INT 16h AH=01h clears ZF when there is one).
-fn key_ready() -> bool {
+pub fn key_ready() -> bool {
 	let ready: u32;
 	// SAFETY: INT 16h is a BIOS service with register arguments only; the flags come back in the byte after `lahf`.
 	unsafe {
