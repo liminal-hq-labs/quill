@@ -210,7 +210,13 @@ pub fn font_handle_at(fr: &FontRef, extra: u8, pct: u8) -> u32 {
 	}
 	unsafe {
 		let cache = &mut *core::ptr::addr_of_mut!(FONTS);
-		let height = -(((i32::from(fr.size) * 96 * i32::from(pct) + 7200) / 14400).max(2));
+		let mut cell = (i32::from(fr.size) * 96 * i32::from(pct) + 7200) / 14400;
+		// At 50 percent and below the system's hinted glyphs are wider than the layout's, so a word has to be squeezed until its
+		// letters run into each other; a font one pixel smaller keeps them apart.
+		if pct <= 50 && cell >= 6 {
+			cell -= 1;
+		}
+		let height = -cell.max(2);
 		let pitch_family = match fr.family {
 			1 => 0x10 | 2,
 			2 => 0x20 | 2,
@@ -568,6 +574,36 @@ fn picture_marks(dc: u32, r: &Frame, lone: bool) {
 	}
 }
 
+/// Draws the zoomed word `count` bytes at `text` so that it starts at `x` and ends `target` pixels on, whatever its scaled font's
+/// advances come to: the font's own whole-pixel advances (`GetCharWidth`) are fitted to the target with `quill_core::fit` (CORE-140),
+/// and the word goes out in one `ExtTextOut`. A word that already measures the target goes out as it is.
+#[inline(never)]
+unsafe fn fitted_out(dc: u32, x: u32, y: u32, text: *const u8, count: usize, target: i32) {
+	unsafe {
+		let natural = (GetTextExtent(dc, np(text), count as u32) & 0xFFFF) as i32;
+		if natural == target || count == 0 || target <= 0 {
+			TextOut(dc, x, y, np(text), count as u32);
+			return;
+		}
+		let mut adv = [0i32; 160];
+		let mut dx = [0i16; 160];
+		let count = count.min(adv.len());
+		for (i, a) in adv.iter_mut().enumerate().take(count) {
+			let mut w = [0i16; 1];
+			let ch = u32::from(*text.add(i));
+			GetCharWidth(dc, ch, ch, np(w.as_mut_ptr()));
+			*a = i32::from(w[0]);
+		}
+		if let Some(word) = adv.get_mut(..count) {
+			quill_core::fit::fit_advances(word, target);
+		}
+		for (d, a) in dx.iter_mut().zip(adv.iter()).take(count) {
+			*d = (*a).clamp(0, 32000) as i16;
+		}
+		ExtTextOut(dc, x, y, 0, 0, np(text), count as u32, np(dx.as_ptr()));
+	}
+}
+
 /// Draws one laid-out line, the text at its layout positions: at 100 percent in runs of one format, and zoomed a word at a time, each
 /// at the position the layout gave its first character, because the system rounds each advance of a scaled font alone and the error
 /// would build up along a line (decision D102 for Windows 95; here the font is made at the zoomed size and no mapping mode is set).
@@ -615,45 +651,66 @@ fn draw_line(
 	let mut run_x = 0;
 	let mut run_cf = 0u16;
 	let mut run_sel = false;
-	let flush =
-		|n: &mut usize, run: &[u8; 160], x: i32, cf: u16, selected: bool, ts: &mut TextState| {
-			if *n == 0 {
-				return;
-			}
-			let (fr, vpos, cfmt) = font_ref(doc, s, cf);
-			let extra = u8::from(cfmt.flags & cflag::UNDERLINE != 0)
-				| (u8::from(cfmt.flags & cflag::STRIKE != 0) << 1);
-			let shift = match vpos {
-				1 => -(l.ascent / 3),
-				2 => l.ascent / 4,
-				_ => 0,
-			};
-			crate::store::sample();
-			#[cfg(feature = "bench")]
-			crate::bench::add(crate::bench::RUNS, 1);
-			#[cfg(feature = "bench")]
-			crate::bench::add(crate::bench::CHARS, *n as u32);
-			unsafe {
-				ts.font(dc, &fr, extra);
-				if selected {
-					// A zoomed character's cell is filled by its caller, so the characters of a selection touch.
-					ts.mode(dc, if z.one() { OPAQUE } else { TRANSPARENT });
-					ts.back(dc, SELECTED_BG);
-					ts.colour(dc, WHITE);
-				} else {
-					ts.mode(dc, TRANSPARENT);
-					ts.colour(dc, colour_of(app, s, &cfmt));
-				}
-				TextOut(
-					dc,
-					at.x(z, x) as u32,
-					at.y(z, l.ascent + shift) as u32,
-					np(run.as_ptr()),
-					*n as u32,
-				);
-			}
-			*n = 0;
+	// Where the layout ends the run's last character that is not a space, and its last character of all (a zoomed word is fitted to
+	// the first, so the space after it stays the layout's).
+	let mut run_end_text = 0;
+	let mut run_end_all = 0;
+	let flush = |n: &mut usize,
+	             run: &[u8; 160],
+	             x: i32,
+	             ends: (i32, i32),
+	             cf: u16,
+	             selected: bool,
+	             ts: &mut TextState| {
+		if *n == 0 {
+			return;
+		}
+		let (fr, vpos, cfmt) = font_ref(doc, s, cf);
+		let extra = u8::from(cfmt.flags & cflag::UNDERLINE != 0)
+			| (u8::from(cfmt.flags & cflag::STRIKE != 0) << 1);
+		let shift = match vpos {
+			1 => -(l.ascent / 3),
+			2 => l.ascent / 4,
+			_ => 0,
 		};
+		crate::store::sample();
+		#[cfg(feature = "bench")]
+		crate::bench::add(crate::bench::RUNS, 1);
+		#[cfg(feature = "bench")]
+		crate::bench::add(crate::bench::CHARS, *n as u32);
+		unsafe {
+			ts.font(dc, &fr, extra);
+			if selected {
+				// A zoomed character's cell is filled by its caller, so the characters of a selection touch.
+				ts.mode(dc, if z.one() { OPAQUE } else { TRANSPARENT });
+				ts.back(dc, SELECTED_BG);
+				ts.colour(dc, WHITE);
+			} else {
+				ts.mode(dc, TRANSPARENT);
+				ts.colour(dc, colour_of(app, s, &cfmt));
+			}
+			let (px, py) = (at.x(z, x) as u32, at.y(z, l.ascent + shift) as u32);
+			if z.one() {
+				TextOut(dc, px, py, np(run.as_ptr()), *n as u32);
+			} else {
+				// A zoomed word is fitted to the layout (W16-120), without the space the layout puts after it unless the run
+				// is underlined or struck out, when the space is part of the line.
+				let keep_space = extra != 0;
+				let mut count = *n;
+				while !keep_space && count > 1 && run.get(count - 1) == Some(&b' ') {
+					count -= 1;
+				}
+				let mut target = at.x(z, if keep_space { ends.1 } else { ends.0 }) - at.x(z, x);
+				// At 50 percent and below a hinted glyph is wider than the layout's and the space is two pixels: a word
+				// followed by a space gives up one pixel of its width to the gap, so the next word never touches it.
+				if z.0 <= 50 && count > 1 && count < *n && !keep_space {
+					target -= 1;
+				}
+				fitted_out(dc, px, py, run.as_ptr(), count, target);
+			}
+		}
+		*n = 0;
+	};
 	let mut m = Gdi16 {
 		dc: app_measure_dc(),
 		grid: false,
@@ -681,7 +738,15 @@ fn draw_line(
 		}
 		let selected = sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
 		if c == 0x01 {
-			flush(&mut n, &run, run_x, run_cf, run_sel, ts);
+			flush(
+				&mut n,
+				&run,
+				run_x,
+				(run_end_text, run_end_all),
+				run_cf,
+				run_sel,
+				ts,
+			);
 			if let Some((pw, ph)) = quill_core::layout::picture_size(doc, s, text, p, 96, 96) {
 				let idx = text.object_at(s, p).map_or(0, |v| v & 0xFFFF) as u16;
 				// The picture, or a grey box with a dark edge the size it prints when it is not drawn (see `picture.rs`).
@@ -725,7 +790,15 @@ fn draw_line(
 			return;
 		}
 		if c == 0x09 {
-			flush(&mut n, &run, run_x, run_cf, run_sel, ts);
+			flush(
+				&mut n,
+				&run,
+				run_x,
+				(run_end_text, run_end_all),
+				run_cf,
+				run_sel,
+				ts,
+			);
 			if w > 0 {
 				let (fr, _, cfmt) = font_ref(doc, s, cf);
 				ts.font(dc, &fr, 0);
@@ -808,7 +881,15 @@ fn draw_line(
 		// each advance never carries further than the end of the word.
 		let word_ends = !z.one() && n > 0 && run.get(n - 1) == Some(&b' ');
 		if n > 0 && (cf != run_cf || selected != run_sel || n == run.len() || word_ends) {
-			flush(&mut n, &run, run_x, run_cf, run_sel, ts);
+			flush(
+				&mut n,
+				&run,
+				run_x,
+				(run_end_text, run_end_all),
+				run_cf,
+				run_sel,
+				ts,
+			);
 		}
 		if n == 0 {
 			run_x = x;
@@ -818,9 +899,21 @@ fn draw_line(
 		if let Some(slot) = run.get_mut(n) {
 			*slot = c;
 			n += 1;
+			run_end_all = x + w;
+			if c != b' ' {
+				run_end_text = x + w;
+			}
 		}
 	});
-	flush(&mut n, &run, run_x, run_cf, run_sel, ts);
+	flush(
+		&mut n,
+		&run,
+		run_x,
+		(run_end_text, run_end_all),
+		run_cf,
+		run_sel,
+		ts,
+	);
 	// The wave goes in after the text, from the layout's own positions, under the glyphs the caret and the clicks agree with.
 	let room = (at.y(z, line_h) - base - 1).clamp(1, 3);
 	for m in marks.iter().take(marked) {

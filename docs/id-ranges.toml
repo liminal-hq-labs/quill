@@ -563,3 +563,11 @@ last = 115
 owner = "WP-ED-5 rich clipboard"
 status = "in use"
 source = "docs/decisions.md"
+
+[[block]]
+prefix = "W16"
+first = 120
+last = 120
+owner = "Windows 3.x zoom word spacing"
+status = "in use"
+source = "docs/decisions.md"

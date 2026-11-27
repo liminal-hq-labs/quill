@@ -270,11 +270,21 @@ sheet_frame() {
 	local doc="$1" z="$2" gold="$3" n="$4" name
 	name="sheet-${gold%.png}"
 	boot "$doc" "$z"
+	# zoomtext.rtf's caret goes to its empty last paragraph so it is not beside the first word, as the Win32 check does.
+	if [ "$doc" = zoomtext.rtf ]; then
+		xdotool key ctrl+End
+		sleep 1
+	fi
 	# Out of the page area, which the goldens hold: the pointer waits over the title bar.
 	point_to $((BX - 200)) $((BY0 - 107))
 	shot "$name"
 	python3 -I "$HERE/check_zoom.py" crop "$WORK/$name.png" "$BX" "$BY0" "$BY1" "$WORK/$name-page.png"
 	[ -z "${SHOTS:-}" ] || cp "$WORK/$name-page.png" "$SHOTS/$name-page.png"
+	# The words' frames for `tools/zoom_text.py frames` (W16-120), kept past the session's end in $GAPS.
+	if [ "$doc" = zoomtext.rtf ]; then
+		mkdir -p "$GAPS"
+		cp "$WORK/$name-page.png" "$GAPS/z$(printf %03d "$z").png"
+	fi
 	python3 -I "$HERE/check_zoom.py" sheets "$WORK/$name.png" "$BX" "$BY0" "$BY1" "$n" || drawn=1
 	golden_of "$name" "$gold"
 	finish "$z" "$name"
@@ -302,11 +312,27 @@ fit_frame() {
 	finish 50 "$name"
 }
 
+# The words of tests/docs/zoomtext.rtf at each zoom are as wide as at 100 percent times the zoom, and no two touch (W16-120: at 125
+# percent the system's own widths of the scaled font ran words together). Win16 wraps the justified paragraph as 11 and 10 words; the
+# page crops are the whole page area. At 50 percent only the gaps are measured (every word boundary keeps a blank column; the glyphs
+# are 7 pixels tall and their widths are the font's). 25 percent is not measured: the text is three pixels tall, the lines run into
+# each other and the measure finds no block (the frame is compared with its golden).
+GAPS="$BASE/gaps.$$"
+words_check() {
+	python3 -I "$ROOT/tools/zoom_text.py" frames "$GAPS" --client "0,0,$PAGE_W,$PAGE_H" --zooms 50,75,100,125,150,200 --gap-only 50 --words 6,6,6,6,7,11,10 \
+		|| drawn=1
+	rm -f "$GAPS/z025.png" "$GAPS/z050.png" "$GAPS/z075.png" "$GAPS/z100.png" "$GAPS/z125.png" "$GAPS/z150.png" "$GAPS/z200.png"
+	rmdir "$GAPS" 2> /dev/null || true
+}
+
 sheets_session() {
 	local z
 	for z in 25 50 75 100 125 150 200; do
 		sheet_frame zoomtext.rtf "$z" "win16-311-z$(printf %03d "$z").png" 1
 	done
+	PAGE_W="$(python3 -I -c 'import sys; from PIL import Image; print(Image.open(sys.argv[1]).size[0])' "$GAPS/z100.png")"
+	PAGE_H="$(python3 -I -c 'import sys; from PIL import Image; print(Image.open(sys.argv[1]).size[1])' "$GAPS/z100.png")"
+	words_check
 	for z in 25 50 75 100 125 150 200; do
 		sheet_frame scroll.rtf "$z" "win16-311-scroll-z$(printf %03d "$z").png" 2
 	done
