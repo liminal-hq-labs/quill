@@ -1,7 +1,7 @@
 # The Quill Afterglow Remaster Remix (QAGRR): the Afterglow ReactOS remaster with Quill, its demo documents and two desktop shortcuts.
 #
-# Builds the disk the Try ReactOS page serves. It extends the base recipe in reactos-liminal (pinned in reactos-liminal.pin) and adds
-# only what is Quill's: the names, the trim beyond the base profile, the programs and the shortcuts. All art (wallpaper, orb, icons,
+# Builds the disk the Try ReactOS page serves. It extends the compact recipe in reactos-liminal (pinned in reactos-liminal.pin) and adds
+# only what is Quill's: the names, the trim beyond the compact profile, the programs and the shortcuts. All art (wallpaper, orb, icons,
 # logon, boot logo) comes from the base and is not repeated here. Build it with `build-with-rl.sh`.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
@@ -10,7 +10,7 @@
 [recipe]
 name = "qagrr"
 description = "Quill Afterglow Remaster Remix: the Afterglow ReactOS remaster with Quill and its demo documents"
-extends = "rl:recipes/afterglow.toml"
+extends = "rl:recipes/afterglow-compact.toml"
 
 [install]
 computer_name = "QUILLDEMO"
@@ -18,14 +18,15 @@ owner_name = "Quill demo"
 
 # The detailed Quill icon shows on the desktop at 48 px. The stock desktop icons are hidden and the three stock shortcuts removed so only
 # the Quill shortcuts remain; the mouse has no acceleration, so the page can predict the guest pointer exactly.
-# `reg_files` lists the base recipe's named files again (a list replaces) plus the two Quill adds: `quill-run.reg`, beside this recipe, is
-# applied after them. The wallpaper path is the base recipe's; the BMP written there is Quill's own (see [[files]] below).
+# `reg_files` lists the base recipe's named files again (a list replaces), including its Canadian formats with 24-hour time and its pointer
+# defaults, plus Quill's `mouse-linear` and `hide-desktop-icons` and `quill-run.reg`, beside this recipe, which is applied after them. The
+# wallpaper path is the base recipe's; the BMP written there is Quill's own (see [[files]] below).
 [settings]
 icon_size = 48
-reg_files = ["display", "quiet", "watermark-off", "afterglow-logon", "mouse-linear", "hide-desktop-icons", "quill-run.reg"]
+reg_files = ["display", "quiet", "watermark-off", "afterglow-logon", "regional-canada", "pointer-defaults", "mouse-linear", "hide-desktop-icons", "quill-run.reg"]
 remove_desktop_shortcuts = ["Applications Manager", "Command Prompt", "Read Me"]
 
-# The base profile plus the network card drivers v86 does not emulate.
+# The compact profile (from afterglow-compact.toml) plus the network card drivers v86 does not emulate.
 [trim]
 extra = ["trim-extra.txt"]
 
