@@ -115,7 +115,7 @@ const fn submenu(label: &'static str, command: Command, sub: &'static [Item]) ->
 }
 
 const ZOOM: [Item; 5] = [
-	item("&Page Width", "", Command::Zoom(0)),
+	item("&Page Width", "Ctrl+0", Command::Zoom(0)),
 	item("&150%", "", Command::Zoom(150)),
 	item("1&00%", "", Command::Zoom(100)),
 	item("&75%", "", Command::Zoom(75)),

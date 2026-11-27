@@ -369,6 +369,14 @@ pub fn paint(dc: u32, damage: Rect16, w: i32, h: i32) {
 	if status > 0 && i32::from(damage.bottom) > h - status {
 		let mut text = [0u8; 96];
 		let n = status_text(first, g.pages, &mut text);
-		chrome::paint_status(dc, h - status, w, text.get(..n).unwrap_or(&[]), &[], 100);
+		chrome::paint_status(
+			dc,
+			h - status,
+			w,
+			text.get(..n).unwrap_or(&[]),
+			&[],
+			100,
+			100,
+		);
 	}
 }

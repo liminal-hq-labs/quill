@@ -8,11 +8,13 @@
 
 use quill_app::{combo_tip, command_tip, menu_items_for, Command, COLOUR_TIP, MENU_COUNT};
 use quill_chrome::view::{Act, TOOLBAR};
+use quill_chrome::zoom_field::{zoom_tip, ZoomPart, RESET_TIP_DOS};
 
 use crate::layout::Layout;
 use crate::shell::{SCREEN_H, SCREEN_W};
 use crate::toolbar::{box_rect, button_rect, Box3};
 use crate::ui::{Ui, INK};
+use crate::zoombox;
 use crate::{Rect, Rgb, Surface};
 
 /// Ticks the pointer rests on a button before its tip shows: half a second at 18.2 ticks a second.
@@ -29,6 +31,8 @@ pub enum Target {
 	Button(usize),
 	/// One of the formatting bar's boxes.
 	Box(Box3),
+	/// A part of the zoom control on the status line.
+	Zoom(ZoomPart),
 }
 
 /// The accelerator the menus show for `c` (`Ctrl+B`), if any.
@@ -51,6 +55,8 @@ pub fn text(t: Target, out: &mut [u8; TIP_MAX]) -> usize {
 			Some(Act::Colour) => (COLOUR_TIP, ""),
 			None => ("", ""),
 		},
+		Target::Zoom(ZoomPart::Reset) => (RESET_TIP_DOS, ""),
+		Target::Zoom(part) => (zoom_tip(part), ""),
 		Target::Box(b) => (
 			combo_tip(match b {
 				Box3::Style => 0,
@@ -83,13 +89,20 @@ pub fn anchor(lay: &Layout, t: Target) -> Option<Rect> {
 	match t {
 		Target::Button(i) => button_rect(lay, i),
 		Target::Box(b) => box_rect(lay, b),
+		Target::Zoom(part) => zoombox::part_rect(lay, part),
 	}
 }
 
-/// Where a tip `w` by `h` goes: under its target, left edges aligned, moved back inside the screen.
+/// Where a tip `w` by `h` goes: under its target, left edges aligned, moved back inside the screen. A target on the bottom line
+/// (the zoom control) gets it above instead, so the tip does not cover what it names.
 pub fn rect(anchor: Rect, w: i32, h: i32) -> Rect {
 	let left = anchor.left.min(SCREEN_W - w).max(0);
-	let top = (anchor.bottom + 2).min(SCREEN_H - h).max(0);
+	let below = anchor.bottom + 2;
+	let top = if below + h > SCREEN_H {
+		(anchor.top - 2 - h).max(0)
+	} else {
+		below
+	};
 	Rect::new(left, top, left + w, top + h)
 }
 

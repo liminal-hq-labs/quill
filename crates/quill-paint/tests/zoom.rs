@@ -57,8 +57,11 @@ fn zoomed(name: &str, zoom: u16) -> (TApp, HostStore, MemFiles) {
 fn the_control_leaves_a_margin_at_the_right_edge_and_each_part_has_its_own_clicks() {
 	let l = zoombox::layout();
 	assert_eq!(l.right, SCREEN_W);
-	assert_eq!(l.right - l.plus.1, ZOOM_MARGIN);
+	assert_eq!(l.right - l.reset.1, ZOOM_MARGIN);
 	assert_eq!(ZOOM_MARGIN, 8);
+	// Page Width's button is right of the plus, 20 pixels wide.
+	assert_eq!(l.plus.1, l.reset.0);
+	assert_eq!(l.reset.1 - l.reset.0, 20);
 	let (app, _, _) = open_doc("letter.rtf");
 	let lay = Layout::of(&app);
 	let y = lay.status.unwrap().top + 10;
@@ -73,8 +76,16 @@ fn the_control_leaves_a_margin_at_the_right_edge_and_each_part_has_its_own_click
 		zoombox::part_at(&lay, l.plus.1 - 1, y),
 		Some(ZoomPart::Plus)
 	);
-	assert_eq!(zoombox::part_at(&lay, l.plus.1, y), None);
+	assert_eq!(zoombox::part_at(&lay, l.plus.1, y), Some(ZoomPart::Reset));
+	assert_eq!(zoombox::part_at(&lay, l.reset.0, y), Some(ZoomPart::Reset));
+	assert_eq!(
+		zoombox::part_at(&lay, l.reset.1 - 1, y),
+		Some(ZoomPart::Reset)
+	);
+	assert_eq!(zoombox::part_at(&lay, l.reset.1, y), None);
 	assert_eq!(zoombox::part_at(&lay, SCREEN_W - 1, y), None);
+	// The status text ends 3 pixels before the control's first button.
+	assert_eq!(zoombox::text_right(), l.minus.0 - 3);
 	assert_eq!(zoombox::part_at(&lay, l.minus.0 - 1, y), None);
 	// Above the status line is the page, not the control.
 	assert_eq!(
@@ -363,6 +374,7 @@ impl Rig {
 			ZoomPart::Minus => l.minus.0 + 5,
 			ZoomPart::Field => l.field.0 + 5,
 			ZoomPart::Plus => l.plus.0 + 5,
+			ZoomPart::Reset => l.reset.0 + 5,
 		};
 		(x, Layout::of(&self.app).status.unwrap().top + 10)
 	}
@@ -384,6 +396,52 @@ fn the_buttons_step_through_the_levels_and_grey_at_the_ends() {
 	r.app.set_zoom(0);
 	r.click(r.part(ZoomPart::Minus));
 	assert_eq!(r.app.zoom(), 50);
+}
+
+#[test]
+fn the_page_width_button_sets_page_width_and_does_nothing_at_it() {
+	let mut r = Rig::new("letter.rtf", 150);
+	r.click(r.part(ZoomPart::Reset));
+	assert_eq!(r.app.zoom(), 0);
+	// At Page Width it is greyed and a click leaves the setting alone.
+	r.click(r.part(ZoomPart::Reset));
+	assert_eq!(r.app.zoom(), 0);
+	assert!(r.g.view().drop.is_none());
+	// A press that leaves it before the release runs nothing.
+	r.app.set_zoom(100);
+	let (x, y) = r.part(ZoomPart::Reset);
+	r.ev(Ev::Down { x, y });
+	assert_eq!(r.g.view().zoom, Some(ZoomPart::Reset), "sunk while held");
+	r.ev(Ev::Move { x: 300, y: 300 });
+	r.ev(Ev::Up { x: 300, y: 300 });
+	assert_eq!(r.app.zoom(), 100);
+}
+
+/// The pixels of the Page Width button's face that are drawn in `colour`.
+fn reset_pixels(fr: &Frame, app: &TApp, colour: u8) -> usize {
+	let l = zoombox::layout();
+	let st = Layout::of(app).status.unwrap();
+	let mut n = 0;
+	for y in st.top + 3..st.bottom - 2 {
+		for x in l.reset.0 + 3..l.reset.1 - 3 {
+			n += usize::from(fr.pixels[(y * 640 + x) as usize] == colour);
+		}
+	}
+	n
+}
+
+#[test]
+fn the_page_width_glyph_is_black_when_live_and_embossed_at_page_width() {
+	let (app, s, _) = zoomed("letter.rtf", 150);
+	let live = screen(&app, &s);
+	let (app0, s0, _) = zoomed("letter.rtf", 0);
+	let grey = screen(&app0, &s0);
+	// Ink is black (0) on the 256-colour frame; the bevels are grey and white, so the button's inner pixels count only glyph ink.
+	let ink = 0;
+	let live_ink = reset_pixels(&live, &app, ink);
+	let grey_ink = reset_pixels(&grey, &app0, ink);
+	assert!(live_ink >= 20, "{live_ink}");
+	assert_eq!(grey_ink, 0, "the greyed glyph has no ink");
 }
 
 #[test]

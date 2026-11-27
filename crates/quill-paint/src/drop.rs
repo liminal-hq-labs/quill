@@ -91,14 +91,25 @@ pub fn anchor(lay: &Layout, pop: Pop) -> Option<Rect> {
 	}
 }
 
+/// How far the zoom list reaches left of its box: room for `Page Width` and the key beside it.
+const ZOOM_LIST_EXTRA: i32 = 52;
+
+/// The key that sets Page Width on this screen (DOS-105), shown at the right of the zoom list's Page Width row.
+const ZOOM_KEY: &[u8] = b"Alt+0";
+
 /// The list's rectangle, border included, under its anchor.
 pub fn list_rect(lay: &Layout, pop: Pop) -> Option<Rect> {
 	let a = anchor(lay, pop)?;
 	if pop == Pop::Zoom {
-		// The status line is at the foot of the screen: the list rises from the box, 8 pixels wider than it to the left, so
-		// `Page Width` has room beside its lit bar.
+		// The status line is at the foot of the screen: the list rises from the box, wider than it to the left, so `Page Width`
+		// has room beside its lit bar and its key (`ZOOM_KEY`) at the right.
 		let top = lay.status?.top - pop.count() as i32 * ROW - 4;
-		return Some(Rect::new(a.left - 8, top, a.right, lay.status?.top));
+		return Some(Rect::new(
+			a.left - ZOOM_LIST_EXTRA,
+			top,
+			a.right,
+			lay.status?.top,
+		));
 	}
 	let w = if pop == Pop::Colour {
 		COLOUR_W
@@ -270,12 +281,11 @@ pub fn draw<Sf: Surface + ?Sized>(
 			}
 			x = row.left + SWATCH_W;
 		}
-		ui.text(
-			sf,
-			x,
-			y,
-			text.get(..n).unwrap_or(&[]),
-			if lit { LIGHT } else { ink },
-		);
+		let colour = if lit { LIGHT } else { ink };
+		ui.text(sf, x, y, text.get(..n).unwrap_or(&[]), colour);
+		if pop == Pop::Zoom && i == 0 {
+			let key_x = row.right - 4 - ui.width(sf, ZOOM_KEY);
+			ui.text(sf, key_x, y, ZOOM_KEY, colour);
+		}
 	}
 }

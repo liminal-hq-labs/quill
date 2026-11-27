@@ -2282,6 +2282,8 @@ impl<M: Measure + Clone> App<M> {
 				self.mode = Mode::Menu { menu: 0, item: 0 };
 			}
 			Key::Alt(8) => self.run(s, f, Command::Undo),
+			// Page Width on the DOS screens, which get no Ctrl with a digit from the BIOS (DOS-105); no menu has a digit mnemonic.
+			Key::Alt(b'0') => self.run(s, f, Command::Zoom(0)),
 			Key::Alt(c) if !self.native => {
 				if let Some(menu) = paint::menu_for_mnemonic(c) {
 					self.end_typing();

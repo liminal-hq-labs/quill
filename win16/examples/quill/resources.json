@@ -15,7 +15,15 @@
 		"27": "Whole Page",
 		"28": "Page ",
 		"29": " of ",
-		"30": "   PgUp PgDn: pages   T: two pages   Z: size   P: print   Esc: close"
+		"30": "   PgUp PgDn: pages   T: two pages   Z: size   P: print   Esc: close",
+		"31": "Page Width (Ctrl+0)",
+		"32": "Zoom Out",
+		"33": "Zoom (click for the list)",
+		"34": "Zoom In",
+		"35": "Fit the page to the width of the window",
+		"36": "Show the page smaller",
+		"37": "Choose how large the page is shown",
+		"38": "Show the page larger"
 	},
 	"rcdata": [{ "id": 100, "file": "../../../assets/codepages/CPAGES.BIN" }],
 	"dialog_files": ["../../../assets/dialogs/dialogs.json"]

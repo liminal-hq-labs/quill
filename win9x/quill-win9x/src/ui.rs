@@ -6,9 +6,12 @@
 
 use alloc::vec::Vec;
 use core::ptr::{null, null_mut};
+use core::sync::atomic::{AtomicI32, Ordering};
 
 use quill_app::{Command, Grain};
-use quill_chrome::zoom_field::{zoom_step, ZoomLayout, ZoomMetrics, ZoomPart};
+use quill_chrome::zoom_field::{
+	field_for, reset_glyph, reset_live, zoom_hint, zoom_step, zoom_tip, ZoomLayout, ZoomMetrics, ZoomPart, RESET_GLYPH,
+};
 
 use crate::chrome;
 use crate::gdi;
@@ -73,6 +76,8 @@ pub enum Hover {
 	Button(usize),
 	Combo(usize),
 	Preview(usize),
+	/// A part of the zoom control on the status bar.
+	Zoom(ZoomPart),
 }
 
 /// The page area: under the toolbars and the ruler (or the preview's bar), above the status line.
@@ -925,6 +930,7 @@ fn hint_text(sh: &Shell, h: Hover) -> &'static str {
 				_ => "Close print preview and go back to the document",
 			}
 		}
+		Hover::Zoom(part) => zoom_hint(part),
 	}
 }
 
@@ -970,6 +976,19 @@ pub unsafe fn notify(sh: &Shell, lparam: isize) -> bool {
 	crate::tips::answer(lparam, |id, w| tip_text(sh, id, w))
 }
 
+/// The tooltip tools of the zoom control's parts: a tool's id is `ZOOM_TIP_ID` plus its place in `ZOOM_PARTS`.
+const ZOOM_TIP_ID: usize = 900;
+const ZOOM_PARTS: [ZoomPart; 4] = [ZoomPart::Minus, ZoomPart::Field, ZoomPart::Plus, ZoomPart::Reset];
+
+/// The zoom parts' tooltips are asked of the status bar, which owns their tools (`WM_NOTIFY` reaches the tool's window).
+unsafe fn notify_status(lparam: isize) -> bool {
+	crate::tips::answer(lparam, |id, _| {
+		id.checked_sub(ZOOM_TIP_ID)
+			.and_then(|i| ZOOM_PARTS.get(i))
+			.map_or_else(Vec::new, |p| zoom_tip(*p).as_bytes().to_vec())
+	})
+}
+
 /// Gives the tooltip control a tool for each button that shows now: the toolbar's painted buttons, the drop-down boxes, or the
 /// preview's push buttons.
 pub unsafe fn tips_rebuild(hwnd: Handle, sh: &mut Shell) {
@@ -1000,6 +1019,32 @@ pub unsafe fn tips_rebuild(hwnd: Handle, sh: &mut Shell) {
 				for h in [cb.style, cb.face, cb.size] {
 					tips.add_window(hwnd, h);
 				}
+			}
+		}
+		// The zoom control's four parts, in the status bar's own client area.
+		if sh.app.show_status() && !sh.sb.is_null() && zoom_box_rect(sh).right > zoom_box_rect(sh).left {
+			let mut bar = Rect {
+				left: 0,
+				top: 0,
+				right: 0,
+				bottom: 0,
+			};
+			GetClientRect(sh.sb, &mut bar);
+			let layout = ZoomLayout::new(bar.right, zoom_metrics());
+			for (i, part) in ZOOM_PARTS.iter().enumerate() {
+				let (left, right) = match part {
+					ZoomPart::Minus => layout.minus,
+					ZoomPart::Field => layout.field,
+					ZoomPart::Plus => layout.plus,
+					ZoomPart::Reset => layout.reset,
+				};
+				let r = Rect {
+					left,
+					top: bar.top,
+					right,
+					bottom: bar.bottom,
+				};
+				tips.add_rect_in(sh.sb, ZOOM_TIP_ID + i, r);
 			}
 		}
 	}
@@ -1076,6 +1121,18 @@ pub unsafe fn poll_hover(hwnd: Handle, sh: &mut Shell) {
 		}
 		Hover::Combo(_) | Hover::Preview(_) => {
 			if !inside {
+				set_hover(hwnd, sh, Hover::None);
+			}
+		}
+		Hover::Zoom(part) => {
+			// The bar's own client area: over the same part still, or the hint goes.
+			let mut origin = Point { x: 0, y: 0 };
+			ClientToScreen(sh.sb, &mut origin);
+			let at = Point {
+				x: p.x - origin.x,
+				y: p.y - origin.y,
+			};
+			if !inside || zoom_part_at(sh, at) != Some(part) {
 				set_hover(hwnd, sh, Hover::None);
 			}
 		}
@@ -1428,17 +1485,59 @@ const ZOOM_PANE: usize = 5;
 const PANE_COUNT: usize = 6;
 /// How wide each part of the control is: the box fits `Page Width`, and the margin is as wide as the size grip, which the bar draws in
 /// the corner (`quill_chrome::zoom_field::ZOOM_MARGIN` is the least a bar without one leaves).
-const ZOOM_METRICS: ZoomMetrics = ZoomMetrics {
-	button: 20,
-	field: 72,
-	margin: 16,
-};
-/// The narrowest window that has room for the control beside the other panes.
-const ZOOM_MIN_CLIENT_W: i32 = 600;
+const ZOOM_BUTTON: i32 = 20;
+/// The Page Width button's width: a little wider than the signs' buttons, for its 11-pixel mark.
+const ZOOM_RESET: i32 = 22;
+/// The box's width until the text is measured: `Page Width` in the usual 8-point face, 6 pixels a side.
+const ZOOM_FIELD_DEFAULT: i32 = 72;
+/// The box's width, from the widest text it shows (`Page Width`) in the system's GUI font; 0 until `status_layout` measures it.
+static ZOOM_FIELD: AtomicI32 = AtomicI32::new(0);
+
+/// How wide each part of the control is: the box fits `Page Width` as the font measures it (`field_for`).
+fn zoom_metrics() -> ZoomMetrics {
+	let field = ZOOM_FIELD.load(Ordering::Relaxed);
+	ZoomMetrics {
+		button: ZOOM_BUTTON,
+		field: if field > 0 { field } else { ZOOM_FIELD_DEFAULT },
+		reset: ZOOM_RESET,
+		margin: 16,
+	}
+}
+
+/// Measures `Page Width` in `DEFAULT_GUI_FONT` once, and sizes the box from it.
+unsafe fn measure_zoom_field(hwnd: Handle) {
+	if ZOOM_FIELD.load(Ordering::Relaxed) != 0 {
+		return;
+	}
+	let dc = GetDC(hwnd);
+	if dc.is_null() {
+		return;
+	}
+	let old = SelectObject(dc, GetStockObject(17));
+	let mut width = 0;
+	for ch in b"Page Width" {
+		let mut one = [0i32; 1];
+		GetCharWidthA(dc, u32::from(*ch), u32::from(*ch), one.as_mut_ptr());
+		width += one[0];
+	}
+	SelectObject(dc, old);
+	ReleaseDC(hwnd, dc);
+	if width > 0 {
+		ZOOM_FIELD.store(field_for(width), Ordering::Relaxed);
+	}
+}
+
+/// The narrowest window that has room for the control beside the other panes: the Page Width button's width more than it was without.
+const ZOOM_MIN_CLIENT_W: i32 = 600 + ZOOM_RESET;
 /// `SBT_OWNERDRAW`: the window draws the pane's inside (`WM_DRAWITEM`).
 const SBT_OWNERDRAW: usize = 0x1000;
 const GWL_WNDPROC: i32 = -4;
 const WM_LBUTTONUP: u32 = 0x0202;
+const WM_MOUSEMOVE: u32 = 0x0200;
+const WM_NOTIFY: u32 = 0x004E;
+const WM_NOTIFYFORMAT: u32 = 0x0055;
+const NF_QUERY: isize = 3;
+const NFR_ANSI: isize = 1;
 const TPM_BOTTOMALIGN: u32 = 0x20;
 const TPM_RIGHTALIGN: u32 = 0x08;
 const CCS_BOTTOM: u32 = 0x0003;
@@ -1488,7 +1587,8 @@ pub unsafe fn status_layout(hwnd: Handle, sh: &mut Shell) {
 	let (w, _) = client_size(hwnd);
 	// Message or hint (the rest), the document, the position, the font and size, the state, and the zoom box at the right end, which a
 	// narrow window leaves out (a pane of no width) before the others would crowd.
-	let layout = ZoomLayout::new(w, ZOOM_METRICS);
+	measure_zoom_field(sh.sb);
+	let layout = ZoomLayout::new(w, zoom_metrics());
 	let wide = w >= ZOOM_MIN_CLIENT_W;
 	let w = if wide { layout.left() } else { w };
 	let state = 70;
@@ -1522,7 +1622,28 @@ unsafe extern "system" fn status_proc(hwnd: Handle, msg: u32, wparam: usize, lpa
 		return DefWindowProcA(hwnd, msg, wparam, lparam);
 	};
 	let previous = sh.sb_proc;
+	// The tooltip control, which watches this bar for the zoom parts, asks the bar for its notification format and for each text.
+	if msg == WM_NOTIFYFORMAT && lparam == NF_QUERY {
+		return NFR_ANSI;
+	}
+	if msg == WM_NOTIFY && notify_status(lparam) {
+		return 0;
+	}
 	let result = CallWindowProcA(previous, hwnd, msg, wparam, lparam);
+	if msg == WM_MOUSEMOVE && sh.pressed.is_none() {
+		// The hint for the zoom part under the pointer; the main window's poll takes it away when the pointer leaves.
+		let at = Point {
+			x: lparam as i16 as i32,
+			y: (lparam >> 16) as i16 as i32,
+		};
+		let now = match zoom_part_at(sh, at) {
+			Some(part) => Hover::Zoom(part),
+			None => Hover::None,
+		};
+		if now != sh.hover && matches!(sh.hover, Hover::None | Hover::Zoom(_)) {
+			set_hover(GetParent(hwnd), sh, now);
+		}
+	}
 	if msg == WM_LBUTTONUP {
 		let at = Point {
 			x: lparam as i16 as i32,
@@ -1532,6 +1653,11 @@ unsafe extern "system" fn status_proc(hwnd: Handle, msg: u32, wparam: usize, lpa
 			Some(ZoomPart::Field) => zoom_popup(GetParent(hwnd), sh),
 			Some(ZoomPart::Minus) => zoom_button(GetParent(hwnd), sh, false),
 			Some(ZoomPart::Plus) => zoom_button(GetParent(hwnd), sh, true),
+			Some(ZoomPart::Reset) => {
+				if reset_live(sh.app.zoom()) {
+					crate::run_command(GetParent(hwnd), quill_app::Command::Zoom(0));
+				}
+			}
 			None => {}
 		}
 	}
@@ -1567,7 +1693,7 @@ unsafe fn zoom_part_at(sh: &Shell, at: Point) -> Option<ZoomPart> {
 		bottom: 0,
 	};
 	GetClientRect(sh.sb, &mut bar);
-	ZoomLayout::new(bar.right, ZOOM_METRICS).hit(at.x)
+	ZoomLayout::new(bar.right, zoom_metrics()).hit(at.x)
 }
 
 /// The minus or plus button was clicked: steps to the next level down or up, unless there is none that way (the button is greyed).
@@ -1578,9 +1704,10 @@ unsafe fn zoom_button(hwnd: Handle, sh: &mut Shell, up: bool) {
 	}
 }
 
-/// Draws the zoom control for `WM_DRAWITEM`, inside its one sunken pane: a minus sign, the zoom and a plus sign, with a thin etched
+/// Draws the zoom control for `WM_DRAWITEM`, inside its one sunken pane: a minus sign, the zoom, a plus sign and the Page Width mark, with a thin etched
 /// line between them, as a flat part of the bar. A sign with no level to step to (`zoom_step`) is embossed grey. `data` is what
-/// `status_update` gave the pane: bit 0 minus is live, bit 1 plus is live, and the zoom (0 for Page Width) from bit 8.
+/// `status_update` gave the pane: bit 0 minus is live, bit 1 plus is live, bit 2 Page Width is live (the zoom is not Page Width), and the
+/// zoom (0 for Page Width) from bit 8.
 pub unsafe fn draw_zoom_control(item: &DrawItem) {
 	let dc = item.dc;
 	let r = item.rect;
@@ -1591,8 +1718,8 @@ pub unsafe fn draw_zoom_control(item: &DrawItem) {
 		bottom: 0,
 	};
 	GetClientRect(item.window, &mut bar);
-	let layout = ZoomLayout::new(bar.right, ZOOM_METRICS);
-	let (minus, field, plus) = (layout.minus, layout.field, layout.plus);
+	let layout = ZoomLayout::new(bar.right, zoom_metrics());
+	let (minus, field, plus, reset) = (layout.minus, layout.field, layout.plus, layout.reset);
 	let mid_y = (r.top + r.bottom) / 2;
 	let shadow = GetSysColor(COLOR_BTNSHADOW);
 	let highlight = GetSysColor(COLOR_BTNHIGHLIGHT);
@@ -1623,8 +1750,22 @@ pub unsafe fn draw_zoom_control(item: &DrawItem) {
 	};
 	sign(minus, false, item.data & 1 != 0);
 	sign(plus, true, item.data & 2 != 0);
+	// Page Width's mark: two bars with a double-headed arrow between them, embossed grey at Page Width.
+	{
+		let (cx, cy) = ((reset.0 + reset.1) / 2, mid_y);
+		let mut mark = |colour: u32, d: i32| {
+			let (left, top) = (cx - RESET_GLYPH.0 / 2 + d, cy - RESET_GLYPH.1 / 2 + d);
+			reset_glyph(|x, y, w, h| rect_fill(left + x, top + y, left + x + w, top + y + h, colour));
+		};
+		if item.data & 4 != 0 {
+			mark(GetSysColor(COLOR_BTNTEXT), 0);
+		} else {
+			mark(highlight, 1);
+			mark(shadow, 0);
+		}
+	}
 	// The etched lines between the parts.
-	for x in [field.0, plus.0] {
+	for x in [field.0, plus.0, reset.0] {
 		rect_fill(x, r.top + 1, x + 1, r.bottom - 1, shadow);
 		rect_fill(x + 1, r.top + 1, x + 2, r.bottom - 1, highlight);
 	}
@@ -1749,7 +1890,9 @@ pub unsafe fn status_update(_hwnd: Handle, sh: &mut Shell) {
 		// The control's data, for `draw_zoom_control`: whether each button has a level, and the zoom.
 		let (w, _) = client_size(_hwnd);
 		let shown = view::zoom_pct(&sh.app, w);
-		let live = u8::from(zoom_step(shown, false).is_some()) | (u8::from(zoom_step(shown, true).is_some()) << 1);
+		let live = u8::from(zoom_step(shown, false).is_some())
+			| (u8::from(zoom_step(shown, true).is_some()) << 1)
+			| (u8::from(reset_live(sh.app.zoom())) << 2);
 		let [low, high] = sh.app.zoom().to_le_bytes();
 		text[ZOOM_PANE] = alloc::vec![live, low, high];
 	}

@@ -630,6 +630,34 @@ fn a_tip_shows_after_a_rest_and_goes_when_the_pointer_moves_or_a_key_is_typed() 
 }
 
 #[test]
+fn each_part_of_the_zoom_control_has_a_tip_above_it() {
+	use quill_chrome::zoom_field::ZoomPart;
+	let mut r = Rig::doc("letter.rtf");
+	let want = [
+		(ZoomPart::Minus, &b"Zoom Out"[..]),
+		(ZoomPart::Field, &b"Zoom (click for the list)"[..]),
+		(ZoomPart::Plus, &b"Zoom In"[..]),
+		(ZoomPart::Reset, &b"Page Width (Alt+0)"[..]),
+	];
+	for (part, text) in want {
+		let a = quill_paint::zoombox::part_rect(&r.lay(), part).unwrap();
+		let at = centre(a);
+		r.mv(at.0, at.1);
+		r.wait(TIP_TICKS);
+		assert_eq!(r.g.view().tip, Some(Target::Zoom(part)));
+		let mut buf = [0u8; tip::TIP_MAX];
+		let n = tip::text(Target::Zoom(part), &mut buf);
+		assert_eq!(&buf[..n], text);
+		let t = tip::rect(a, 90, 18);
+		assert!(t.bottom <= a.top, "the tip clears the control");
+		assert!(t.left >= 0 && t.right <= 640);
+		let page = r.lay().page;
+		r.mv(page.left + 20, page.top + 20);
+		assert_eq!(r.g.view().tip, None);
+	}
+}
+
+#[test]
 fn every_button_and_box_has_a_tip_and_the_shortcuts_come_from_the_menus() {
 	for (i, b) in TOOLBAR.buttons.iter().enumerate() {
 		let mut buf = [0u8; tip::TIP_MAX];

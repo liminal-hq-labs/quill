@@ -52,6 +52,7 @@ pub fn from_vk(code: u16, ctrl: bool, shift: bool, alt: bool) -> Option<Accel> {
 	}
 	match code {
 		vk::A..=vk::Z => Some(Accel::Key(Key::Ctrl(b'a' + (code - vk::A) as u8))),
+		0x30 => Some(Accel::Command(Command::Zoom(0))),
 		0x31 => Some(Accel::Command(Command::Spacing(0))),
 		0x32 => Some(Accel::Command(Command::Spacing(2))),
 		0x35 => Some(Accel::Command(Command::Spacing(1))),

@@ -58,8 +58,8 @@ struct NmTtDispInfo {
 /// The tooltip control and the tools it has been given.
 pub struct Tips {
 	wnd: Handle,
-	/// Each tool added: its id (a button's number or a window handle) and whether it is a window.
-	added: Vec<(usize, bool)>,
+	/// Each tool added: its id (a button's number or a window handle), whether it is a window, and the window that owns it.
+	added: Vec<(usize, bool, Handle)>,
 }
 
 impl Tips {
@@ -114,8 +114,8 @@ impl Tips {
 			right: 0,
 			bottom: 0,
 		};
-		for (id, is_window) in self.added.drain(..) {
-			let ti = Self::info(owner, id, is_window, none);
+		for (id, is_window, tool_owner) in self.added.drain(..) {
+			let ti = Self::info(if tool_owner.is_null() { owner } else { tool_owner }, id, is_window, none);
 			SendMessageA(self.wnd, TTM_DELTOOLA, 0, core::ptr::addr_of!(ti) as isize);
 		}
 	}
@@ -127,7 +127,19 @@ impl Tips {
 	pub unsafe fn add_rect(&mut self, owner: Handle, id: usize, rect: Rect) {
 		let ti = Self::info(owner, id, false, rect);
 		if SendMessageA(self.wnd, TTM_ADDTOOLA, 0, core::ptr::addr_of!(ti) as isize) != 0 {
-			self.added.push((id, false));
+			self.added.push((id, false, null_mut()));
+		}
+	}
+
+	/// Adds a tool for a painted part of a child window of the main window (the status bar): `rect` is in `window`'s client area, and
+	/// the text is asked of `window` (a `WM_NOTIFY` to it), because the tooltip control watches the pointer over `window` itself.
+	///
+	/// # Safety
+	/// `window` must be a live window.
+	pub unsafe fn add_rect_in(&mut self, window: Handle, id: usize, rect: Rect) {
+		let ti = Self::info(window, id, false, rect);
+		if SendMessageA(self.wnd, TTM_ADDTOOLA, 0, core::ptr::addr_of!(ti) as isize) != 0 {
+			self.added.push((id, false, window));
 		}
 	}
 
@@ -144,7 +156,7 @@ impl Tips {
 		};
 		let ti = Self::info(owner, child as usize, true, none);
 		if SendMessageA(self.wnd, TTM_ADDTOOLA, 0, core::ptr::addr_of!(ti) as isize) != 0 {
-			self.added.push((child as usize, true));
+			self.added.push((child as usize, true, null_mut()));
 		}
 	}
 }

@@ -4,7 +4,10 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 use quill_chrome::view::{self, Act, RulerState, TOOLBAR, Toggle};
-use quill_chrome::zoom_field::{ZOOM_MARGIN, ZoomLayout, ZoomMetrics, zoom_step};
+use quill_chrome::zoom_field::{
+	RESET_GLYPH, ZOOM_MARGIN, ZoomLayout, ZoomMetrics, field_for, reset_glyph, reset_live,
+	zoom_step,
+};
 use w16::*;
 
 use crate::gdi::{
@@ -19,14 +22,21 @@ pub const ID_SIZE: u32 = 302;
 pub const ID_COLOUR: u32 = 500;
 /// The zoom list's items: `ID_ZOOM` plus the level's place in `quill_chrome::zoom_field::ZOOM_LEVELS`.
 pub const ID_ZOOM: u32 = 520;
-/// The zoom control near the right end of the status bar: a minus button, the box, a plus button and a margin of the shared width. The
+/// The zoom control near the right end of the status bar: a minus button, the box, a plus button, the Page Width button and a margin
+/// of the shared width. The box is as wide as `Page Width` in the bars' font needs (`Chrome::zoom_field`, measured in `init`). The
 /// narrowest client area that has room for it is `ZOOM_MIN_CLIENT`.
-const ZOOM_METRICS: ZoomMetrics = ZoomMetrics {
-	button: 20,
-	field: 70,
-	margin: ZOOM_MARGIN,
-};
-const ZOOM_MIN_CLIENT: i32 = 560;
+const ZOOM_BUTTON: i32 = 20;
+const ZOOM_RESET: i32 = 22;
+const ZOOM_MIN_CLIENT: i32 = 560 + ZOOM_RESET;
+
+fn zoom_metrics() -> ZoomMetrics {
+	ZoomMetrics {
+		button: ZOOM_BUTTON,
+		field: chrome().zoom_field,
+		reset: ZOOM_RESET,
+		margin: ZOOM_MARGIN,
+	}
+}
 
 const CB_ADDSTRING: u32 = WM_USER + 3;
 const CB_GETCURSEL: u32 = WM_USER + 7;
@@ -43,6 +53,8 @@ const CBS_DROPDOWNLIST: u32 = 3;
 pub struct Chrome {
 	pub ui_font: u32,
 	pub ui_h: i32,
+	/// The width of the status bar's zoom box: `Page Width` in `ui_font`, plus 6 pixels a side.
+	zoom_field: i32,
 	strip_dc: u32,
 	strip_old: u32,
 	pub style: u32,
@@ -56,6 +68,7 @@ pub struct Chrome {
 pub static mut CHROME: Chrome = Chrome {
 	ui_font: 0,
 	ui_h: 13,
+	zoom_field: 70,
 	strip_dc: 0,
 	strip_old: 0,
 	style: 0,
@@ -163,8 +176,13 @@ pub fn init(hinst: u32) {
 		let old = SelectObject(dc, c.ui_font);
 		let mut tm = [0u8; 32];
 		GetTextMetrics(dc, np(tm.as_mut_ptr()));
+		// The box takes the widest text it shows, `Page Width`.
+		let mut text = [0u8; quill_chrome::zoom_field::ZOOM_TEXT_MAX];
+		let n = quill_chrome::zoom_field::zoom_text(0, &mut text);
+		let extent = GetTextExtent(dc, np(text.as_ptr()), n as u32);
 		SelectObject(dc, old);
 		c.ui_h = i32::from(i16::from_le_bytes([tm[0], tm[1]])).max(8);
+		c.zoom_field = field_for(i32::from(extent as u16));
 		c.strip_dc = CreateCompatibleDC(dc);
 		ReleaseDC(0, dc);
 		let strip = LoadBitmap(hinst, far(0, int_resource(2)));
@@ -336,7 +354,7 @@ pub fn paint_ruler(
 
 /// Where the zoom control sits in a status bar `width` wide, or `None` when the window is too narrow to have one.
 pub fn zoom_layout(width: i32) -> Option<ZoomLayout> {
-	(width >= ZOOM_MIN_CLIENT).then(|| ZoomLayout::new(width, ZOOM_METRICS))
+	(width >= ZOOM_MIN_CLIENT).then(|| ZoomLayout::new(width, zoom_metrics()))
 }
 
 /// A zoom sign, a bar (minus) or a cross (plus), in the middle of `range`, flat on the status bar: black, or, when there is no level
@@ -357,9 +375,34 @@ fn zoom_sign(dc: u32, range: (i32, i32), top: i32, h: i32, plus: bool, enabled: 
 	}
 }
 
+/// The Page Width mark, 11 by 9, in the middle of `range`: black, or embossed in grey when the zoom is already Page Width.
+fn reset_mark(dc: u32, range: (i32, i32), top: i32, h: i32, enabled: bool) {
+	let (left, mark_top) = (
+		(range.0 + range.1) / 2 - RESET_GLYPH.0 / 2,
+		top + h / 2 - RESET_GLYPH.1 / 2,
+	);
+	let mark = |dx: i32, colour: u32| {
+		reset_glyph(|x, y, w, h| fill(dc, left + x + dx, mark_top + y + dx, w, h, colour));
+	};
+	if enabled {
+		mark(0, BLACK);
+	} else {
+		mark(1, WHITE);
+		mark(0, SHADOW);
+	}
+}
+
 /// Paints the status bar: a sunken panel across the bottom with the editor's status text in it, and the zoom control near the right
 /// end. `shown` is the percentage the page is drawn at, which says whether the buttons have a level to step to.
-pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8], zoom: &[u8], shown: i32) {
+pub fn paint_status(
+	dc: u32,
+	top: i32,
+	width: i32,
+	text: &[u8],
+	zoom: &[u8],
+	shown: i32,
+	zoom_setting: u16,
+) {
 	let h = status_h();
 	// The print preview passes no zoom text and has no control.
 	let layout = if zoom.is_empty() {
@@ -398,7 +441,7 @@ pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8], zoom: &[u8], sho
 		if let Some(l) = layout {
 			// The control is part of the bar's sunken panel: the signs and the zoom sit on its face, with a thin etched line (shadow,
 			// then white) between the parts.
-			for x in [l.field.0, l.plus.0] {
+			for x in [l.field.0, l.plus.0, l.reset.0] {
 				fill(dc, x, top + 3, 1, h - 6, SHADOW);
 				fill(dc, x + 1, top + 3, 1, h - 6, WHITE);
 			}
@@ -411,6 +454,7 @@ pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8], zoom: &[u8], sho
 				zoom_step(shown, false).is_some(),
 			);
 			zoom_sign(dc, l.plus, top, h, true, zoom_step(shown, true).is_some());
+			reset_mark(dc, l.reset, top, h, reset_live(zoom_setting));
 			TextOut(
 				dc,
 				(l.field.0 + 6) as u32,

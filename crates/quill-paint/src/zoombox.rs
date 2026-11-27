@@ -9,7 +9,8 @@
 
 use quill_app::App;
 use quill_chrome::zoom_field::{
-	zoom_step, ZoomLayout, ZoomMetrics, ZoomPart, ZOOM_MARGIN, ZOOM_TEXT_MAX,
+	reset_glyph, reset_live, zoom_step, ZoomLayout, ZoomMetrics, ZoomPart, RESET_GLYPH,
+	ZOOM_MARGIN, ZOOM_TEXT_MAX,
 };
 use quill_core::layout::Measure;
 
@@ -18,11 +19,12 @@ use crate::shell::{pct, SCREEN_W};
 use crate::ui::{bevel, Ui, FACE, INK, LIGHT, SHADOW};
 use crate::{Rect, Surface};
 
-/// What each part of the control takes: two buttons 20 pixels wide, a box wide enough for `Page Width`, and the margin every build
-/// leaves at the bar's edge.
+/// What each part of the control takes: three buttons 20 pixels wide (minus, plus and Page Width), a box wide enough for `Page
+/// Width`, and the margin every build leaves at the bar's edge.
 pub const METRICS: ZoomMetrics = ZoomMetrics {
 	button: 20,
 	field: 76,
+	reset: 20,
 	margin: ZOOM_MARGIN,
 };
 
@@ -52,11 +54,32 @@ pub fn text_right() -> i32 {
 	layout().left() - 3
 }
 
+/// The rectangle of `part`, the same one a click on it lands in.
+pub fn part_rect(lay: &Layout, part: ZoomPart) -> Option<Rect> {
+	let r = lay.status?;
+	let l = layout();
+	let (left, right) = match part {
+		ZoomPart::Minus => l.minus,
+		ZoomPart::Field => l.field,
+		ZoomPart::Plus => l.plus,
+		ZoomPart::Reset => l.reset,
+	};
+	Some(Rect::new(left, r.top + 2, right, r.bottom - 1))
+}
+
+/// What a button shows: a minus, a plus or the Page Width mark.
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum Sign {
+	Minus,
+	Plus,
+	Page,
+}
+
 fn button<Sf: Surface + ?Sized>(
 	sf: &mut Sf,
 	range: (i32, i32),
 	r: Rect,
-	plus: bool,
+	kind: Sign,
 	live: bool,
 	held: bool,
 ) {
@@ -68,8 +91,15 @@ fn button<Sf: Surface + ?Sized>(
 		(face.top + face.bottom) / 2 + i32::from(held),
 	);
 	let sign = |sf: &mut Sf, dx: i32, c| {
+		if kind == Sign::Page {
+			let (left, top) = (cx - RESET_GLYPH.0 / 2 + dx, cy - RESET_GLYPH.1 / 2 + dx);
+			reset_glyph(|x, y, w, h| {
+				sf.fill_rect(Rect::new(left + x, top + y, left + x + w, top + y + h), c)
+			});
+			return;
+		}
 		sf.hline(cx - 3 + dx, cx + 4 + dx, cy + dx, c);
-		if plus {
+		if kind == Sign::Plus {
 			sf.vline(cx + dx, cy - 3 + dx, cy + 4 + dx, c);
 		}
 	};
@@ -96,7 +126,7 @@ pub fn draw<Sf: Surface + ?Sized, M: Measure + Clone>(
 		sf,
 		l.minus,
 		r,
-		false,
+		Sign::Minus,
 		zoom_step(shown, false).is_some(),
 		held == Some(ZoomPart::Minus),
 	);
@@ -104,9 +134,17 @@ pub fn draw<Sf: Surface + ?Sized, M: Measure + Clone>(
 		sf,
 		l.plus,
 		r,
-		true,
+		Sign::Plus,
 		zoom_step(shown, true).is_some(),
 		held == Some(ZoomPart::Plus),
+	);
+	button(
+		sf,
+		l.reset,
+		r,
+		Sign::Page,
+		reset_live(app.zoom()),
+		held == Some(ZoomPart::Reset),
 	);
 	let field = Rect::new(l.field.0, r.top + 3, l.field.1, r.bottom - 2);
 	bevel(sf, field, false);

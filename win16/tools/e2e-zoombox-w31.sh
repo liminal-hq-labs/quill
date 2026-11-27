@@ -188,8 +188,8 @@ finish() {
 	WORK=""
 }
 
-# The zoom control is the last 118 pixels of the status bar, which sits just under the page area: a minus button, the box (70 pixels), a
-# plus button and an 8 pixel margin; the middle of each is where its click goes.
+# The zoom control is the last 140 pixels of the status bar, which sits just under the page area: a minus button, the box (70 pixels), a
+# plus button, the Page Width button (22 pixels) and an 8 pixel margin; the middle of each is where its click goes.
 differ() { compare -metric AE "$WORK/$1.png" "$WORK/$2.png" null: 2>&1 | cut -d' ' -f1 | cut -d. -f1 || true; }
 # How many pixels differ inside a box of two frames: A B W H X Y.
 differ_box() {
@@ -200,10 +200,11 @@ differ_box() {
 
 boot scroll.rtf width
 # On a 1280 by 1024 display Windows opens the window at the same place every time (x 320 to 1120, y 312 to 912): the status bar is its
-# last 18 pixels and the zoom control the last 118 of those.
-MINUS_X=1010
-BOX_X=1055
-PLUS_X=1100
+# last 18 pixels and the zoom control the last 140 of those.
+MINUS_X=990
+BOX_X=1035
+PLUS_X=1080
+RESET_X=1101
 BOX_Y=903
 park() { point_to 800 650; }
 park
@@ -242,7 +243,7 @@ sleep 2
 park
 shot zoombox-plus
 [ "$(differ_box zoombox-75 zoombox-plus 600 400 440 440)" -gt 500 ] || fail "the plus button did not change the page"
-[ "$(differ_box zoombox-75 zoombox-plus 70 14 1020 896)" -gt 50 ] || fail "the box's text did not change at 100%"
+[ "$(differ_box zoombox-75 zoombox-plus 70 14 1000 896)" -gt 50 ] || fail "the box's text did not change at 100%"
 log "plus steps from 75% to 100%"
 # Minus twice goes to 75 and then 50.
 point_to "$MINUS_X" "$BOX_Y"
@@ -262,4 +263,43 @@ park
 shot zoombox-minus-end
 [ "$(differ zoombox-minus zoombox-minus-end)" -lt 50 ] || fail "minus at 50% changed the window ($(differ zoombox-minus zoombox-minus-end) pixels)"
 log "minus is greyed at 50% and does nothing"
-finish 50 zoombox
+# The Page Width button sets Page Width from 50%; once there it is greyed and a click does nothing.
+point_to "$RESET_X" "$BOX_Y"
+xdotool click 1
+sleep 2
+park
+shot zoombox-reset
+[ "$(differ_box zoombox-minus-end zoombox-reset 600 400 440 440)" -gt 500 ] || fail "the Page Width button did not change the page"
+[ "$(differ_box zoombox-minus-end zoombox-reset 110 14 990 896)" -gt 50 ] || fail "the box's text did not change at Page Width"
+log "the Page Width button sets Page Width"
+point_to "$RESET_X" "$BOX_Y"
+xdotool click 1
+sleep 2
+park
+shot zoombox-reset-click
+[ "$(differ zoombox-reset zoombox-reset-click)" -lt 50 ] || fail "the Page Width button changed the window at Page Width ($(differ zoombox-reset zoombox-reset-click) pixels)"
+log "the Page Width button is greyed at Page Width and does nothing"
+# Ctrl+0 does the same from the keyboard: plus leaves Page Width, Ctrl+0 comes back to the same picture.
+point_to "$PLUS_X" "$BOX_Y"
+xdotool click 1
+sleep 2
+park
+shot zoombox-plus-again
+[ "$(differ_box zoombox-reset zoombox-plus-again 600 400 440 440)" -gt 500 ] || fail "plus from Page Width did not change the page"
+xdotool key ctrl+0
+sleep 2
+shot zoombox-ctrl0
+[ "$(differ_box zoombox-reset zoombox-ctrl0 600 400 440 440)" -lt 50 ] || fail "Ctrl+0 did not bring Page Width back ($(differ_box zoombox-reset zoombox-ctrl0 600 400 440 440) pixels)"
+log "Ctrl+0 sets Page Width"
+# Resting on the Page Width button shows its tooltip above the bar and its sentence in the status bar's text.
+point_to "$RESET_X" "$BOX_Y"
+sleep 3
+shot zoombox-tip
+[ "$(differ_box zoombox-ctrl0 zoombox-tip 170 34 $((RESET_X - 150)) 858)" -gt 100 ] || fail "no tooltip over the Page Width button"
+[ "$(differ_box zoombox-ctrl0 zoombox-tip 300 14 326 896)" -gt 50 ] || fail "no hint in the status bar over the Page Width button"
+park
+sleep 2
+shot zoombox-tip-gone
+[ "$(differ_box zoombox-ctrl0 zoombox-tip-gone 640 54 320 858)" -lt 50 ] || fail "the tooltip or the hint stayed after the pointer left"
+log "the Page Width button's tooltip and hint come and go"
+finish Width zoombox
