@@ -28,6 +28,7 @@ long-names = ["quill-app/long-names"]
 proptest = { version = "1", default-features = false, features = ["std"] }
 quill-mouse = { path = "../quill-mouse", features = ["fake"] }
 quill-chrome = { path = "../quill-chrome" }
+quill-clip = { path = "../quill-clip" }
 quill-text = { path = "../quill-text" }
 
 [package.metadata.quill]

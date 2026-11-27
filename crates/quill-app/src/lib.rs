@@ -17,6 +17,7 @@
 pub mod accel;
 pub mod bios;
 mod chrome;
+mod clip;
 pub mod cmdline;
 pub mod datefmt;
 mod edit;
@@ -62,6 +63,7 @@ use quill_grid::GridMeasure;
 pub use chrome::{
 	tab_stop, CharState, CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR, STYLE_NAMES,
 };
+pub use clip::{ClipError, ClipRequest, Clipboard, Flavour, Flavours};
 #[cfg(feature = "text-file-dialog")]
 pub use filedialog::{FileBox, FileView, Line as FileLine};
 pub use native::{Dialog, FindAction, VERSION};
@@ -607,9 +609,10 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	/// The story being edited: 0 body, 1 header, 2 footer, 3 first header, 4 first footer. The active story lives in `doc.body`.
 	pub(crate) view: u8,
 	saved_view: (u32, u32),
-	/// The clipboard: text only, until Quill exits.
-	pub(crate) clip: [u8; 2048],
-	pub(crate) clip_len: usize,
+	/// The clipboard when no shell serves it: RTF and text in chunks of the document's store, until Quill exits (CORE-101).
+	pub(crate) clip: clip::HeldClipboard,
+	/// How the clipboard is served: the request left for the shell, and what the shell says its clipboard offers.
+	pub(crate) clip_serve: clip::Serve,
 	/// The last search, for Find Next.
 	pub(crate) last_find: Option<find::FindState>,
 	/// What the platform adds to the About box (the mode and the free memory).
@@ -696,8 +699,8 @@ impl<M: Measure + Clone> App<M> {
 			time: Msg::new(),
 			recent: recent::RecentList::new(),
 			recent_section: "Recent",
-			clip: [0; 2048],
-			clip_len: 0,
+			clip: clip::HeldClipboard::new(clip::CHUNK),
+			clip_serve: clip::Serve::new(),
 			view: 0,
 			saved_view: (0, 0),
 			zoom: 0,
@@ -1364,19 +1367,9 @@ impl<M: Measure + Clone> App<M> {
 		self.insert_next(s, c, None);
 	}
 
-	/// Inserts `c` as part of a paste (CORE-43): a paragraph mark does not close the undo group, so the whole paste undoes as one step.
-	pub(crate) fn insert_pasted<S: Store + ?Sized>(&mut self, s: &mut S, c: u8) {
-		self.insert_in(s, c, None, false);
-	}
-
 	/// Inserts `c` at the caret. After a paragraph mark, `next` is the preset the new paragraph (the one the caret is in) takes, in the
 	/// same undo step as the mark.
 	fn insert_next<S: Store + ?Sized>(&mut self, s: &mut S, c: u8, next: Option<usize>) {
-		self.insert_in(s, c, next, true);
-	}
-
-	/// `insert_next`; `close` says whether a paragraph mark ends the typing group.
-	fn insert_in<S: Store + ?Sized>(&mut self, s: &mut S, c: u8, next: Option<usize>, close: bool) {
 		if self.selection().is_some() {
 			self.end_typing();
 			self.doc.body.begin_group(label::TYPING);
@@ -1433,9 +1426,7 @@ impl<M: Measure + Clone> App<M> {
 				let at = self.caret;
 				self.apply_preset(s, n, at, at);
 			}
-			if close {
-				self.end_typing();
-			}
+			self.end_typing();
 			self.typing_fmt = None;
 		}
 	}
@@ -1816,9 +1807,8 @@ impl<M: Measure + Clone> App<M> {
 					self.modified = true;
 				}
 			}
-			Command::Cut | Command::Copy | Command::Paste | Command::SelectAll => {
-				self.clip_command(s, c)
-			}
+			Command::Cut | Command::Copy | Command::Paste => self.clip_command(s, c),
+			Command::SelectAll => self.select_all_command(),
 			Command::Spelling => {
 				if self.spell_begin(s, f) {
 					self.open_spell_dialog(s);

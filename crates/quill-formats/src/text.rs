@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use quill_core::doc::Doc;
-use quill_core::store::{ReadStore, Store};
+use quill_core::store::{DynRead, ReadStore, Store};
 use quill_core::text::MAX_TEXT;
 
 use crate::io::{Sink, Source};
@@ -12,7 +12,11 @@ use crate::{FormatError, Result};
 
 /// Reads plain text into `doc` (replacing it). CRLF, LF and CR each end a paragraph; a form feed becomes a paragraph break;
 /// other control characters except the tab are dropped. The text always ends with a paragraph mark.
-pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -> Result<()> {
+pub fn read<S: Store + ?Sized, R: Source + ?Sized>(
+	doc: &mut Doc,
+	s: &mut S,
+	r: &mut R,
+) -> Result<()> {
 	doc.init(s)?;
 	let body = &mut doc.body;
 	body.clear(s);
@@ -22,7 +26,7 @@ pub fn read<S: Store + ?Sized, R: Source>(doc: &mut Doc, s: &mut S, r: &mut R) -
 	let mut total = 0u32;
 	let mut last_mark = true;
 	loop {
-		let n = r.read(&mut buf);
+		let n = r.read_in(&DynRead(&*s), &mut buf);
 		let mut o = 0;
 		for &b in buf.iter().take(n) {
 			let c = match b {

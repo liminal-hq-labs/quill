@@ -10,7 +10,7 @@ use quill_core::layout::Measure;
 
 use quill_dlg::widgets::Caret;
 
-use crate::{label, App, Command, Key, Mode};
+use crate::{App, Key, Mode};
 
 pub(crate) const FONT_NAMES: [&str; 3] = ["Times New Roman", "Arial", "Courier New"];
 pub(crate) const FONT_FAMILY: [u8; 3] = [1, 2, 3];
@@ -384,54 +384,8 @@ impl<M: Measure + Clone> App<M> {
 		self.para_command(s, move |p| PFmt { tabset: idx, ..p });
 	}
 
-	/// Copies the selection to the clipboard, which lives until Quill exits. A selection the clipboard cannot hold is refused with
-	/// the "too large" message and nothing changes, so Cut never deletes text it did not keep (CORE-44).
-	pub(crate) fn clip_copy<S: ReadStore + ?Sized>(&mut self, s: &S) -> bool {
-		let Some((lo, hi)) = self.selection() else {
-			return false;
-		};
-		let n = (hi - lo) as usize;
-		if n > self.clip.len() {
-			self.msg.set("The document is too large for Quill.");
-			return false;
-		}
-		self.clip_len = self
-			.clip
-			.get_mut(..n)
-			.map_or(0, |b| self.doc.body.read(s, lo, b));
-		true
-	}
-
-	pub(crate) fn clip_command<S: Store + ?Sized>(&mut self, s: &mut S, c: Command) {
-		match c {
-			Command::Copy => {
-				self.clip_copy(s);
-			}
-			Command::Cut => {
-				if self.clip_copy(s) {
-					self.end_typing();
-					self.delete_selection(s);
-				}
-			}
-			Command::Paste => {
-				let text = self.clip;
-				let n = self.clip_len;
-				self.end_typing();
-				self.doc.body.begin_group(label::TYPING);
-				self.typing = true;
-				if self.selection().is_some() {
-					self.delete_selection(s);
-				}
-				for &b in text.get(..n).unwrap_or(&[]) {
-					self.insert_pasted(s, b);
-				}
-				self.end_typing();
-			}
-			Command::SelectAll => {
-				self.anchor = Some(0);
-				self.caret = self.doc.body.len().saturating_sub(1);
-			}
-			_ => {}
-		}
+	pub(crate) fn select_all_command(&mut self) {
+		self.anchor = Some(0);
+		self.caret = self.doc.body.len().saturating_sub(1);
 	}
 }

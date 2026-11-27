@@ -318,7 +318,7 @@ impl<M: Measure + Clone> crate::App<M> {
 		};
 		let disabled = match c {
 			Command::Cut | Command::Copy => self.selection().is_none(),
-			Command::Paste => self.clip_len == 0,
+			Command::Paste => !self.clip_can_paste(),
 			_ => false,
 		};
 		Mark { checked, disabled }

@@ -21,6 +21,7 @@ default = ["dib"]
 [dependencies]
 quill-core = { path = "../quill-core" }
 quill-formats = { path = "../quill-formats" }
+quill-text = { path = "../quill-text" }
 quill-image = { path = "../quill-image", optional = true }
 
 [dev-dependencies]

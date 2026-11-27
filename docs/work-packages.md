@@ -79,8 +79,8 @@ Measured at the branch point and again before the pull request; the pull request
 
 | Limit | Now | Rule |
 |---|---|---|
-| `QUILLDOS.EXE` | 418,304 of 432,128 bytes on `main`; about 436,000 of 442,368 once DOS autosave merges (DOS-48) | A move: Δ ≤ +1 KB. A feature: the brief's estimate; past the budget, take the savings the brief names, then raise the budget by the measured cost rounded up to 4 KB in a DOS row of the package's own, with the DOS floppy's free bytes from `installer/tools/verify-disks.sh`. Stop and ask once the budget would pass 480 KB (491,520) or the floppy would keep less than 128 KB free (DOS-70) |
-| Win16 data segment | about 2 KB free (measure with `win16/build.sh`) | A move: Δ ≤ 0. Relief comes first: WP-ED-5 (−2,048, the clipboard to the store), WP-ARCH-5 (about −260, the command table), WP-ARCH-9 (about −2,100, hints and tips to string resources). A package that spends data names its bytes, and nothing merges below 1,024 free (W16-60) |
+| `QUILLDOS.EXE` | 450,048 of 454,656 bytes with the rich clipboard (DOS-115, was 438,272 of 442,368 on DOS-48) | A move: Δ ≤ +1 KB. A feature: the brief's estimate; past the budget, take the savings the brief names, then raise the budget by the measured cost rounded up to 4 KB in a DOS row of the package's own, with the DOS floppy's free bytes from `installer/tools/verify-disks.sh`. Stop and ask once the budget would pass 480 KB (491,520) or the floppy would keep less than 128 KB free (DOS-70) |
+| Win16 data segment | about 3.2 KB free after WP-ED-5 (28,540 bytes of data; was 1,908 free; measure with `win16/build.sh`) | A move: Δ ≤ 0. Relief comes first: WP-ED-5 (−2,048, the clipboard to the store), WP-ARCH-5 (about −260, the command table), WP-ARCH-9 (about −2,100, hints and tips to string resources). A package that spends data names its bytes, and nothing merges below 1,024 free (W16-60) |
 | Win16 stack | `check_stack_log.py` margin | ≥ 2,048 bytes to spare in every run |
 | Win16 code segments | `check_segments.py` against `segments.json` | A move that renames a module adds its crate's rule to `segments.json` where the old module had one |
 | DOS, Windows 3.x and Windows 95 floppies | DOS 437,248 bytes free before autosave, about 427,000 after (DOS-48) | Each feature package reports `installer/tools/verify-disks.sh` for the disks it grows; its size gate fails below each disk's floor in `installer/budgets.toml` (DOS 128 KB, INS-22) |
@@ -516,7 +516,8 @@ the core".
 - **Budget:** Win16 data −2,048 plus a few bytes of chunk ids **[E]**; DOS +2 to +4 KB **[E]** (the RTF reader and writer are linked already).
 - **Tests:** "copy then paste of a random range keeps the text and every format"; `scripts/check-clip-libreoffice.sh`; the `m2` clipboard goldens unchanged except where formatting now survives, reviewed; G-HOST, G-DOS, G-W16, G-W32, G-GTK.
 - **Evidence:** a bold and italic run copied and pasted with its formatting on `dos-text-25`, `dos-gfx-vbe`, `win16-311`, `win32-wine`, `gtk-xvfb`.
-- **Decisions:** CORE-101.
+- **Decisions:** CORE-230 (the plan's CORE-101), CORE-231 (Paste greyed by what the clipboard offers) and DOS-115 (the budget, +11,776 bytes against the plan's +2 to +4 KB).
+- **Built:** see [progress.md](progress.md). The default transport is `quill_clip::Held<128, 0>` (RTF and text, in chunks of 8,192 bytes of the document's store), the request is `ClipRequest` with `serve_clipboard`, `take_clip_request`, `copy_to`, `paste_from` and `set_clip_offers`, and a paste is `quill_clip::insert_fragment`.
 - **UI slice:** WP-GTK-2 (G5) serves the request with `GdkClipboard` and WP-WINUI-7 (W7) with `CF_UNICODETEXT` and RTF; both wait for this package (LNX-23).
 
 ```text

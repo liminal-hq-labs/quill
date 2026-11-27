@@ -21,6 +21,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | CORE-180 to CORE-199 | Reveal Codes (WP-CODES) | reserved | [plans/reveal-codes.md](plans/reveal-codes.md) |
 | CORE-200 to CORE-209 | Status bar (WP-BAR) | in use | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
 | CORE-210 to CORE-229 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
+| CORE-230 to CORE-231 | WP-ED-5 rich clipboard | in use | [decisions.md](decisions.md) |
 
 ## ARCH
 
@@ -42,6 +43,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | DOS-90 to DOS-99 | Reveal Codes (WP-CODES) | reserved | [plans/reveal-codes.md](plans/reveal-codes.md) |
 | DOS-100 to DOS-109 | Status bar (WP-BAR) | in use | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
 | DOS-110 to DOS-114 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
+| DOS-115 | WP-ED-5 rich clipboard | in use | [decisions.md](decisions.md) |
 | DOS-120 to DOS-123 | DOS page bridge (WP-DOSWEB) | reserved | [plans/dos-page-bridge.md](plans/dos-page-bridge.md) |
 
 ## W16
