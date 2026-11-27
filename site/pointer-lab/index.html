@@ -1,0 +1,82 @@
+<!doctype html>
+<!--
+	Pointer lab: Quill's shared pointer module against a stand-in guest, for looking at and measuring the pointer. Not linked from the
+	site's pages. Static, relative URLs only.
+
+	(c) Copyright 2026 Liminal HQ, Scott Morris
+	SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
+<html lang="en-CA">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Pointer lab</title>
+		<meta name="description" content="A test bench for the pointer on Quill's web demo pages: draw strokes over a stand-in screen and see how straight the guest pointer's path is.">
+		<meta name="robots" content="noindex">
+		<meta name="color-scheme" content="light dark">
+		<link rel="icon" href="../favicon.ico" sizes="16x16 32x32 48x48">
+		<link rel="stylesheet" href="pointer-lab.css">
+		<script src="../js/pointer-metric.js" defer></script>
+		<script src="../js/pointer.js" defer></script>
+		<script src="pointer-lab.js" defer></script>
+	</head>
+	<body>
+		<main id="main">
+			<h1>Pointer lab</h1>
+			<p>Move the pointer over the screen below, slowly and at an angle. A small arrow is the stand-in guest's pointer; it should stay under yours, and the path it draws should be as straight as yours. The numbers under the screen score the last stroke.</p>
+
+			<div class="controls">
+				<fieldset>
+					<legend>Mouse</legend>
+					<label><input type="radio" name="mouse" value="auto" checked> Automatic</label>
+					<label><input type="radio" name="mouse" value="follow"> Follow</label>
+					<label><input type="radio" name="mouse" value="capture"> Capture</label>
+				</fieldset>
+				<fieldset>
+					<legend>Guest pointer units</legend>
+					<label><input type="radio" name="units" value="1" checked> One count a pixel</label>
+					<label><input type="radio" name="units" value="jsdos"> One count 1.37 by 1.1 pixels</label>
+				</fieldset>
+				<div class="speed" data-speed-row hidden>
+					<label for="speed">Pointer speed</label>
+					<input id="speed" type="range" min="0.5" max="2" step="0.1" value="1">
+					<output for="speed" data-speed-value>1</output>
+				</div>
+			</div>
+
+			<div class="stage" data-stage>
+				<canvas data-picture width="640" height="480" aria-label="The stand-in guest's screen"></canvas>
+			</div>
+
+			<p class="hint" data-hint aria-live="polite"></p>
+			<p class="hint" data-whole hidden>This browser reports captured moves in whole pixels, which can lose diagonals. Follow is smoother here. <button type="button" data-use-follow>Use Follow</button></p>
+
+			<h2>Last stroke</h2>
+			<dl class="readout" data-stroke aria-live="polite">
+				<div><dt>Windows scored</dt><dd data-stroke-windows>none yet</dd></div>
+				<div><dt>Median error</dt><dd data-stroke-median>–</dd></div>
+				<div><dt>95th percentile error</dt><dd data-stroke-p95>–</dd></div>
+				<div><dt>Windows on one axis only</dt><dd data-stroke-axis>–</dd></div>
+				<div><dt>End point</dt><dd data-stroke-end>–</dd></div>
+			</dl>
+
+			<h2>Pointer</h2>
+			<dl class="readout" data-state aria-live="polite">
+				<div><dt>Mode</dt><dd data-state-mode></dd></div>
+				<div><dt>Raw capture</dt><dd data-state-raw></dd></div>
+				<div><dt>Secure context</dt><dd data-state-secure></dd></div>
+				<div><dt>Coalesced samples</dt><dd data-state-coalesced></dd></div>
+				<div><dt>Fractional positions</dt><dd data-state-fraction></dd></div>
+				<div><dt>Whole-number movement</dt><dd data-state-whole></dd></div>
+				<div><dt>Device pixel ratio</dt><dd data-state-dpr></dd></div>
+				<div><dt>Calls a frame</dt><dd data-state-calls></dd></div>
+				<div><dt>Buttons and wheel</dt><dd data-state-buttons></dd></div>
+			</dl>
+
+			<p class="actions">
+				<button type="button" data-save>Save pointer trace</button>
+				<button type="button" data-clear>Clear the paths</button>
+			</p>
+		</main>
+	</body>
+</html>

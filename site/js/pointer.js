@@ -10,6 +10,8 @@
 //                        accumulator, the touch gesture machine, the raw-capture probe and the stored answers.
 //   QuillPointer.attach  binds the core to a stage element and an emulator adapter (see docs/plans/pointer.md, "One module, two adapters").
 //
+// The adapter's `send.wheel(notches)` is signed like the wheel's deltaY: positive is down.
+//
 // The guest has a relative mouse that clamps at its edges, so the module keeps a model of where the guest pointer is, in guest pixels.
 // Follow moves the guest to the guest pixel under the visitor's pointer, worked out from the event's clientX and clientY (fractional
 // where the browser has them) once an animation frame; Capture sums the lock's movement. Whole counts go out; the page's model
