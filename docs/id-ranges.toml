@@ -499,3 +499,11 @@ last = 97
 owner = "Unicode (WP-UNI)"
 status = "reserved"
 source = "docs/plans/unicode.md"
+
+[[block]]
+prefix = "WUI"
+first = 85
+last = 94
+owner = "WinUI real window (WP-WINUI)"
+status = "in use"
+source = "docs/plans/winui-real-window.md"

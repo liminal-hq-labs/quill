@@ -17,6 +17,8 @@ Claims are marked **[V]** when a source or the repository confirms them and **[U
 
 ## Recommendation
 
+**Refreshed on 2026-11-27** for the owner's answer that the client is "a real WinUI window", not a Win32 window imitating WinUI: the route, the S0c measurements, the control strategy, printing, clipboard, packaging, testing and the packages are in [plans/winui-real-window.md](plans/winui-real-window.md) (WUI-85 to WUI-94), which wins where this page disagrees. In short: a WinUI 3 window in Rust over Quill's own `windows-bindgen` projection of the WinUI metadata (Reactor cannot make a custom automation peer or receive text composition), the page in a `SwapChainPanel` inside a composed control with no child or pop-up window, `CoreTextEditContext` for typed text and input methods, a composed automation peer with the text pattern for Narrator, and WinUI's own controls for every piece of chrome. Option B below is no longer a fallback (WUI-85). The rest of this page is the original plan, kept for its sources.
+
 Build a real WinUI 3 client, but only after two spike PRs say yes. In May 2026 Microsoft merged **Windows Reactor**, a WinUI 3 library written in Rust, into windows-rs. It is in preview, at version 0.100/0.101. It has `SwapChainPanel`, `MenuBar`, `CommandBar`, `ComboBox`, keyboard accelerators and automation metadata, and it needs no XAML compiler, MSBuild or .NET. A Rust WinUI 3 window is an ordinary Cargo build, not a C# project.
 
 Three things are unproven, and the spikes settle them:
@@ -27,7 +29,7 @@ Three things are unproven, and the spikes settle them:
 
 WinUI never draws the page. Layout uses `OutlineMeasure` at 1440 units an inch, the same as the Linux client. The same shared `Surface` painter (`quill-raster`) draws it, and the result is shown one to one at device pixels. Measuring and drawing therefore use one engine, and the Windows 95 caret drift cannot come back.
 
-**Fallback if the spikes fail:** a Win32 window with DirectComposition, Direct2D and DirectWrite, plus Mica, rounded corners and dark mode set through DWM, and custom-drawn Fluent-style chrome. It uses the same page and the same `Surface`, and it still covers Windows 11.
+**Fallback if the spikes fail:** a Win32 window with DirectComposition, Direct2D and DirectWrite, plus Mica, rounded corners and dark mode set through DWM, and custom-drawn Fluent-style chrome. It uses the same page and the same `Surface`, and it still covers Windows 11. *Superseded by WUI-85: the fallbacks are now real WinUI routes (another text input in the same window, S0b's pop-up page, or a XAML Islands host), and this imitation returns only by the owner's word.*
 
 The Linux GTK4 client shares this modern design: the same menu tree, command rows and paper rules, so the two clients look like one product on two platforms.
 
@@ -61,9 +63,9 @@ The Linux GTK4 client shares this modern design: the same menu tree, command row
 
 | Option | Verdict |
 |---|---|
-| **A. WinUI 3 window (Reactor or raw bindings); chrome in WinUI controls; page in a `SwapChainPanel` (P1) or Quill's own child window inside the WinUI window (P2)** | **Recommended, if the spikes pass** |
-| B. Win32 + DirectComposition/Direct2D/DirectWrite, DWM Mica (`DWMWA_SYSTEMBACKDROP_TYPE`, 22621+), dark title bar (`DWMWA_USE_IMMERSIVE_DARK_MODE`, 22000+), rounded corners by default, custom-drawn Fluent toolbar, Win32 menus and common dialogs | **Fallback.** Cross-builds fully from Linux, needs no runtime, and IME and UI Automation are known techniques. It only imitates WinUI |
-| C. A Win32 window hosting WinUI 3 through XAML Islands (`DesktopWindowXamlSource`, no longer experimental since SDK 1.4) | Middle fallback: real WinUI chrome with a Win32 page. [U] whether pop-ups and flyouts escape the island |
+| **A. WinUI 3 window (Reactor or raw bindings); chrome in WinUI controls; page in a `SwapChainPanel` (P1) or Quill's own child window inside the WinUI window (P2)** | **Recommended.** Refined as route H1 (own projection, `SwapChainPanel` in a composed control) with F1 and F2 behind it ([plans/winui-real-window.md](plans/winui-real-window.md#the-route-and-its-fallbacks)) |
+| B. Win32 + DirectComposition/Direct2D/DirectWrite, DWM Mica (`DWMWA_SYSTEMBACKDROP_TYPE`, 22621+), dark title bar (`DWMWA_USE_IMMERSIVE_DARK_MODE`, 22000+), rounded corners by default, custom-drawn Fluent toolbar, Win32 menus and common dialogs | **Out** (WUI-85): it only imitates WinUI, which the owner ruled out on 2026-11-27. Cross-builds fully from Linux and needs no runtime |
+| C. A Win32 window hosting WinUI 3 through XAML Islands (`DesktopWindowXamlSource`, no longer experimental since SDK 1.4) | Last real-WinUI fallback (F3): real WinUI chrome with a Win32 page beside the islands. [U] whether pop-ups and flyouts escape the island |
 | D. Windows.UI.Xaml (UWP) XAML Islands | No. A dead-end stack |
 | E. Slint or iced with a Fluent theme | No. Imitation without the advantages of B |
 | F. `QUILL32.EXE` as it is | A baseline, not a Windows 11 client (below) |
@@ -121,6 +123,8 @@ Source for C: <https://learn.microsoft.com/windows/apps/windows-app-sdk/release-
 
 ### Printing
 
+Superseded by WUI-92: the Windows 11 print dialog through `PrintManagerInterop` with vector pages drawn by `paint_sheet` on a Direct2D surface, and Export as PDF through `quill_pdfdoc::export` as on GTK ([plans/winui-real-window.md](plans/winui-real-window.md#printing-preview-and-export-as-pdf)). The original plan:
+
 - Win32 `PrintDlgExW` and a GDI printer DC, with page bands rendered by `quill-raster` at the printer's dpi.
 - `PrintManagerInterop` with XAML `PrintDocument` is later and [U] (<https://learn.microsoft.com/en-us/windows/uwp/devices-sensors/print-from-your-app>).
 
@@ -177,7 +181,7 @@ Source for C: <https://learn.microsoft.com/windows/apps/windows-app-sdk/release-
 
 ## Work list
 
-From W3 on, the items are ordered as work packages `WP-WINUI-1` (a hosting decision, S0c, since S0b did not reach a go) to `WP-WINUI-11` in [ui-track.md](ui-track.md), with their dependencies and builder briefs (WUI-1, WUI-2). The table below is the original plan.
+From W3 on, the items are ordered as work packages `WP-WINUI-1` (a hosting decision, S0c, since S0b did not reach a go) to `WP-WINUI-12` in [plans/winui-real-window.md](plans/winui-real-window.md#work-packages), with their dependencies and builder briefs (WUI-1, WUI-2, WUI-85 to WUI-94); [ui-track.md](ui-track.md) orders them beside the GTK packages. The table below is the original plan.
 
 Each item is sized for one pull request. Decisions D160 to D169 are kept here until they move into `decisions.md`.
 
@@ -214,20 +218,22 @@ W3 starts after the spikes say go, after P4 (`OutlineMeasure`), P5 (`quill-raste
 
 Proposed, and recorded here as D160 to D169 until they move into `decisions.md`.
 
-- **D160. Real WinUI 3, gated by the spikes.** The Win32 Fluent build (option B) is the fallback.
-- **D161. Reactor first, raw `windows-bindgen` bindings second.**
+- **D160. Real WinUI 3, gated by the spikes.** The Win32 Fluent build (option B) is the fallback. *The fallback is superseded by WUI-85: real WinUI fallbacks only.*
+- **D161. Reactor first, raw `windows-bindgen` bindings second.** *Reversed by WUI-86: Quill's own projection first, because Reactor 0.100.0 and its master have no custom automation peer, no text composition and no access to the underlying elements; Reactor stays the spikes'.*
 - **D162. An unpackaged self-contained zip first, then MSIX.** Not framework-dependent: that needs a runtime install, and Reactor's bootstrap is Windows 11 only.
 - **D163. Windows 11 22H2 (22621) or later and x64.** Windows 10 is untested, and ARM64 comes later.
 - **D164. Draw with the shared raster.** Glyphs are placed at layout positions; Direct2D drawing is optional later.
 - **D165. `OutlineMeasure` at 1440 units an inch,** as on Linux (D186).
 - **D166. Characters with no 1252 form are refused when typed and become `?` when read** (the D188 rule).
 - **D167. Workspace `winui/quill-winui`, binary `Quill.exe`,** app ID `LiminalHQ.Quill` unless a domain is chosen.
-- **D168. A classic `MenuBar` plus two `CommandBar` rows,** no ribbon.
-- **D169. Print through `PrintDlgExW` and GDI** with raster bands.
+- **D168. A classic `MenuBar` plus two `CommandBar` rows,** no ribbon. *The boxes go in `AppBarElementContainer`s (WUI-90).*
+- **D169. Print through `PrintDlgExW` and GDI** with raster bands. *Superseded by WUI-92.*
 
 Still open, and not numbered: the single home for `Surface` (`quill-paint` or `quill-raster`), to be picked before W3.
 
 ## Risks and what is not proven
+
+The refreshed list, with what S0c settles, is in [plans/winui-real-window.md](plans/winui-real-window.md#what-s0c-must-measure). Since this page was written: S0a settled Reactor under cargo-xwin, the self-contained start and the runtime file list; S0b found a child window under XAML invisible; Reactor's master gives the window handle but still no custom automation peer or text composition; a third-party WinUI 3 editor reports `CoreTextEditContext` working in an unpackaged desktop window [U for Quill].
 
 - **Rust WinUI maturity.** Reactor is a preview with 14% of its docs written. Startup errors ("Class not registered", a black flash before Mica) are reported in its PR thread.
 - **Custom-page IME and the text pattern** are unproven in WinUI 3, and the CoreText route is known to be broken.
