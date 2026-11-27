@@ -15,6 +15,7 @@ Planner write-ups kept for reference. Each was accurate when it was written, and
 | [web-and-layering-addendum.md](web-and-layering-addendum.md) | GTK4, WinUI 3, web (wasm32) and Desk against the layering | Later, not scheduled |
 | [threading-plan.md](threading-plan.md) | One job model for single-core and threaded builds | Later, not scheduled |
 | [zoom-review.md](zoom-review.md) | Root causes of the zoom, preview, paging, style box and toolbar items of the 2026-11-27 QA, and one builder brief per fix | Reference |
+| [reveal-codes.md](reveal-codes.md) | Reveal Codes, a nod to WordPerfect: the code vocabulary, one view model, a pane on every build, and WP-CODES-1 to WP-CODES-10 | Planned |
 | [web-demo.md](web-demo.md) | The ReactOS web demo: a clean address, Print to PDF with downloads, sound and hosting, as WP-WEB-1 to WP-WEB-8 | Planned |
 | [preferences.md](preferences.md) | One settings model (`quill-settings`) and an Options window on every build, autosave first, as WP-PREF-0 to WP-PREF-13 | Planned |
 | [gtk-print-help.md](gtk-print-help.md) | GTK printing, preview and Export as PDF from one `quill-pdfdoc` PDF with a text layer, the help viewer and dark paper, as WP-GTK-3a to 3c, WP-GTK-8 and WP-GTK-10 | Planned |
