@@ -10,8 +10,8 @@ use common::*;
 use proptest::prelude::*;
 use quill_app::mouse::{Ctx, Ev, Pointer};
 use quill_app::picture_geom::{self as geom, Frame, Handle, Limits, HANDLE, MIN_SHOWN, SLOP};
-use quill_app::view::{page_width, page_x0, PageGeom, PAGE_TOP};
 use quill_app::{Command, Key};
+use quill_chrome::view::{page_width, page_x0, PageGeom, PAGE_TOP};
 use quill_host::script::MemFiles;
 use quill_host::HostStore;
 use quill_paint::layout::Layout;
@@ -37,7 +37,7 @@ impl Rig {
 	}
 
 	fn stride(&self) -> i32 {
-		PageGeom::of(&self.app, &self.s).page_h + quill_app::view::PAGE_GAP
+		PageGeom::of(&self.app, &self.s).page_h + quill_chrome::view::PAGE_GAP
 	}
 
 	/// Where the first picture is, in the page's units.

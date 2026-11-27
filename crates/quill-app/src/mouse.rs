@@ -20,7 +20,7 @@ pub use quill_mouse::Ev;
 
 use crate::paint::{self, MENU_COUNT};
 use crate::picture_geom::{HandleDrag, PicPress};
-use crate::view;
+use crate::scroll;
 use crate::{App, Files, Grain, Key, Mode};
 
 /// What the shell knows when an event comes in.
@@ -195,7 +195,7 @@ impl Pointer {
 			}
 			Ev::Wheel(n) => {
 				if app.editing() && app.pixel_view() {
-					app.vscroll_by(s, n.saturating_mul(WHEEL_LINES * view::SCROLL_LINE));
+					app.vscroll_by(s, n.saturating_mul(WHEEL_LINES * scroll::SCROLL_LINE));
 				} else if app.editing() {
 					let top = i64::from(app.top_line()) + i64::from(n) * i64::from(WHEEL_LINES);
 					app.scroll_to(s, top.clamp(0, i64::from(u32::MAX)) as u32);

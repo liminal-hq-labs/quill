@@ -9,9 +9,11 @@ mod common;
 use common::*;
 use proptest::prelude::*;
 use quill_app::mouse::{Ctx, Ev};
-use quill_app::view::{ruler_marks, tab_x, text_extent, Act, RulerState, COLOURS, SIZES, TOOLBAR};
 use quill_app::{
 	menu_items_for, Command, Key, Overlay, Wk, CHROME_RULER, CHROME_STATUS, MENU_COUNT,
+};
+use quill_chrome::view::{
+	ruler_marks, tab_x, text_extent, Act, RulerState, COLOURS, SIZES, TOOLBAR,
 };
 use quill_core::doc::cflag;
 use quill_core::layout::Measure;
@@ -538,7 +540,7 @@ fn a_toolbar_button_runs_on_release_and_a_toggle_follows_the_state() {
 	assert_eq!(r.g.view().button, None);
 	assert_ne!(bold(&r), was, "the release ran it");
 	assert_eq!(
-		quill_app::view::is_on(&r.app, &r.s, quill_app::view::Toggle::Bold),
+		quill_chrome::view::is_on(&r.app, &r.s, quill_chrome::view::Toggle::Bold),
 		bold(&r),
 		"the toggle follows the state"
 	);
@@ -983,7 +985,7 @@ fn px(r: &Rig) -> i32 {
 }
 
 /// What an arrow of the vertical bar moves, in pixels.
-const LINE: i32 = quill_app::view::SCROLL_LINE;
+const LINE: i32 = quill_chrome::view::SCROLL_LINE;
 
 fn hold_at(r: &mut Rig, at: (i32, i32)) -> u32 {
 	r.down(at.0, at.1);

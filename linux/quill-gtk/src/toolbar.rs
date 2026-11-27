@@ -3,12 +3,12 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
-// The buttons, their order and their groups are read from `quill_app::view::TOOLBAR` (row 0), and the tips from `command_tip`, so
+// The buttons, their order and their groups are read from `quill_chrome::view::TOOLBAR` (row 0), and the tips from `command_tip`, so
 // they are the Windows toolbar's. Each button's icon is one Adwaita ships; none is bundled.
 
 use gtk::prelude::*;
-use quill_app::view::{Act, BTN_W, TOOLBAR};
 use quill_app::{command_tip, Command};
+use quill_chrome::view::{Act, BTN_W, TOOLBAR};
 
 use crate::actions::action_name;
 

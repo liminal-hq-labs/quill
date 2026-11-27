@@ -442,7 +442,7 @@ mod on {
 		};
 		let (page_w, hmax) = (
 			crate::layout(cw, ch, false).page_w,
-			quill_app::view::hscroll_max(app(), crate::layout(cw, ch, false).page_w),
+			quill_chrome::view::hscroll_max(app(), crate::layout(cw, ch, false).page_w),
 		);
 		let first_back = (sh().back_state, sh().back_w, sh().back_h);
 		let first_tick = unsafe { GetTickCount() };

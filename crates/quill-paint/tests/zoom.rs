@@ -8,8 +8,8 @@ mod common;
 use common::*;
 use quill_app::mouse::{Ctx, Ev};
 use quill_app::picture::WINDOW;
-use quill_app::view::{dev, log, page_width, page_x0, PageGeom, PAGE_PAD};
-use quill_app::zoom_field::{ZoomPart, ZOOM_LEVELS, ZOOM_MARGIN};
+use quill_chrome::view::{dev, log, page_width, page_x0, PageGeom, PAGE_PAD};
+use quill_chrome::zoom_field::{ZoomPart, ZOOM_LEVELS, ZOOM_MARGIN};
 use quill_core::layout::{to_units, FontRef};
 use quill_host::script::MemFiles;
 use quill_host::HostStore;
@@ -481,7 +481,7 @@ fn the_ruler_follows_the_zoom() {
 	// 624 pixels), and the page's own x0 is 0 only when it fills the window, so read the column's edges.
 	let r = lay.ruler.unwrap();
 	let y = (r.top + 9) as usize;
-	let (left, w) = quill_app::view::text_extent_at(&app, 624, shell::hscroll(&app, 624), 50);
+	let (left, w) = quill_chrome::view::text_extent_at(&app, 624, shell::hscroll(&app, 624), 50);
 	assert_eq!(w, to_units(app.doc().page.text_w(), 96) / 2);
 	assert_eq!(fr.pixels[y * 640 + (left - 1) as usize], 0);
 	assert_eq!(fr.pixels[y * 640 + (left + w) as usize], 0);

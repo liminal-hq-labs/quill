@@ -16,8 +16,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use adw::prelude::*;
 use gtk::{gdk, glib};
-use quill_app::view::family_of;
 use quill_app::FindAction;
+use quill_chrome::view::family_of;
 use quill_core::doc::cflag;
 use quill_dialogs::{style, Class, Dialog, Item};
 

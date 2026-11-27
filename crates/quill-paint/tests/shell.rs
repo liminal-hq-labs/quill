@@ -302,7 +302,7 @@ fn the_text_column_fits_beside_the_edges() {
 	let (app, s, _) = open_doc("letter.rtf");
 	let lay = Layout::of(&app);
 	let hs = shell::hscroll(&app, lay.page.width());
-	let (left, w) = quill_app::view::text_extent(&app, lay.page.width(), hs);
+	let (left, w) = quill_chrome::view::text_extent(&app, lay.page.width(), hs);
 	assert!(
 		left >= 0 && left + w <= lay.page.width(),
 		"text {left}..{}",

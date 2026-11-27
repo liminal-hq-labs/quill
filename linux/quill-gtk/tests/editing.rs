@@ -9,7 +9,7 @@
 use std::path::PathBuf;
 
 use quill_app::mouse::Ev;
-use quill_app::view::{PAGE_GAP, PAGE_TOP};
+use quill_chrome::view::{PAGE_GAP, PAGE_TOP};
 use quill_fonts::FontSet;
 use quill_gtk::doc::{refusal, Document, Overlay, Theme};
 use quill_gtk::files::GuiFiles;

@@ -5,14 +5,14 @@
 //
 // `StatusInfo` is read from the shared editor state (`status_position`, `char_state`) and the view, and is tested without a
 // display. The bar is an Adwaita-styled strip of captions with the zoom control at its right end: a minus button, the zoom as a menu
-// button that lists the shared levels, and a plus button, then a margin (`quill_app::zoom_field`, CORE-67).
+// button that lists the shared levels, and a plus button, then a margin (`quill_chrome::zoom_field`, CORE-67).
 
 use gtk::gio;
 use gtk::prelude::*;
-use quill_app::zoom_field::{
+use quill_app::Command;
+use quill_chrome::zoom_field::{
 	zoom_command, zoom_step, zoom_text, ZOOM_LEVELS, ZOOM_MARGIN, ZOOM_TEXT_MAX,
 };
-use quill_app::Command;
 
 use crate::actions::action_name;
 use crate::doc::Document;

@@ -1,10 +1,10 @@
-// The toolbar, the ruler and the status bar of the Windows 3.1 window: drawn with GDI from the layout `quill_app::view` gives, with
+// The toolbar, the ruler and the status bar of the Windows 3.1 window: drawn with GDI from the layout `quill_chrome::view` gives, with
 // three real combo boxes for the style, face and size.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
-use quill_app::view::{self, Act, RulerState, TOOLBAR, Toggle};
-use quill_app::zoom_field::{ZOOM_MARGIN, ZoomLayout, ZoomMetrics, zoom_step};
+use quill_chrome::view::{self, Act, RulerState, TOOLBAR, Toggle};
+use quill_chrome::zoom_field::{ZOOM_MARGIN, ZoomLayout, ZoomMetrics, zoom_step};
 use w16::*;
 
 use crate::gdi::{
@@ -17,7 +17,7 @@ pub const ID_STYLE: u32 = 303;
 pub const ID_FACE: u32 = 301;
 pub const ID_SIZE: u32 = 302;
 pub const ID_COLOUR: u32 = 500;
-/// The zoom list's items: `ID_ZOOM` plus the level's place in `quill_app::zoom_field::ZOOM_LEVELS`.
+/// The zoom list's items: `ID_ZOOM` plus the level's place in `quill_chrome::zoom_field::ZOOM_LEVELS`.
 pub const ID_ZOOM: u32 = 520;
 /// The zoom control near the right end of the status bar: a minus button, the box, a plus button and a margin of the shared width. The
 /// narrowest client area that has room for it is `ZOOM_MIN_CLIENT`.
@@ -423,13 +423,13 @@ pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8], zoom: &[u8], sho
 pub fn zoom_menu(hwnd: u32, x: i32, y: i32, current: Option<usize>) {
 	unsafe {
 		let m = CreatePopupMenu();
-		for (i, level) in quill_app::zoom_field::ZOOM_LEVELS.iter().enumerate() {
+		for (i, level) in quill_chrome::zoom_field::ZOOM_LEVELS.iter().enumerate() {
 			// The text is at most ZOOM_TEXT_MAX bytes; the byte after it stays zero.
-			let mut z = [0u8; quill_app::zoom_field::ZOOM_TEXT_MAX + 1];
+			let mut z = [0u8; quill_chrome::zoom_field::ZOOM_TEXT_MAX + 1];
 			if let Some((text, _)) =
-				z.split_first_chunk_mut::<{ quill_app::zoom_field::ZOOM_TEXT_MAX }>()
+				z.split_first_chunk_mut::<{ quill_chrome::zoom_field::ZOOM_TEXT_MAX }>()
 			{
-				quill_app::zoom_field::zoom_text(*level, text);
+				quill_chrome::zoom_field::zoom_text(*level, text);
 			}
 			let ticked = if current == Some(i) { 8 } else { 0 };
 			AppendMenu(m, ticked, ID_ZOOM + i as u32, np(z.as_ptr()));

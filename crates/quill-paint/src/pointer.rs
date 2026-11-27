@@ -5,7 +5,7 @@
 
 //! [`Gfx`] takes the events a mouse makes (`quill_app::mouse::Ev`, in pixels of the 640 by 480 screen) and turns each into what the
 //! keyboard would have done, using the rectangles the painter draws with: [`menu::title_rects`] and [`menu::geom_of`], the
-//! dialog's [`dialog::hit`], [`toolbar::button_at`] and [`toolbar::box_at`], [`drop::item_at`], `quill_app::view::ruler_hit_with` and
+//! dialog's [`dialog::hit`], [`toolbar::button_at`] and [`toolbar::box_at`], [`drop::item_at`], `quill_chrome::view::ruler_hit_with` and
 //! [`scroll::parts`], [`scroll::hit`] and [`scroll::pos_at`]. None of them is a second copy of a layout, so a click lands on what is
 //! on the screen. The page keeps the app's own [`Pointer`]: a press in the page area goes to it, and so does everything until the
 //! button is up.
@@ -19,13 +19,13 @@
 //! What the painter needs to show a gesture in progress is [`View`], read with [`Gfx::view`]; the rest is the app's.
 
 use quill_app::mouse::{Ctx, Ev, Pointer, DOUBLE_TICKS};
-use quill_app::view::{
-	self, log, snap, text_extent_at, Drag, Hit, RulerState, RULER_H, TOOLBAR, TWIPS_PX,
-};
 use quill_app::widgets::Place;
-use quill_app::zoom_field::{zoom_step, ZoomPart};
 use quill_app::Command;
 use quill_app::{menu_items_for, menu_title, App, Files, Key, Overlay, Slot, Wk, MENU_COUNT};
+use quill_chrome::view::{
+	self, log, snap, text_extent_at, Drag, Hit, RulerState, RULER_H, TOOLBAR, TWIPS_PX,
+};
+use quill_chrome::zoom_field::{zoom_step, ZoomPart};
 use quill_core::layout::Measure;
 use quill_core::store::{ReadStore, Store};
 use quill_dlg::filedlg::Point;
@@ -932,7 +932,7 @@ impl Gfx {
 		// The button at the left end of the ruler goes round the kinds of tab, as the Windows builds' does; the scale sets a tab of
 		// the kind it shows.
 		let mut hit =
-			quill_app::view::ruler_hit_at(x, y, r.top, (left, w), &st, 0, shell::pct(app));
+			quill_chrome::view::ruler_hit_at(x, y, r.top, (left, w), &st, 0, shell::pct(app));
 		// The button is under the markers and the stops, which come first where they overlap it.
 		if x < KIND_W && matches!(hit, None | Some(Hit::Scale(_))) && inside(r, x, y) {
 			hit = Some(Hit::Kind);
@@ -1059,7 +1059,7 @@ impl Gfx {
 		f: &mut F,
 		i: usize,
 	) {
-		use quill_app::view::Act;
+		use quill_chrome::view::Act;
 		match TOOLBAR.buttons.get(i).map(|b| b.act) {
 			Some(Act::Cmd(c)) => app.command(s, f, c),
 			Some(Act::Colour) => {
@@ -1206,6 +1206,6 @@ fn drag_to(d: &mut Drag, at: usize, x: i32, (left, w): (i32, i32), pct: i32) {
 			slot.0 = to;
 		}
 	} else {
-		quill_app::view::drag_to_at(d, x, left, w, pct);
+		quill_chrome::view::drag_to_at(d, x, left, w, pct);
 	}
 }

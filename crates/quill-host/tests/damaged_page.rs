@@ -47,7 +47,8 @@ fn page_setup_arithmetic_saturates() {
 
 #[test]
 fn an_rtf_with_extreme_page_numbers_draws_views_and_prints_without_a_panic() {
-	use quill_app::{view, App, Command, Key};
+	use quill_app::{App, Command, Key};
+	use quill_chrome::view;
 	use quill_grid::{Grid, GridMeasure};
 	use quill_host::script::MemFiles;
 	for rtf in [

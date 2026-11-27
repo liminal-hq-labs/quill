@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // `layout` turns the paragraph's `RulerState` and where the sheet sits in the window into the positions a drawing needs, in
-// logical pixels; it is plain data, shared with the Windows ruler through `quill_app::view` (ticks, marks, hit tests, drags), and
+// logical pixels; it is plain data, shared with the Windows ruler through `quill_chrome::view` (ticks, marks, hit tests, drags), and
 // tested without a display. `QuillRuler` draws that with `GtkSnapshot` in the widget's own foreground colour and the system
 // accent, so it follows the dark and the light scheme. The tab-kind button is a separate `gtk::Button` at its left.
 
@@ -16,7 +16,7 @@ use gtk::glib;
 use gtk::graphene;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use quill_app::view::{
+use quill_chrome::view::{
 	drag_to, ruler_hit_with, ruler_marks, ruler_ticks, snap, Drag, Hit, RulerState, RULER_H,
 	TWIPS_PX,
 };

@@ -68,6 +68,7 @@ quill-text = { path = "../crates/quill-text" }
 quill-grid = { path = "../crates/quill-grid" }
 quill-image = { path = "../crates/quill-image" }
 quill-app = { path = "../crates/quill-app" }
+quill-chrome = { path = "../crates/quill-chrome" }
 quill-inflate = { path = "../crates/quill-inflate" }
 
 [profile.release]

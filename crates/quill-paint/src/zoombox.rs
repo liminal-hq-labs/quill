@@ -3,14 +3,14 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-//! The geometry is `quill_app::zoom_field`'s ([`ZoomLayout`], [`zoom_step`], CORE-67), laid out from the screen's right edge; this
+//! The geometry is `quill_chrome::zoom_field`'s ([`ZoomLayout`], [`zoom_step`], CORE-67), laid out from the screen's right edge; this
 //! module draws it and answers where a click landed. The box opens the list of levels ([`crate::drop::Pop::Zoom`]) and a button steps
 //! to the next level down or up, greyed when there is none.
 
-use quill_app::zoom_field::{
+use quill_app::App;
+use quill_chrome::zoom_field::{
 	zoom_step, ZoomLayout, ZoomMetrics, ZoomPart, ZOOM_MARGIN, ZOOM_TEXT_MAX,
 };
-use quill_app::App;
 use quill_core::layout::Measure;
 
 use crate::layout::Layout;

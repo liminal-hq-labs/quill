@@ -10,7 +10,7 @@
 //! a key, a menu or leaving the window takes it away. The status bar shows the sentence of the thing under the pointer at once.
 //! The popup's colours come from the parent's `WM_CTLCOLOR`, answered in `main.rs` with `tip_brush`.
 
-use quill_app::view::{self, Act};
+use quill_chrome::view::{self, Act};
 use w16::*;
 
 use crate::chrome;

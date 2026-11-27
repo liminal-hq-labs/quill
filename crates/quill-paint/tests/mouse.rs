@@ -9,7 +9,7 @@ mod common;
 use common::*;
 use proptest::prelude::*;
 use quill_app::mouse::{Ctx, Pointer};
-use quill_app::view::{page_width, page_x0, PageGeom};
+use quill_chrome::view::{page_width, page_x0, PageGeom};
 use quill_core::layout::to_units;
 use quill_mouse::Ev;
 use quill_paint::layout::Layout;

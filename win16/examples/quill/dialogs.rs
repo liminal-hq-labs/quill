@@ -7,8 +7,8 @@
 // The editor says which dialog it wants (`quill_app::Dialog`); these functions show it, read what was chosen and hand it back through
 // the editor's own methods, as the Win32 build's `dialogs.rs` does (D86). The dialog procedures are exported far procedures, so they
 // run with DS loaded from SS, and `DialogBox` takes them as segment 1 offsets.
-use quill_app::view;
 use quill_app::{Command, Files, FindAction};
+use quill_chrome::view;
 use w16::*;
 
 use crate::gdi::{Rect16, fp, np};

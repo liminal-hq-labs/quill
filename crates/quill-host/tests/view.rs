@@ -3,8 +3,8 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use quill_app::view::{self, Act, Hit, PageGeom, RulerState, Toggle, TOOLBAR};
 use quill_app::{App, Command, Key, CHROME_TOOLBAR};
+use quill_chrome::view::{self, Act, Hit, PageGeom, RulerState, Toggle, TOOLBAR};
 use quill_core::layout::{FontMetrics, FontRef, Measure, GLYPHS};
 use quill_host::script::MemFiles;
 use quill_host::HostStore;
@@ -303,7 +303,7 @@ fn typing_past_the_bottom_of_a_page_scrolls_by_pixels_and_gaps() {
 
 #[test]
 fn the_scroll_bars_sit_in_the_page_area_only() {
-	use quill_app::view::scroll_layout;
+	use quill_chrome::view::scroll_layout;
 	// 800 by 600 client, toolbars and ruler 100 high, a status bar 20 high, bars 16 wide.
 	let l = scroll_layout(800, 600, 100, 20, 16, 16, false);
 	assert_eq!(l.vbar, (784, 100, 16, 480));

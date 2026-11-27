@@ -26,9 +26,9 @@ use gdi::{Gdi16, QApp, Rect16, np};
 use quill_app::accel::{self, Accel};
 use quill_app::cmdline;
 use quill_app::recovery::Why;
-use quill_app::view::{self, Act, Hit};
-use quill_app::zoom_field::{ZoomPart, zoom_step};
 use quill_app::{Command, Dir, Files, Key, SaveMode, Scheme};
+use quill_chrome::view::{self, Act, Hit};
+use quill_chrome::zoom_field::{ZoomPart, zoom_step};
 use quill_formats::io::{Sink, Source};
 use quill_grid::Grid;
 use store::FarStore;
@@ -627,7 +627,7 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 					.map(|d| d.copy_from_slice(hint.as_bytes().get(..n).unwrap_or(&[])));
 				n
 			};
-			let mut zoom = [0u8; quill_app::zoom_field::ZOOM_TEXT_MAX];
+			let mut zoom = [0u8; quill_chrome::zoom_field::ZOOM_TEXT_MAX];
 			let zn = app.zoom_field_text(&mut zoom);
 			chrome::paint_status(
 				dc,
@@ -2013,7 +2013,7 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 					invalidate_all(hwnd);
 				} else if let Some(c) = id
 					.checked_sub(chrome::ID_ZOOM)
-					.and_then(|i| quill_app::zoom_field::zoom_command(i as usize))
+					.and_then(|i| quill_chrome::zoom_field::zoom_command(i as usize))
 				{
 					run_command(hwnd, c);
 				} else if (ID_SPELL..=ID_SPELL_ADD).contains(&id) {

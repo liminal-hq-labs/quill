@@ -456,7 +456,7 @@ fn zoom_is_remembered_in_the_settings_and_clamped() {
 
 #[test]
 fn the_zoom_box_follows_the_zoom_and_choosing_a_level_sets_it() {
-	use quill_app::zoom_field::{zoom_command, ZOOM_LEVELS, ZOOM_TEXT_MAX};
+	use quill_chrome::zoom_field::{zoom_command, ZOOM_LEVELS, ZOOM_TEXT_MAX};
 	let (mut app, mut s, mut f) = setup();
 	let mut text = [0u8; ZOOM_TEXT_MAX];
 	let n = app.zoom_field_text(&mut text);
