@@ -28,6 +28,13 @@
 # the handles stay seven pixels. At 100 it drags the bottom right handle by 32 and 24 pixels (`zoompic-100-dragged`), and the picture
 # has to have grown.
 #
+# The third session is the sheets (W16-80): tests/docs/zoomtext.rtf (one page) and scroll.rtf (two) opened at each zoom QUILL.INI can
+# hold (25, 50, 75, 100, 125, 150 and 200), one fresh Windows each, with the pointer parked on the title bar. The page area of each
+# frame is cut out (`check_zoom.py crop`) and compared with `compare -metric AE` against tests/golden/zoom/win16-311-zNNN.png and
+# win16-311-scroll-zNNN.png (DOSBox-X is deterministic, so no pixel may differ; UPDATE_GOLDEN=1 rewrites them). `check_zoom.py sheets`
+# checks that the page area shows no sheet past the document's last page: everything below the last sheet's shadow is the desk's grey.
+# SHEETS=only runs this session alone, and SHEETS=fit only its last frame (zoomfit.rtf).
+#
 # The mouse needs the emulator's pointer lock; see docs/testing.md. Exits 0 with a note when the Windows 3.11 tree is missing, as the
 # launch test does. The Windows menu is driven from the keyboard (Alt+V, Z, then the item's mnemonic).
 set -euo pipefail
@@ -51,7 +58,7 @@ if [ ! -f "$TREE/WINDOWS/WIN.COM" ]; then
 	log "no Windows 3.11 tree at $TREE; skipping (set W31_TREE)"
 	exit 0
 fi
-for t in docker xdotool Xvfb import cmp python3; do command -v "$t" > /dev/null || fail "$t not found"; done
+for t in docker xdotool Xvfb import compare cmp python3; do command -v "$t" > /dev/null || fail "$t not found"; done
 [ -f "$EXE" ] || fail "$EXE is missing; build it with win16/build.sh"
 if ! docker image inspect "$IMAGE" > /dev/null 2>&1; then
 	docker build -q -t "$IMAGE" -f "$HERE/dosbox-x.Dockerfile" "$HERE" > /dev/null
@@ -235,6 +242,87 @@ finish() {
 }
 
 drawn=0
+GOLD="$ROOT/tests/golden/zoom"
+
+# Compares the page area cut from frame $1 with the golden $2 (UPDATE_GOLDEN=1 writes it).
+golden_of() {
+	if [ -n "${UPDATE_GOLDEN:-}" ]; then
+		mkdir -p "$GOLD"
+		cp "$WORK/$1-page.png" "$GOLD/$2"
+	elif [ -f "$GOLD/$2" ]; then
+		local diff
+		diff="$(compare -metric AE "$GOLD/$2" "$WORK/$1-page.png" null: 2>&1 || true)"
+		# Newer ImageMagick prints `0 (0)`: the count is the first word.
+		diff="${diff%% *}"
+		if [ "$diff" != 0 ]; then
+			log "the page differs from $2 in $diff pixels"
+			drawn=1
+		fi
+	else
+		log "no golden $2 yet (UPDATE_GOLDEN=1 writes it)"
+		drawn=1
+	fi
+}
+
+# Opens $1 at the zoom $2, and compares the page area with the golden $3 (a file name of tests/golden/zoom). $4 is how many sheets the
+# document has.
+sheet_frame() {
+	local doc="$1" z="$2" gold="$3" n="$4" name
+	name="sheet-${gold%.png}"
+	boot "$doc" "$z"
+	# Out of the page area, which the goldens hold: the pointer waits over the title bar.
+	point_to $((BX - 200)) $((BY0 - 107))
+	shot "$name"
+	python3 -I "$HERE/check_zoom.py" crop "$WORK/$name.png" "$BX" "$BY0" "$BY1" "$WORK/$name-page.png"
+	[ -z "${SHOTS:-}" ] || cp "$WORK/$name-page.png" "$SHOTS/$name-page.png"
+	python3 -I "$HERE/check_zoom.py" sheets "$WORK/$name.png" "$BX" "$BY0" "$BY1" "$n" || drawn=1
+	golden_of "$name" "$gold"
+	finish "$z" "$name"
+}
+
+# tests/docs/zoomfit.rtf has two half-height sheets, each of which fits the page area at 50 percent. Opened at 100 with the caret in the
+# second line of the second sheet (the sheet's first line is just above the page area), 50 percent from the menu has to show that
+# sheet from its first line.
+fit_frame() {
+	local gold="win16-311-fit-z050.png" name="sheet-win16-311-fit-z050"
+	boot zoomfit.rtf 100
+	# The caret goes up to the second line of the second sheet, so the sheet's first line is just off the top of the page area.
+	xdotool key ctrl+End
+	sleep 1
+	xdotool key --repeat 16 Up
+	sleep 2
+	zoom_to 5
+	point_to $((BX - 200)) $((BY0 - 107))
+	shot "$name"
+	python3 -I "$HERE/check_zoom.py" crop "$WORK/$name.png" "$BX" "$BY0" "$BY1" "$WORK/$name-page.png"
+	[ -z "${SHOTS:-}" ] || cp "$WORK/$name-page.png" "$SHOTS/$name-page.png"
+	python3 -I "$HERE/check_zoom.py" sheets "$WORK/$name.png" "$BX" "$BY0" "$BY1" 2 || drawn=1
+	python3 -I "$HERE/check_zoom.py" pagetop "$WORK/$name.png" "$BX" "$BY0" || drawn=1
+	golden_of "$name" "$gold"
+	finish 50 "$name"
+}
+
+sheets_session() {
+	local z
+	for z in 25 50 75 100 125 150 200; do
+		sheet_frame zoomtext.rtf "$z" "win16-311-z$(printf %03d "$z").png" 1
+	done
+	for z in 25 50 75 100 125 150 200; do
+		sheet_frame scroll.rtf "$z" "win16-311-scroll-z$(printf %03d "$z").png" 2
+	done
+	fit_frame
+}
+
+if [ "${SHEETS:-}" = fit ]; then
+	fit_frame
+	[ "$drawn" = 0 ] || fail "the fit frame failed"
+	exit 0
+fi
+if [ "${SHEETS:-}" = only ]; then
+	sheets_session
+	[ "$drawn" = 0 ] || fail "a sheet frame failed"
+	exit 0
+fi
 
 # ---- the text session ----------------------------------------------------------------------------------------------------------
 
@@ -307,5 +395,7 @@ park
 shot zoompic-100-dragged
 python3 -I "$HERE/check_zoom.py" pictures "$WORK" "$BX" "$BY0" || drawn=1
 finish 100 zoompic changed
+
+sheets_session
 
 [ "$drawn" = 0 ] || fail "the page was not drawn at the zoom the menu chose"
