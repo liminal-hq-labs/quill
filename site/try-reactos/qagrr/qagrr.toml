@@ -16,13 +16,14 @@ extends = "rl:recipes/afterglow-compact.toml"
 computer_name = "QUILLDEMO"
 owner_name = "Quill demo"
 
-# The detailed Quill icon shows on the desktop at 48 px. The stock desktop icons are hidden and the three stock shortcuts removed so only
+# The desktop and the Start menu share one icon size (Shell Icon Size), 32 px as in the Afterglow full image; the Quill shortcut icons both
+# carry a 32 px frame. The stock desktop icons are hidden and the three stock shortcuts removed so only
 # the Quill shortcuts remain; the mouse has no acceleration, so the page can predict the guest pointer exactly.
 # `reg_files` lists the base recipe's named files again (a list replaces), including its Canadian formats with 24-hour time and its pointer
 # defaults, plus Quill's `mouse-linear` and `hide-desktop-icons` and `quill-run.reg`, beside this recipe, which is applied after them. The
 # wallpaper is named for people (`Afterglow Wallpaper`, which is what Display Properties lists); the BMP written there is Quill's own (see [[files]] below).
 [settings]
-icon_size = 48
+icon_size = 32
 wallpaper = "C:\\ReactOS\\Afterglow Wallpaper.bmp"
 reg_files = ["display", "quiet", "watermark-off", "afterglow-logon", "regional-canada", "pointer-defaults", "mouse-linear", "hide-desktop-icons", "quill-run.reg"]
 remove_desktop_shortcuts = ["Applications Manager", "Command Prompt", "Read Me"]
