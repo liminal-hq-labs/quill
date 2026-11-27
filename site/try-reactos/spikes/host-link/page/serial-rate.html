@@ -1,0 +1,21 @@
+<!doctype html>
+<!--
+	A copy of the page's emulator start, cut down for WP-HOST-1: boots a raw disk in v86 and exposes the serial ports to serial-rate.mjs's driver.
+
+	(c) Copyright 2026 Liminal HQ, Scott Morris
+	SPDX-License-Identifier: Apache-2.0 OR MIT
+-->
+<html lang="en-CA">
+	<head>
+		<meta charset="utf-8" />
+		<title>Host link serial spike</title>
+		<style>
+			body { margin: 0; background: #000; }
+			#screen { white-space: pre; font: 14px monospace; line-height: 14px; }
+		</style>
+	</head>
+	<body>
+		<div id="screen"><div style="white-space: pre; font: 14px monospace; line-height: 14px"></div><canvas style="display: none"></canvas></div>
+		<script type="module" src="serial-rate.js"></script>
+	</body>
+</html>
