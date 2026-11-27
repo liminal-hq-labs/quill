@@ -1,6 +1,6 @@
 # The pointer on the web pages: follow by default, capture as an option
 
-A plan for one pointer module shared by the Try Quill page (`site/try/`, DOSBox in js-dos) and the ReactOS page (`site/try-reactos/`, v86), after the owner's report of 2026-11-27: in Firefox 159 on a Wayland session at 1.5 times scaling with a low-DPI mouse, the guest pointer snaps to horizontal and vertical moves on both pages. Written on 2026-11-27 against `main` at `992797a`, js-dos 8.5.3 and v86 0.5.473 as vendored and fetched. Where this plan and [decisions.md](../decisions.md) disagree later, the decisions win.
+A plan for one pointer module shared by the Try Quill page (`site/try/`, DOSBox in js-dos) and the ReactOS page (`site/try-reactos/`, v86), after the owner's report of 2026-11-27: in Firefox 159 on a Wayland session at 1.5 times scaling with a low-DPI mouse, the guest pointer snaps to horizontal and vertical moves on both pages. Written on 2026-11-27 against `main` at `992797a`, js-dos 8.5.3 and v86 0.5.473 as vendored and fetched. WP-PTR-1 is merged; WP-PTR-2 (the units, below) and WP-PTR-3 (Try Quill) were built together. Where this plan and [decisions.md](../decisions.md) disagree later, the decisions win.
 
 ## Table of contents
 
@@ -65,6 +65,27 @@ Consequences: headless Firefox cannot make trusted fractional moves, so Firefox 
 - **js-dos has no wheel.** Nothing in the player or the emulator files sends a wheel event, so Quill's wheel support (CuteMouse's wheel API) cannot be reached from js-dos 8.5.3.
 - **DOSBox takes fractions.** The wasm export behind `Module._mouseMove` (`Ga` in `wdosbox.wasm`) takes `(f32, f32, i32, i32, i32)`: x and y arrive as floats. Whether DOSBox's PS/2 path keeps the fraction or drops it is not known (WP-PTR-2).
 - **Quill DOS** (`crates/quill-mouse`) sets the driver's range to its own screen, sets 8 mickeys per 8 pixels on both axes and puts the pointer in the centre when it opens. So the guest's position is reset at every start of Quill, which the page cannot see.
+
+### js-dos units (2026-11-27, WP-PTR-2)
+
+Measured on the Try Quill page with a locally built bundle, in headless Chromium 156 (deviceScaleFactor 1.5), by `site/try-reactos/harness/jsdos-units.ts`: a script injected before the page wraps `window.Dos` (so it can reach `ci`, with `mouseCapture: false`), sends `ci.sendMouseRelativeMotion` and finds Quill's pointer in `ci.screenshot()` frames by the difference against a reference frame (the finder is `harness/jsdos-inpage.js`; the page's pointer module is blocked while measuring). Five runs of each figure, spread in the evidence (`~/Documents/Liminal HQ/Quill/Pointer/WP-PTR-2/`). Quill's own frames are 640 by 480 in both graphics modes and 640 by 400 in text mode, where the pointer's range is a virtual 640 by 200 (8 by 8 virtual pixels a cell, 8 by 16 frame pixels).
+
+| Question | Answer |
+|---|---|
+| (1) Do relative moves act with no lock? | **Yes**, in all three displays, with no pointer event and no lock: Quill draws its arrow (a text cell in text mode) on the first move. |
+| (2) Units a count | **Not constant with the stock driver.** Calls of 1 or 2 counts a frame: 0.43 pixels a count across, 0.76 down. Calls of 16 or more: 1.30 across, 2.26 down (three times). Between, a ramp (4 counts a frame: 0.6 to 0.7 and 1.1 across and down, noisy; 8: 1.12 and 1.88). One straight line through single calls of 1 to 64 counts fits with a residual of 1.3 and 2.0 pixels. Text mode is the same driver, in virtual pixels (0.16 cells, 1.3 virtual pixels, a count across at 16 or more). |
+| (3) Linear? | **No, and it cannot be made so by a switch.** CuteMouse scales each report by its size (`CTMOUSE.ASM`, "apply sensitivity"): by the `/R` coefficient up to 4 counts on an axis, by that times min(12, count) / 4 above, so three times from 12 counts; INT 33h function 0013h (the double-speed threshold) is commented out in the source. `/R11` has the same shape (0.43 on both axes, 1.30 from 16 counts); no `/R` (automatic resolution) was not usable. **DOSBox joins the calls of one tick into one report** (32 calls of 1 sent together move the pointer as one call of 32; two counts every 8 ms already join in part, every 16 ms nearly not, every 24 ms not at all), so the pixels a call moves also depend on what arrived with it. |
+| With the two bytes changed | Changing the compare `cmp ax, 4` to 7FFFh in the driver (`scripts/patch-ctmouse.py`) makes every report take the linear path: **0.4336 pixels a count across (111/256) and 0.7539 down (193/256)** with `/R13` at every rate from 1 to 32 counts a frame and in one call of 64 (a 1200-count paced move across moved the pointer 520 pixels, a 400-count move down 302, in every run), and 0.43 on both axes with `/R11`. |
+| (4) Fractions | **DOSBox keeps them.** 64 calls of 0.25, 160 of 0.1 and 40 of 0.4 sent together move the pointer as the whole count (16) does; 64 of 0.25 sent 12 ms apart move it 16 counts' worth; one call of 0.9 moves it 0.9 counts' worth. The page still sends whole counts (its model needs them). |
+| (5) The cover and the handlers | With `mouseCapture: false` there is no cover or "click to capture" text. js-dos's handlers still send the real mouse's absolute positions (a real mouse over the picture changed the screen, and the pointer was not where the mouse was: SITE-5's drift); with a capture-phase listener on the stage stopping `pointerdown`, `pointermove`, `pointerup`, `mousedown`, `mousemove`, `mouseup` and `mouseleave`, nothing changed (0 pixels). |
+| (6) Where the pointer starts | At the **middle of Quill's screen**, drawn at the first move: (320, 240) in the graphics modes (a first call of 20 counts landed at x 346, which is 320 plus 26 pixels of the stock driver's fast regime). Text mode: column 40, row 12 (a first call of 20 counts landed in column 43, row 12). After the display changes (Quill starting after FreeDOS's menu) it is put there again, which the page sees as `ci.events().onFrameSize`. |
+
+Two limits of DOSBox's mouse that the page must respect, and that nothing in the plan expected:
+
+- **A report holds 255 counts on an axis and wraps above it**: one call of 255 moves the pointer 255 counts, 256 moves it none, 300 moves it 44, 400 moves it 144, 800 moves it 32. Calls that arrive in one tick are summed first, so a burst of calls wraps as one.
+- **A call that clamps the guest at an edge must be its own report.** Driving the pointer to an edge and then sending a move away from it: when the two are one report they cancel before the guest clamps. Spaced 0 to 20 ms apart they were joined in part; from 24 ms they were separate every time. A park, and the overshoot at an edge, need a gap after them.
+
+**Recommendation (taken in WP-PTR-3, SITE-22).** Units 256/111 and 256/193 counts a pixel in the graphics modes (text mode the same in virtual pixels, the vertical scaled by 200/480 for a 640 by 480 picture); the driver patched; calls in windows of 30 ms of at most 80 counts an axis with a pause after a clamping call; `parkOnEnter` **off** (the units are exact and every count is sent), the guest's start taken from the display change, and edges resync as designed. With the stock driver `parkOnEnter` could not go, and nothing could keep the pointer under the hand. **OWNER DECISION:** the patch changes the disk's mouse driver; the plan's default of keeping `/R13` with edge resync and parking does not work (the units change threefold with timing).
 
 ### A model of the loss
 
@@ -524,7 +545,7 @@ Each is taken with the default so no package waits; the last column is where to 
 | Park on every re-entry, as the ReactOS page does today? | No on ReactOS (the model stays exact and edges resync it); yes on Try Quill until WP-PTR-2 shows its units are exact | `parkOnEnter` in each adapter (WP-PTR-3, WP-PTR-4) |
 | Wheel on the ReactOS page | One notch per 50 accumulated pixels, only after the screen is selected | The wheel accumulator's constant (WP-PTR-5 tunes it); SITE-23 |
 | Wheel on Try Quill | None: js-dos 8.5.3 cannot send one | A later js-dos update; `site/try/js-dos/PROVENANCE.md` |
-| CuteMouse's switches if `/R13` is not linear | Keep `/R13` and rely on edge resync and parking; propose `/R11` with numbers | `scripts/try-disk/*.BAT` and SITE-5 (owner's decision there) |
+| CuteMouse's switches if `/R13` is not linear | **Changed by the measurement:** no switch helps (`/R11` has the same acceleration). Default taken: change two bytes of the disk's copy of the driver (`scripts/patch-ctmouse.py`, SITE-22) | The `patch-ctmouse.py` line in `scripts/build-try.sh`, and the licence notes |
 | `?cursor=local` on the ReactOS page | Removed (off by default, and pointless in Follow) | SITE-23 (WP-PTR-4) |
 | Two-finger tap as a right click on touch | Yes, on both pages | The touch gesture machine (WP-PTR-1) |
 | Publish the lab page with the site | Yes, unlinked at `/quill/pointer-lab/`, so the owner can check on the real HTTP origin | `site/pointer-lab/` (WP-PTR-1) |
@@ -541,7 +562,7 @@ Each is taken with the default so no package waits; the last column is where to 
 ## What was not verified
 
 - That Follow on the current ReactOS page snaps on the owner's machine, or why it would.
-- That js-dos's relative moves act without a lock on a desktop browser, its units, linearity and handling of fractions (WP-PTR-2).
+- Anything about js-dos in Firefox beyond the page's own checks (the units were measured in Chromium only).
 - That js-dos and v86 run in headless Firefox well enough for level 3 there.
 - Raw capture on Chromium for Windows or macOS (no such machine was used; the claim rests on Chromium's documented support).
 - Safari, on any device, and a pen.
