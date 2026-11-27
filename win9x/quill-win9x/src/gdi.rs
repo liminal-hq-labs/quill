@@ -25,7 +25,7 @@ pub struct GdiMeasure {
 	pub dpi: u16,
 }
 
-static mut FONTS: [(Option<(FontRef, u8, u16)>, Handle); 12] = [(None, null_mut()); 12];
+static mut FONTS: [(Option<(FontRef, u8, u16, u16)>, Handle); 12] = [(None, null_mut()); 12];
 static mut NEXT_FONT: usize = 0;
 
 /// What the screen's device context said about a font, so that asking is once per font and not once per layout: the widths of
@@ -41,6 +41,36 @@ struct Measured {
 
 static mut MEASURED: [Option<Measured>; 16] = [None; 16];
 static mut NEXT_MEASURED: usize = 0;
+
+/// The widths of characters 32 to 255 in a font made at a zoom, kept like `MEASURED`: once per font and zoom.
+static mut ZOOMED: [Option<(FontRef, u16, [u16; GLYPHS])>; 16] = [None; 16];
+static mut NEXT_ZOOMED: usize = 0;
+
+/// The widths the zoomed font gives characters 32 to 255, asked of `mdc` (a device context with no mapping set).
+fn zoomed_widths(mdc: Handle, fr: &FontRef, pct: i32) -> [u16; GLYPHS] {
+	let pct = pct.clamp(1, 1000) as u16;
+	// SAFETY: single-threaded; the cache is only touched here and the DC is the caller's.
+	unsafe {
+		let cache = &mut *core::ptr::addr_of_mut!(ZOOMED);
+		if let Some((_, _, w)) = cache.iter().flatten().find(|(f, z, _)| f == fr && *z == pct) {
+			return *w;
+		}
+		let mut got = [0i32; GLYPHS];
+		let old = SelectObject(mdc, font_handle_zoomed(fr, 0, 96, pct));
+		GetCharWidthA(mdc, 32, 255, got.as_mut_ptr());
+		SelectObject(mdc, old);
+		let mut out = [0u16; GLYPHS];
+		for (o, v) in out.iter_mut().zip(got.iter()) {
+			*o = (*v).clamp(0, 4000) as u16;
+		}
+		let at = NEXT_ZOOMED % cache.len();
+		NEXT_ZOOMED += 1;
+		if let Some(slot) = cache.get_mut(at) {
+			*slot = Some((*fr, pct, out));
+		}
+		out
+	}
+}
 
 /// The cached entry for `font` on the screen, made by `ask` when there is none.
 fn screen_font(font: &FontRef, ask: impl FnOnce() -> Measured) -> Measured {
@@ -67,12 +97,18 @@ pub fn font_handle(fr: &FontRef, extra: u8) -> Handle {
 
 /// The same at `dpi` dots per inch.
 pub fn font_handle_at(fr: &FontRef, extra: u8, dpi: u16) -> Handle {
+	font_handle_zoomed(fr, extra, dpi, 100)
+}
+
+/// The same made at the height the screen shows it at `pct` percent: the font is realised at the zoomed size, so its glyphs and its
+/// widths are the system's own for that size and the painter fits them to the layout.
+pub fn font_handle_zoomed(fr: &FontRef, extra: u8, dpi: u16, pct: u16) -> Handle {
 	// SAFETY: single-threaded; the cache is only touched here.
 	unsafe {
 		let cache = &mut *core::ptr::addr_of_mut!(FONTS);
 		for (k, h) in cache.iter() {
-			if let Some((f, e, d)) = k {
-				if f == fr && *e == extra && *d == dpi {
+			if let Some((f, e, d, z)) = k {
+				if f == fr && *e == extra && *d == dpi && *z == pct {
 					return *h;
 				}
 			}
@@ -81,7 +117,7 @@ pub fn font_handle_at(fr: &FontRef, extra: u8, dpi: u16) -> Handle {
 		for (d, s) in face.iter_mut().zip(fr.face.iter().take(usize::from(fr.face_len))) {
 			*d = *s;
 		}
-		let height = -((i32::from(fr.size) * i32::from(dpi) + 72) / 144);
+		let height = -((i32::from(fr.size) * i32::from(dpi) * i32::from(pct) + 7200) / 14400).max(if pct == 100 { 0 } else { 2 });
 		let weight = if fr.flags & cflag::BOLD != 0 { FW_BOLD } else { FW_NORMAL };
 		let italic = u32::from(fr.flags & cflag::ITALIC != 0);
 		let pitch_family = match fr.family {
@@ -112,7 +148,7 @@ pub fn font_handle_at(fr: &FontRef, extra: u8, dpi: u16) -> Handle {
 			if old.is_some() && !handle.is_null() {
 				DeleteObject(*handle);
 			}
-			*old = Some((*fr, extra, dpi));
+			*old = Some((*fr, extra, dpi, pct));
 			*handle = h;
 		}
 		h
@@ -416,8 +452,12 @@ struct LineCtx<'a> {
 	/// Draw each character at its own layout position (a zoomed screen), so no rounding of the font's widths or of the layout's
 	/// advances builds up along the line.
 	per_char: bool,
-	/// The zoom in percent, so the selected picture's frame and handles are a pixel and seven pixels whatever the page units are.
-	pct: i32,
+	/// The zoom in percent when the line is drawn in device pixels (the zoomed page, no mapping mode), or 0 when it is drawn in the
+	/// units of the device context (100 %, the preview and the printer).
+	zoom: i32,
+	/// Where the first sheet's corner is in device pixels, for a zoomed line.
+	ox: i32,
+	oy: i32,
 	/// The half-period of the wavy underline of misspelt words in page units, or 0 when the page shows none (the printer, a header
 	/// or footer, and the screen with Check Spelling as You Type off).
 	wave: i32,
@@ -427,6 +467,77 @@ struct LineCtx<'a> {
 enum Pics<'a> {
 	Cache(&'a mut PicCache),
 	Banded(&'a mut PicCache),
+}
+
+/// Draws one run of one format on a zoomed page, in device pixels: a word at a time, each word starting where the layout starts it and
+/// ending where the layout ends it, with the gaps inside it taken from the zoomed font's own widths and the difference spread over
+/// them (`quill_core::fit`). A space is never sent, so a justified line's spaces are the layout's, unless the run is underlined or
+/// struck out, when the space goes out alone so the line is not broken. `at` is the run's left edge, the line's top and its baseline
+/// in page units from the first sheet's corner; `text` and `adv` are the run's characters and the layout's advance of each.
+///
+/// # Safety
+/// `dc` must be a valid device context with the zoomed font selected and no mapping mode.
+#[allow(clippy::too_many_arguments)]
+unsafe fn draw_zoomed_run(
+	dc: Handle,
+	cx: &LineCtx<'_>,
+	fr: &FontRef,
+	extra: u8,
+	at: (i32, i32, i32),
+	l: &quill_core::layout::Line,
+	text: &[u8],
+	adv: &[i32],
+	selected: bool,
+	colour: u32,
+) {
+	use crate::view::dev;
+	let (x_page, y_top, base_page) = at;
+	let z = cx.zoom;
+	let widths = zoomed_widths(cx.mdc, fr, z);
+	let total: i32 = adv.iter().take(text.len()).sum();
+	if selected {
+		let r = Rect {
+			left: cx.ox + dev(x_page, z),
+			top: cx.oy + dev(y_top, z),
+			right: cx.ox + dev(x_page + total, z),
+			bottom: cx.oy + dev(y_top + l.ascent + l.descent, z),
+		};
+		let b = CreateSolidBrush(crate::scheme::select());
+		FillRect(dc, &r, b);
+		DeleteObject(b);
+		SetTextColor(dc, crate::scheme::select_text());
+	} else {
+		SetTextColor(dc, colour);
+	}
+	SetBkMode(dc, TRANSPARENT);
+	let base = cx.oy + dev(base_page, z);
+	let mut i = 0;
+	let mut lx = x_page;
+	while i < text.len() {
+		let space = text.get(i) == Some(&b' ');
+		let mut j = i;
+		let mut span = 0;
+		while j < text.len() && (text.get(j) == Some(&b' ')) == space {
+			span += adv.get(j).copied().unwrap_or(0);
+			j += 1;
+			if space {
+				break;
+			}
+		}
+		let (x, end) = (cx.ox + dev(lx, z), cx.ox + dev(lx + span, z));
+		if !space || extra != 0 {
+			let mut dx = [0i32; 200];
+			let n = (j - i).min(dx.len());
+			for (d, c) in dx.iter_mut().zip(text.iter().skip(i)).take(n) {
+				*d = i32::from(widths.get(usize::from(c.saturating_sub(32))).copied().unwrap_or(0));
+			}
+			let word = dx.get_mut(..n).unwrap_or(&mut []);
+			quill_core::fit::fit_advances(word, end - x);
+			ExtTextOutA(dc, x, base, 0, core::ptr::null(), text.as_ptr().add(i), n as u32, dx.as_ptr());
+		}
+		lx += span;
+		i = j;
+	}
 }
 
 /// Draws one laid-out line whose top is at `y_top` and whose left margin is at `tx`.
@@ -447,7 +558,18 @@ unsafe fn draw_line(
 	crate::bench::line();
 	let (doc, s, app, sel, dpi) = (cx.doc, cx.s, cx.app, cx.sel, cx.dpi);
 	let text = doc.story(cx.kind);
-	let fhandle = |fr: &FontRef, extra: u8| font_handle_at(fr, extra, dpi);
+	let z = cx.zoom;
+	let fhandle = |fr: &FontRef, extra: u8| {
+		if z != 0 {
+			font_handle_zoomed(fr, extra, dpi, z as u16)
+		} else {
+			font_handle_at(fr, extra, dpi)
+		}
+	};
+	// A page-unit position (relative to the first sheet's corner) as the coordinate the line is drawn at. A zoomed line is drawn in
+	// device pixels, each position rounded down alone, so edges that meet in the layout meet on the screen.
+	let px = |v: i32| if z != 0 { cx.ox + crate::view::dev(v, z) } else { v };
+	let py = |v: i32| if z != 0 { cx.oy + crate::view::dev(v, z) } else { v };
 	let base = y_top + l.ascent;
 	if let Some((mut lab, n, first)) = label {
 		if lab.first() == Some(&0x07) {
@@ -458,7 +580,7 @@ unsafe fn draw_line(
 		let old = SelectObject(dc, fhandle(&fr, 0));
 		SetBkMode(dc, TRANSPARENT);
 		SetTextColor(dc, colour_of(app, s, &cfmt));
-		TextOutA(dc, tx + first as i32, base, lab.as_ptr(), n as i32);
+		TextOutA(dc, px(tx + first as i32), py(base), lab.as_ptr(), n as i32);
 		SelectObject(dc, old);
 	}
 	// Runs of one format and selection state, split at tabs and objects.
@@ -484,6 +606,23 @@ unsafe fn draw_line(
 			2 => l.ascent / 4,
 			_ => 0,
 		};
+		if z != 0 {
+			draw_zoomed_run(
+				dc,
+				cx,
+				&fr,
+				extra,
+				(tx + x, y_top, base + shift),
+				l,
+				run.get(..*n).unwrap_or(&[]),
+				adv,
+				selected,
+				colour_of(app, s, &cfmt),
+			);
+			SelectObject(dc, old);
+			*n = 0;
+			return;
+		}
 		if cx.per_char {
 			let total: i32 = adv.iter().take(*n).sum();
 			if selected {
@@ -559,18 +698,21 @@ unsafe fn draw_line(
 			flush(&mut n, &run, &adv, run_x, run_cf, run_sel);
 			if let Some((pw, ph)) = quill_core::layout::picture_size(doc, s, text, p, dpi, dpi) {
 				let idx = text.object_at(s, p).map_or(0, |v| v & 0xFFFF) as u16;
+				// The picture's rectangle in the device's units: edges rounded alone when zoomed, so it fills the layout's box.
+				let (left, top) = (px(tx + x), py(base - ph));
+				let (dw, dh) = (px(tx + x + pw) - left, py(base) - top);
 				match pics {
-					Pics::Cache(cache) => draw_picture(dc, cache, app, s, idx, tx + x, base - ph, pw, ph),
-					Pics::Banded(cache) => draw_picture_banded(dc, cache, doc, s, idx, tx + x, base - ph, pw, ph),
+					Pics::Cache(cache) => draw_picture(dc, cache, app, s, idx, left, top, dw, dh),
+					Pics::Banded(cache) => draw_picture_banded(dc, cache, doc, s, idx, left, top, dw, dh),
 				}
 				if matches!(pics, Pics::Cache(_)) && selected {
 					let r = quill_app::picture_geom::Frame {
-						left: tx + x,
-						top: base - ph,
-						right: tx + x + pw,
-						bottom: base,
+						left,
+						top,
+						right: left + dw,
+						bottom: top + dh,
 					};
-					picture_marks(dc, &r, cx.pct, sel.is_some_and(|(lo, hi)| hi > lo + 1));
+					picture_marks(dc, &r, sel.is_some_and(|(lo, hi)| hi > lo + 1));
 				}
 				return;
 			}
@@ -606,7 +748,7 @@ unsafe fn draw_line(
 						SetBkMode(dc, TRANSPARENT);
 						SetTextColor(dc, colour_of(app, s, &cfmt));
 					}
-					TextOutA(dc, tx + x, base, buf.as_ptr(), n as i32);
+					TextOutA(dc, px(tx + x), py(base), buf.as_ptr(), n as i32);
 					SelectObject(dc, old);
 				}
 				return;
@@ -630,21 +772,23 @@ unsafe fn draw_line(
 					SetBkMode(dc, TRANSPARENT);
 				}
 				SetTextColor(dc, colour_of(app, s, &cfmt));
+				// The tab's span in the device's units: its own pixels when zoomed.
+				let (left, right) = (px(tx + x), px(tx + x + w));
 				if leader != 0 {
 					let mut dx = 0;
 					let mut cw = [0i32; 1];
 					GetCharWidthA(dc, u32::from(ch[0]), u32::from(ch[0]), cw.as_mut_ptr());
 					let step = cw[0].max(1);
-					while dx + step <= w {
-						TextOutA(dc, tx + x + dx, base, ch.as_ptr(), 1);
+					while dx + step <= right - left {
+						TextOutA(dc, left + dx, py(base), ch.as_ptr(), 1);
 						dx += step;
 					}
 				} else if selected {
 					let r = Rect {
-						left: tx + x,
-						top: y_top,
-						right: tx + x + w,
-						bottom: y_top + l.ascent + l.descent,
+						left,
+						top: py(y_top),
+						right,
+						bottom: py(y_top + l.ascent + l.descent),
 					};
 					let b = CreateSolidBrush(crate::scheme::select());
 					FillRect(dc, &r, b);
@@ -675,7 +819,17 @@ unsafe fn draw_line(
 	span!(PWave);
 	for m in marks.iter().take(nmarks) {
 		if m.3 > m.2 {
-			wavy_underline(dc, tx + m.2, tx + m.3, base + 1, cx.wave, (l.descent - 1).max(1));
+			let unit = if z != 0 {
+				crate::view::dev(cx.wave, z).max(1)
+			} else {
+				cx.wave
+			};
+			let room = if z != 0 {
+				crate::view::dev(l.descent, z) - 1
+			} else {
+				l.descent - 1
+			};
+			wavy_underline(dc, px(tx + m.2), px(tx + m.3), py(base) + 1, unit, room.max(1));
 		}
 	}
 }
@@ -710,9 +864,10 @@ pub fn body_pages(app: &App<GdiMeasure>, s: &HeapStore) -> u32 {
 const NAVY: u32 = 0x0080_0000;
 
 /// The selected picture's frame and eight handles in black, or, for a picture inside a larger selection, a navy border two pixels wide
-/// inside its edge. `r` is the picture's rectangle in page units, drawn at `pct` percent, so a pixel is `100 / pct` of a unit.
-unsafe fn picture_marks(dc: Handle, r: &quill_app::picture_geom::Frame, pct: i32, within: bool) {
-	let px = crate::view::log(1, pct).max(1);
+/// inside its edge. `r` is the picture's rectangle in device pixels, so the frame is a pixel wide and a handle is
+/// `quill_app::picture_geom::HANDLE` pixels whatever the zoom is.
+unsafe fn picture_marks(dc: Handle, r: &quill_app::picture_geom::Frame, within: bool) {
+	let px = 1;
 	if within {
 		for k in 0..2 {
 			let q = r.grow(-k * px);
@@ -728,7 +883,7 @@ unsafe fn picture_marks(dc: Handle, r: &quill_app::picture_geom::Frame, pct: i32
 	fill(dc, o.left, o.bottom - px, o.right, o.bottom, 0);
 	fill(dc, o.left, o.top, o.left + px, o.bottom, 0);
 	fill(dc, o.right - px, o.top, o.right, o.bottom, 0);
-	let size = crate::view::log(quill_app::picture_geom::HANDLE, pct).max(1);
+	let size = quill_app::picture_geom::HANDLE;
 	for b in quill_app::picture_geom::handles(&r.grow(px - 1), size) {
 		fill(dc, b.left, b.top, b.right, b.bottom, 0);
 	}
@@ -816,8 +971,11 @@ pub unsafe fn paint_page(
 	#[cfg(feature = "bench")]
 	drop(fills);
 
-	// Text and the caret are drawn in page units, relative to the first sheet's corner, under a mapping that scales them.
-	map_pages(dc, pct, x0, area.top);
+	// At 100 % text and the caret are drawn in page units, relative to the first sheet's corner. At any other zoom there is no mapping
+	// mode: every position is worked out in device pixels from the page unit it has in the layout, and the font is made at the zoomed
+	// height, so the system never has to scale a glyph (how it would is not the same on every system).
+	let zoomed = pct != 100;
+	map_pages(dc, 100, if zoomed { 0 } else { x0 }, if zoomed { 0 } else { area.top });
 	let tx = margin_l;
 	SetTextAlign(dc, TA_BASELINE);
 	let sel = app.selection();
@@ -857,8 +1015,10 @@ pub unsafe fn paint_page(
 				mdc,
 				page: l.page,
 				fields,
-				per_char: pct != 100,
-				pct,
+				per_char: false,
+				zoom: if zoomed { pct } else { 0 },
+				ox: x0,
+				oy: area.top,
 				wave: if app.spell_live() { (200 / pct.max(1)).clamp(2, 8) } else { 0 },
 			},
 			&mut Pics::Cache(cache),
@@ -877,8 +1037,17 @@ pub unsafe fn paint_page(
 			let y = rel(cum(&l), vpos);
 			let pen = CreatePen(0, 2, 0);
 			let old = SelectObject(dc, pen);
-			MoveToEx(dc, tx + x, y, null_mut());
-			LineTo(dc, tx + x, y + l.ascent + l.descent);
+			let (cx0, cy0, cy1) = if zoomed {
+				(
+					x0 + dev(tx + x, pct),
+					area.top + dev(y, pct),
+					area.top + dev(y + l.ascent + l.descent, pct),
+				)
+			} else {
+				(tx + x, y, y + l.ascent + l.descent)
+			};
+			MoveToEx(dc, cx0, cy0, null_mut());
+			LineTo(dc, cx0, cy1);
 			SelectObject(dc, old);
 			DeleteObject(pen);
 		}
@@ -965,7 +1134,9 @@ unsafe fn draw_page(
 				page: p,
 				fields: Some(pages),
 				per_char: pl.per_char,
-				pct: 100,
+				zoom: 0,
+				ox: 0,
+				oy: 0,
 				wave: 0,
 			};
 			let label = line_label(app, s, l, &mut c, dpi);
@@ -987,7 +1158,9 @@ unsafe fn draw_page(
 			page: p,
 			fields: Some(pages),
 			per_char: pl.per_char,
-			pct: 100,
+			zoom: 0,
+			ox: 0,
+			oy: 0,
 			wave: 0,
 		};
 		draw_line(

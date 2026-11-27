@@ -4,13 +4,13 @@
 == letter-Width
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
-paint: chars=684 lines=14 fill_px=1916048 blit_bytes=1033888 chrome=2
-  calls: total=1311 TextOutA=684 DeleteObject=125 CreateSolidBrush=124 FillRect=121 SelectObject=104 SetBkMode=47 SetTextColor=47 SetDIBitsToDevice=21 SendMessageA=5 GetCharWidthA=4 GetClientRect=3 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=604 lines=14 fill_px=1916048 blit_bytes=1033888 chrome=2
+  calls: total=913 TextOutA=194 DeleteObject=125 CreateSolidBrush=124 FillRect=121 SelectObject=104 ExtTextOutA=93 SetBkMode=47 SetTextColor=47 SetDIBitsToDevice=21 SendMessageA=5 GetCharWidthA=4 GetClientRect=4 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportOrgEx=1
 == letter-75
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
-paint: chars=671 lines=13 fill_px=1983630 blit_bytes=1033888 chrome=2
-  calls: total=1294 TextOutA=671 DeleteObject=125 CreateSolidBrush=124 FillRect=121 SelectObject=102 SetBkMode=46 SetTextColor=46 SetDIBitsToDevice=21 SendMessageA=5 GetCharWidthA=4 GetClientRect=3 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=600 lines=13 fill_px=1983630 blit_bytes=1033888 chrome=2
+  calls: total=914 TextOutA=202 DeleteObject=125 CreateSolidBrush=124 FillRect=121 SelectObject=102 ExtTextOutA=90 SetBkMode=46 SetTextColor=46 SetDIBitsToDevice=21 SendMessageA=5 GetCharWidthA=4 GetClientRect=4 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportOrgEx=1
 == letter-100
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
@@ -19,38 +19,38 @@ paint: chars=491 lines=9 fill_px=3116348 blit_bytes=1033888 chrome=2
 == letter-150
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
-paint: chars=142 lines=4 fill_px=6351776 blit_bytes=1033888 chrome=2
-  calls: total=636 TextOutA=142 DeleteObject=121 CreateSolidBrush=120 FillRect=117 SelectObject=48 SetDIBitsToDevice=21 SetBkMode=19 SetTextColor=19 GetClientRect=3 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=122 lines=4 fill_px=6351776 blit_bytes=1033888 chrome=2
+  calls: total=524 DeleteObject=121 CreateSolidBrush=120 FillRect=117 SelectObject=48 ExtTextOutA=25 SetDIBitsToDevice=21 SetBkMode=19 SetTextColor=19 TextOutA=6 GetClientRect=4 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportOrgEx=1
 == letter-200
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
-paint: chars=30 lines=2 fill_px=10879568 blit_bytes=1033888 chrome=2
-  calls: total=460 DeleteObject=121 CreateSolidBrush=120 FillRect=117 TextOutA=30 SetDIBitsToDevice=21 SelectObject=16 GetClientRect=3 GetStockObject=3 Polygon=3 SetBkMode=3 SetTextColor=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=28 lines=2 fill_px=10879568 blit_bytes=1033888 chrome=2
+  calls: total=439 DeleteObject=121 CreateSolidBrush=120 FillRect=117 SetDIBitsToDevice=21 SelectObject=16 TextOutA=6 ExtTextOutA=4 GetClientRect=4 GetStockObject=3 Polygon=3 SetBkMode=3 SetTextColor=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportOrgEx=1
 == bench-top
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
-paint: chars=1665 lines=19 fill_px=1915846 blit_bytes=1033888 chrome=2
-  calls: total=2140 TextOutA=1665 DeleteObject=113 CreateSolidBrush=112 FillRect=109 SelectObject=50 SetDIBitsToDevice=21 SetBkMode=20 SetTextColor=20 GetClientRect=3 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=1333 lines=19 fill_px=1915846 blit_bytes=1033888 chrome=2
+  calls: total=811 ExtTextOutA=332 DeleteObject=113 CreateSolidBrush=112 FillRect=109 SelectObject=50 SetDIBitsToDevice=21 SetBkMode=20 SetTextColor=20 TextOutA=5 GetClientRect=4 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetViewportOrgEx=1
 == bench-line-start
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=38 GetSystemMetrics=24 GetClientRect=12 InvalidateRect=1 KillTimer=1
-paint: chars=1660 lines=19 fill_px=1847480 blit_bytes=794580 chrome=0
-  calls: total=1781 TextOutA=1660 SelectObject=42 SetBkMode=19 SetTextColor=19 DeleteObject=6 CreateSolidBrush=5 FillRect=5 GetClientRect=3 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=1328 lines=19 fill_px=1847480 blit_bytes=794580 chrome=0
+  calls: total=452 ExtTextOutA=332 SelectObject=42 SetBkMode=19 SetTextColor=19 DeleteObject=6 CreateSolidBrush=5 FillRect=5 GetClientRect=4 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportOrgEx=1
 == bench-line-end
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=38 GetSystemMetrics=24 GetClientRect=12 InvalidateRect=1 KillTimer=1
-paint: chars=1660 lines=19 fill_px=1847480 blit_bytes=794580 chrome=0
-  calls: total=1781 TextOutA=1660 SelectObject=42 SetBkMode=19 SetTextColor=19 DeleteObject=6 CreateSolidBrush=5 FillRect=5 GetClientRect=3 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=1328 lines=19 fill_px=1847480 blit_bytes=794580 chrome=0
+  calls: total=452 ExtTextOutA=332 SelectObject=42 SetBkMode=19 SetTextColor=19 DeleteObject=6 CreateSolidBrush=5 FillRect=5 GetClientRect=4 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportOrgEx=1
 == bench-odd
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=38 GetSystemMetrics=24 GetClientRect=12 InvalidateRect=1 KillTimer=1
-paint: chars=1920 lines=22 fill_px=1845693 blit_bytes=794580 chrome=0
-  calls: total=2053 TextOutA=1920 SelectObject=48 SetBkMode=22 SetTextColor=22 DeleteObject=6 CreateSolidBrush=5 FillRect=5 GetClientRect=3 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=1536 lines=22 fill_px=1845693 blit_bytes=794580 chrome=0
+  calls: total=516 ExtTextOutA=384 SelectObject=48 SetBkMode=22 SetTextColor=22 DeleteObject=6 CreateSolidBrush=5 FillRect=5 GetClientRect=4 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportOrgEx=1
 == bench-below
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=41 GetSystemMetrics=24 GetClientRect=13 InvalidateRect=2 KillTimer=1 SetScrollInfo=1
-paint: chars=2090 lines=24 fill_px=1845693 blit_bytes=794580 chrome=0
-  calls: total=2231 TextOutA=2090 SelectObject=52 SetBkMode=24 SetTextColor=24 DeleteObject=6 CreateSolidBrush=5 FillRect=5 GetClientRect=3 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=1672 lines=24 fill_px=1845693 blit_bytes=794580 chrome=0
+  calls: total=558 ExtTextOutA=418 SelectObject=52 SetBkMode=24 SetTextColor=24 DeleteObject=6 CreateSolidBrush=5 FillRect=5 GetClientRect=4 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportOrgEx=1
 == bench100-top
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
@@ -64,8 +64,8 @@ paint: chars=1221 lines=14 fill_px=3046890 blit_bytes=816544 chrome=0
 == lists
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
-paint: chars=76 lines=7 fill_px=1915846 blit_bytes=1033888 chrome=2
-  calls: total=521 DeleteObject=113 CreateSolidBrush=112 FillRect=109 TextOutA=73 SelectObject=36 SetDIBitsToDevice=21 SetBkMode=13 SetTextColor=13 GetClientRect=3 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SendMessageA=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=72 lines=7 fill_px=1915846 blit_bytes=1033888 chrome=2
+  calls: total=468 DeleteObject=113 CreateSolidBrush=112 FillRect=109 SelectObject=36 SetDIBitsToDevice=21 SetBkMode=13 SetTextColor=13 ExtTextOutA=11 TextOutA=10 GetClientRect=4 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SendMessageA=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportOrgEx=1
 == lists100
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
@@ -74,13 +74,13 @@ paint: chars=77 lines=7 fill_px=3116528 blit_bytes=1033888 chrome=2
 == pictures
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
-paint: chars=44 lines=5 fill_px=1915846 blit_bytes=1058464 chrome=2
-  calls: total=457 DeleteObject=113 CreateSolidBrush=112 FillRect=109 TextOutA=44 SetDIBitsToDevice=21 SelectObject=18 SetBkMode=4 SetTextColor=4 GetClientRect=3 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 StretchDIBits=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=39 lines=5 fill_px=1915846 blit_bytes=1047048 chrome=2
+  calls: total=425 DeleteObject=113 CreateSolidBrush=112 FillRect=109 SetDIBitsToDevice=21 SelectObject=18 ExtTextOutA=8 TextOutA=5 GetClientRect=4 SetBkMode=4 SetTextColor=4 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 StretchDIBits=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetViewportOrgEx=1
 == pictures-below
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=38 GetSystemMetrics=24 GetClientRect=12 InvalidateRect=1 KillTimer=1
-paint: chars=39 lines=5 fill_px=1847480 blit_bytes=819156 chrome=0
-  calls: total=97 TextOutA=39 SelectObject=10 DeleteObject=6 CreateSolidBrush=5 FillRect=5 GetClientRect=3 SetBkMode=3 SetTextColor=3 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 StretchDIBits=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetTextAlign=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=34 lines=5 fill_px=1847480 blit_bytes=807740 chrome=0
+  calls: total=65 SelectObject=10 ExtTextOutA=8 DeleteObject=6 CreateSolidBrush=5 FillRect=5 GetClientRect=4 SetBkMode=3 SetTextColor=3 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 StretchDIBits=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetTextAlign=1 SetViewportOrgEx=1
 == pictures100
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
@@ -89,13 +89,13 @@ paint: chars=45 lines=5 fill_px=3116348 blit_bytes=1058464 chrome=2
 == fields
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
-paint: chars=46 lines=1 fill_px=1915846 blit_bytes=1033888 chrome=2
-  calls: total=449 DeleteObject=113 CreateSolidBrush=112 FillRect=109 TextOutA=37 SetDIBitsToDevice=21 SelectObject=18 SetBkMode=4 SetTextColor=4 GetClientRect=3 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 GetDateFormatA=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=39 lines=1 fill_px=1915846 blit_bytes=1033888 chrome=2
+  calls: total=424 DeleteObject=113 CreateSolidBrush=112 FillRect=109 SetDIBitsToDevice=21 SelectObject=18 ExtTextOutA=7 TextOutA=6 GetClientRect=4 SetBkMode=4 SetTextColor=4 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 GetDateFormatA=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetViewportOrgEx=1
 == headers
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
-paint: chars=55 lines=1 fill_px=1915846 blit_bytes=1033888 chrome=2
-  calls: total=458 DeleteObject=113 CreateSolidBrush=112 FillRect=109 TextOutA=55 SetDIBitsToDevice=21 SelectObject=14 GetClientRect=3 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetBkMode=2 SetTextAlign=2 SetTextColor=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=45 lines=1 fill_px=1915846 blit_bytes=1033888 chrome=2
+  calls: total=418 DeleteObject=113 CreateSolidBrush=112 FillRect=109 SetDIBitsToDevice=21 SelectObject=14 ExtTextOutA=11 TextOutA=5 GetClientRect=4 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetBkMode=2 SetTextAlign=2 SetTextColor=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetViewportOrgEx=1
 == headers100
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
@@ -104,8 +104,8 @@ paint: chars=56 lines=1 fill_px=3116348 blit_bytes=1033888 chrome=2
 == across-format
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=38 GetSystemMetrics=24 GetClientRect=12 InvalidateRect=1 KillTimer=1
-paint: chars=22 lines=1 fill_px=1846528 blit_bytes=794580 chrome=0
-  calls: total=88 TextOutA=22 SelectObject=10 DeleteObject=9 CreateSolidBrush=8 FillRect=8 GetClientRect=3 SetBkMode=3 SetTextColor=3 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=19 lines=1 fill_px=1845320 blit_bytes=794580 chrome=0
+  calls: total=69 SelectObject=10 DeleteObject=9 CreateSolidBrush=8 FillRect=8 ExtTextOutA=4 GetClientRect=4 SetBkMode=3 SetTextColor=3 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportOrgEx=1
 == across-format-100
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=38 GetSystemMetrics=24 GetClientRect=12 InvalidateRect=1 KillTimer=1
@@ -114,18 +114,18 @@ paint: chars=22 lines=1 fill_px=3046890 blit_bytes=816544 chrome=0
 == spell-on
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
-paint: chars=353 lines=4 fill_px=1847480 blit_bytes=66420 chrome=0
-  calls: total=554 TextOutA=353 LineTo=112 SelectObject=24 DeleteObject=12 CreatePen=7 MoveToEx=7 CreateSolidBrush=5 FillRect=5 SetBkMode=4 SetTextColor=4 GetClientRect=3 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 EndPaint=1 SetMapMode=1 SetTextAlign=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=283 lines=4 fill_px=1847480 blit_bytes=66420 chrome=0
+  calls: total=318 LineTo=160 ExtTextOutA=70 SelectObject=24 DeleteObject=12 CreatePen=7 MoveToEx=7 CreateSolidBrush=5 FillRect=5 GetClientRect=4 SetBkMode=4 SetTextColor=4 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 EndPaint=1 SetMapMode=1 SetTextAlign=1 SetViewportOrgEx=1
 == spell-on-odd
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=38 GetSystemMetrics=24 GetClientRect=12 InvalidateRect=1 SetTimer=1
-paint: chars=1920 lines=22 fill_px=1845693 blit_bytes=794580 chrome=0
-  calls: total=2993 TextOutA=1920 LineTo=741 SelectObject=128 DeleteObject=46 CreatePen=41 MoveToEx=41 SetBkMode=22 SetTextColor=22 CreateSolidBrush=5 FillRect=5 GetClientRect=3 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 EndPaint=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=1536 lines=22 fill_px=1845693 blit_bytes=794580 chrome=0
+  calls: total=1767 LineTo=1052 ExtTextOutA=384 SelectObject=128 DeleteObject=46 CreatePen=41 MoveToEx=41 SetBkMode=22 SetTextColor=22 CreateSolidBrush=5 FillRect=5 GetClientRect=4 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 EndPaint=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportOrgEx=1
 == spell-on-end
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=38 GetSystemMetrics=24 GetClientRect=12 InvalidateRect=1 SetTimer=1
-paint: chars=1920 lines=22 fill_px=1845693 blit_bytes=794580 chrome=0
-  calls: total=2993 TextOutA=1920 LineTo=741 SelectObject=128 DeleteObject=46 CreatePen=41 MoveToEx=41 SetBkMode=22 SetTextColor=22 CreateSolidBrush=5 FillRect=5 GetClientRect=3 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 EndPaint=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=1536 lines=22 fill_px=1845693 blit_bytes=794580 chrome=0
+  calls: total=1767 LineTo=1052 ExtTextOutA=384 SelectObject=128 DeleteObject=46 CreatePen=41 MoveToEx=41 SetBkMode=22 SetTextColor=22 CreateSolidBrush=5 FillRect=5 GetClientRect=4 GetStockObject=2 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 BeginPaint=1 BitBlt=1 EndPaint=1 SendMessageA=1 SetMapMode=1 SetTextAlign=1 SetViewportOrgEx=1
 == spell-on100
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
@@ -134,8 +134,8 @@ paint: chars=173 lines=2 fill_px=3046890 blit_bytes=31980 chrome=0
 == preview
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
-paint: chars=684 lines=14 fill_px=1916048 blit_bytes=1033888 chrome=2
-  calls: total=1311 TextOutA=684 DeleteObject=125 CreateSolidBrush=124 FillRect=121 SelectObject=104 SetBkMode=47 SetTextColor=47 SetDIBitsToDevice=21 SendMessageA=5 GetCharWidthA=4 GetClientRect=3 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportExtEx=1 SetViewportOrgEx=1 SetWindowExtEx=1
+paint: chars=604 lines=14 fill_px=1916048 blit_bytes=1033888 chrome=2
+  calls: total=913 TextOutA=194 DeleteObject=125 CreateSolidBrush=124 FillRect=121 SelectObject=104 ExtTextOutA=93 SetBkMode=47 SetTextColor=47 SetDIBitsToDevice=21 SendMessageA=5 GetCharWidthA=4 GetClientRect=4 GetStockObject=3 Polygon=3 GetSystemMetrics=2 IntersectClipRect=2 RestoreDC=2 SaveDC=2 SetTextAlign=2 BeginPaint=1 BitBlt=1 CreatePen=1 EndPaint=1 LineTo=1 MoveToEx=1 SetMapMode=1 SetViewportOrgEx=1
 == preview-lists100
 key: chars=0 lines=0 fill_px=0 blit_bytes=0 chrome=0
   calls: total=0
