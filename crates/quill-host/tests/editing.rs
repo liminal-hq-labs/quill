@@ -916,3 +916,107 @@ proptest! {
 		prop_assert_eq!(flags(&app, &s).iter().filter(|f| **f & BREAK != 0).count(), 1);
 	}
 }
+
+fn body_bytes(app: &App, s: &HostStore) -> Vec<u8> {
+	let body = &app.doc().body;
+	let mut bytes = vec![0u8; body.len() as usize];
+	let n = body.read(s, 0, &mut bytes);
+	bytes.truncate(n);
+	bytes
+}
+
+const TOO_LARGE: &[u8] = b"The document is too large for Quill.";
+
+#[test]
+fn one_undo_removes_a_paste_of_three_paragraphs() {
+	let (mut app, mut s, mut f) = setup();
+	type_text(&mut app, &mut s, &mut f, "one\ntwo\nthree");
+	app.command(&mut s, &mut f, Command::SelectAll);
+	app.command(&mut s, &mut f, Command::Copy);
+	app.key(&mut s, &mut f, Key::End);
+	let before = (body_bytes(&app, &s), paragraphs(&app, &s));
+	app.command(&mut s, &mut f, Command::Paste);
+	assert_eq!(paragraphs(&app, &s).len(), 5);
+	app.command(&mut s, &mut f, Command::Undo);
+	assert_eq!((body_bytes(&app, &s), paragraphs(&app, &s)), before);
+	app.command(&mut s, &mut f, Command::Redo);
+	assert_eq!(paragraphs(&app, &s).len(), 5);
+}
+
+#[test]
+fn undo_after_a_paste_over_a_selection_gives_the_selection_back() {
+	let (mut app, mut s, mut f) = setup();
+	type_text(&mut app, &mut s, &mut f, "a\nb\ncd");
+	app.command(&mut s, &mut f, Command::SelectAll);
+	app.command(&mut s, &mut f, Command::Copy);
+	let before = body_bytes(&app, &s);
+	app.command(&mut s, &mut f, Command::Paste);
+	app.command(&mut s, &mut f, Command::Undo);
+	assert_eq!(body_bytes(&app, &s), before);
+}
+
+#[test]
+fn a_cut_over_the_clipboard_capacity_changes_nothing() {
+	let (mut app, mut s, mut f) = setup();
+	type_text(&mut app, &mut s, &mut f, &"x".repeat(3001));
+	app.command(&mut s, &mut f, Command::SelectAll);
+	let before = body_bytes(&app, &s);
+	app.command(&mut s, &mut f, Command::Cut);
+	assert_eq!(body_bytes(&app, &s), before);
+	assert_eq!(app.message(), TOO_LARGE);
+	app.command(&mut s, &mut f, Command::Copy);
+	assert_eq!(app.message(), TOO_LARGE);
+	app.key(&mut s, &mut f, Key::Right);
+	app.command(&mut s, &mut f, Command::Paste);
+	assert_eq!(
+		body_bytes(&app, &s),
+		before,
+		"a refused copy leaves the clipboard empty"
+	);
+}
+
+proptest! {
+	#[test]
+	fn paste_then_undo_gives_the_document_back(paras in proptest::collection::vec("[a-z ]{0,12}", 1..6), at in 0u32..40) {
+		let (mut app, mut s, mut f) = setup();
+		type_text(&mut app, &mut s, &mut f, &paras.join("\n"));
+		app.command(&mut s, &mut f, Command::SelectAll);
+		app.command(&mut s, &mut f, Command::Copy);
+		app.key(&mut s, &mut f, Key::Home);
+		for _ in 0..at {
+			app.key(&mut s, &mut f, Key::Right);
+		}
+		let before = (body_bytes(&app, &s), paragraphs(&app, &s));
+		app.command(&mut s, &mut f, Command::Paste);
+		app.command(&mut s, &mut f, Command::Undo);
+		prop_assert_eq!((body_bytes(&app, &s), paragraphs(&app, &s)), before);
+	}
+
+}
+
+// Typing a couple of thousand characters is slow, so these run fewer cases.
+proptest! {
+	#![proptest_config(ProptestConfig::with_cases(10))]
+
+	#[test]
+	fn a_cut_within_the_capacity_survives_cut_then_paste(len in 1usize..2040) {
+		let (mut app, mut s, mut f) = setup();
+		type_text(&mut app, &mut s, &mut f, &"y".repeat(len));
+		app.command(&mut s, &mut f, Command::SelectAll);
+		let before = body_bytes(&app, &s);
+		app.command(&mut s, &mut f, Command::Cut);
+		prop_assert_eq!(body_bytes(&app, &s).len(), 1);
+		app.command(&mut s, &mut f, Command::Paste);
+		prop_assert_eq!(body_bytes(&app, &s).len(), before.len());
+	}
+
+	#[test]
+	fn a_cut_over_the_capacity_changes_nothing(len in 2049usize..2300) {
+		let (mut app, mut s, mut f) = setup();
+		type_text(&mut app, &mut s, &mut f, &"y".repeat(len));
+		app.command(&mut s, &mut f, Command::SelectAll);
+		let before = body_bytes(&app, &s);
+		app.command(&mut s, &mut f, Command::Cut);
+		prop_assert_eq!(body_bytes(&app, &s), before);
+	}
+}

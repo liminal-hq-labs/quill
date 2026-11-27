@@ -73,7 +73,7 @@ One line per package of [work-packages.md](work-packages.md), in its order; a pa
 | WP-ARCH-8 `quill-a11y` | Waits for WP-ARCH-1, WP-ED-11 and WP-GTK-5; lands before or with WP-WINUI-9 |
 | WP-ARCH-9 Win16 hints from string resources | Waits for WP-ARCH-5 |
 | WP-ED-1 Enter flags (review PR 2) | Ready |
-| WP-ED-2 Paste undo and the cut guard (review PR 4) | Ready |
+| WP-ED-2 Paste undo and the cut guard (review PR 4) | Done: CORE-43, CORE-44 |
 | WP-ED-3 End affinity (review PR 3) | Waits for WP-ED-1, WP-ARCH-1 and the DOS autosave branch |
 | WP-ED-4 Unicode U1a | Waits for WP-ED-1 to WP-ED-3 |
 | WP-ED-5 Rich clipboard in the editor | Waits for WP-ED-2 |
@@ -389,6 +389,14 @@ The paragraph Enter creates no longer carries "page break before" or "restart nu
 - **Behaviour.** `App::clear_start_flags` clears both flags on the half Enter creates (the empty paragraph above, at the start of a paragraph), inside the Enter's undo group. Enter then Backspace gives every flag back.
 - **Tests.** Five tests in `quill-host/tests/editing.rs` (end, middle, start, and two properties) and the `m14-pagebreak-enter` scenario with `tests/docs/pgbreak.rtf`; its golden is new and no existing golden moved.
 - **Not done.** A test of the restart flag, which nothing can set yet.
+
+### Paste is one undo step; an oversized Copy or Cut is refused (CORE-43, CORE-44)
+
+One Undo takes back a whole paste, and a Copy or Cut longer than the clipboard's 2,048 bytes no longer deletes text it did not keep.
+
+- **Behaviour.** `App::insert_pasted` inserts without closing the undo group at a paragraph mark; `clip_copy` refuses a selection over the buffer with the existing "too large" message and changes nothing.
+- **Tests.** Six tests in `quill-host/tests/editing.rs` (three of them properties; each fails without the change) and the `m14-paste-undo` and `m14-cut-guard` scenarios, added to the DOS and Win32 scenario lists. No existing golden changed.
+- **Not done.** The message says "document" for a selection; the limit stays 2,048 bytes until the clipboard goes through the store (WP-ED-5).
 
 ### The Win16 data segment and pictures (experiment, D200)
 

@@ -1,0 +1,12 @@
+# M14: a paste is one undo step (CORE-43). Three paragraphs are typed, selected and copied; the caret goes to the end and Paste adds them
+# again (six paragraphs), and one Edit > Undo takes the whole paste back (three paragraphs), where it used to take one paragraph at a time.
+o n e enter t w o enter t h r e e
+f10 right l                     # Edit > Select All
+f10 right c                     # Edit > Copy
+end                             # the caret to the end, the selection gone
+f10 right p                     # Edit > Paste: one, two, three, one, two, three
+f10 right u                     # Edit > Undo: the whole paste goes
+f10 right r                     # Edit > Redo: all of it is back
+f10 right u                     # and gone again
+f10 end enter                   # File > Exit
+n                               # without saving

@@ -1,0 +1,11 @@
+# M14: a Cut or Copy of more than the clipboard holds (2,048 bytes) is refused and changes nothing (CORE-44). The paragraph is 2,400 bytes:
+# Select All and Cut leave it whole with "The document is too large for Quill." on the status line; Copy says the same; Undo has nothing
+# of the Cut to undo.
+@copy bigsel.rtf
+@open BIGSEL.RTF
+f10 right l                     # Edit > Select All
+f10 right t                     # Edit > Cut: refused, the text stays selected
+f10 right c                     # Edit > Copy: refused as well
+f10 right u                     # Edit > Undo: nothing was cut, so it undoes nothing the Cut did
+f10 end enter                   # File > Exit
+n                               # without saving
