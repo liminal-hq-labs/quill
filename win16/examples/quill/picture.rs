@@ -252,7 +252,7 @@ fn build(doc: &Doc, s: &FarStore, idx: u16, fp: u32, at: usize) {
 
 /// The slot holding picture `idx`, building it when it is not cached (or when another picture took its index).
 fn get(doc: &Doc, s: &FarStore, idx: u16) -> &'static Slot {
-	let fp = quill_app::picture::fingerprint(doc, s, idx);
+	let fp = quill_picture::fingerprint(doc, s, idx);
 	unsafe { CLOCK += 1 };
 	let now = unsafe { CLOCK };
 	let all = slots();

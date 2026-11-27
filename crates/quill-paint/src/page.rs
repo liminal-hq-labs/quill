@@ -10,7 +10,6 @@
 //! ([`Surface::font_at`]), and scales the lines of a tab leader, a picture and the sheet; the caret and the selection's edges are
 //! the layout's. At 100 percent every number is the one the layout gave.
 
-use quill_app::picture::{self, WINDOW};
 use quill_app::picture_geom::{self as geom, Frame};
 use quill_app::{line_label, App, ListCounters};
 use quill_chrome::view::{dev, page_x0, PageGeom};
@@ -20,6 +19,7 @@ use quill_core::layout::{
 };
 use quill_core::store::Store;
 use quill_image::scale::MAX_OUT;
+use quill_picture::WINDOW;
 
 use crate::{Rect, Rgb, Surface};
 
@@ -420,7 +420,7 @@ impl<'a, M: Measure + Clone, St: Store + ?Sized> LinePainter<'a, M, St> {
 			return true;
 		}
 		sf.fill_rect(r, Rgb::SILVER);
-		let done = picture::render(
+		let done = quill_picture::render(
 			self.doc,
 			self.s,
 			idx,

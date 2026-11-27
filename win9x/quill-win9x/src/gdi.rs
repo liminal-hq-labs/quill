@@ -242,65 +242,75 @@ fn colour_of(app: &App<GdiMeasure>, s: &HeapStore, cf: &CFmt) -> u32 {
 		.map_or(0, |c| u32::from(c.r) | (u32::from(c.g) << 8) | (u32::from(c.b) << 16))
 }
 
-/// One picture rendered at the size it is shown: 24-bit rows, bottom row first, each padded to four bytes.
-struct Rendered {
-	idx: u16,
-	fp: u32,
-	w: i32,
-	h: i32,
-	bits: Vec<u8>,
+/// How many pictures the cache holds.
+const PIC_SLOTS: usize = 3;
+
+/// The bits of the pictures in the cache, one slot each: 24-bit rows, bottom row first, each padded to four bytes.
+struct PicBits {
+	bits: [Vec<u8>; PIC_SLOTS],
 }
 
-/// The pictures drawn lately, so scrolling does not decode them again. Holds at most three.
+impl quill_picture::Slots for PicBits {
+	fn release(&mut self, slot: usize) {
+		if let Some(b) = self.bits.get_mut(slot) {
+			*b = Vec::new();
+		}
+	}
+}
+
+/// The pictures drawn lately, so scrolling does not decode them again: `quill_picture::Cache` keeps the keys and the order, and
+/// the slots it names hold the bits.
 pub struct PicCache {
-	items: Vec<Rendered>,
-	window: Option<alloc::boxed::Box<[u8; quill_app::picture::WINDOW]>>,
+	keys: quill_picture::Cache<PIC_SLOTS>,
+	slots: PicBits,
+	window: Option<alloc::boxed::Box<[u8; quill_picture::WINDOW]>>,
 }
 
 impl PicCache {
 	pub const fn new() -> Self {
 		PicCache {
-			items: Vec::new(),
+			keys: quill_picture::Cache::new(),
+			slots: PicBits {
+				bits: [Vec::new(), Vec::new(), Vec::new()],
+			},
 			window: None,
 		}
 	}
 
-	fn get(&mut self, app: &App<GdiMeasure>, s: &HeapStore, idx: u16, w: i32, h: i32) -> &Rendered {
-		let fp = quill_app::picture::fingerprint(app.doc(), s, idx);
-		if let Some(i) = self
-			.items
-			.iter()
-			.position(|r| r.idx == idx && r.fp == fp && r.w == w && r.h == h)
-		{
-			return &self.items[i];
-		}
-		if self.items.len() >= 3 {
-			self.items.remove(0);
-		}
-		let stride = ((w as usize * 3) + 3) & !3;
-		// Short of memory, or a picture that does not decode: no bits, and the page shows a grey box in its place.
-		let mut bits: Vec<u8> = Vec::new();
-		if bits.try_reserve_exact(stride * h as usize).is_ok() {
-			bits.resize(stride * h as usize, 0xC0);
-			let window = self
-				.window
-				.get_or_insert_with(|| alloc::boxed::Box::new([0u8; quill_app::picture::WINDOW]));
-			let done = quill_app::picture::render(app.doc(), s, idx, w as usize, h as u32, window, |row, rgb| {
-				let at = row as usize * stride;
-				if let Some(dst) = bits.get_mut(at..at + w as usize * 3) {
-					for (d, p) in dst.chunks_exact_mut(3).zip(rgb.chunks_exact(3)) {
-						d[0] = p[2];
-						d[1] = p[1];
-						d[2] = p[0];
+	fn get(&mut self, app: &App<GdiMeasure>, s: &HeapStore, idx: u16, w: i32, h: i32) -> &[u8] {
+		let key = quill_picture::Key {
+			idx,
+			fp: quill_picture::fingerprint(app.doc(), s, idx),
+			w,
+			h,
+		};
+		let window = &mut self.window;
+		let slot = self.keys.get(&mut self.slots, key, |slots, slot| {
+			let stride = ((w as usize * 3) + 3) & !3;
+			// Short of memory, or a picture that does not decode: no bits, and the page shows a grey box in its place.
+			let mut bits: Vec<u8> = Vec::new();
+			if bits.try_reserve_exact(stride * h as usize).is_ok() {
+				bits.resize(stride * h as usize, 0xC0);
+				let window = window.get_or_insert_with(|| alloc::boxed::Box::new([0u8; quill_picture::WINDOW]));
+				let done = quill_picture::render(app.doc(), s, idx, w as usize, h as u32, window, |row, rgb| {
+					let at = row as usize * stride;
+					if let Some(dst) = bits.get_mut(at..at + w as usize * 3) {
+						for (d, p) in dst.chunks_exact_mut(3).zip(rgb.chunks_exact(3)) {
+							d[0] = p[2];
+							d[1] = p[1];
+							d[2] = p[0];
+						}
 					}
+				});
+				if done.is_err() {
+					bits.clear();
 				}
-			});
-			if done.is_err() {
-				bits.clear();
 			}
-		}
-		self.items.push(Rendered { idx, fp, w, h, bits });
-		&self.items[self.items.len() - 1]
+			if let Some(dst) = slots.bits.get_mut(slot) {
+				*dst = bits;
+			}
+		});
+		self.slots.bits.get(slot).map_or(&[], |b| b.as_slice())
 	}
 }
 
@@ -320,8 +330,8 @@ unsafe fn draw_picture(
 	h: i32,
 ) {
 	let w = w.clamp(1, quill_image::scale::MAX_OUT as i32);
-	let r = cache.get(app, s, idx, w, h);
-	if r.bits.is_empty() {
+	let bits = cache.get(app, s, idx, w, h);
+	if bits.is_empty() {
 		let area = Rect {
 			left: x,
 			top: y,
@@ -347,7 +357,7 @@ unsafe fn draw_picture(
 		clr_important: 0,
 	};
 	// Stretched, so a zoomed view (a mapping mode that scales page units to pixels) draws the picture at the size it is shown.
-	StretchDIBits(dc, x, y, w, h, 0, 0, w, h, r.bits.as_ptr(), &info, 0, SRCCOPY);
+	StretchDIBits(dc, x, y, w, h, 0, 0, w, h, bits.as_ptr(), &info, 0, SRCCOPY);
 }
 
 /// Draws a picture on the printer: decoded again at up to 1,024 pixels across in bands of 48 rows, each stretched to its place,
@@ -378,7 +388,7 @@ unsafe fn draw_picture_banded(
 	band.resize(stride * BAND as usize, 0xFF);
 	let window = cache
 		.window
-		.get_or_insert_with(|| alloc::boxed::Box::new([0u8; quill_app::picture::WINDOW]));
+		.get_or_insert_with(|| alloc::boxed::Box::new([0u8; quill_picture::WINDOW]));
 	let mut t0 = 0;
 	while t0 < rh {
 		let t1 = (t0 + BAND).min(rh);
@@ -386,7 +396,7 @@ unsafe fn draw_picture_banded(
 		band.fill(0xFF);
 		// DIB row 0 is the bottom of the picture, so this band holds DIB rows rh - t1 up to rh - t0.
 		let low = (rh - t1) as u32;
-		let _ = quill_app::picture::render(doc, s, idx, rw as usize, rh as u32, window, |row, rgb| {
+		let _ = quill_picture::render(doc, s, idx, rw as usize, rh as u32, window, |row, rgb| {
 			if row >= low && row < low + rows {
 				let at = (row - low) as usize * stride;
 				if let Some(dst) = band.get_mut(at..at + rw as usize * 3) {

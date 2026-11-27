@@ -8,7 +8,6 @@ mod common;
 
 use common::*;
 use proptest::prelude::*;
-use quill_app::picture::WINDOW;
 use quill_app::{Command, Key};
 use quill_chrome::view::{page_x0, PAGE_GAP};
 use quill_core::layout::{font_ref, to_units, FontRef, Line};
@@ -17,6 +16,7 @@ use quill_paint::page::{paint_page, paint_sheet, PageView};
 use quill_paint::palette::{rgb256, WINDOWS16};
 use quill_paint::raster::{Linear8, Planar4, StrikeFont, PLANAR_BYTES};
 use quill_paint::{Rect, Rgb, Surface};
+use quill_picture::WINDOW;
 use quill_strike::{SliceSource, StrikeMeasure, Strikes};
 
 const CASES: u32 = 10_000;

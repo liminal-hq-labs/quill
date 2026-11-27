@@ -10,7 +10,6 @@
 use std::path::{Path, PathBuf};
 
 use quill_app::mouse::{Ctx, PageHit, Pointer, PointerTarget};
-use quill_app::picture::WINDOW;
 use quill_app::{App, Command, Dialog, Key, Mark};
 use quill_chrome::view::{page_width, PAGE_GAP, PAGE_PAD, PAGE_TOP};
 use quill_core::doc::StoryKind;
@@ -21,6 +20,7 @@ use quill_host::HostStore;
 use quill_paint::page::{paint_sheet_editing, Editing, DESK};
 use quill_paint::pixel::{ByteOrder, PixelBuffer};
 use quill_paint::{Rect, Rgb, Surface};
+use quill_picture::WINDOW;
 
 use crate::command::{self, Outcome, Typed};
 use crate::files::GuiFiles;

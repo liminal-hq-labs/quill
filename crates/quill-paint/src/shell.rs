@@ -9,7 +9,6 @@
 //! column fills the area beside the vertical bar.
 
 use quill_app::mouse::{PageHit, PageSpace, PointerTarget};
-use quill_app::picture::WINDOW;
 use quill_app::picture_geom::{HANDLE, SLOP};
 use quill_app::{status_text, App, Overlay};
 use quill_chrome::view::{
@@ -19,6 +18,7 @@ use quill_chrome::view::{
 use quill_chrome::zoom_field::ZoomPart;
 use quill_core::layout::{to_units, Measure};
 use quill_core::store::{ReadStore, Store};
+use quill_picture::WINDOW;
 
 use crate::layout::{Layout, BAR};
 use crate::page::{paint_page, PageInfo, PageView};

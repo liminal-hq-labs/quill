@@ -28,6 +28,7 @@ gtk = { package = "gtk4", version = "0.11", features = ["v4_20"] }
 adw = { package = "libadwaita", version = "0.9", features = ["v1_6"] }
 quill-app = { path = "../../crates/quill-app", features = ["long-names", "dot-files"] }
 quill-chrome = { path = "../../crates/quill-chrome" }
+quill-picture = { path = "../../crates/quill-picture" }
 quill-core = { path = "../../crates/quill-core" }
 quill-dialogs = { path = "../../crates/quill-dialogs" }
 quill-formats = { path = "../../crates/quill-formats" }

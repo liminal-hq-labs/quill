@@ -8,7 +8,6 @@
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use quill_app::picture::WINDOW;
 use quill_app::App;
 use quill_core::layout::FontRef;
 use quill_fonts::{FontSet, MeasureGlyphs, OutlineMeasure};
@@ -18,6 +17,7 @@ use quill_host::HostStore;
 use quill_paint::page::paint_sheet;
 use quill_paint::pixel::{ByteOrder, PixelBuffer, PixelSurface, Scale};
 use quill_paint::{crc32, Rect, Rgb, Surface};
+use quill_picture::WINDOW;
 
 /// Logical size of the test sheet's window: a 3.33 by 2.5 inch page and an 8 pixel desk around it.
 const LOGICAL: (i32, i32) = (336, 256);

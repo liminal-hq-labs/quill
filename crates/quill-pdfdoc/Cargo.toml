@@ -16,6 +16,7 @@ quill-app = { path = "../quill-app" }
 quill-core = { path = "../quill-core" }
 quill-image = { path = "../quill-image" }
 quill-pdf = { path = "../quill-pdf" }
+quill-picture = { path = "../quill-picture" }
 
 [dev-dependencies]
 quill-host = { path = "../quill-host" }

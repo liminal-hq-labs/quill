@@ -13,6 +13,7 @@ skrifa = "0.50"
 
 [dev-dependencies]
 quill-app = { path = "../quill-app" }
+quill-picture = { path = "../quill-picture" }
 quill-formats = { path = "../quill-formats" }
 quill-host = { path = "../quill-host" }
 

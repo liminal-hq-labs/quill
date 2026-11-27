@@ -7,7 +7,6 @@ mod common;
 
 use common::*;
 use quill_app::mouse::{Ctx, Ev};
-use quill_app::picture::WINDOW;
 use quill_chrome::view::{dev, log, page_width, page_x0, PageGeom, PAGE_PAD};
 use quill_chrome::zoom_field::{ZoomPart, ZOOM_LEVELS, ZOOM_MARGIN};
 use quill_core::layout::{to_units, FontRef};
@@ -20,6 +19,7 @@ use quill_paint::raster::{Planar4, StrikeFont, PLANAR_BYTES};
 use quill_paint::shell::{self, paint_screen_view, SCREEN_W};
 use quill_paint::zoombox;
 use quill_paint::{Rgb, Surface};
+use quill_picture::WINDOW;
 use quill_strike::{SliceSource, StrikeMeasure};
 
 struct ScreenJob<'a> {

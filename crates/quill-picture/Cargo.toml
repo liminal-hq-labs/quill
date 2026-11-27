@@ -1,0 +1,24 @@
+# quill-picture: a picture as it is drawn (decoded by rows, scaled) and the cache that keeps the pictures drawn lately.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-picture"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Quill's picture drawing: a document's picture decoded and scaled by rows, and a fingerprint-keyed display cache whose slots the caller lends (no_std, no alloc, no floats)"
+
+[dependencies]
+quill-core = { path = "../quill-core" }
+quill-formats = { path = "../quill-formats" }
+quill-image = { path = "../quill-image" }
+quill-inflate = { path = "../quill-inflate" }
+
+[package.metadata.quill]
+layer = "kit"
+no_std = true
+alloc = false
+float = false

@@ -8,7 +8,6 @@
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use quill_app::picture::WINDOW;
 use quill_app::App;
 use quill_host::script::MemFiles;
 use quill_host::HostStore;
@@ -16,6 +15,7 @@ use quill_paint::page::{paint_page, PageView};
 use quill_paint::palette::{rgb256, WINDOWS16};
 use quill_paint::raster::{Linear8, Planar4, PLANAR_BYTES};
 use quill_paint::{Rect, Rgb, Surface};
+use quill_picture::WINDOW;
 use quill_strike::testfont::test_font;
 use quill_strike::{SliceSource, StrikeMeasure, Strikes};
 
