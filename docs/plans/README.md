@@ -18,5 +18,6 @@ Planner write-ups kept for reference. Each was accurate when it was written, and
 | [web-demo.md](web-demo.md) | The ReactOS web demo: a clean address, Print to PDF with downloads, sound and hosting, as WP-WEB-1 to WP-WEB-8 | Planned |
 | [preferences.md](preferences.md) | One settings model (`quill-settings`) and an Options window on every build, autosave first, as WP-PREF-0 to WP-PREF-13 | Planned |
 | [gtk-print-help.md](gtk-print-help.md) | GTK printing, preview and Export as PDF from one `quill-pdfdoc` PDF with a text layer, the help viewer and dark paper, as WP-GTK-3a to 3c, WP-GTK-8 and WP-GTK-10 | Planned |
+| [Shared libraries](https://github.com/liminal-hq-labs/liminal-installer/blob/main/docs/plans/shared-libraries.md) (in liminal-installer) | DLLs, `.so` and static sharing across the Labs retro projects. For Quill: no DLL or `.so` for `quill-pdf`, `quill-pdfdoc` or the kit crates (one Quill build per system); `QUILLPIC.DLL` on Windows 3.x after rust-win16's DLL runtime passes its go/no-go (WP-SL-2, then WP-SL-5), using the W16-40 to W16-48 ids the modules and DLLs plan reserved; the standalone `AGQUILL.SCR` stays what Quill's installers ship | Planned |
 
 The Desk page, [desk-app.md](../desk-app.md), is out of date against D130, so the plans that lean on it (the web and layering addendum in particular) inherit that.
