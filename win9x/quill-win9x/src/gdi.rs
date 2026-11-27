@@ -449,11 +449,8 @@ struct LineCtx<'a> {
 	/// The page the line is on, and the number of pages when fields should show their values.
 	page: u32,
 	fields: Option<u32>,
-	/// Draw each character at its own layout position (a zoomed screen), so no rounding of the font's widths or of the layout's
-	/// advances builds up along the line.
-	per_char: bool,
-	/// The zoom in percent when the line is drawn in device pixels (the zoomed page, no mapping mode), or 0 when it is drawn in the
-	/// units of the device context (100 %, the preview and the printer).
+	/// The zoom in percent when the line is drawn in device pixels (the zoomed page and the zoomed preview, no mapping mode), or 0 when
+	/// it is drawn in the units of the device context (100 % and the printer).
 	zoom: i32,
 	/// Where the first sheet's corner is in device pixels, for a zoomed line.
 	ox: i32,
@@ -619,32 +616,6 @@ unsafe fn draw_line(
 				selected,
 				colour_of(app, s, &cfmt),
 			);
-			SelectObject(dc, old);
-			*n = 0;
-			return;
-		}
-		if cx.per_char {
-			let total: i32 = adv.iter().take(*n).sum();
-			if selected {
-				let r = Rect {
-					left: tx + x,
-					top: y_top,
-					right: tx + x + total,
-					bottom: y_top + l.ascent + l.descent,
-				};
-				let b = CreateSolidBrush(crate::scheme::select());
-				FillRect(dc, &r, b);
-				DeleteObject(b);
-				SetTextColor(dc, crate::scheme::select_text());
-			} else {
-				SetTextColor(dc, colour_of(app, s, &cfmt));
-			}
-			SetBkMode(dc, TRANSPARENT);
-			let mut at = 0;
-			for (ch, a) in run.iter().zip(adv.iter()).take(*n) {
-				TextOutA(dc, tx + x + at, base + shift, ch, 1);
-				at += *a;
-			}
 			SelectObject(dc, old);
 			*n = 0;
 			return;
@@ -909,18 +880,6 @@ unsafe fn paper_sheet(dc: Handle, left: i32, top: i32, w: i32, h: i32) {
 	fill(dc, left, top, left + w, top + h, 0x00FF_FFFF);
 }
 
-/// Sets the mapping from page units to pixels: `pct` percent, with page unit (0, 0) at device pixel (`x`, `y`).
-unsafe fn map_pages(dc: Handle, pct: i32, x: i32, y: i32) {
-	if pct == 100 {
-		SetMapMode(dc, 1);
-	} else {
-		SetMapMode(dc, 8);
-		SetWindowExtEx(dc, 100, 100, null_mut());
-		SetViewportExtEx(dc, pct, pct, null_mut());
-	}
-	SetViewportOrgEx(dc, x, y, null_mut());
-}
-
 /// Paints the page view into the client rectangle `area`, scrolled `hscroll` pixels sideways and `vpos` page units down, at `pct`
 /// percent. Only the lines that reach into `damage` (in the device's pixels) are drawn; the rest of the page is already in the picture. `mdc` is a device context with no mapping set, which character widths are asked of: under the zoom's mapping a font's widths
 /// come back in scaled, hinted units and no longer agree with the layout. `caret` is the caret's on phase: false while it blinks off. Returns how many lines a screenful holds and how many sheets the document takes.
@@ -975,7 +934,8 @@ pub unsafe fn paint_page(
 	// mode: every position is worked out in device pixels from the page unit it has in the layout, and the font is made at the zoomed
 	// height, so the system never has to scale a glyph (how it would is not the same on every system).
 	let zoomed = pct != 100;
-	map_pages(dc, 100, if zoomed { 0 } else { x0 }, if zoomed { 0 } else { area.top });
+	SetMapMode(dc, 1);
+	SetViewportOrgEx(dc, if zoomed { 0 } else { x0 }, if zoomed { 0 } else { area.top }, null_mut());
 	let tx = margin_l;
 	SetTextAlign(dc, TA_BASELINE);
 	let sel = app.selection();
@@ -1015,7 +975,6 @@ pub unsafe fn paint_page(
 				mdc,
 				page: l.page,
 				fields,
-				per_char: false,
 				zoom: if zoomed { pct } else { 0 },
 				ox: x0,
 				oy: area.top,
@@ -1067,11 +1026,13 @@ struct PageLayout<'a> {
 	offy: i32,
 	/// A device context to ask for widths.
 	mdc: Handle,
-	/// Whether the sheet is drawn scaled, so characters are placed one at a time.
-	per_char: bool,
+	/// The zoom in percent when the sheet is drawn in device pixels (the zoomed preview), or 0 for the units of the device context
+	/// (actual size and the printer).
+	zoom: i32,
 }
 
-/// Draws page `p`: the header, the footer and the body lines of the page, with the paper's top left at (`ox`, `oy`) in the units of `dc`.
+/// Draws page `p`: the header, the footer and the body lines of the page, with the paper's top left at (`ox`, `oy`): in the units of `dc`
+/// when `pl.zoom` is 0, or in device pixels when the sheet is zoomed, where every position is worked out in pixels from its page unit.
 ///
 /// # Safety
 /// `dc` must be a valid device context.
@@ -1091,7 +1052,8 @@ unsafe fn draw_page(
 	let setup = doc.page;
 	let u = |tw: i32| to_units(tw, dpi);
 	let paper_h = u(setup.paper_h);
-	let tx = ox + u(setup.margin_l) - pl.offx;
+	let (unit_ox, unit_oy) = if pl.zoom != 0 { (0, 0) } else { (ox, oy) };
+	let tx = unit_ox + u(setup.margin_l) - pl.offx;
 	let first = p == 1 && setup.flags & 1 != 0;
 	let mut m = GdiMeasure {
 		dc: pl.mdc,
@@ -1133,14 +1095,13 @@ unsafe fn draw_page(
 				mdc: pl.mdc,
 				page: p,
 				fields: Some(pages),
-				per_char: pl.per_char,
-				zoom: 0,
-				ox: 0,
-				oy: 0,
+				zoom: pl.zoom,
+				ox,
+				oy,
 				wave: 0,
 			};
 			let label = line_label(app, s, l, &mut c, dpi);
-			draw_line(dc, &cx, &mut Pics::Banded(cache), l, label, tx, oy + top + l.y - pl.offy);
+			draw_line(dc, &cx, &mut Pics::Banded(cache), l, label, tx, unit_oy + top + l.y - pl.offy);
 		}
 	}
 	for (l, label) in pl.lines.iter().zip(pl.labels.iter()) {
@@ -1157,10 +1118,9 @@ unsafe fn draw_page(
 			mdc: pl.mdc,
 			page: p,
 			fields: Some(pages),
-			per_char: pl.per_char,
-			zoom: 0,
-			ox: 0,
-			oy: 0,
+			zoom: pl.zoom,
+			ox,
+			oy,
 			wave: 0,
 		};
 		draw_line(
@@ -1170,7 +1130,7 @@ unsafe fn draw_page(
 			l,
 			*label,
 			tx,
-			oy + u(setup.margin_t) + l.y - pl.offy,
+			unit_oy + u(setup.margin_t) + l.y - pl.offy,
 		);
 	}
 }
@@ -1269,7 +1229,7 @@ pub unsafe fn paint_preview(
 		offx: 0,
 		offy: 0,
 		mdc,
-		per_char: pct != 100,
+		zoom: if pct == 100 { 0 } else { pct },
 	};
 	for k in 0..n {
 		let p = first + k as u32;
@@ -1278,12 +1238,9 @@ pub unsafe fn paint_preview(
 		}
 		let l = left + k * (pwd + 16);
 		paper_sheet(dc, l, top, pwd, phd);
-		// The sheet's text, in page units, with the paper's corner at the origin.
-		map_pages(dc, pct, l, top);
+		// The sheet's text, with the paper's corner at (`l`, `top`): in device pixels at any scale but actual size.
 		SetTextAlign(dc, TA_BASELINE);
-		draw_page(dc, app, s, &mut pl, p, 0, 0, cache);
-		SetMapMode(dc, 1);
-		SetViewportOrgEx(dc, 0, 0, null_mut());
+		draw_page(dc, app, s, &mut pl, p, l, top, cache);
 	}
 	RestoreDC(dc, saved);
 	PreviewSize {
@@ -1353,7 +1310,7 @@ pub unsafe fn print_document(
 		offx,
 		offy,
 		mdc: pdc,
-		per_char: false,
+		zoom: 0,
 	};
 	for p in from.max(1)..=to.min(pages) {
 		StartPage(pdc);

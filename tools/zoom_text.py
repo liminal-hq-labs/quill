@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 """usage: python3 -I tools/zoom_text.py frames DIR
        python3 -I tools/zoom_text.py crop FRAME OUT [--scale N]
+       python3 -I tools/zoom_text.py preview DIR
+       python3 -I tools/zoom_text.py crop-preview FRAME OUT [--scale N]
 
 `frames` reads DIR/z050.png, z075.png, z100.png, z125.png, z150.png and z200.png (whole-screen frames of a window showing
 tests/docs/zoomtext.rtf at those zooms), finds the words of each line by the columns with no ink, and checks each word's ink width
@@ -12,6 +14,13 @@ against the same word at 100 % times the zoom, within the larger of 2 pixels and
 and names the line, the word and the widths that fail. The same check serves the Win16 and Win32 painters: only CLIENT changes.
 
 `crop` writes the text block of one frame (its ink with a margin of four pixels), at SCALE times (default 1, nearest neighbour).
+`preview` reads DIR/ref.png (a frame of the page view at 100 %, its window at the screen's top left corner, 860 by 631) and the
+print preview's frames DIR/pv-*.png (a window at the top left corner, cut to its own size). Each frame's sheets are found by their
+white (the preview's scale is the sheet's width over the paper's: 816 pixels, a letter page at 96 dpi, unless the frame's name ends in
+`-wNNN`, a paper NNN pixels wide), and each sheet's words are
+checked against the reference's words times that scale, as `frames` does; `pv-two-*.png` has two sheets and `pv-*-actual.png` one at
+100 %. It prints each frame's scale and exits 1 on a failure.
+
 Needs Pillow."""
 import sys
 
@@ -30,9 +39,15 @@ def load(path):
 	return Image.open(path).convert("L")
 
 
-def ink_box(im):
+# The page area of a window at the screen's top left corner, for the preview's frames.
+CLIENT_AT_ORIGIN = (2, 112, 841, 598)
+# A letter page's width in pixels at 96 dpi.
+SHEET_W = 816
+
+
+def ink_box(im, client=CLIENT):
 	"""The page's text block in a frame: left, top, right, bottom, with the page's own white found from its columns."""
-	left, top, right, bottom = CLIENT
+	left, top, right, bottom = client
 	px = im.load()
 	white = [sum(1 for y in range(top, bottom) if px[x, y] >= 250) for x in range(left, right)]
 	need = (bottom - top) * 8 // 10
@@ -54,9 +69,11 @@ def ink_box(im):
 	return min(xs), min(rows), max(xs) + 1, max(rows) + 1
 
 
-def lines_of(im):
-	"""The text lines: (top, bottom) of each run of rows with ink, left to right words are found by `words_of`."""
-	box = ink_box(im)
+def lines_of(im, client=CLIENT, box=None):
+	"""The text lines: (top, bottom, left, right) of each run of rows with ink; the words are found by `words_with`. `box` is the text
+	block when it is known (a preview's sheet), otherwise it is found in `client`."""
+	if box is None:
+		box = ink_box(im, client)
 	if box is None:
 		return None, []
 	left, top, right, bottom = box
@@ -121,39 +138,159 @@ def words_near(im, band, centres, ref_left, z):
 	return [(edges[i], edges[i + 1]) for i in range(0, len(edges), 2)], found
 
 
-def check(folder):
-	frames = {z: load(f"{folder}/z{z:03d}.png") for z in ZOOMS}
-	_, ref_bands = lines_of(frames[100])
+def compare(label, im, bands, z, ref):
+	"""Checks the lines `bands` of frame `im`, shown at `z` percent, against the reference lines `ref` (the 100 % bands, and for each the
+	words and the centres of its gaps). Prints each failure and returns how many there were."""
+	ref_bands, ref_words = ref
+	if len(bands) != len(ref_bands):
+		print(f"{label}: {len(bands)} lines found, {len(ref_bands)} at 100 % (lines merged or lost)")
+		return 1
+	bad = 0
+	for i, band in enumerate(bands):
+		words, found = words_near(im, band, ref_words[i][1], ref_bands[i][2], z)
+		if not found:
+			print(f"{label}: line {i + 1}: two words touch")
+			bad += 1
+			continue
+		for k, (w, r) in enumerate(zip(words, ref_words[i][0])):
+			got, want = w[1] - w[0], (r[1] - r[0]) * z / 100
+			# The larger of 2 pixels and 4 %, and a pixel of the 100 % word's own rounding times the zoom.
+			if abs(got - want) > max(2, 0.04 * want) + z / 100:
+				print(f"{label}: line {i + 1}, word {k + 1}: {got} pixels wide, wanted {want:.1f}")
+				bad += 1
+	return bad
+
+
+def reference(im, client=CLIENT):
+	"""The 100 % page's lines, and for each the words and the centres of its gaps."""
+	_, ref_bands = lines_of(im, client)
 	if len(ref_bands) != len(WORDS):
 		print(f"zoom_text: {len(ref_bands)} lines found at 100 %, wanted {len(WORDS)}")
+		return None
+	return ref_bands, [words_with(im, band, WORDS[i]) for i, band in enumerate(ref_bands)]
+
+
+def check(folder):
+	frames = {z: load(f"{folder}/z{z:03d}.png") for z in ZOOMS}
+	ref = reference(frames[100])
+	if ref is None:
 		return 1
-	counts = WORDS
-	ref = [words_with(frames[100], band, counts[i]) for i, band in enumerate(ref_bands)]
 	bad = 0
 	for z in ZOOMS:
 		if z == 100:
 			continue
 		_, bands = lines_of(frames[z])
-		if len(bands) != len(ref_bands):
-			print(f"zoom {z}%: {len(bands)} lines found, {len(ref_bands)} at 100 % (lines merged or lost)")
-			bad += 1
-			continue
-		for i, band in enumerate(bands):
-			words, found = words_near(frames[z], band, ref[i][1], ref_bands[i][2], z)
-			if not found:
-				print(f"zoom {z}%: line {i + 1}: two words touch")
-				bad += 1
-				continue
-			for k, (w, r) in enumerate(zip(words, ref[i][0])):
-				got, want = w[1] - w[0], (r[1] - r[0]) * z / 100
-				# The larger of 2 pixels and 4 %, and a pixel of the 100 % word's own rounding times the zoom.
-				if abs(got - want) > max(2, 0.04 * want) + z / 100:
-					print(f"zoom {z}%: line {i + 1}, word {k + 1}: {got} pixels wide, wanted {want:.1f}")
-					bad += 1
+		bad += compare(f"zoom {z}%", frames[z], bands, z, ref)
 	if bad:
 		print(f"zoom_text: {bad} failures")
 		return 1
 	print("zoom_text: ok")
+	return 0
+
+
+def sheets_of(im):
+	"""The white sheets of a print preview frame: (left, top, right, bottom) of each, found along a row through the middle of the page
+	area (below the text of the first lines) and down and up its columns."""
+	px = im.load()
+	w, h = im.size
+	ymid = h // 2
+	runs, start = [], None
+	for x in range(w + 1):
+		white = x < w and px[x, ymid] >= 250
+		if white and start is None:
+			start = x
+		if not white and start is not None:
+			if x - start >= 60:
+				runs.append((start, x))
+			start = None
+	out = []
+	for l, r in runs:
+		# A column near the right edge, where the right margin keeps the text away.
+		xm = r - 8
+		t = ymid
+		while t > 0 and px[xm, t - 1] >= 250:
+			t -= 1
+		b = ymid
+		while b < h - 1 and px[xm, b + 1] >= 250:
+			b += 1
+		out.append((l, t, r, b + 1))
+	return out
+
+
+def preview(folder):
+	import glob
+
+	ref = reference(load(f"{folder}/ref.png"), CLIENT_AT_ORIGIN)
+	if ref is None:
+		return 1
+	bad = 0
+	names = sorted(glob.glob(f"{folder}/pv-*.png"))
+	if not names:
+		print("zoom_text: no preview frames")
+		return 1
+	for name in names:
+		im = load(name)
+		label = name.rsplit("/", 1)[-1][:-4]
+		found = sheets_of(im)
+		tail = label.rsplit("-w", 1)
+		paper_w = int(tail[1]) if len(tail) == 2 and tail[1].isdigit() else SHEET_W
+		want = 2 if "-two-" in label else 1
+		if len(found) != want:
+			print(f"{label}: {len(found)} sheets found, wanted {want}")
+			bad += 1
+			continue
+		for k, (l, t, r, b) in enumerate(found):
+			z = (r - l) * 100 / paper_w
+			# Inside the sheet, clear of its edge and of the part a window may cut off.
+			box = (l + 2, t + 2, r - 2, b - 2)
+			text = ink_box_in(im, box)
+			if text is None:
+				print(f"{label}: sheet {k + 1}: no text")
+				bad += 1
+				continue
+			_, bands = lines_of(im, box=text)
+			print(f"zoom_text: {label}: sheet {k + 1} at {z:.1f} %")
+			bad += compare(f"{label}: sheet {k + 1} ({z:.0f}%)", im, bands, z, ref)
+	if bad:
+		print(f"zoom_text: {bad} failures")
+		return 1
+	print("zoom_text: ok")
+	return 0
+
+
+def ink_box_in(im, rect):
+	"""The inked area inside `rect` (left, top, right, bottom): left, top, right, bottom, or None."""
+	left, top, right, bottom = rect
+	px = im.load()
+	rows, xs = [], []
+	for y in range(top, bottom):
+		hit = [x for x in range(left, right) if px[x, y] < INK]
+		if hit:
+			rows.append(y)
+			xs += [hit[0], hit[-1]]
+	if not rows:
+		return None
+	return min(xs), min(rows), max(xs) + 1, max(rows) + 1
+
+
+def crop_preview(frame, out, scale):
+	"""Writes the text of every sheet of a preview frame: the union of the sheets' ink with a margin of four pixels."""
+	im = Image.open(frame).convert("RGB")
+	grey = im.convert("L")
+	boxes = []
+	for l, t, r, b in sheets_of(grey):
+		box = ink_box_in(grey, (l + 2, t + 2, r - 2, b - 2))
+		if box is not None:
+			boxes.append(box)
+	if not boxes:
+		print("zoom_text: no text in the frame")
+		return 1
+	l, t = min(b[0] for b in boxes), min(b[1] for b in boxes)
+	r, b = max(b[2] for b in boxes), max(b[3] for b in boxes)
+	c = im.crop((max(l - 4, 0), max(t - 4, 0), min(r + 4, im.width), min(b + 4, im.height)))
+	if scale != 1:
+		c = c.resize((c.width * scale, c.height * scale), Image.NEAREST)
+	c.save(out)
 	return 0
 
 
@@ -174,9 +311,11 @@ def crop(frame, out, scale):
 def main(argv):
 	if len(argv) == 3 and argv[1] == "frames":
 		return check(argv[2])
-	if len(argv) >= 4 and argv[1] == "crop":
+	if len(argv) == 3 and argv[1] == "preview":
+		return preview(argv[2])
+	if len(argv) >= 4 and argv[1] in ("crop", "crop-preview"):
 		scale = int(argv[5]) if len(argv) == 6 and argv[4] == "--scale" else 1
-		return crop(argv[2], argv[3], scale)
+		return (crop if argv[1] == "crop" else crop_preview)(argv[2], argv[3], scale)
 	print(__doc__)
 	return 2
 
