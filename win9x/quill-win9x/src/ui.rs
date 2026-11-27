@@ -1419,6 +1419,18 @@ pub unsafe fn refresh_clock(sh: &mut Shell) {
 
 const SB_SETTEXTA: u32 = 0x0401;
 const SB_SETPARTS: u32 = 0x0404;
+const SB_GETRECT: u32 = 0x040A;
+/// The pane that holds the zoom box: the last, at the right end.
+const ZOOM_PANE: usize = 5;
+/// The width of the zoom box, size grip included, and the narrowest window that has room for it beside the other panes.
+const ZOOM_PANE_W: i32 = 88;
+const ZOOM_MIN_CLIENT_W: i32 = 560;
+/// `SBT_POPOUT`: the pane is drawn raised, like a button.
+const SBT_POPOUT: usize = 0x0200;
+const GWL_WNDPROC: i32 = -4;
+const WM_LBUTTONUP: u32 = 0x0202;
+const TPM_BOTTOMALIGN: u32 = 0x20;
+const TPM_RIGHTALIGN: u32 = 0x08;
 const CCS_BOTTOM: u32 = 0x0003;
 const SBARS_SIZEGRIP: u32 = 0x0100;
 
@@ -1464,23 +1476,126 @@ pub unsafe fn status_layout(hwnd: Handle, sh: &mut Shell) {
 	GetWindowRect(sh.sb, &mut r);
 	sh.status_h = r.bottom - r.top;
 	let (w, _) = client_size(hwnd);
-	// Message or hint (the rest), the document, the position, the font and size, the state.
+	// Message or hint (the rest), the document, the position, the font and size, the state, and the zoom box at the right end, which a
+	// narrow window leaves out (a pane of no width) before the others would crowd.
+	let zoom = if w >= ZOOM_MIN_CLIENT_W { ZOOM_PANE_W } else { 0 };
+	let w = w - zoom;
 	let state = 70;
 	let font = 130;
 	let pos = 105;
 	let name = 105;
-	let edges: [i32; 5] = [
+	let edges: [i32; 6] = [
 		(w - state - font - pos - name).max(60),
 		(w - state - font - pos).max(80),
 		(w - state - font).max(100),
 		(w - state).max(120),
+		w.max(140),
 		-1,
 	];
-	SendMessageA(sh.sb, SB_SETPARTS, 5, edges.as_ptr() as isize);
+	SendMessageA(sh.sb, SB_SETPARTS, 6, edges.as_ptr() as isize);
 	sh.sb_text = Default::default();
 	status_update(hwnd, sh);
 	let _ = hwnd;
 }
+
+/// Replaces the status bar's window procedure with one that hears the left button go up over the zoom box. COMCTL32 4.00 sends its
+/// parent no click notification, so the bar is subclassed.
+pub unsafe fn status_hook(sh: &mut Shell) {
+	if !sh.sb.is_null() && sh.sb_proc == 0 {
+		sh.sb_proc = SetWindowLongA(sh.sb, GWL_WNDPROC, status_proc as *const () as usize as isize);
+	}
+}
+
+unsafe extern "system" fn status_proc(hwnd: Handle, msg: u32, wparam: usize, lparam: isize) -> isize {
+	let Some(sh) = shell() else {
+		return DefWindowProcA(hwnd, msg, wparam, lparam);
+	};
+	let previous = sh.sb_proc;
+	let result = CallWindowProcA(previous, hwnd, msg, wparam, lparam);
+	if msg == WM_LBUTTONUP {
+		let at = Point {
+			x: lparam as i16 as i32,
+			y: (lparam >> 16) as i16 as i32,
+		};
+		if zoom_box_hit(sh, at) {
+			zoom_popup(GetParent(hwnd), sh);
+		}
+	}
+	result
+}
+
+/// The zoom box's rectangle in the status bar's client area; empty when the window is too narrow for it.
+unsafe fn zoom_box_rect(sh: &Shell) -> Rect {
+	let mut r = Rect {
+		left: 0,
+		top: 0,
+		right: 0,
+		bottom: 0,
+	};
+	SendMessageA(sh.sb, SB_GETRECT, ZOOM_PANE, &mut r as *mut Rect as isize);
+	r
+}
+
+/// Whether the point (in the status bar's client area) is on the zoom box, which answers only while the page shows.
+unsafe fn zoom_box_hit(sh: &Shell, at: Point) -> bool {
+	if sh.preview.is_some() || sh.grid || sh.sb.is_null() {
+		return false;
+	}
+	let r = zoom_box_rect(sh);
+	r.right > r.left && at.x >= r.left && at.x < r.right && at.y >= r.top && at.y < r.bottom
+}
+
+/// Opens the list of zoom levels above the zoom box, the current one ticked, and runs the one chosen as View > Zoom does.
+unsafe fn zoom_popup(hwnd: Handle, sh: &mut Shell) {
+	let menu = CreatePopupMenu();
+	if menu.is_null() {
+		return;
+	}
+	let current = sh.app.zoom_field_current();
+	for (i, level) in quill_app::zoom_field::ZOOM_LEVELS.iter().enumerate() {
+		let mut text = [0u8; quill_app::zoom_field::ZOOM_TEXT_MAX];
+		let n = quill_app::zoom_field::zoom_text(*level, &mut text);
+		// The accelerator letters View > Zoom uses: P for Page Width, the first digit of 200, 150 and 75, the second of 100.
+		let mark = match level {
+			0 | 200 | 150 | 75 | 50 => Some(0),
+			100 => Some(1),
+			_ => None,
+		};
+		let mut item = Vec::with_capacity(n + 2);
+		for (k, b) in text.iter().take(n).enumerate() {
+			if mark == Some(k) {
+				item.push(b'&');
+			}
+			item.push(*b);
+		}
+		item.push(0);
+		let ticked = if current == Some(i) { MF_CHECKED } else { 0 };
+		AppendMenuA(menu, MF_STRING | ticked, ZOOM_MENU_ID + i, item.as_ptr());
+	}
+	let r = zoom_box_rect(sh);
+	let mut at = Point { x: r.right, y: r.top };
+	ClientToScreen(sh.sb, &mut at);
+	let id = TrackPopupMenu(
+		menu,
+		crate::TPM_RETURNCMD | crate::TPM_RIGHTBUTTON | TPM_BOTTOMALIGN | TPM_RIGHTALIGN,
+		at.x,
+		at.y,
+		0,
+		hwnd,
+		null(),
+	) as usize;
+	DestroyMenu(menu);
+	sh.app.set_message("");
+	sh.hint_on = false;
+	if let Some(command) = id.checked_sub(ZOOM_MENU_ID).and_then(quill_app::zoom_field::zoom_command) {
+		crate::run_command(hwnd, command);
+	} else {
+		status_update(hwnd, sh);
+	}
+}
+
+/// The first command number of the zoom list.
+const ZOOM_MENU_ID: usize = 800;
 
 /// Puts the current words in the panes, touching only the ones whose text changed, so nothing flickers.
 pub unsafe fn status_update(_hwnd: Handle, sh: &mut Shell) {
@@ -1492,7 +1607,7 @@ pub unsafe fn status_update(_hwnd: Handle, sh: &mut Shell) {
 	} else {
 		sh.app.name().to_vec()
 	};
-	let mut text: [Vec<u8>; 5] = Default::default();
+	let mut text: [Vec<u8>; 6] = Default::default();
 	text[0] = sh.app.message().to_vec();
 	if text[0].is_empty() {
 		// A selected picture says what it is, with the multiplication sign of the ANSI code page.
@@ -1535,6 +1650,9 @@ pub unsafe fn status_update(_hwnd: Handle, sh: &mut Shell) {
 			st.extend_from_slice(b"Modified");
 		}
 		text[4] = st;
+		let mut zoom = [0u8; quill_app::zoom_field::ZOOM_TEXT_MAX];
+		let n = sh.app.zoom_field_text(&mut zoom);
+		text[ZOOM_PANE] = zoom.get(..n).unwrap_or(&[]).to_vec();
 	}
 	for (i, t) in text.iter().enumerate() {
 		if sh.sb_text.get(i) == Some(t) {
@@ -1542,8 +1660,9 @@ pub unsafe fn status_update(_hwnd: Handle, sh: &mut Shell) {
 		}
 		let mut z = t.clone();
 		z.push(0);
-		// Pane `i`, drawn sunken (type 0).
-		SendMessageA(sh.sb, SB_SETTEXTA, i, z.as_ptr() as isize);
+		// Pane `i`, sunken (type 0); the zoom box is raised, as a button is, while it takes a click.
+		let kind = if i == ZOOM_PANE && !t.is_empty() { SBT_POPOUT } else { 0 };
+		SendMessageA(sh.sb, SB_SETTEXTA, i | kind, z.as_ptr() as isize);
 		if let Some(slot) = sh.sb_text.get_mut(i) {
 			*slot = t.clone();
 		}

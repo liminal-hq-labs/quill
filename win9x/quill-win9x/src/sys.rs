@@ -66,6 +66,7 @@ pub const SM_CXSCREEN: i32 = 0;
 pub const SM_CYSCREEN: i32 = 1;
 pub const SRCCOPY: u32 = 0x00CC_0020;
 pub const MF_STRING: u32 = 0;
+pub const MF_CHECKED: u32 = 0x8;
 pub const MF_POPUP: u32 = 0x10;
 pub const MF_SEPARATOR: u32 = 0x800;
 pub const VK_SHIFT: i32 = 0x10;
@@ -289,6 +290,8 @@ extern "system" {
 	pub fn InsertMenuA(menu: Handle, pos: u32, flags: u32, id: usize, item: *const u8) -> i32;
 	pub fn DeleteMenu(menu: Handle, pos: u32, flags: u32) -> i32;
 	pub fn GetDoubleClickTime() -> u32;
+	pub fn SetWindowLongA(hwnd: Handle, index: i32, value: isize) -> isize;
+	pub fn CallWindowProcA(previous: isize, hwnd: Handle, msg: u32, wparam: usize, lparam: isize) -> isize;
 }
 
 // The clock calls of the paint path.
