@@ -17,8 +17,8 @@
 		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
 		<link rel="stylesheet" href="../css/site.css?v=a4d3a119">
 		<link rel="stylesheet" href="../css/try.css?v=fc9dccd7">
-		<link rel="stylesheet" href="try-reactos.css?v=97da23ab">
-		<script src="try-reactos.js?v=03590cab" type="module"></script>
+		<link rel="stylesheet" href="try-reactos.css?v=924254e1">
+		<script src="try-reactos.js?v=430e706f" type="module"></script>
 	</head>
 	<body>
 		<main id="main">
@@ -49,6 +49,7 @@
 							<li><strong>Full screen</strong> gives the biggest picture. Add <code>?scale=int</code> (whole-number sizes), <code>?scale=crisp</code> (sharp pixels) or <code>?scale=smooth</code> (smoothed) to the address to choose how the screen is scaled.</li>
 							<li>The <strong>Windows 3.x, slow</strong> icon runs inside WineVDM: that is emulation inside emulation, so it takes a few seconds to appear and types more slowly. The 32-bit build is the fast one.</li>
 							<li><strong>Reset</strong> loads the saved desktop again. Nothing you type is kept.</li>
+							<li>If you choose <strong>Shut Down</strong> in ReactOS, the screen dims and the page says so: <strong>Turn on</strong> brings the saved desktop back. A full boot of the disk, without the saved desktop, is in the builder and diagnostics.</li>
 						</ul>
 					</div>
 
@@ -92,6 +93,7 @@
 						<p class="diag-buttons">
 							<button class="button button--alt" type="button" data-shot>Screenshot (PNG)</button>
 							<button class="button button--alt" type="button" data-save-state>Save state</button>
+							<button class="button button--alt" type="button" data-cold-boot>Cold boot (no saved desktop)</button>
 						</p>
 					</details>
 				</div>

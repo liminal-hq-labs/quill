@@ -447,3 +447,11 @@ last = 84
 owner = "Status bar (WP-BAR)"
 status = "reserved"
 source = "https://github.com/liminal-hq-labs/quill/pull/182"
+
+[[block]]
+prefix = "SITE"
+first = 40
+last = 40
+owner = "Web demo power state (fix/power-state)"
+status = "in use"
+source = "https://github.com/liminal-hq-labs/quill/pull/183"

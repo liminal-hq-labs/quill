@@ -41,6 +41,11 @@
 	image-rendering: pixelated;
 }
 
+/* The guest has shut down (see showPower in try-reactos.js): the last frame stays, dimmed like a switched-off screen. */
+.stage--reactos[data-power="shutdown"] .screen-canvas {
+	filter: brightness(0.35) saturate(0.5);
+}
+
 .caption {
 	color: var(--text-muted);
 	font-size: 0.8rem;
