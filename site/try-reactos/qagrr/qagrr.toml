@@ -21,10 +21,10 @@ owner_name = "Quill demo"
 # the Quill shortcuts remain; the mouse has no acceleration, so the page can predict the guest pointer exactly.
 # `reg_files` lists the base recipe's named files again (a list replaces), including its Canadian formats with 24-hour time and its pointer
 # defaults, plus Quill's `mouse-linear` and `hide-desktop-icons` and `quill-run.reg`, beside this recipe, which is applied after them. The
-# wallpaper is named for people (`Afterglow Wallpaper`, which is what Display Properties lists); the BMP written there is Quill's own (see [[files]] below).
+# wallpaper is named for people (`Quill Afterglow`, which is what Display Properties lists); the BMP written there is Quill's own (see [[files]] below).
 [settings]
 icon_size = 32
-wallpaper = "C:\\ReactOS\\Afterglow Wallpaper.bmp"
+wallpaper = "C:\\ReactOS\\Quill Afterglow.bmp"
 reg_files = ["display", "quiet", "watermark-off", "afterglow-logon", "regional-canada", "pointer-defaults", "mouse-linear", "hide-desktop-icons", "quill-run.reg"]
 remove_desktop_shortcuts = ["Applications Manager", "Command Prompt", "Read Me"]
 
@@ -38,7 +38,7 @@ extra = ["trim-extra.txt"]
 # wallpaper takes the place of the scene rl would render, at the path settings.wallpaper names. The demo documents are the committed ones.
 [[files]]
 source = "payload/quill-wallpaper.bmp"
-destination = "ReactOS/Afterglow Wallpaper.bmp"
+destination = "ReactOS/Quill Afterglow.bmp"
 
 [[files]]
 source = "payload/QUILL32.EXE"

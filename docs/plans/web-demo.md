@@ -168,7 +168,7 @@ Publishing the tarball is publishing ReactOS and WineVDM binaries: it needs the 
 
 ## The wallpaper name and the savers
 
-- **Wallpaper name.** Display Properties lists a wallpaper by its file name without the extension, so the remix's `C:\ReactOS\afterglow-wallpaper.bmp` shows as *afterglow-wallpaper*. QAGRR sets `settings.wallpaper = "C:\\ReactOS\\Afterglow Wallpaper.bmp"` and writes its BMP to `ReactOS/Afterglow Wallpaper.bmp` (WP-WEB-6). The picture stays Quill's own (the Afterglow dusk scene with the emblem, SITE-9 and SITE-10); the morning QA's "the Quill one, not the Afterglow wallpaper" is read as being about the name. The same rename in reactos-liminal's compact recipe is a suggestion, not a dependency.
+- **Wallpaper name.** Display Properties lists a wallpaper by its file name without the extension, so the remix's `C:\ReactOS\afterglow-wallpaper.bmp` shows as *afterglow-wallpaper*. QAGRR sets `settings.wallpaper = "C:\\ReactOS\\Quill Afterglow.bmp"` and writes its BMP to `ReactOS/Quill Afterglow.bmp` (WP-WEB-6). The picture stays Quill's own (the Afterglow dusk scene with the emblem, SITE-9 and SITE-10); the morning QA's "the Quill one, not the Afterglow wallpaper" is read as being about the name. The same rename in reactos-liminal's compact recipe is a suggestion, not a dependency.
 - **The savers** (Quill Ghostwriter, the four Afterglow savers and the Collection) are packed by a separate plan. This plan needs only that they land before the final image (WP-WEB-8), so their sounds are heard through WP-WEB-5's device.
 
 ## Rules for every package
@@ -191,7 +191,7 @@ Publishing the tarball is publishing ReactOS and WineVDM binaries: it needs the 
 | 3 | **WP-WEB-3** Print to PDF in `QUILL32.EXE` and `quill-pdf` | Now for the crate and the Win32 command; the send-to-port step after WP-WEB-2's frame is merged | WP-WEB-2, WP-WEB-4 |
 | 4 | **WP-WEB-4** Sound spike: an AC'97 device from the page | Now | WP-WEB-1, WP-WEB-3 |
 | 5 | **WP-WEB-5** Sound: the device, the controls, the state's audio | WP-WEB-4 says go, and WP-WEB-1 is merged | WP-WEB-3 |
-| 6 | **WP-WEB-6** "Afterglow Wallpaper" | Now (small) | Anything |
+| 6 | **WP-WEB-6** "Quill Afterglow" | Now (small) | Anything |
 | 7 | **WP-WEB-7** Hosting pipeline: pin, Pages steps, licences, staging script | After WP-WEB-1 | WP-WEB-5 |
 | 8 | **WP-WEB-8** The demo build: one image and state with everything, end to end | WP-WEB-2, 3, 5, 6, 7 merged, WP-HOST-3 to WP-HOST-7 merged, and the savers plan's packing | — |
 
@@ -250,9 +250,9 @@ With the cap of three builders: WP-WEB-1, WP-WEB-3 and WP-WEB-4 start together (
 - **Evidence.** The page's controls, the counts, a short WAV of a saver's sound taken from the device.
 - **Parallel.** With WP-WEB-3 or WP-WEB-7.
 
-### WP-WEB-6 "Afterglow Wallpaper"
+### WP-WEB-6 "Quill Afterglow"
 
-- **Finish line.** Display Properties' background list on the QAGRR disk shows *Afterglow Wallpaper* selected, and the desktop is unchanged pixel for pixel.
+- **Finish line.** Display Properties' background list on the QAGRR disk shows *Quill Afterglow* selected, and the desktop is unchanged pixel for pixel.
 - **Files owned.** `site/try-reactos/qagrr/qagrr.toml` (`settings.wallpaper` and the BMP's destination), `qagrr/build-with-rl.sh` (only if it names the path), `README.md` (one sentence), `docs/decisions.md` (SITE-18, or an amendment line under SITE-10).
 - **Must not touch.** Everything else.
 - **Dependencies.** None; rl writes the registry value with the space escaped as it stands (checked in `reactos_liminal/settings.py`).
@@ -514,7 +514,7 @@ or a Pages deployment; its data step stays guarded off until the owner pins a re
 and checks, and hands the owner a tarball, its pin line and the licences, unpublished.
 
 Finish line, tests, evidence and decision numbers: the plan's package section. PR title suggestions:
-"Play the ReactOS demo's sound through an AC'97 device", "Name the remix's wallpaper Afterglow Wallpaper",
+"Play the ReactOS demo's sound through an AC'97 device", "Name the remix's wallpaper Quill Afterglow",
 "Prepare the ReactOS demo's data for Pages", "Build the ReactOS web demo end to end".
 ```
 
@@ -533,7 +533,7 @@ Each is taken with the default so no package waits; the last column is where to 
 | Hosting | GitHub Pages, same origin, data pulled by the workflow from a pinned release asset | Goal 4; WP-WEB-7 |
 | HTTPS on `labs.liminalhq.ca` | Ask the owner to fix the certificate (Pages' *Enforce HTTPS* after the domain's certificate is issued); the demo works over HTTP meanwhile | Pages settings for the organization |
 | When to publish the data (and with it ReactOS and WineVDM binaries)? | Not until the owner says so; WP-WEB-8 stops at a local tarball | `web-data.pin`; the release |
-| The remix wallpaper's picture and name | Keep Quill's emblem scene, named *Afterglow Wallpaper* | WP-WEB-6; QAGRR's `settings.wallpaper` |
+| The remix wallpaper's picture and name | Keep Quill's emblem scene, named *Quill Afterglow* | WP-WEB-6; QAGRR's `settings.wallpaper` |
 
 ## Risks
 
