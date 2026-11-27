@@ -27,6 +27,7 @@ use quill_app::accel::{self, Accel};
 use quill_app::cmdline;
 use quill_app::recovery::Why;
 use quill_app::view::{self, Act, Hit};
+use quill_app::zoom_field::{ZoomPart, zoom_step};
 use quill_app::{Command, Dir, Files, Key, SaveMode, Scheme};
 use quill_formats::io::{Sink, Source};
 use quill_grid::Grid;
@@ -142,8 +143,8 @@ struct Shell {
 	pic_drag: Option<quill_app::picture_geom::HandleDrag>,
 	/// The left button went down in the text and is still down.
 	selecting: bool,
-	/// The left button went down on the zoom box.
-	zoom_down: bool,
+	/// The left button went down on this part of the zoom control.
+	zoom_down: Option<ZoomPart>,
 	/// The page's scroll bars, child windows in the page area, and whether the horizontal one shows.
 	vbar: u32,
 	hbar: u32,
@@ -178,7 +179,7 @@ static mut SH: Shell = Shell {
 	drag: None,
 	pic_drag: None,
 	selecting: false,
-	zoom_down: false,
+	zoom_down: None,
 	vbar: 0,
 	hbar: 0,
 	hbar_on: false,
@@ -618,6 +619,7 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 				w,
 				t.get(..n).unwrap_or(&[]),
 				zoom.get(..zn).unwrap_or(&[]),
+				zoom_now(lay.page_w),
 			);
 		}
 		RestoreDC(dc, saved);
@@ -1090,8 +1092,8 @@ fn mouse_down(hwnd: u32, x: i32, y: i32, shift: bool) {
 	}
 	blink_restart(hwnd);
 	let (app, s) = (app(), store());
-	if on_zoom_box(hwnd, x, y) {
-		sh().zoom_down = true;
+	if let Some(part) = zoom_part_at(hwnd, x, y) {
+		sh().zoom_down = Some(part);
 		unsafe { SetCapture(hwnd) };
 		return;
 	}
@@ -1239,25 +1241,43 @@ fn mouse_move(hwnd: u32, x: i32, y: i32) {
 	}
 }
 
-/// Whether the point (`x`, `y`) in the client area is on the zoom box at the right end of the status bar.
-fn on_zoom_box(hwnd: u32, x: i32, y: i32) -> bool {
+/// Which part of the zoom control, if any, the point (`x`, `y`) in the client area is on.
+fn zoom_part_at(hwnd: u32, x: i32, y: i32) -> Option<ZoomPart> {
 	if !app().show_status() || sh().grid {
-		return false;
+		return None;
 	}
 	let (w, h) = client_size(hwnd);
-	chrome::zoom_box_left(w)
-		.is_some_and(|left| x >= left && x < w && y >= h - chrome::status_h() && y < h)
+	if y < h - chrome::status_h() || y >= h {
+		return None;
+	}
+	chrome::zoom_layout(w)?.hit(x)
 }
 
-/// The left button went up: when it went down on the zoom box and is still over it, the list of levels opens above the box.
+/// The left button went up: when it went down on a part of the zoom control and is still over it, the box opens the list of levels
+/// above it and a button steps to the next level down or up.
 fn mouse_up(hwnd: u32, x: i32, y: i32) {
 	let (app, s) = (app(), store());
-	if sh().zoom_down {
-		sh().zoom_down = false;
+	if let Some(down) = sh().zoom_down.take() {
 		unsafe { ReleaseCapture() };
-		if on_zoom_box(hwnd, x, y) {
+		if zoom_part_at(hwnd, x, y) == Some(down) {
 			let (w, h) = client_size(hwnd);
-			chrome::zoom_menu(hwnd, w, h - chrome::status_h(), app.zoom_field_current());
+			match down {
+				ZoomPart::Field => {
+					let right = chrome::zoom_layout(w).map_or(w, |l| l.field.1);
+					chrome::zoom_menu(
+						hwnd,
+						right,
+						h - chrome::status_h(),
+						app.zoom_field_current(),
+					);
+				}
+				ZoomPart::Minus | ZoomPart::Plus => {
+					let shown = zoom_now(page_w(hwnd));
+					if let Some(c) = zoom_step(shown, down == ZoomPart::Plus) {
+						run_command(hwnd, c);
+					}
+				}
+			}
 		}
 		return;
 	}

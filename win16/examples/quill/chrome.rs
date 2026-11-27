@@ -4,6 +4,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 use quill_app::view::{self, Act, RulerState, TOOLBAR, Toggle};
+use quill_app::zoom_field::{ZOOM_MARGIN, ZoomLayout, ZoomMetrics, zoom_step};
 use w16::*;
 
 use crate::gdi::{
@@ -18,8 +19,13 @@ pub const ID_SIZE: u32 = 302;
 pub const ID_COLOUR: u32 = 500;
 /// The zoom list's items: `ID_ZOOM` plus the level's place in `quill_app::zoom_field::ZOOM_LEVELS`.
 pub const ID_ZOOM: u32 = 520;
-/// The zoom box's width at the right end of the status bar, and the narrowest client area that has room for it.
-const ZOOM_W: i32 = 80;
+/// The zoom control near the right end of the status bar: a minus button, the box, a plus button and a margin of the shared width. The
+/// narrowest client area that has room for it is `ZOOM_MIN_CLIENT`.
+const ZOOM_METRICS: ZoomMetrics = ZoomMetrics {
+	button: 20,
+	field: 70,
+	margin: ZOOM_MARGIN,
+};
 const ZOOM_MIN_CLIENT: i32 = 560;
 
 const CB_ADDSTRING: u32 = WM_USER + 3;
@@ -328,15 +334,36 @@ pub fn paint_ruler(
 	tab_mark(dc, kind, 8 + i32::from(kind == 2) * 3, top + 14);
 }
 
-/// Where the zoom box starts in a status bar `width` wide, or `None` when the window is too narrow to have one.
-pub fn zoom_box_left(width: i32) -> Option<i32> {
-	(width >= ZOOM_MIN_CLIENT).then_some(width - ZOOM_W)
+/// Where the zoom control sits in a status bar `width` wide, or `None` when the window is too narrow to have one.
+pub fn zoom_layout(width: i32) -> Option<ZoomLayout> {
+	(width >= ZOOM_MIN_CLIENT).then(|| ZoomLayout::new(width, ZOOM_METRICS))
 }
 
-/// Paints the status bar: a sunken panel across the bottom with the editor's status text in it, and the zoom box at the right end.
-pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8], zoom: &[u8]) {
+/// A zoom button: a raised face with a bar (minus) or a cross (plus) on it, or, when there is no level that way, the sign embossed
+/// in grey as a disabled control shows it.
+fn zoom_button(dc: u32, range: (i32, i32), top: i32, h: i32, plus: bool, enabled: bool) {
+	bevel(dc, range.0, top + 1, range.1 - range.0 - 1, h - 2, false);
+	let (mid_x, mid_y) = ((range.0 + range.1) / 2 - 1, top + h / 2);
+	let sign = |dx: i32, colour: u32| {
+		fill(dc, mid_x - 4 + dx, mid_y - 1 + dx, 9, 2, colour);
+		if plus {
+			fill(dc, mid_x - 1 + dx, mid_y - 4 + dx, 2, 9, colour);
+		}
+	};
+	if enabled {
+		sign(0, BLACK);
+	} else {
+		sign(1, WHITE);
+		sign(0, SHADOW);
+	}
+}
+
+/// Paints the status bar: a sunken panel across the bottom with the editor's status text in it, and the zoom control near the right
+/// end. `shown` is the percentage the page is drawn at, which says whether the buttons have a level to step to.
+pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8], zoom: &[u8], shown: i32) {
 	let h = status_h();
-	let text_right = zoom_box_left(width).unwrap_or(width) - 2;
+	let layout = zoom_layout(width);
+	let text_right = layout.map_or(width, |l| l.left()) - 2;
 	fill(dc, 0, top, width, h, FACE);
 	fill(dc, 0, top, width, 1, WHITE);
 	fill(dc, 2, top + 2, width - 4, 1, SHADOW);
@@ -364,12 +391,28 @@ pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8], zoom: &[u8]) {
 			text.len() as u32,
 		);
 		RestoreDC(dc, saved);
-		if let Some(left) = zoom_box_left(width) {
-			// A raised box, like a button, with the zoom in it.
-			bevel(dc, left, top + 1, ZOOM_W - 2, h - 2, false);
+		if let Some(l) = layout {
+			// A raised box, like a button, with the zoom in it, between the two buttons.
+			bevel(
+				dc,
+				l.field.0,
+				top + 1,
+				l.field.1 - l.field.0 - 1,
+				h - 2,
+				false,
+			);
+			zoom_button(
+				dc,
+				l.minus,
+				top,
+				h,
+				false,
+				zoom_step(shown, false).is_some(),
+			);
+			zoom_button(dc, l.plus, top, h, true, zoom_step(shown, true).is_some());
 			TextOut(
 				dc,
-				(left + 6) as u32,
+				(l.field.0 + 6) as u32,
 				(top + 3) as u32,
 				np(zoom.as_ptr()),
 				zoom.len() as u32,

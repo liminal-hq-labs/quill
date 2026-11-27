@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Clicks the zoom box at the right end of the status bar on Windows 3.11 under DOSBox-X: the list of levels opens, a choice sets the zoom.
+# Clicks the zoom control near the right end of the status bar on Windows 3.11 under DOSBox-X: the box lists the levels and a choice sets
+# the zoom, and the minus and plus buttons step to the next level.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -8,8 +9,10 @@
 #
 # One session of a fresh Windows 3.11 with tests/docs/scroll.rtf open at the default zoom (Page Width). Frames: `zoombox-start` (the
 # box reads Page Width), `zoombox-open` (a click on the box opened the list: the pixels above the box changed), `zoombox-escape`
-# (Escape closed it and nothing else changed), `zoombox-75` (the list's sixth entry, chosen by the keys, redrew the page and the box).
-# At the end File > Exit must leave `Zoom=75` in QUILL.INI and the stack margin as the other tests demand. Exits 0 with a note when the
+# (Escape closed it and nothing else changed), `zoombox-75` (the list's sixth entry, chosen by the keys, redrew the page and the box),
+# `zoombox-plus` (the plus button went to 100), `zoombox-minus` (minus twice went to 50) and `zoombox-minus-end` (minus at 50, greyed, did
+# nothing). The margin at the right edge is checked on the host (the pointer cannot be steered onto it against the black screen).
+# At the end File > Exit must leave `Zoom=50` in QUILL.INI and the stack margin as the other tests demand. Exits 0 with a note when the
 # Windows 3.11 tree is missing. The mouse needs the emulator's pointer lock; see docs/testing.md.
 set -euo pipefail
 
@@ -185,7 +188,8 @@ finish() {
 	WORK=""
 }
 
-# The zoom box is the last 80 pixels of the status bar, which sits just under the page area; its middle is where the click goes.
+# The zoom control is the last 118 pixels of the status bar, which sits just under the page area: a minus button, the box (70 pixels), a
+# plus button and an 8 pixel margin; the middle of each is where its click goes.
 differ() { compare -metric AE "$WORK/$1.png" "$WORK/$2.png" null: 2>&1 | cut -d' ' -f1 | cut -d. -f1 || true; }
 # How many pixels differ inside a box of two frames: A B W H X Y.
 differ_box() {
@@ -196,8 +200,10 @@ differ_box() {
 
 boot scroll.rtf width
 # On a 1280 by 1024 display Windows opens the window at the same place every time (x 320 to 1120, y 312 to 912): the status bar is its
-# last 18 pixels and the zoom box the last 80 of those.
-BOX_X=1078
+# last 18 pixels and the zoom control the last 118 of those.
+MINUS_X=1010
+BOX_X=1055
+PLUS_X=1100
 BOX_Y=903
 park() { point_to 800 650; }
 park
@@ -206,8 +212,8 @@ point_to "$BOX_X" "$BOX_Y"
 xdotool click 1
 sleep 1.5
 shot zoombox-open
-# The list opens above the box, over the page's right side.
-[ "$(differ_box zoombox-start zoombox-open 110 130 $((BOX_X - 170)) $((BOX_Y - 120)))" -gt 300 ] || fail "a click on the zoom box opened no list"
+# The list opens above the box, its right edge at the box's.
+[ "$(differ_box zoombox-start zoombox-open 100 110 $((BOX_X - 60)) $((BOX_Y - 115)))" -gt 300 ] || fail "a click on the zoom box opened no list"
 log "a click on the box opens the list"
 xdotool key Escape
 sleep 1
@@ -229,4 +235,31 @@ park
 shot zoombox-75
 [ "$(differ_box zoombox-start zoombox-75 600 400 440 440)" -gt 500 ] || fail "the page did not change at 75%"
 log "choosing 75% redraws the page"
-finish 75 zoombox
+# Plus steps from 75 to 100.
+point_to "$PLUS_X" "$BOX_Y"
+xdotool click 1
+sleep 2
+park
+shot zoombox-plus
+[ "$(differ_box zoombox-75 zoombox-plus 600 400 440 440)" -gt 500 ] || fail "the plus button did not change the page"
+[ "$(differ_box zoombox-75 zoombox-plus 70 14 1020 896)" -gt 50 ] || fail "the box's text did not change at 100%"
+log "plus steps from 75% to 100%"
+# Minus twice goes to 75 and then 50.
+point_to "$MINUS_X" "$BOX_Y"
+xdotool click 1
+sleep 2
+xdotool click 1
+sleep 2
+park
+shot zoombox-minus
+[ "$(differ_box zoombox-plus zoombox-minus 600 400 440 440)" -gt 500 ] || fail "the minus button did not change the page"
+log "minus steps down to 50%"
+# At 50% minus is greyed and a click does nothing.
+point_to "$MINUS_X" "$BOX_Y"
+xdotool click 1
+sleep 2
+park
+shot zoombox-minus-end
+[ "$(differ zoombox-minus zoombox-minus-end)" -lt 50 ] || fail "minus at 50% changed the window ($(differ zoombox-minus zoombox-minus-end) pixels)"
+log "minus is greyed at 50% and does nothing"
+finish 50 zoombox

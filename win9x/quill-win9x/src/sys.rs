@@ -117,6 +117,25 @@ pub struct Rect {
 	pub bottom: i32,
 }
 
+/// The `DRAWITEMSTRUCT` of `WM_DRAWITEM`: what an owner-drawn pane or control asks its parent to paint.
+#[repr(C)]
+pub struct DrawItem {
+	pub control_type: u32,
+	pub control_id: u32,
+	pub item_id: u32,
+	pub action: u32,
+	pub state: u32,
+	pub window: Handle,
+	pub dc: Handle,
+	pub rect: Rect,
+	pub data: usize,
+}
+
+/// `GetSysColor` indexes of the button text, shadow and highlight.
+pub const COLOR_BTNSHADOW: i32 = 16;
+pub const COLOR_BTNTEXT: i32 = 18;
+pub const COLOR_BTNHIGHLIGHT: i32 = 20;
+
 /// What `SetScrollInfo` is told about a scroll bar.
 #[repr(C)]
 pub struct ScrollInfo {
