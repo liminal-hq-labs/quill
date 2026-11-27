@@ -1,0 +1,48 @@
+{
+	"name": "unknown-channel",
+	"description": "A channel the codec does not know: reported as unknown, once for each message.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "unknown",
+			"id": 6,
+			"more": true,
+			"payload_hex": "6162"
+		},
+		{
+			"kind": "packet",
+			"channel": "unknown",
+			"id": 6,
+			"more": false,
+			"payload_hex": "6364"
+		},
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 2,
+			"more": false,
+			"payload_hex": "6f703d6279650a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "error",
+			"code": "unknown",
+			"channel": "unknown",
+			"id": 6
+		},
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 2,
+			"op": "bye",
+			"fields": [
+				[
+					"op",
+					"bye"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

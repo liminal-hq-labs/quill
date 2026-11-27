@@ -1,0 +1,40 @@
+{
+	"name": "ctl-error",
+	"description": "An error message.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 4,
+			"more": false,
+			"payload_hex": "6f703d6572726f720a636f64653d6372630a69643d34310a746578743d62616420636865636b73756d0a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 4,
+			"op": "error",
+			"fields": [
+				[
+					"op",
+					"error"
+				],
+				[
+					"code",
+					"crc"
+				],
+				[
+					"id",
+					"41"
+				],
+				[
+					"text",
+					"bad checksum"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

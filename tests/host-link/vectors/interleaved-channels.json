@@ -1,0 +1,67 @@
+{
+	"name": "interleaved-channels",
+	"description": "A file packet between the packets of a clip message; each channel keeps its own message.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 1,
+			"more": true,
+			"payload_hex": "6f703d646174610a7365713d310a666d743d746578740a0a6162"
+		},
+		{
+			"kind": "packet",
+			"channel": "file",
+			"id": 2,
+			"more": false,
+			"payload_hex": "6f703d6368756e6b0a69643d310a0a7a7a"
+		},
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 1,
+			"more": false,
+			"payload_hex": "6364"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "file",
+			"id": 2,
+			"op": "chunk",
+			"fields": [
+				[
+					"op",
+					"chunk"
+				],
+				[
+					"id",
+					"1"
+				]
+			],
+			"data_hex": "7a7a"
+		},
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 1,
+			"op": "data",
+			"fields": [
+				[
+					"op",
+					"data"
+				],
+				[
+					"seq",
+					"1"
+				],
+				[
+					"fmt",
+					"text"
+				]
+			],
+			"data_hex": "61626364"
+		}
+	]
+}

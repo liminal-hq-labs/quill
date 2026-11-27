@@ -1,0 +1,60 @@
+{
+	"name": "clip-ok-refused",
+	"description": "The guest's answers to a set.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 10,
+			"more": false,
+			"payload_hex": "6f703d6f6b0a7365713d340a0a"
+		},
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 11,
+			"more": false,
+			"payload_hex": "6f703d726566757365640a7365713d350a726561736f6e3d627573790a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 10,
+			"op": "ok",
+			"fields": [
+				[
+					"op",
+					"ok"
+				],
+				[
+					"seq",
+					"4"
+				]
+			],
+			"data_hex": ""
+		},
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 11,
+			"op": "refused",
+			"fields": [
+				[
+					"op",
+					"refused"
+				],
+				[
+					"seq",
+					"5"
+				],
+				[
+					"reason",
+					"busy"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

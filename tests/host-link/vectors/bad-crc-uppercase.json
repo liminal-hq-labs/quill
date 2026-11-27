@@ -1,0 +1,33 @@
+{
+	"name": "bad-crc-uppercase",
+	"description": "A CRC in uppercase hex is not a header: skipped.",
+	"events": [
+		{
+			"kind": "error",
+			"error": "header",
+			"offset": 0
+		},
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 2,
+			"more": false,
+			"payload_hex": "6f703d6279650a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 2,
+			"op": "bye",
+			"fields": [
+				[
+					"op",
+					"bye"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

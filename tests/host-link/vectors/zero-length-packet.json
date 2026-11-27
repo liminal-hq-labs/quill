@@ -1,0 +1,43 @@
+{
+	"name": "zero-length-packet",
+	"description": "A message whose last packet carries nothing (M, then E with length 0).",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 5,
+			"more": true,
+			"payload_hex": "6f703d646174610a7365713d320a666d743d746578740a0a78787878787878787878"
+		},
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 5,
+			"more": false,
+			"payload_hex": ""
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 5,
+			"op": "data",
+			"fields": [
+				[
+					"op",
+					"data"
+				],
+				[
+					"seq",
+					"2"
+				],
+				[
+					"fmt",
+					"text"
+				]
+			],
+			"data_hex": "78787878787878787878"
+		}
+	]
+}

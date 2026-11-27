@@ -1,0 +1,48 @@
+{
+	"name": "clip-offer",
+	"description": "The guest offers its clipboard.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 41,
+			"more": false,
+			"payload_hex": "6f703d6f666665720a7365713d31370a746578743d32330a7274663d313834300a6469623d300a736f757263653d757365720a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 41,
+			"op": "offer",
+			"fields": [
+				[
+					"op",
+					"offer"
+				],
+				[
+					"seq",
+					"17"
+				],
+				[
+					"text",
+					"23"
+				],
+				[
+					"rtf",
+					"1840"
+				],
+				[
+					"dib",
+					"0"
+				],
+				[
+					"source",
+					"user"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

@@ -1,0 +1,6 @@
+LHQ-PKT 1 ctl 4 E 43 76b4ab6e
+op=error
+code=crc
+id=41
+text=bad checksum
+

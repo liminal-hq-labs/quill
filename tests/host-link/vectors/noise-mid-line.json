@@ -1,0 +1,28 @@
+{
+	"name": "noise-mid-line",
+	"description": "A frame that does not start a line is noise; the next one, after a newline, is read.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 2,
+			"more": false,
+			"payload_hex": "6f703d6279650a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 2,
+			"op": "bye",
+			"fields": [
+				[
+					"op",
+					"bye"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

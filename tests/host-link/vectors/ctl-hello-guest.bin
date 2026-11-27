@@ -1,0 +1,9 @@
+LHQ-PKT 1 ctl 0 E 101 cda597cc
+op=hello
+proto=1
+role=guest
+app=HOSTLINK/0.1.0
+caps=clip,file,time,display
+window=16384
+max=8388608
+

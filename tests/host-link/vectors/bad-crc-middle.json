@@ -1,0 +1,59 @@
+{
+	"name": "bad-crc-middle",
+	"description": "A wrong CRC on a middle packet: the rest of that message, its last packet included, is dropped.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 8,
+			"more": true,
+			"payload_hex": "6f703d646174610a7365713d310a666d743d746578740a0a6161"
+		},
+		{
+			"kind": "error",
+			"error": "crc",
+			"offset": 58,
+			"channel": "clip",
+			"id": 8
+		},
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 8,
+			"more": false,
+			"payload_hex": "6363"
+		},
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 9,
+			"more": false,
+			"payload_hex": "6f703d6f6b0a7365713d310a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "error",
+			"code": "crc",
+			"channel": "clip",
+			"id": 8
+		},
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 9,
+			"op": "ok",
+			"fields": [
+				[
+					"op",
+					"ok"
+				],
+				[
+					"seq",
+					"1"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

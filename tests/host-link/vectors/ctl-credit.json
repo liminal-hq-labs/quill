@@ -1,0 +1,32 @@
+{
+	"name": "ctl-credit",
+	"description": "A credit.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 1,
+			"more": false,
+			"payload_hex": "6f703d6372656469740a6e3d343039360a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 1,
+			"op": "credit",
+			"fields": [
+				[
+					"op",
+					"credit"
+				],
+				[
+					"n",
+					"4096"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

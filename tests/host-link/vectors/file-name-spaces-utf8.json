@@ -1,0 +1,20 @@
+{
+	"name": "file-name-spaces-utf8",
+	"description": "A name with spaces and UTF-8.",
+	"events": [
+		{
+			"kind": "file-begin",
+			"size": 3,
+			"name": "Café menu (2).txt"
+		},
+		{
+			"kind": "file-data",
+			"data_hex": "616263"
+		},
+		{
+			"kind": "file-end",
+			"sha256": null
+		}
+	],
+	"messages": []
+}

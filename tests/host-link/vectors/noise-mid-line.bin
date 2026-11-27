@@ -1,0 +1,8 @@
+echo LHQ-PKT 1 ctl 1 E 0 00000000
+junkLHQ-PKT 1 ctl 1 E 8 ec59bbf6
+op=bye
+
+
+LHQ-PKT 1 ctl 2 E 8 5193d738
+op=bye
+

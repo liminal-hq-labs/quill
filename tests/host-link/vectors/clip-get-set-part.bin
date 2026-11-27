@@ -1,0 +1,16 @@
+LHQ-PKT 1 clip 7 E 22 2a0db8ef
+op=get
+seq=3
+fmt=dib
+
+LHQ-PKT 1 clip 8 E 31 1a37bdea
+op=set
+seq=4
+formats=text,rtf
+
+LHQ-PKT 1 clip 9 E 29 9dac2de1
+op=part
+seq=4
+fmt=text
+
+hello

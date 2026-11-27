@@ -1,0 +1,52 @@
+{
+	"name": "ctl-hello-guest",
+	"description": "The helper's hello.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 0,
+			"more": false,
+			"payload_hex": "6f703d68656c6c6f0a70726f746f3d310a726f6c653d67756573740a6170703d484f53544c494e4b2f302e312e300a636170733d636c69702c66696c652c74696d652c646973706c61790a77696e646f773d31363338340a6d61783d383338383630380a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 0,
+			"op": "hello",
+			"fields": [
+				[
+					"op",
+					"hello"
+				],
+				[
+					"proto",
+					"1"
+				],
+				[
+					"role",
+					"guest"
+				],
+				[
+					"app",
+					"HOSTLINK/0.1.0"
+				],
+				[
+					"caps",
+					"clip,file,time,display"
+				],
+				[
+					"window",
+					"16384"
+				],
+				[
+					"max",
+					"8388608"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

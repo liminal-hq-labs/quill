@@ -1,0 +1,40 @@
+{
+	"name": "time-set",
+	"description": "The visitor's wall time.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "time",
+			"id": 1,
+			"more": false,
+			"payload_hex": "6f703d7365740a6c6f63616c3d323032362d31312d32375431343a30333a30392e3132330a7574633d313739353837343538393132330a7a6f6e653d416d65726963612f546f726f6e746f0a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "time",
+			"id": 1,
+			"op": "set",
+			"fields": [
+				[
+					"op",
+					"set"
+				],
+				[
+					"local",
+					"2026-11-27T14:03:09.123"
+				],
+				[
+					"utc",
+					"1795874589123"
+				],
+				[
+					"zone",
+					"America/Toronto"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

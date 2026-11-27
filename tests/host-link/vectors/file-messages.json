@@ -1,0 +1,148 @@
+{
+	"name": "file-messages",
+	"description": "The file channel's ops.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "file",
+			"id": 1,
+			"more": false,
+			"payload_hex": "6f703d626567696e0a69643d390a6e616d653d41206c65747465722e7274660a73697a653d350a7368613235363d616261626162616261626162616261626162616261626162616261626162616261626162616261626162616261626162616261626162616261626162616261620a0a"
+		},
+		{
+			"kind": "packet",
+			"channel": "file",
+			"id": 2,
+			"more": false,
+			"payload_hex": "6f703d6368756e6b0a69643d390a0a000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+		},
+		{
+			"kind": "packet",
+			"channel": "file",
+			"id": 3,
+			"more": false,
+			"payload_hex": "6f703d656e640a69643d390a0a"
+		},
+		{
+			"kind": "packet",
+			"channel": "file",
+			"id": 4,
+			"more": false,
+			"payload_hex": "6f703d73617665640a69643d390a706174683d433a5c46726f6d20796f757220636f6d70757465725c41206c65747465722e7274660a0a"
+		},
+		{
+			"kind": "packet",
+			"channel": "file",
+			"id": 5,
+			"more": false,
+			"payload_hex": "6f703d6661696c65640a69643d390a726561736f6e3d6469736b2066756c6c0a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "file",
+			"id": 1,
+			"op": "begin",
+			"fields": [
+				[
+					"op",
+					"begin"
+				],
+				[
+					"id",
+					"9"
+				],
+				[
+					"name",
+					"A letter.rtf"
+				],
+				[
+					"size",
+					"5"
+				],
+				[
+					"sha256",
+					"abababababababababababababababababababababababababababababababab"
+				]
+			],
+			"data_hex": ""
+		},
+		{
+			"kind": "message",
+			"channel": "file",
+			"id": 2,
+			"op": "chunk",
+			"fields": [
+				[
+					"op",
+					"chunk"
+				],
+				[
+					"id",
+					"9"
+				]
+			],
+			"data_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+		},
+		{
+			"kind": "message",
+			"channel": "file",
+			"id": 3,
+			"op": "end",
+			"fields": [
+				[
+					"op",
+					"end"
+				],
+				[
+					"id",
+					"9"
+				]
+			],
+			"data_hex": ""
+		},
+		{
+			"kind": "message",
+			"channel": "file",
+			"id": 4,
+			"op": "saved",
+			"fields": [
+				[
+					"op",
+					"saved"
+				],
+				[
+					"id",
+					"9"
+				],
+				[
+					"path",
+					"C:\\From your computer\\A letter.rtf"
+				]
+			],
+			"data_hex": ""
+		},
+		{
+			"kind": "message",
+			"channel": "file",
+			"id": 5,
+			"op": "failed",
+			"fields": [
+				[
+					"op",
+					"failed"
+				],
+				[
+					"id",
+					"9"
+				],
+				[
+					"reason",
+					"disk full"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

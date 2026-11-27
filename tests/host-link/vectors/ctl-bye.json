@@ -1,0 +1,28 @@
+{
+	"name": "ctl-bye",
+	"description": "Bye.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 5,
+			"more": false,
+			"payload_hex": "6f703d6279650a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 5,
+			"op": "bye",
+			"fields": [
+				[
+					"op",
+					"bye"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

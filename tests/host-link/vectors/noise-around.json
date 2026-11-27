@@ -1,0 +1,48 @@
+{
+	"name": "noise-around",
+	"description": "Noise before, between and after frames, including lines that begin like a frame but are not.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 1,
+			"more": false,
+			"payload_hex": "6f703d6279650a0a"
+		},
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 2,
+			"more": false,
+			"payload_hex": "6f703d6279650a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 1,
+			"op": "bye",
+			"fields": [
+				[
+					"op",
+					"bye"
+				]
+			],
+			"data_hex": ""
+		},
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 2,
+			"op": "bye",
+			"fields": [
+				[
+					"op",
+					"bye"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}
