@@ -99,7 +99,7 @@ Ranges reserved for this track, above every id on `main`, in the autosave branch
 | W9X | W9X-60 to W9X-79 | |
 | LNX | LNX-60 to LNX-69 | Only for a UI slice this track builds itself; the UI track numbers its own from its next free id (LNX-25 on) |
 | WUI | WUI-60 to WUI-69 | The same, for WinUI (the UI track's own start at WUI-3) |
-| CORE, ARCH, DOS, W16, W9X, LNX, WUI, INS | CORE-150 to CORE-169, ARCH-30 to ARCH-34, DOS-80 to DOS-89 (carved out of the range above, which keeps DOS-70 to DOS-79), W16-90 to W16-99, W9X-90 to W9X-99, LNX-60 to LNX-64, WUI-60 to WUI-64, INS-8 and INS-9 | The preferences series, [plans/preferences.md](plans/preferences.md) (ARCH-30). The ids WP-ED-13 to WP-ED-16 named stay spare |
+| CORE, ARCH, DOS, W16, W9X, LNX, WUI, INS | CORE-150 to CORE-169, ARCH-30 to ARCH-34, DOS-80 to DOS-89 (carved out of the range above, which keeps DOS-70 to DOS-79), W16-90 to W16-99, W9X-110 to W9X-119, LNX-60 to LNX-64, WUI-60 to WUI-64, INS-8 and INS-9 | The preferences series, [plans/preferences.md](plans/preferences.md) (ARCH-30). The ids WP-ED-13 to WP-ED-16 named stay spare |
 | LNX | LNX-80 to LNX-89 | GTK printing, help and dark paper, [plans/gtk-print-help.md](plans/gtk-print-help.md) |
 
 ## Gates and evidence
