@@ -531,3 +531,19 @@ last = 53
 owner = "Web demo sound package (WP-WEB-5)"
 status = "in use"
 source = "docs/plans/web-demo.md"
+
+[[block]]
+prefix = "SITE"
+first = 60
+last = 69
+owner = "DOS page bridge (WP-DOSWEB)"
+status = "in use"
+source = "docs/plans/dos-page-bridge.md"
+
+[[block]]
+prefix = "DOS"
+first = 120
+last = 123
+owner = "DOS page bridge (WP-DOSWEB)"
+status = "reserved"
+source = "docs/plans/dos-page-bridge.md"

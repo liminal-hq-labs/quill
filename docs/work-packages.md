@@ -109,6 +109,7 @@ Ranges reserved for this track, above every id on `main`, in the autosave branch
 | CORE, DOS, W16, W9X, INS, ARCH | CORE-90 to CORE-99, DOS-50 to DOS-59, W16-40 to W16-49, W9X-40 and W9X-41, INS-20 to INS-22, ARCH-40 to ARCH-42 | Optional modules, [plans/modules.md](plans/modules.md) (WP-MOD-1 to WP-MOD-8). DOS-52 revises DOS-70's budget rule once a module exists |
 | CORE, DOS, W16, W9X, LNX, WUI | CORE-200 to CORE-209, DOS-100 to DOS-109, W16-110 to W16-114, W9X-120 to W9X-124, LNX-90 to LNX-94, WUI-80 to WUI-84 | The status bar, [plans/status-bar.md](plans/status-bar.md) |
 | CORE, DOS, W16, W9X, LNX, WUI | CORE-210 to CORE-229, DOS-110 to DOS-114, W16-115 to W16-119, W9X-125 to W9X-129, LNX-95 to LNX-99, WUI-95 to WUI-97 | Unicode, [plans/unicode.md](plans/unicode.md) (WP-UNI-1 to WP-UNI-15). The Unicode ids of the editor track's own block are CORE-100 (U1a, U1b), CORE-103 and CORE-104 (U2); CORE-211 (positions) is written by WP-ED-4 |
+| SITE, DOS | SITE-60 to SITE-69, DOS-120 to DOS-123 | The DOS page bridge, [plans/dos-page-bridge.md](plans/dos-page-bridge.md) (WP-DOSWEB-1 to WP-DOSWEB-8). WP-DOSWEB-3 (`QUILLDOS.EXE /W`, at most 1,536 bytes) edits only `dos/quill-dos`, after WP-ED-5 and before WP-ED-10 opens the freeze; the other packages are page-side |
 
 ## Gates and evidence
 
