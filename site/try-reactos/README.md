@@ -11,6 +11,7 @@ ReactOS 0.4.16 with Quill, running in [v86](https://copy.sh/v86/) (an x86 emulat
 | `packages/host-link/`, `lib/host-link.js` | The page's end of the host link (a TypeScript package, tested with `bun test`) and the one built module the page loads |
 | `tools/stage-web.py`, `tools/stamp-web.py` | Stage a build as `data/parts-<hash>/`, `data/state-<hash>.l22.bin.zst` and `web-manifest.json`; keep the `?v=` stamps on the page's files current |
 | `harness/check-clean.ts` | Checks the clean address: the plain `/try-reactos/` restores the desktop and the address stays |
+| `power.js`, `harness/check-power.ts` | Tells the page when the guest has powered off (the ACPI sleep-enable write, since v86 emits nothing; SITE-40); the check runs Start, Shut Down, Turn on, Stop, Start, Reset and the cold boot headlessly and reads back the buttons and status after each |
 | `v86/` | v86 0.5.473 and its BIOS files, fetched by `tools/fetch-v86.sh` (not committed). `v86/PROVENANCE.md` lists versions, hashes and licences (v86 is BSD-2-Clause; SeaBIOS and SeaVGABIOS are LGPL-3.0) |
 | `harness/serve.ts` | The local server: static files, HTTP range requests, per-client byte counters, a JSON request log |
 | `harness/measure.ts`, `lib.ts`, `inpage.js` | The measurement run, on `playwright-core` driving the installed Chromium |
@@ -58,12 +59,26 @@ python3 -I site/try-reactos/tools/stage-web.py ~/.cache/quill-reactos-liminal-wo
 python3 -I site/try-reactos/tools/stage-web.py --check                                    # the staged files are the ones the manifest names
 python3 -I site/try-reactos/tools/stamp-web.py                                            # after editing the page's files (--check in tests)
 cd site/try-reactos/harness && bun serve.ts && bun check-clean.ts OUTDIR                  # http://127.0.0.1:8086/try-reactos/ boots the saved desktop
+cd site/try-reactos/harness && bun check-power.ts OUTDIR                                      # the power cycle below, with a server running (BASE=http://127.0.0.1:PORT)
 ```
 
 - **The manifest.** `version`, `built`, `parts` (`data/parts-<12 hex of the image's SHA-256>/`, which keeps its own `manifest.json`), `partsSha256`, `partsDigest` (the SHA-256 of every part's name and SHA-256, which `--check` uses to notice a changed byte), `imageSize`, `chunk`, `state` (`data/state-<12 hex of its SHA-256>.l22.bin.zst`), `stateSha256`, `stateBytes`, `v86` (`version`, and the first 8 hex of the SHA-256 of `libv86.mjs` and `v86.wasm`), `quill` and `reactosLiminal` (commits). Paths are relative to the manifest. Staging is repeatable: names follow content, `built` comes from the build's own `build-manifest.json`, and any other `parts-*` or `state-*` in `data/` is removed.
 - **Overrides.** A field named in the address bar wins over the manifest's value for it, even when empty: `?state=` (nothing) starts a cold boot over the manifest's disk, and `?disk=` and `?state=` name another machine. `?manifest=URL` names another manifest and `?manifest=none` ignores it (the measuring scripts pass this, through `pageUrl`, because they name their machine in full). Without a manifest (a folder with no `data/`) the page says so in the status line and opens the diagnostics.
 - **The emulator.** A saved state belongs to one v86 build. The page loads `libv86.mjs`, `v86.wasm` and the BIOS files with `?v=` from the manifest, hashes the first two, and stops with a plain message when they differ from the manifest's hashes (the check is skipped where `crypto.subtle` does not exist, as on a plain-HTTP LAN address). The page's own script and style sheet, and the script's modules, carry `?v=` from `tools/stamp-web.py`.
 - **Diagnostics.** The panel shows the manifest's build line and **Force fresh copy**, which replaces the browser's copies of the manifest and the emulator files and reloads at the same address.
+
+## Power
+
+The page keeps one power state (`off`, `starting`, `on`, `shutdown`) and derives the buttons, their labels, the status line and the stage's `data-power` from it, so nothing can drift from the machine (SITE-40).
+
+| State | Start | Full screen | Reset | Stop | Screen |
+|---|---|---|---|---|---|
+| `off` | **Start** | off | off | off | |
+| `starting` | off | off | off | off | |
+| `on` | off | on | on | on | live |
+| `shutdown` | **Turn on** | off | on | on | last frame, dimmed; status "ReactOS has shut down" |
+
+What v86 0.5.473 does when the guest picks Shut Down (observed with `emulator-stopped` and the CPU's port handlers wrapped): nothing it announces. No `emulator-stopped`, `is_running()` stays true, the guest keeps executing (a loop at one kernel address, no `hlt`) and the screen stays on the progress dialog. The one signal is the guest's ACPI write: ReactOS writes 0x2001 and then 0x2000 to PM1a control (port 0xB004; bit 13 is sleep-enable) and polls the wake bit at 0xB000. `power.js` reports the first write with that bit set, and `emulator-stopped` once the machine has run (v86 also emits it while restoring a saved state). Turn on and Reset build a new machine from the same settings, so the saved desktop returns through the normal path; **Cold boot** in the diagnostics panel boots the disk without it. With `acpi=0` the guest's power-off cannot be seen.
 
 ## The host link
 

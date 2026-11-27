@@ -8,12 +8,14 @@
 import { applyManifest, buildLine, emulatorFiles, loadManifest, refetchFresh } from "./manifest.js?v=73de4d88";
 import * as hostLink from "./host-link.js?v=01f7d6f8";
 import * as sound from "./sound.js?v=295d6486";
+import * as power from "./power.js?v=bda0a706";
 
 const player = document.querySelector("[data-player]");
 const startButton = player.querySelector("[data-start]");
 const stopButton = player.querySelector("[data-stop]");
 const fullButton = player.querySelector("[data-fullscreen]");
 const resetButton = player.querySelector("[data-reset]");
+const coldBootButton = document.querySelector("[data-cold-boot]");
 const localCursor = player.querySelector("[data-local-cursor]");
 const statusLine = player.querySelector("[data-status]");
 const stage = player.querySelector("[data-stage]");
@@ -27,6 +29,12 @@ const BOOT = { auto: 0, cd: 0x213, hd: 0x132 };
 const MB = 1024 * 1024;
 
 let emulator = null;
+// The machine's power state, the only thing the buttons and the status line follow (see showPower): "off" (no emulator), "starting"
+// (loading, or restoring the desktop), "on", and "shutdown" (the guest powered itself off, or the emulator stopped; the last frame
+// stays on the screen and the emulator object is kept until Turn on, Reset or Stop replaces it). SITE-40.
+let powerState = "off";
+let seamsAttached = false;
+let unwatchPower = null;
 let startedAt = 0;
 let tick = null;
 // The web-manifest.json the page started from (see manifest.js); settled before Start does anything.
@@ -49,6 +57,26 @@ const stats = {
 
 function say(text) {
 	statusLine.textContent = text;
+}
+
+// Every control follows the power state and nothing else, so no sequence of events can leave a button out of step with the machine.
+function showPower() {
+	const on = powerState === "on";
+	const shutdown = powerState === "shutdown";
+	startButton.textContent = shutdown ? "Turn on" : "Start";
+	startButton.disabled = !(powerState === "off" || shutdown);
+	stopButton.disabled = !(on || shutdown);
+	resetButton.disabled = !(on || shutdown);
+	fullButton.disabled = !on;
+	if (coldBootButton) coldBootButton.disabled = powerState === "starting";
+	stage.dataset.power = powerState;
+	if (!on) localCursor.setAttribute("hidden", "");
+}
+
+function setPower(next) {
+	powerState = next;
+	showPower();
+	render();
 }
 
 function canRun() {
@@ -131,6 +159,7 @@ function render() {
 	const now = performance.now();
 	const rows = {
 		state: emulator ? (emulator.is_running() ? "running" : "stopped") : "off",
+		power: powerState,
 		"seconds since start": startedAt ? ((now - startedAt) / 1000).toFixed(1) : "-",
 		MIPS: stats.mips.toFixed(1),
 		"IDE reads": stats.ideReads + " (" + (stats.ideReadBytes / MB).toFixed(1) + " MB)",
@@ -152,6 +181,8 @@ function render() {
 let lastInstr = 0;
 let lastAt = 0;
 function sample() {
+	// A stopped emulator under a power state of "on" means the stop event was missed (it is checked here once a second).
+	if (powerState === "on" && emulator && startedSeen && !emulator.is_running()) enteredShutdown(emulator);
 	if (emulator && emulator.is_running()) {
 		const now = performance.now();
 		const n = emulator.get_instruction_counter();
@@ -162,8 +193,10 @@ function sample() {
 	render();
 }
 
+let startedSeen = false;
 function hook(e) {
 	e.add_listener("emulator-started", () => {
+		startedSeen = true;
 		stats.emulatorStartedMs = performance.now() - startedAt;
 	});
 	e.add_listener("ide-read-end", (a) => {
@@ -189,7 +222,7 @@ function hook(e) {
 
 async function start(overrides) {
 	const c = config(overrides);
-	startButton.disabled = true;
+	setPower("starting");
 	say("Loading the emulator…");
 	try {
 		await manifestReady;
@@ -219,55 +252,104 @@ async function start(overrides) {
 		startedAt = performance.now();
 		stats.startedAt = startedAt;
 		say("Starting…");
+		startedSeen = false;
 		emulator = new V86(opts);
 		hook(emulator);
 		hostLink.attach(emulator);
 		sound.attach(emulator);
+		seamsAttached = true;
+		const machine = emulator;
+		unwatchPower = power.watch(machine, () => enteredShutdown(machine));
 		window.tryReactos.emulator = emulator;
 		window.tryReactos.config = c;
 		tick = setInterval(sample, 1000);
-		stopButton.disabled = false;
-		fullButton.disabled = false;
-		resetButton.disabled = false;
 		pointer.calibrated = false;
+		setPower("on");
 		say(c.state ? "Running. Select the screen to give it the keyboard and the mouse." : "Starting ReactOS. This takes a while: there is no saved desktop to load.");
 	} catch (error) {
-		startButton.disabled = false;
+		await teardown();
+		setPower("off");
 		say("Could not start: " + error.message);
 		throw error;
 	}
 }
 
-async function stop() {
-	if (!emulator) return;
+// The machine is gone for good: release everything that belongs to it. Safe to call with no machine.
+async function teardown() {
 	clearInterval(tick);
-	hostLink.detach();
-	sound.detach();
-	if (pointer.following) stopFollowing();
-	try {
-		await emulator.destroy();
-	} catch (e) {
-		// Already gone.
+	if (unwatchPower) unwatchPower();
+	unwatchPower = null;
+	if (seamsAttached) {
+		hostLink.detach();
+		sound.detach();
+		seamsAttached = false;
 	}
+	if (pointer.following) stopFollowing();
+	if (document.pointerLockElement) document.exitPointerLock();
+	const gone = emulator;
 	emulator = null;
 	window.tryReactos.emulator = null;
-	startButton.disabled = false;
-	stopButton.disabled = true;
-	fullButton.disabled = true;
-	resetButton.disabled = true;
-	localCursor.setAttribute("hidden", "");
-	say("Stopped. Writes to the guest disk are gone.");
+	if (gone) {
+		try {
+			await gone.destroy();
+		} catch (e) {
+			// Already gone.
+		}
+	}
+}
+
+// The guest powered itself off (Shut Down) or the emulator stopped. v86 keeps running a guest that has finished Shut Down, so the
+// page stops it, keeps the last frame, and lets the visitor turn it on again; the buttons follow (showPower).
+function enteredShutdown(machine) {
+	if (machine !== emulator || powerState !== "on") return;
+	powerState = "shutdown";
+	try {
+		Promise.resolve(machine.stop()).catch(() => {});
+	} catch (e) {
+		// Already stopped.
+	}
+	if (unwatchPower) unwatchPower();
+	unwatchPower = null;
+	if (seamsAttached) {
+		hostLink.detach();
+		sound.detach();
+		seamsAttached = false;
+	}
+	if (pointer.following) stopFollowing();
+	if (document.pointerLockElement) document.exitPointerLock();
+	showPower();
+	say(window.tryReactos.config && window.tryReactos.config.state ? "ReactOS has shut down. Turn on loads the saved desktop again." : "ReactOS has shut down. Turn on starts it again from the beginning.");
 	render();
+}
+
+// Start, and Turn on after a shut down: the same machine again from the same settings, through the normal path.
+async function startOrTurnOn(overrides) {
+	if (powerState === "starting") return;
+	if (emulator) await teardown();
+	await start(overrides);
+}
+
+// The diagnostics panel's way to a full boot of the disk, whatever the saved desktop is.
+function coldBoot() {
+	return startOrTurnOn({ state: "" });
+}
+
+async function stop() {
+	if (!emulator || powerState === "starting") return;
+	// The machine is released at once (its destroy finishes in the background), so the buttons never wait on it.
+	const released = teardown();
+	setPower("off");
+	say("Stopped. Writes to the guest disk are gone.");
+	await released;
 }
 
 // Back to the saved desktop (or a fresh boot when there is no state URL) without reloading the page: the machine is rebuilt from
 // the same settings, and the browser already holds the downloaded files.
 async function reset() {
-	if (!emulator) return;
-	resetButton.disabled = true;
+	if (!emulator || powerState === "starting") return;
+	setPower("starting");
 	say("Resetting…");
-	if (document.pointerLockElement) document.exitPointerLock();
-	await stop();
+	await teardown();
 	stats.ideReads = 0;
 	stats.ideReadBytes = 0;
 	stats.firstIdeReadMs = null;
@@ -569,6 +651,9 @@ window.tryReactos = {
 	stop,
 	input,
 	reset,
+	turnOn: startOrTurnOn,
+	coldBoot,
+	powerState: () => powerState,
 	pointer,
 	canvas: () => screen.querySelector("canvas"),
 	instructions: () => (emulator ? emulator.get_instruction_counter() : 0),
@@ -610,13 +695,14 @@ if (!canRun()) {
 	readQuery();
 	loadWebManifest();
 	if (freshLink) freshLink.addEventListener("click", forceFresh);
-	startButton.addEventListener("click", () => start().catch(() => {}));
+	startButton.addEventListener("click", () => startOrTurnOn().catch(() => {}));
+	if (coldBootButton) coldBootButton.addEventListener("click", () => coldBoot().catch(() => {}));
 	stopButton.addEventListener("click", stop);
 	fullButton.addEventListener("click", () => {
 		if (stage.requestFullscreen) stage.requestFullscreen();
 	});
 	stage.addEventListener("click", (e) => {
-		if (!emulator || document.pointerLockElement) return;
+		if (!emulator || powerState !== "on" || document.pointerLockElement) return;
 		if (LEGACY_MOUSE) emulator.lock_mouse();
 		else if (FOLLOW) {
 			if (!pointer.following) startFollowing(e);
@@ -637,5 +723,6 @@ if (!canRun()) {
 		download("state.bin", new Blob([s]));
 		say("State saved (" + (s.byteLength / MB).toFixed(1) + " MB, uncompressed).");
 	});
+	showPower();
 	render();
 }
