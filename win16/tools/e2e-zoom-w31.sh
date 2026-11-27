@@ -314,11 +314,12 @@ fit_frame() {
 
 # The words of tests/docs/zoomtext.rtf at each zoom are as wide as at 100 percent times the zoom, and no two touch (W16-120: at 125
 # percent the system's own widths of the scaled font ran words together). Win16 wraps the justified paragraph as 11 and 10 words; the
-# page crops are the whole page area. 50 and 25 percent are not measured: the font is a few pixels tall and a one-pixel gap is not
-# a blank column the measure can tell from the font's own spacing (the frames are still compared with their goldens).
+# page crops are the whole page area. At 50 percent only the gaps are measured (every word boundary keeps a blank column; the glyphs
+# are 7 pixels tall and their widths are the font's). 25 percent is not measured: the text is three pixels tall, the lines run into
+# each other and the measure finds no block (the frame is compared with its golden).
 GAPS="$BASE/gaps.$$"
 words_check() {
-	python3 -I "$ROOT/tools/zoom_text.py" frames "$GAPS" --client "0,0,$PAGE_W,$PAGE_H" --zooms 75,100,125,150,200 --words 6,6,6,6,7,11,10 \
+	python3 -I "$ROOT/tools/zoom_text.py" frames "$GAPS" --client "0,0,$PAGE_W,$PAGE_H" --zooms 50,75,100,125,150,200 --gap-only 50 --words 6,6,6,6,7,11,10 \
 		|| drawn=1
 	rm -f "$GAPS/z025.png" "$GAPS/z050.png" "$GAPS/z075.png" "$GAPS/z100.png" "$GAPS/z125.png" "$GAPS/z150.png" "$GAPS/z200.png"
 	rmdir "$GAPS" 2> /dev/null || true

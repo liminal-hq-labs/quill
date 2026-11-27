@@ -210,7 +210,13 @@ pub fn font_handle_at(fr: &FontRef, extra: u8, pct: u8) -> u32 {
 	}
 	unsafe {
 		let cache = &mut *core::ptr::addr_of_mut!(FONTS);
-		let height = -(((i32::from(fr.size) * 96 * i32::from(pct) + 7200) / 14400).max(2));
+		let mut cell = (i32::from(fr.size) * 96 * i32::from(pct) + 7200) / 14400;
+		// At 50 percent and below the system's hinted glyphs are wider than the layout's, so a word has to be squeezed until its
+		// letters run into each other; a font one pixel smaller keeps them apart.
+		if pct <= 50 && cell >= 6 {
+			cell -= 1;
+		}
+		let height = -cell.max(2);
 		let pitch_family = match fr.family {
 			1 => 0x10 | 2,
 			2 => 0x20 | 2,
@@ -694,7 +700,12 @@ fn draw_line(
 				while !keep_space && count > 1 && run.get(count - 1) == Some(&b' ') {
 					count -= 1;
 				}
-				let target = at.x(z, if keep_space { ends.1 } else { ends.0 }) - at.x(z, x);
+				let mut target = at.x(z, if keep_space { ends.1 } else { ends.0 }) - at.x(z, x);
+				// At 50 percent and below a hinted glyph is wider than the layout's and the space is two pixels: a word
+				// followed by a space gives up one pixel of its width to the gap, so the next word never touches it.
+				if z.0 <= 50 && count > 1 && count < *n && !keep_space {
+					target -= 1;
+				}
 				fitted_out(dc, px, py, run.as_ptr(), count, target);
 			}
 		}
