@@ -361,7 +361,12 @@ fn zoom_sign(dc: u32, range: (i32, i32), top: i32, h: i32, plus: bool, enabled: 
 /// end. `shown` is the percentage the page is drawn at, which says whether the buttons have a level to step to.
 pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8], zoom: &[u8], shown: i32) {
 	let h = status_h();
-	let layout = zoom_layout(width);
+	// The print preview passes no zoom text and has no control.
+	let layout = if zoom.is_empty() {
+		None
+	} else {
+		zoom_layout(width)
+	};
 	let text_right = layout.map_or(width, |l| l.left()) - 2;
 	fill(dc, 0, top, width, h, FACE);
 	fill(dc, 0, top, width, 1, WHITE);
