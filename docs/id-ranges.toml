@@ -515,3 +515,11 @@ last = 25
 owner = "Printable media set"
 status = "in use"
 source = "assets/media/README.md"
+
+[[block]]
+prefix = "SITE"
+first = 41
+last = 50
+owner = "First demo launch (WP-LAUNCH)"
+status = "reserved"
+source = "docs/plans/first-demo-launch.md"
