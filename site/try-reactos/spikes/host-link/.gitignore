@@ -1,0 +1,4 @@
+# Build output and the disk images the spike makes.
+/probe/target/
+/probe/dist/
+/out/

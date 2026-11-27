@@ -1,0 +1,29 @@
+# HLPROBE.EXE (H.EXE on the disk): the host-link spike's guest probe for ReactOS 0.4.16. Throwaway; its own workspace, never part of QUILL32.EXE.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[workspace]
+
+[package]
+name = "hlprobe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Spike: clipboard viewer chain, format synthesis, COM1 overlapped I/O, SetLocalTime and display modes on ReactOS"
+license = "Apache-2.0 OR MIT"
+
+[[bin]]
+name = "hlprobe"
+path = "src/main.rs"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+overflow-checks = false

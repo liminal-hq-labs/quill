@@ -1,0 +1,10 @@
+{
+	"name": "host-link-spike",
+	"private": true,
+	"version": "0.0.0",
+	"description": "Throwaway page-side probes for WP-HOST-1: v86's serial rate and the browsers' clipboard behaviour.",
+	"type": "module",
+	"devDependencies": {
+		"playwright-core": "1.65.0"
+	}
+}
