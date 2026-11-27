@@ -145,6 +145,23 @@ test("the overshoot is sent once per arrival at an edge", () => {
 	assert.deepEqual(mover.moveTo(0, 10), [[-62, 0]]);
 });
 
+test("the calls say where the guest is clamped, so an emulator that joins a tick's calls can pause there", () => {
+	const mover = core.createMover({ w: 640, h: 480, maxCount: 120 });
+	mover.x = 10;
+	mover.y = 10;
+	// Arriving at an edge: the overshoot makes the last call a clamp. A move away, and a move along the edge, do not.
+	assert.deepEqual(mover.moveTo(0, 10).clampAfter, [0]);
+	assert.deepEqual(mover.moveTo(0, 10).clampAfter, []);
+	assert.deepEqual(mover.moveTo(30, 10).clampAfter, []);
+	assert.deepEqual(mover.moveBy(3, 4).clampAfter, []);
+	// A park: the clamp is after the last call of the drive into the corner, before the move to the target.
+	const calls = mover.park(300, 200);
+	assert.ok(calls.length > 2);
+	const parkCalls = calls.clampAfter[0] + 1;
+	assert.ok(parkCalls >= 2 && parkCalls < calls.length);
+	assert.equal(calls.clampAfter.length, 1);
+});
+
 test("a park leaves the model equal to the guest from any start, including with units that are not one", () => {
 	const random = seeded(11);
 	for (let run = 0; run < 300; run++) {
@@ -328,6 +345,37 @@ test("Follow: the first move parks, then the guest pointer is under the visitor'
 	dom.frame();
 	assert.equal(rec.log.moves.length, 1);
 	assert.deepEqual(rec.log.moves[0], [20, 10]);
+});
+
+test("the adapter's move is told which call leaves the guest clamped", () => {
+	const flags = [];
+	const { dom } = setup({ send: { move: (dx, dy, clamps) => flags.push(clamps), buttons() {}, wheel: null } });
+	dom.fire("pointermove", at(300, 200));
+	dom.frame();
+	// The first move parks: the drive into the corner ends in a clamp, then the move to the target.
+	assert.ok(flags.length >= 6);
+	assert.equal(flags.filter(Boolean).length, 1);
+	assert.equal(flags[flags.length - 1], false);
+	flags.length = 0;
+	dom.fire("pointermove", at(0, 200));
+	dom.frame();
+	// Arriving at the left edge: the move and its overshoot are split at maxCount, and only the last call is the clamp.
+	assert.ok(flags.length >= 1);
+	assert.equal(flags[flags.length - 1], true);
+	assert.equal(flags.filter(Boolean).length, 1);
+});
+
+test("assume puts the model where the guest is known to be, so the first move is a move and not a park", () => {
+	const { dom, rec, handle } = setup({}, { secure: false });
+	handle.assume(320, 240);
+	dom.fire("pointermove", at(330, 245));
+	dom.frame();
+	assert.deepEqual(rec.log.moves, [[10, 5]]);
+	handle.assume(0, 0);
+	rec.log.moves.length = 0;
+	dom.fire("pointermove", at(0, 0));
+	dom.frame();
+	assert.deepEqual(rec.log.moves, [], "already at the corner: nothing owed, and no overshoot to repeat");
 });
 
 test("Follow hides the system pointer over the picture and shows it over the letterbox", () => {
