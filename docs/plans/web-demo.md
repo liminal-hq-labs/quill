@@ -16,6 +16,7 @@ A plan for the first (and perhaps only) public version of `site/try-reactos/`: a
 - [Work packages](#work-packages)
 - [What the demo needs from reactos-liminal](#what-the-demo-needs-from-reactos-liminal)
 - [Builder briefs](#builder-briefs)
+- [WP-WEB-4 report](#wp-web-4-report)
 - [Owner decisions](#owner-decisions)
 - [Risks](#risks)
 - [What was not verified](#what-was-not-verified)
@@ -518,6 +519,32 @@ Finish line, tests, evidence and decision numbers: the plan's package section. P
 "Prepare the ReactOS demo's data for Pages", "Build the ReactOS web demo end to end".
 ```
 
+## WP-WEB-4 report
+
+**Verdict: GO.** A page-side AC'97 device (about 500 lines of JavaScript in `site/try-reactos/spikes/ac97/`, v86 0.5.473 unchanged) is driven by ReactOS's own `ac97.sys`: the guest played *ReactOS_Critical_Stop.wav* from the Sounds tab, the page's audio sink received it at the right rate with no glitches, and the device's registers saved beside a v86 state and restored so that sounds played again. Run on 2026-11-27 in headless Chromium (no sound card; the sink is an `AudioWorklet` that counts and records what it plays), cold-booting the QAGRR parts at `~/.cache/quill-reactos-liminal-work/dist`. Evidence (waveforms, captured WAV, logs, screenshots) is in `~/Documents/Liminal HQ/Quill/Web demo/WP-WEB-4/`.
+
+| Question | Answer | Numbers |
+|---|---|---|
+| 1. Can the page register a PCI function before the BIOS enumerates PCI, and does SeaBIOS give it BARs and an interrupt? | **Yes, by two routes** | `autostart: false` with `emulator-loaded` works for a cold boot. For a saved state, v86 restores the PCI space *before* `emulator-loaded`, so the device must exist earlier: the spike wraps `emulator.v86.init` (a property setter on the instance) and registers right after v86 creates its devices and before `restore_state`. Both routes gave the same result: slot 3 (`pci_id` 24), SeaBIOS moved the BARs from `0xD000`/`0xD400` to `0xC000`/`0xC100`, interrupt line 11 (the PIIX3's PIRQ registers read 10, 10, 11, 11), pin A. No change to v86's files and no need to wrap the PCI object. The I/O handlers must be registered at the BARs' power-on addresses *before* `register_device`, because v86 copies the port entries then and moves them when a BAR moves |
+| 2. Does ReactOS install `ac97.sys` for it without a window? | **Yes** | The QAGRR disk was installed without the device. On the first cold boot with it, the driver bound silently (no Found New Hardware window); the first codec access came 21 s after the taskbar appeared. Sound and Audio Devices, Audio tab, shows *AC'97 Sound Card* for playback and recording |
+| 3. Right rate and peak? | **Yes** | One play: the driver set variable rate to 22,050 Hz; the device took 39,045 frames (1.77 s at that rate, which matches the sink's 1.64 s of non-silent output plus the quiet tail), 177 buffers, 166 interrupts, peak 0.755, no sample-to-sample jump above 6,000 in the capture. Twenty-five plays 2.3 s apart over 57 s: 25 bursts of 1.64 s (to within 0.16 s), 987,885 frames consumed (44.8 s of audio at 22,050 Hz, as expected), **0 sink underruns, 0 dropped frames, 0 starved frames** |
+| 4. Registers saved beside a state and restored? | **Yes, and needed** | The state (118.8 MB before zstd) was saved with the channel halted; the device's registers (`getState()`, about 1 KB of JSON) went into a sidecar. Restored in a fresh page, two plays: 78,325 frames, peak 0.755, 0 underruns. **Without the sidecar the restored guest stays silent** (0 frames in two plays; the codec's volume and rate registers live in the device). A state built without the device (the current `state.l22.bin.zst`) restored with the device present boots normally and never touches it |
+
+**CPU cost.** Guest idle at the desktop, four 10 s windows per run, two runs each on one machine: **5.4 to 5.5 MIPS without the device, 5.5 to 5.7 with it, and 5.6 with the sink running**; the difference is inside the noise. On the page, rendering the device's stream cost 1.8 ms per second idle (silence) and 5.3 ms per second while playing, so about 0.5 % of one core. The worklet itself is a ring buffer copy.
+
+**What the device had to do** (so WP-WEB-5 can harden it, not re-discover it): ICH bus-master registers (the PCM-out channel's buffer list base, current, last valid and prefetched indexes, status, position in buffer, control), a codec that answers as a plain AC'97 2.3 codec (reset, powered-up status `0x000F`, variable rate with `0x2C` honoured only when `0x2A` bit 0 is set, volume registers applied as gain, vendor ID `0x8384 0x7600`), the global control and status words with the primary codec ready bit, and a codec access semaphore that always reads free. The driver loops buffers with an interrupt on completion (about 72 interrupts per second at 22,050 Hz), clears the run bit when a sound ends and writes a new last valid index to resume; the model also resumes a channel halted at the last valid buffer when a new index is written with the run bit still set. The interrupt is level-style (`raise_irq` when an enabled status bit is set, `lower_irq` when the guest clears it).
+
+**Fallback if it ever regresses.** PC speaker only (the page stops passing `disable_speaker: true`; beeps from `beep.sys`, no system sounds or saver scores), or a v86 fork carrying the device in `src/` (breaks SITE-7's "unchanged from npm" and needs v86's Closure build). Neither is needed now.
+
+**Hand-offs for WP-WEB-5.**
+
+- Register the device by wrapping `emulator.v86.init`, not on `emulator-loaded`, so the same code serves cold boots and states. Keep the `autostart: false` route as a documented alternative for cold boots only.
+- Keep the device's registers in the manifest's `audio` object (or `state-<hash>.audio.json`) and always restore them with the state; save the state while no sound plays (the channel is halted, so only registers matter).
+- The sink here pulls from the page: the worklet asks every 10.7 ms and the page tops its ring up to 120 ms. It runs in a headless browser with no sound card, so the autoplay and speaker paths are untested (below).
+- The guest's first codec access comes about 21 s after the desktop on a cold boot; a state built with the device present avoids that wait, as the plan's state build already assumes.
+
+**Not verified:** real speakers (the sink was measured, not heard), Firefox and Safari (the `AudioContext` start inside the Start click, `AudioWorklet` support, autoplay), mobile browsers, a hidden tab's timers, the Win32 and DOS builds (this is the ReactOS demo only), Quill's own sounds and the Afterglow savers' scores (the Sounds tab's WAV was the test), and CPU cost on a slow machine (MIPS were measured on a loaded workstation at 5.5 idle).
+
 ## Owner decisions
 
 Each is taken with the default so no package waits; the last column is where to change it.
@@ -528,7 +555,7 @@ Each is taken with the default so no package waits; the last column is where to 
 | Raster PDF now, text-layer later? | **Decided by the owner: a text layer from the start** (W9X-91); embedded font subsets later (W9X-92) | WP-WEB-3's `[Print] PdfDpi` (now the layout resolution, W9X-94) and `docs/linux.md` P7b |
 | Which port carries files to the page? | COM1 with the `LHQ-FILE` frame | SITE-15 (WP-WEB-2) |
 | Generic "Send to this computer" for any file? | Yes, `SENDHOST.CMD` and a desktop drop-target shortcut; Send To once rl supports it | WP-WEB-2; the reactos-liminal table |
-| Sound through a page-side AC'97 device, a v86 fork, or none? | Page-side device if WP-WEB-4 says go; otherwise PC speaker only until the owner picks the fork | WP-WEB-4's report; the order table |
+| Sound through a page-side AC'97 device, a v86 fork, or none? | **Page-side device: WP-WEB-4 said go** (SITE-19); otherwise PC speaker only until the owner picks the fork | WP-WEB-4's report; the order table |
 | Sound on or muted after Start? | On, at 70 %, remembered per browser | `sound.js` (WP-WEB-5) |
 | Hosting | GitHub Pages, same origin, data pulled by the workflow from a pinned release asset | Goal 4; WP-WEB-7 |
 | HTTPS on `labs.liminalhq.ca` | Ask the owner to fix the certificate (Pages' *Enforce HTTPS* after the domain's certificate is issued); the demo works over HTTP meanwhile | Pages settings for the organization |

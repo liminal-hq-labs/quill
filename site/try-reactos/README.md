@@ -299,3 +299,23 @@ The disk is 4 GiB raw and nearly all of it is empty, so the parts are mostly a f
 | 16 MiB | 256 | 47.8 MB | 4.05 MB | 12.9 MB (7) | 29.9 MB | 18 | 2.1 / 10.3 s | 3.3 / 14.3 s |
 
 The first frame shows at 0.15 s on both throttle profiles and the restored desktop is live when the state has arrived, so the time to the desktop is the state's download and does not change with the part size; the disk is read after it. The pitch session in `measure.ts` (typing, scrolling) reads no disk at all after a restore, so it cannot tell the sizes apart. 8 MiB is the default: 512 files, a session download 1.3 times that of 1 MiB parts (the limit was 1.5), and 1 to 5 s more disk time spread over the session. 4 MiB (1,024 files) would not fit a Release; 16 MiB reaches 1.5 times. Part sets of any size still load: the page reads `chunk` from the parts' `manifest.json`, and `?chunk=` overrides it.
+
+## The AC'97 sound spike
+
+`spikes/ac97/` holds the WP-WEB-4 experiment: an Intel ICH AC'97 controller and codec written in JavaScript (`ac97-model.js`, a pure register model), attached to v86 0.5.473 from the page through its PCI, I/O port, interrupt and memory internals (`ac97-v86.js`), with an `AudioWorklet` output that doubles as a capture point (`ac97-sink.js`). ReactOS's own `ac97.sys` drives it. The verdict, the numbers and the hand-offs are in the *WP-WEB-4 report* in `docs/plans/web-demo.md`. Nothing here is wired into the published page.
+
+```sh
+node --test site/try-reactos/spikes/ac97/ac97-model.test.mjs   # the register model, no browser
+```
+
+The in-browser runs need the harness server and its own virtual display, never the desktop:
+
+```sh
+cd site/try-reactos/harness && bun install --frozen-lockfile
+Xvfb :95 -screen 0 1280x1000x24 -nolisten tcp &                # note its PID; end it by PID
+PORT=18101 IMAGES_DIR=~/.cache/quill-reactos-liminal-work/dist bun serve.ts &
+cd ../spikes/ac97 && unset WAYLAND_DISPLAY
+DISPLAY=:95 bun run-spike.ts probe      # cold boot with the device; BARs, interrupt line and the guest's register traffic
+DISPLAY=:95 bun run-spike.ts mips       # idle instruction rate (--no-ac97, --sink)
+DISPLAY=:95 bun run-spike.ts session    # boots, then runs snippets dropped in a folder, for driving the guest's Sounds tab
+```
