@@ -349,6 +349,8 @@ The Windows 95 build runs under Wine, but Quill hard-codes 96 dpi, so it cannot 
 
 ## Work list
 
+The GTK items still open (G3, G5, G6, G7, G8 and the page's spelling marks and header editing) are ordered as work packages `WP-GTK-1` to `WP-GTK-9` in [ui-track.md](ui-track.md), with their dependencies and builder briefs (LNX-21). The table below is the original plan.
+
 Items marked *new files* touch only new files and one line of the root `Cargo.toml`, so they can land beside the open branches.
 
 | Item | Contents | Acceptance | Needs |
