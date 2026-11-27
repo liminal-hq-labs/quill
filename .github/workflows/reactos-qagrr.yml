@@ -60,7 +60,7 @@ jobs:
           if-no-files-found: error
 
   image:
-    name: Build the QAGRR parts
+    name: Build the QAGRR parts and state
     needs: quill
     runs-on: ubuntu-24.04
     timeout-minutes: 300
@@ -106,6 +106,30 @@ jobs:
           QUILL_COMMIT: ${{ github.sha }}
         run: bash site/try-reactos/qagrr/build-with-rl.sh --work "$WORK" --quill-dir "$RUNNER_TEMP/quill" --out "$DIST"
 
+      # The saved v86 state for those parts (not reproducible byte for byte; see SITE-11), from Playwright's Chromium: the runner has no
+      # unsnapped one. The state build and its check serve the parts on 127.0.0.1 only.
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22.21.1'
+
+      - name: Install headless Chromium
+        working-directory: site/try-reactos/harness
+        run: |
+          npm install --no-save --no-package-lock --no-audit --no-fund playwright-core@1.65.0
+          npx playwright-core install --with-deps chromium
+          echo "CHROMIUM=$(node -p "require('playwright-core').chromium.executablePath()")" >> "$GITHUB_ENV"
+
+      - name: Build the saved state
+        env:
+          RUNTIME: node
+        run: bash site/try-reactos/qagrr/build-state.sh "$DIST"
+
+      - name: Check the saved state
+        env:
+          RUNTIME: node
+        run: bash site/try-reactos/qagrr/check-state.sh "$DIST" "$DIST/check"
+
       - name: Summarise
         if: always()
         run: |
@@ -116,7 +140,7 @@ jobs:
         if: always()
         run: df -h / /mnt
 
-      - name: Upload the parts and manifest
+      - name: Upload the parts, state and manifest
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: reactos-qagrr
