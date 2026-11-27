@@ -460,6 +460,20 @@ impl<M: Measure + Clone> App<M> {
 					self.key(s, f, Key::Esc);
 				}
 			}
+			#[cfg(feature = "text-recovery")]
+			Mode::Recover(ask, _) => {
+				use crate::recover_box as rb;
+				let n = rb::wrap(ask.text.as_bytes()).0;
+				let list = rb::buttons(ask.buttons);
+				for i in 0..list.len() {
+					let (x, w) = rb::button_at(list, i);
+					if at((rb::BOX_X + x) as i32, (rb::BOX_Y + 3 + n) as i32, w) {
+						self.mode = Mode::Recover(ask, i as u8);
+						self.key(s, f, Key::Enter);
+						return;
+					}
+				}
+			}
 			Mode::Confirm(c, _) => {
 				for (i, (x, w)) in [(16, 7usize), (30, 6), (43, 10)].iter().enumerate() {
 					if at(*x, 12, *w) {

@@ -21,7 +21,7 @@ use quill_core::layout::Measure;
 use quill_core::store::Store;
 use quill_job::{Budget, Inline, Poll, Task};
 
-use crate::recovery::{base_name, NoInput, Why, Wrote, STR_AUTOSAVING};
+use crate::recovery::{base_name, Why, Wrote, STR_AUTOSAVING};
 use crate::{App, Files, Mode};
 
 /// The kinds of job, in the order `App::idle` runs them. A `quill_job::Ticket` carries one.
@@ -325,11 +325,10 @@ impl<M: Measure + Clone> App<M> {
 		if forced {
 			self.msg.clear();
 		}
-		let how = if forced {
-			self.save_recovery_with(s, f, Why::Autosave, NoInput)
-		} else {
-			self.save_recovery_with(s, f, Why::Autosave, input)
-		};
+		// One writer serves both, so the program holds one copy of it: a forced write polls a check that never says stop.
+		let mut never = || false;
+		let poll: &mut dyn FnMut() -> bool = if forced { &mut never } else { input };
+		let how = self.save_recovery_with(s, f, Why::Autosave, poll);
 		match how {
 			Wrote::Done => {
 				self.idle.saved = rev;

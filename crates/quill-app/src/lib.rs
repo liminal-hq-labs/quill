@@ -38,6 +38,8 @@ pub mod platform;
 mod pointer;
 mod print;
 pub mod recent;
+#[cfg(feature = "text-recovery")]
+mod recover_box;
 pub mod recovery;
 mod reflow;
 pub mod safe;
@@ -543,6 +545,9 @@ pub(crate) enum Mode {
 	/// The Save changes question: the command waiting, and the focused button (0 Yes, 1 No, 2 Cancel).
 	Confirm(Command, u8),
 	About,
+	/// The recovery question in a box of cells, and the focused button.
+	#[cfg(feature = "text-recovery")]
+	Recover(flow::Ask, u8),
 	Find(find::FindState),
 	Form(form::Form),
 	Spell(spelling::SpellDlg),
@@ -773,6 +778,8 @@ impl<M: Measure + Clone> App<M> {
 		self.msg.clear();
 		self.run(s, f, c);
 		self.rcv_after(f);
+		#[cfg(feature = "text-recovery")]
+		self.recovery_prompt(s, f);
 		self.sync_layout(s);
 		self.scroll(s);
 	}
@@ -2024,6 +2031,8 @@ impl<M: Measure + Clone> App<M> {
 			Mode::Spell(d) => self.key_spell(s, f, k, d),
 			#[cfg(feature = "text-file-dialog")]
 			Mode::File => self.key_file(s, f, k),
+			#[cfg(feature = "text-recovery")]
+			Mode::Recover(ask, focus) => self.key_recover(s, f, k, ask, focus),
 			Mode::Confirm(c, focus) => {
 				let answer = match k {
 					Key::Char(b'y' | b'Y') => Some(0),
@@ -2063,6 +2072,8 @@ impl<M: Measure + Clone> App<M> {
 			}
 		}
 		self.rcv_after(f);
+		#[cfg(feature = "text-recovery")]
+		self.recovery_prompt(s, f);
 		self.sync_layout(s);
 		self.scroll(s);
 	}

@@ -101,6 +101,15 @@ impl<M: Measure + Clone> App<M> {
 				}
 				_ => Pressed::Nothing,
 			},
+			#[cfg(feature = "text-recovery")]
+			Mode::Recover(ask, _) => {
+				if w.kind != Wk::Button {
+					return Pressed::Nothing;
+				}
+				self.mode = Mode::Recover(ask, w.id);
+				self.key(s, f, Key::Enter);
+				Pressed::Acted
+			}
 			Mode::Confirm(c, _) => {
 				if w.kind != Wk::Button {
 					return Pressed::Nothing;

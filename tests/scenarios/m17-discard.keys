@@ -1,0 +1,6 @@
+# M17: Discard throws the copy away, so the editor is empty and a second start finds nothing to offer.
+@recovery
+@mono
+@copy quill.rcv RECOVER\
+@stamp RECOVER\QUILL.RCV 2025-01-01 00:00
+d

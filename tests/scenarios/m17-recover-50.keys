@@ -1,0 +1,6 @@
+# M17: the same question on the 50 row screen.
+@recovery
+@rows 50
+@copy quill.rcv RECOVER\
+@stamp RECOVER\QUILL.RCV 2025-01-01 00:00
+enter                 # Recover is the button Enter presses

@@ -135,7 +135,7 @@ stage_disk() { # <scenario file> <disk>
 				truncate -s $(((i * 7919) % 90000 + 1)) "$name"
 				m=$(((i * 5) % 12 + 1))
 				dd=$(((i * 3) % 28 + 1))
-				touch -d "$(printf '%d-%02d-%02d %02d:%02d' $((2024 + i % 3)) "$m" "$dd" $((i % 24)) $((i % 60)))" "$name"
+				touch -d "$(printf '%d-%02d-%02d %02d:%02d' $((2021 + i % 3)) "$m" "$dd" $((i % 24)) $((i % 60)))" "$name"
 			done
 			;;
 		esac
@@ -237,6 +237,44 @@ for scen in m16-open m16-open-50 m16-open-mono m16-big m16-errors; do
 	run_mouse_text "$scen" "" normalise
 done
 run_mouse_text m16-save-as "" normalise
+# The recovery question (tests/scenarios/m17-*.keys): the old QUILL.RCV in `RECOVER\` is offered at launch in the app's own box, and
+# Recover, Discard and Later are the host's, screen for screen.
+for scen in m17-recover m17-recover-50 m17-discard m17-later; do
+	run_mouse_text "$scen" ""
+done
+# Autosave and the offer, in real time: `AutosaveSeconds=3` makes the copy due three seconds after the first change, and the keys come four
+# seconds apart so the keyboard is quiet when it is. The first run is cut off (a power cut: DOSBox is stopped with the program still
+# running) and leaves a copy in `RECOVER\`; the second start offers it, Recover brings back the typed letters, and Exit with No leaves
+# no copy behind.
+if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = m17-autosave ]; then
+	disk="$WORK/disk-m17-autosave"
+	rm -rf "$disk" "$WORK/keep"
+	mkdir -p "$disk"
+	cp "$HERE/dist/QUILLDOS.EXE" "$disk/"
+	printf '[Quill]\r\nAutosaveSeconds=3\r\n' > "$disk/QUILL.INI"
+	export DOS_ENV='QUILL_DUMP=D:\DUMP.TXT'
+	export DOS_KEEP="$WORK/keep"
+	export DOS_AUTOTYPE="-w 2 -p 4 h e l l o"
+	export DOS_TIMEOUT=15
+	rc=0
+	"$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE" > "$WORK/m17-autosave.out" || rc=$?
+	[ "$rc" = 124 ] || fail "m17-autosave: the first run was to be cut off, and exited with $rc"
+	copies=("$disk"/RECOVER/~Q*.RCV)
+	[ -f "${copies[0]}" ] || fail "m17-autosave: no recovery copy in RECOVER\\ after the pause in typing"
+	[ "$(head -c 4 "${copies[0]}")" = RIFF ] || fail "m17-autosave: the recovery copy is not a .QLD"
+	rm -rf "$WORK/keep"
+	export DOS_AUTOTYPE="-w 2 -p 1 r f10 end enter right enter"
+	export DOS_TIMEOUT=60
+	rc=0
+	"$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE" > "$WORK/m17-autosave.out" || rc=$?
+	[ "$rc" = 0 ] || fail "m17-autosave: the second run exited with $rc"
+	tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/m17-autosave-frames.txt"
+	grep -q 'Quill found an untitled document that was not saved' "$WORK/m17-autosave-frames.txt" || fail "m17-autosave: the second start did not offer the copy"
+	grep -q '^ \{10\}h[a-z]*  *$' "$WORK/m17-autosave-frames.txt" || fail "m17-autosave: Recover did not bring back the typed letters"
+	leftover=("$disk"/RECOVER/~Q*.RCV)
+	[ ! -e "${leftover[0]}" ] || fail "m17-autosave: Exit with No left a recovery copy behind"
+	echo "e2e: m17-autosave: a copy was written after the pause, offered at the next start, recovered, and gone after Exit"
+fi
 if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = m16-save-as ]; then
 	cmp "$WORK/disk-m16-save-as/DOCS/NEW.RTF" "$ROOT/tests/golden/files/m16-new.rtf" || fail "m16-save-as: the saved NEW.RTF differs from the host's"
 	cmp "$WORK/disk-m16-save-as/DOCS/LETTER.RTF" "$ROOT/tests/golden/files/m16-letter.rtf" || fail "m16-save-as: the saved LETTER.RTF differs from the host's"
@@ -302,7 +340,12 @@ run_mouse_gfx() { # <label> <machine> <arguments> <16|256> [scenario, default g8
 	mkdir -p "$disk"
 	cp "$HERE/dist/QUILLDOS.EXE" "$disk/"
 	cp "$ROOT/tests/fonts/QUILLTST.FNT" "$disk/QUILL.FNT"
-	cp "$ROOT/tests/docs/$doc" "$disk/$(echo "$doc" | tr '[:lower:]' '[:upper:]')"
+	if grep -q '^@recovery' "$file"; then
+		# A scenario with a recovery copy stages its files, in their folders, as the text scenarios do.
+		stage_disk "$file" "$disk"
+	else
+		cp "$ROOT/tests/docs/$doc" "$disk/$(echo "$doc" | tr '[:lower:]' '[:upper:]')"
+	fi
 	cp "$file" "$disk/MOUSE.TXT"
 	export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT\nQUILL_MOUSE=MOUSE.TXT'
 	if grep -q '^@prompt' "$file"; then DOS_ENV+=$'\nQUILL_PROMPT=1'; fi
@@ -341,6 +384,10 @@ run_mouse_gfx g11-gfx-zoom-12h svga_s3 /G16 16 g11-gfx-zoom
 run_mouse_gfx g11-gfx-zoom-vbe svga_s3 /G 256 g11-gfx-zoom
 # Check Spelling as You Type in graphics (tests/scenarios/g10-gfx-spell.keys): `@spell` runs the whole scan after each frame, as the host's
 # does, and the waves are in the frames' CRCs.
+# G17: the recovery question on the graphics screen (tests/scenarios/g17-gfx-recover.keys): the old QUILL.RCV in `RECOVER\` is offered at launch as a
+# dialog of bevelled buttons, Tab moves the focus and a click on Recover brings the copy back, in both modes with the host's frames.
+run_mouse_gfx g17-gfx-recover-12h svga_s3 /G16 16 g17-gfx-recover
+run_mouse_gfx g17-gfx-recover-vbe svga_s3 /G 256 g17-gfx-recover
 run_mouse_gfx g10-gfx-spell-12h svga_s3 /G16 16 g10-gfx-spell
 run_mouse_gfx g10-gfx-spell-vbe svga_s3 /G 256 g10-gfx-spell
 # The file dialog in graphics (tests/scenarios/g9-gfx-*.keys): the dialog's folders, dates and sizes come from a real disk, as in the text

@@ -352,6 +352,27 @@ impl<M: Measure + Clone> crate::App<M> {
 				o.name_box(title, b"File name:", text, (caret.at(), caret.selection()));
 				true
 			}
+			#[cfg(feature = "text-recovery")]
+			Mode::Recover(ask, focus) => {
+				use crate::recover_box as rb;
+				let (n, lines) = rb::wrap(ask.text.as_bytes());
+				o.start(b"Quill", rb::BOX_W as u8, n as u8 + 3);
+				for (i, (a, b)) in lines.iter().take(n).enumerate() {
+					o.label(
+						2,
+						1 + i as u8,
+						ask.text.as_bytes().get(*a..*b).unwrap_or(&[]),
+					);
+				}
+				let list = rb::buttons(ask.buttons);
+				let mut x = 2;
+				for (i, (label, _)) in list.iter().enumerate() {
+					let on = usize::from(*focus) == i;
+					let w = o.button(i as u8, x, n as u8 + 2, label, on, on);
+					x += w + 2;
+				}
+				true
+			}
 			Mode::Confirm(_, focus) => {
 				o.start(b"Quill", 56, 4);
 				let mut t = [0u8; WID_TEXT];

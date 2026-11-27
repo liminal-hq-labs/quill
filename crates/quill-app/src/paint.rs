@@ -941,6 +941,37 @@ pub fn draw_rows<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 			}
 			cursor = None;
 		}
+		#[cfg(feature = "text-recovery")]
+		Mode::Recover(ask, focus) => {
+			use crate::recover_box as rb;
+			let (n, lines) = rb::wrap(ask.text.as_bytes());
+			let list = rb::buttons(ask.buttons);
+			dialog(g, rb::BOX_X - 1, rb::BOX_W, rb::box_h(n), b" Quill ");
+			for (i, (a, b)) in lines.iter().take(n).enumerate() {
+				g.text(
+					rb::BOX_X + 1,
+					rb::BOX_Y + 2 + i,
+					ask.text.as_bytes().get(*a..*b).unwrap_or(&[]),
+					attr::CHROME,
+				);
+			}
+			for (i, (label, _)) in list.iter().enumerate() {
+				let mut r = Row::new();
+				r.s("< ").bytes(label).s(" >");
+				let a = if usize::from(focus) == i {
+					SELECTED
+				} else {
+					attr::CHROME
+				};
+				g.text(
+					rb::BOX_X + rb::button_at(list, i).0,
+					rb::BOX_Y + 3 + n,
+					r.buf.get(..r.n).unwrap_or(&[]),
+					a,
+				);
+			}
+			cursor = None;
+		}
 		Mode::Confirm(_, focus) => {
 			dialog(g, 8, 62, 7, b" Quill ");
 			let mut r = Row::new();

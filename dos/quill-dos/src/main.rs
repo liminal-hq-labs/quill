@@ -29,6 +29,7 @@ use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
 use measure::ScreenMeasure;
+use quill_app::idle::Idle;
 use quill_app::mouse::{Ctx, Pointer, TextCells};
 use quill_app::picture::WINDOW;
 use quill_app::script::Step;
@@ -134,6 +135,7 @@ const SPELL_WORDS: u32 = 4;
 
 /// What the idle loop knows about Check Spelling as You Type: when the person last did something, and whether a scan is running.
 struct Spell {
+	/// BIOS clock ticks at the last key or button; autosave measures its quiet from it too.
 	last_input: u32,
 	scanning: bool,
 	done: bool,
@@ -182,7 +184,9 @@ impl Spell {
 			self.scanning = true;
 		}
 		if !app.spell_live_ready(store, files) {
+			// No dictionary to scan with: nothing is left to wait for until the next key (autosave goes on without it).
 			self.scanning = false;
+			self.done = true;
 			return false;
 		}
 		if !app.spell_idle(store, SPELL_WORDS) {
@@ -191,6 +195,51 @@ impl Spell {
 			self.done = true;
 		}
 		app.spell_take_changed().is_some()
+	}
+}
+
+/// Ticks between two looks at the autosave timer: about half a second, so the clock is asked twice a second and not at every turn of
+/// the wait.
+const AUTOSAVE_LOOK: u32 = 9;
+
+/// What the idle loop knows about autosave: when `App::idle` was last asked.
+struct Saver {
+	at: u32,
+}
+
+impl Saver {
+	fn new() -> Self {
+		Saver { at: mouse::ticks() }
+	}
+
+	/// Called each time round the wait for a key, after spelling has had its turn. Twice a second it hands the app a pass of idle
+	/// time: the app decides whether a recovery copy is due, and a key that waits stops the write. True when the status line changed
+	/// (`Autosaving LETTER.QLD...`), so the screen is drawn again.
+	#[inline(never)]
+	fn step(
+		&mut self,
+		app: &mut App<ScreenMeasure>,
+		store: &mut HeapStore,
+		files: &mut files::DosFiles,
+		last_input: u32,
+	) -> bool {
+		let now = mouse::ticks();
+		if now.wrapping_sub(self.at) < AUTOSAVE_LOOK {
+			return false;
+		}
+		self.at = now;
+		let before = app.message().len();
+		let ctx = Idle {
+			quiet: now.wrapping_sub(last_input) / 18,
+			units: 1,
+			busy: false,
+		};
+		let done = app.idle(store, files, ctx, &mut keys::key_ready);
+		if done.more {
+			// The next pass writes the copy that was just announced.
+			self.at = now.wrapping_sub(AUTOSAVE_LOOK);
+		}
+		done.more || app.message().len() != before
 	}
 }
 
@@ -287,6 +336,8 @@ fn main() -> i32 {
 
 /// Everything the two screens share: an empty document, the settings, and the command line (`/MONO`, a file to open).
 fn start(app: &mut App<ScreenMeasure>, store: &mut HeapStore, files: &mut files::DosFiles, zoom: Option<u16>) -> bool {
+	// The writer a recovery copy records: 0 for the text screens, 1 for the graphics screen.
+	let writer = u8::from(zoom.is_some());
 	if app.reset(store).is_err() {
 		return false;
 	}
@@ -299,7 +350,11 @@ fn start(app: &mut App<ScreenMeasure>, store: &mut HeapStore, files: &mut files:
 	if script_text().is_some_and(|t| t.split_whitespace().any(|w| w == "@spell" || w == "@live")) {
 		app.set_spell_live_default(true);
 	}
-	app.load_settings(files);
+	// A recovery copy is written every ten minutes unless `Autosave=` under `[Quill]` says otherwise, and the questions are asked in the
+	// app's own box. The list of documents with a copy is read from `QUILL.INI` with the other settings.
+	app.configure_recovery(10, writer, false);
+	app.set_recovery(true);
+	app.load_settings_with(store, files);
 	// The test runs (`QUILL_DUMP`) keep one fixed line so the DOS screens match the host's; otherwise About says what it runs on.
 	if env::var("QUILL_DUMP").is_some() {
 		app.set_about("Host test run");
@@ -360,6 +415,9 @@ fn run(rows: usize, kept: &Kept) -> i32 {
 	}
 	app.set_rows(rows - 2);
 	file_dialog(&mut app);
+	// A copy left by a session that stopped without saving is offered before the file named on the command line opens.
+	app.recovery_check_launch(&mut store, &mut files);
+	app.recovery_prompt(&mut store, &mut files);
 	open_arguments(&mut app, &mut store, &mut files);
 	clock::set(&mut app);
 	let mut dump = env::var("QUILL_DUMP").and_then(|p| File::open(&p, Mode::Create).ok());
@@ -368,6 +426,7 @@ fn run(rows: usize, kept: &Kept) -> i32 {
 	let mut ptr = Pointer::default();
 	let mut mouse = mouse::open(80, rows as i32, (8, 8));
 	let mut spell = Spell::new();
+	let mut saver = Saver::new();
 	let script = script_text();
 	let mut at = None;
 	show(rows, &app, &store, &mut dump, &mut n, at, true);
@@ -428,6 +487,11 @@ fn run(rows: usize, kept: &Kept) -> i32 {
 				any = true;
 				clicked = true;
 			}
+			// Spelling is done or off, and the keyboard is quiet: the recovery copy, when one is due.
+			if !any && (spell.done || !app.spell_live()) && saver.step(&mut app, &mut store, &mut files, spell.last_input) {
+				any = true;
+				clicked = true;
+			}
 			any
 		});
 		at = mouse.as_ref().map(|m| m.at()).or(at);
@@ -445,7 +509,7 @@ fn run(rows: usize, kept: &Kept) -> i32 {
 	if let Some(m) = mouse {
 		m.close();
 	}
-	app.save_settings(&mut files);
+	app.save_settings_with(&store, &mut files);
 	// `save_settings` writes only the keys the app knows, so what the shell keeps goes back at the end of `[Quill]`.
 	kept.put_back();
 	if let Some(f) = &mut dump {
@@ -494,6 +558,8 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 		app.set_file_dialog_graphics(true);
 		file_dialog(&mut app);
 	}
+	app.recovery_check_launch(&mut store, &mut files);
+	app.recovery_prompt(&mut store, &mut files);
 	open_arguments(&mut app, &mut store, &mut files);
 	clock::set(&mut app);
 	let mut window = Box::new([0u8; WINDOW]);
@@ -517,6 +583,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 	let mut at: Option<(i32, i32)> = None;
 	let mut repaint = true;
 	let mut spell = Spell::new();
+	let mut saver = Saver::new();
 	loop {
 		if repaint {
 			// A pass over the laid-out lines is what the painter does several times a screen; timing one shows what layout costs.
@@ -642,6 +709,11 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 						moved = true;
 						any = true;
 					}
+					if !any && (spell.done || !app.spell_live()) && saver.step(&mut app, &mut store, &mut files, spell.last_input)
+					{
+						moved = true;
+						any = true;
+					}
 					any
 				});
 				at = mouse.as_ref().map(|m| m.at()).or(at);
@@ -673,7 +745,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 	if let Some(m) = mouse {
 		m.close();
 	}
-	app.save_settings(&mut files);
+	app.save_settings_with(&store, &mut files);
 	kept.put_back();
 	if let Some(f) = &mut times {
 		let mut line = Line::new();

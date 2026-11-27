@@ -13,7 +13,7 @@ description = "Quill's page painter over a Surface trait, with planar 16-colour 
 
 [dependencies]
 quill-core = { path = "../quill-core" }
-quill-app = { path = "../quill-app", features = ["text-file-dialog"] }
+quill-app = { path = "../quill-app", features = ["text-file-dialog", "text-recovery"] }
 quill-dlg = { path = "../quill-dlg" }
 quill-strike = { path = "../quill-strike" }
 quill-image = { path = "../quill-image" }

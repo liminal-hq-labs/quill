@@ -13,7 +13,7 @@ path = "src/bin/quill-render.rs"
 [dependencies]
 quill-heap = { path = "../quill-heap" }
 quill-grid = { path = "../quill-grid" }
-quill-app = { path = "../quill-app", features = ["text-file-dialog"] }
+quill-app = { path = "../quill-app", features = ["text-file-dialog", "text-recovery"] }
 quill-dlg = { path = "../quill-dlg", features = ["fake"] }
 quill-core = { path = "../quill-core" }
 quill-formats = { path = "../quill-formats" }
