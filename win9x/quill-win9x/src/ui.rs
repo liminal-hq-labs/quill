@@ -1421,12 +1421,10 @@ pub unsafe fn refresh_clock(sh: &mut Shell) {
 const SB_SETTEXTA: u32 = 0x0401;
 const SB_SETPARTS: u32 = 0x0404;
 const SB_GETRECT: u32 = 0x040A;
-/// The panes of the zoom control, after the five of text: the minus button, the box, the plus button, and the margin that holds the
-/// size grip at the right end.
-const MINUS_PANE: usize = 5;
-const ZOOM_PANE: usize = 6;
-const PLUS_PANE: usize = 7;
-const PANE_COUNT: usize = 9;
+/// The last pane, after the five of text: the zoom control, one sunken pane drawn by the window (minus, the box and plus) that runs
+/// to the bar's right edge, so the margin and the size grip, which the bar draws itself, sit inside its frame.
+const ZOOM_PANE: usize = 5;
+const PANE_COUNT: usize = 6;
 /// How wide each part of the control is: the box fits `Page Width`, and the margin is as wide as the size grip, which the bar draws in
 /// the corner (`quill_app::zoom_field::ZOOM_MARGIN` is the least a bar without one leaves).
 const ZOOM_METRICS: ZoomMetrics = ZoomMetrics {
@@ -1436,8 +1434,7 @@ const ZOOM_METRICS: ZoomMetrics = ZoomMetrics {
 };
 /// The narrowest window that has room for the control beside the other panes.
 const ZOOM_MIN_CLIENT_W: i32 = 600;
-/// `SBT_POPOUT`: the pane is drawn raised, like a button. `SBT_OWNERDRAW`: the window draws the pane's inside (`WM_DRAWITEM`).
-const SBT_POPOUT: usize = 0x0200;
+/// `SBT_OWNERDRAW`: the window draws the pane's inside (`WM_DRAWITEM`).
 const SBT_OWNERDRAW: usize = 0x1000;
 const GWL_WNDPROC: i32 = -4;
 const WM_LBUTTONUP: u32 = 0x0202;
@@ -1497,20 +1494,12 @@ pub unsafe fn status_layout(hwnd: Handle, sh: &mut Shell) {
 	let font = 130;
 	let pos = 105;
 	let name = 105;
-	let (minus_end, field_end, plus_end) = if wide {
-		(layout.minus.1, layout.field.1, layout.plus.1)
-	} else {
-		(w, w, w)
-	};
 	let edges: [i32; PANE_COUNT] = [
 		(w - state - font - pos - name).max(60),
 		(w - state - font - pos).max(80),
 		(w - state - font).max(100),
 		(w - state).max(120),
 		w.max(140),
-		minus_end,
-		field_end,
-		plus_end,
 		-1,
 	];
 	SendMessageA(sh.sb, SB_SETPARTS, PANE_COUNT, edges.as_ptr() as isize);
@@ -1588,40 +1577,67 @@ unsafe fn zoom_button(hwnd: Handle, sh: &mut Shell, up: bool) {
 	}
 }
 
-/// Draws the inside of the minus or plus button for `WM_DRAWITEM`: a bar, or a cross, in the button text colour, or embossed grey when
-/// the button has no level to step to. `data` is what `status_update` gave the pane: the sign and whether it is enabled.
-pub unsafe fn draw_zoom_button(item: &DrawItem) {
+/// Draws the zoom control for `WM_DRAWITEM`, inside its one sunken pane: a minus sign, the zoom and a plus sign, with a thin etched
+/// line between them, as a flat part of the bar. A sign with no level to step to (`zoom_step`) is embossed grey. `data` is what
+/// `status_update` gave the pane: bit 0 minus is live, bit 1 plus is live, and the zoom (0 for Page Width) from bit 8.
+pub unsafe fn draw_zoom_control(item: &DrawItem) {
 	let dc = item.dc;
 	let r = item.rect;
-	let enabled = item.data & 0x100 != 0;
-	let plus = item.data & 0xFF == usize::from(b'+');
-	let mid_x = (r.left + r.right) / 2;
+	let mut bar = Rect {
+		left: 0,
+		top: 0,
+		right: 0,
+		bottom: 0,
+	};
+	GetClientRect(item.window, &mut bar);
+	let layout = ZoomLayout::new(bar.right, ZOOM_METRICS);
+	let (minus, field, plus) = (layout.minus, layout.field, layout.plus);
 	let mid_y = (r.top + r.bottom) / 2;
-	let mut draw = |colour: u32, dx: i32, dy: i32| {
+	let shadow = GetSysColor(COLOR_BTNSHADOW);
+	let highlight = GetSysColor(COLOR_BTNHIGHLIGHT);
+	let rect_fill = |left: i32, top: i32, right: i32, bottom: i32, colour: u32| {
 		SetBkColor(dc, colour);
-		let bar = Rect {
-			left: mid_x - 4 + dx,
-			top: mid_y - 1 + dy,
-			right: mid_x + 4 + dx,
-			bottom: mid_y + 1 + dy,
+		let rect = Rect {
+			left,
+			top,
+			right,
+			bottom,
 		};
-		ExtTextOutA(dc, bar.left, bar.top, ETO_OPAQUE, &bar, null(), 0, null());
-		if plus {
-			let tall = Rect {
-				left: mid_x - 1 + dx,
-				top: mid_y - 4 + dy,
-				right: mid_x + 1 + dx,
-				bottom: mid_y + 4 + dy,
-			};
-			ExtTextOutA(dc, tall.left, tall.top, ETO_OPAQUE, &tall, null(), 0, null());
+		ExtTextOutA(dc, left, top, ETO_OPAQUE, &rect, null(), 0, null());
+	};
+	let sign = |range: (i32, i32), plus_sign: bool, live: bool| {
+		let mid_x = (range.0 + range.1) / 2;
+		let mut draw = |colour: u32, d: i32| {
+			rect_fill(mid_x - 4 + d, mid_y - 1 + d, mid_x + 4 + d, mid_y + 1 + d, colour);
+			if plus_sign {
+				rect_fill(mid_x - 1 + d, mid_y - 4 + d, mid_x + 1 + d, mid_y + 4 + d, colour);
+			}
+		};
+		if live {
+			draw(GetSysColor(COLOR_BTNTEXT), 0);
+		} else {
+			draw(highlight, 1);
+			draw(shadow, 0);
 		}
 	};
-	if enabled {
-		draw(GetSysColor(COLOR_BTNTEXT), 0, 0);
-	} else {
-		draw(GetSysColor(COLOR_BTNHIGHLIGHT), 1, 1);
-		draw(GetSysColor(COLOR_BTNSHADOW), 0, 0);
+	sign(minus, false, item.data & 1 != 0);
+	sign(plus, true, item.data & 2 != 0);
+	// The etched lines between the parts.
+	for x in [field.0, plus.0] {
+		rect_fill(x, r.top + 1, x + 1, r.bottom - 1, shadow);
+		rect_fill(x + 1, r.top + 1, x + 2, r.bottom - 1, highlight);
 	}
+	let mut text = [0u8; quill_app::zoom_field::ZOOM_TEXT_MAX];
+	let n = quill_app::zoom_field::zoom_text((item.data >> 8) as u16, &mut text);
+	let font = SelectObject(dc, GetStockObject(17));
+	let old_mode = SetBkMode(dc, 1);
+	let old_colour = SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
+	let mut tm: TextMetricA = core::mem::zeroed();
+	GetTextMetricsA(dc, &mut tm);
+	TextOutA(dc, field.0 + 6, mid_y - tm.height / 2, text.as_ptr(), n as i32);
+	SetTextColor(dc, old_colour);
+	SetBkMode(dc, old_mode);
+	SelectObject(dc, font);
 }
 
 /// Opens the list of zoom levels above the zoom box, the current one ticked, and runs the one chosen as View > Zoom does.
@@ -1729,14 +1745,12 @@ pub unsafe fn status_update(_hwnd: Handle, sh: &mut Shell) {
 			st.extend_from_slice(b"Modified");
 		}
 		text[4] = st;
-		let mut zoom = [0u8; quill_app::zoom_field::ZOOM_TEXT_MAX];
-		let n = sh.app.zoom_field_text(&mut zoom);
-		text[ZOOM_PANE] = zoom.get(..n).unwrap_or(&[]).to_vec();
-		// The buttons' text is their sign and whether a level is left that way, for `draw_zoom_button`.
+		// The control's data, for `draw_zoom_control`: whether each button has a level, and the zoom.
 		let (w, _) = client_size(_hwnd);
 		let shown = view::zoom_pct(&sh.app, w);
-		text[MINUS_PANE] = alloc::vec![b'-', u8::from(zoom_step(shown, false).is_some())];
-		text[PLUS_PANE] = alloc::vec![b'+', u8::from(zoom_step(shown, true).is_some())];
+		let live = u8::from(zoom_step(shown, false).is_some()) | (u8::from(zoom_step(shown, true).is_some()) << 1);
+		let [low, high] = sh.app.zoom().to_le_bytes();
+		text[ZOOM_PANE] = alloc::vec![live, low, high];
 	}
 	for (i, t) in text.iter().enumerate() {
 		if sh.sb_text.get(i) == Some(t) {
@@ -1744,14 +1758,12 @@ pub unsafe fn status_update(_hwnd: Handle, sh: &mut Shell) {
 		}
 		let mut z = t.clone();
 		z.push(0);
-		if (i == MINUS_PANE || i == PLUS_PANE) && !t.is_empty() {
-			// Raised, and drawn by `draw_zoom_button`; the item data is the sign and the enabled bit.
-			let data = usize::from(t[0]) | (usize::from(t[1]) << 8);
-			SendMessageA(sh.sb, SB_SETTEXTA, i | SBT_POPOUT | SBT_OWNERDRAW, data as isize);
+		if i == ZOOM_PANE && !t.is_empty() {
+			// Drawn by `draw_zoom_control`; the item data is the buttons' state and the zoom.
+			let data = usize::from(t[0]) | (usize::from(t[1]) << 8) | (usize::from(t[2]) << 16);
+			SendMessageA(sh.sb, SB_SETTEXTA, i | SBT_OWNERDRAW, data as isize);
 		} else {
-			// Pane `i`, sunken (type 0); the zoom box is raised, as a button is, while it takes a click.
-			let kind = if i == ZOOM_PANE && !t.is_empty() { SBT_POPOUT } else { 0 };
-			SendMessageA(sh.sb, SB_SETTEXTA, i | kind, z.as_ptr() as isize);
+			SendMessageA(sh.sb, SB_SETTEXTA, i, z.as_ptr() as isize);
 		}
 		if let Some(slot) = sh.sb_text.get_mut(i) {
 			*slot = t.clone();

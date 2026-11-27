@@ -622,7 +622,7 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			let item = &*(lparam as *const DrawItem);
 			if let Some(sh) = shell() {
 				if item.window == sh.sb {
-					ui::draw_zoom_button(item);
+					ui::draw_zoom_control(item);
 					return 1;
 				}
 			}
