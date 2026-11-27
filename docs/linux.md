@@ -433,7 +433,7 @@ Ideas that apply to every build, with what each costs on old hardware, in priori
 2. **Unsaved marker**, from Q1a's clean mark: an asterisk after the name on the DOS status line, an asterisk after the name (and a space) on the Windows title, and an asterisk before the name on Linux (D194).
 3. **A "Saved" flash**: `Saved LETTER.QLD.` until the next key, and `Saving LETTER.QLD...` before a slow write. A toast on Linux.
 4. **Word count** (Document > Word Count...: words, characters, paragraphs and pages, for the selection or the whole document, with the same word rules as the spelling scanner). A whole-document pass is about 1 to 2 seconds on a 386 for 1 MB, so it runs on demand only on DOS and Win16.
-5. **Autosave and recovery** to a recovery folder, as a `.QLD` with an optional `RCOV` chunk naming the original path, offered at the next start and deleted on a clean save or exit. DOS and Win16 every 10 minutes when idle for 2 seconds, Win95 every 5, Linux every 2 and when the window loses focus; off on floppies (D195). A 50 KB file to a 386's hard disk takes 0.2 to 0.5 seconds and stalls, since there are no threads.
+5. **Autosave and recovery** to a recovery folder, as a `.QLD` with an optional `RCOV` chunk naming the original path, offered at the next start and deleted on a clean save or exit. DOS, Win16 and Win95 every 5 minutes when idle for 2 seconds (CORE-150), Linux every 2 and when the window loses focus; Win95 and Linux also as you work, a few seconds after each pause (CORE-161); off on floppies (D195). A 50 KB file to a 386's hard disk takes 0.2 to 0.5 seconds and stalls, since there are no threads.
 6. **Emergency save on panic** to the same slot, with the same prompt. Fixed buffer; may fail if the heap is damaged.
 7. **Spelling as you type** (queued): on with a wavy line and a context menu on Win95 and Linux, off by default on Win16 (a 300 KB dictionary on a 4 MB machine).
 8. **Dropping a file onto the window** opens it, with `DragAcceptFiles` on Windows and a drop target on GTK.
@@ -465,7 +465,7 @@ Numbers D180 to D199 are reserved for the Linux work, so they cannot collide wit
 | D192 | App id | **Assumed.** `io.github.liminal_hq_labs.Quill` | Needed by Flatpak and AppStream; change it if a domain exists |
 | D193 | Packaging | **Assumed.** AUR and Flatpak; no AppImage | Bundling GTK4 is fragile |
 | D194 | Unsaved marker | **Assumed.** An asterisk before the name on Linux, and after it (with a space) on Windows and DOS | Each platform's convention |
-| D195 | Autosave intervals | **Assumed.** DOS and Win16 10 minutes, Win95 5, Linux 2; off on floppies | A stall costs more the slower the machine |
+| D195 | Autosave intervals | **Assumed.** DOS, Win16 and Win95 5 minutes (CORE-150, which moved DOS and Win16 from 10), Linux 2, and As you work on Linux and Win95 (CORE-161); off on floppies | A stall costs more the slower the machine |
 | D196 | Test fonts | **Decided.** A renamed Windows-1252 subset of Liberation 2.1.5, with its licence, never Times New Roman | The OFL reserves the names Liberation, Arimo, Tinos and Cousine, and a subset is a Modified Version |
 | D197 | The page is a device-size texture | **Decided by measurement.** The GTK4 client draws the page as a texture of exactly device size and shifts it onto the pixel grid; the full entry is in [decisions.md](decisions.md) | The G0 spike showed no blur at 1.5× |
 | D198–D199 | Reserved | | |

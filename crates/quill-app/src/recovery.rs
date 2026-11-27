@@ -86,8 +86,29 @@ pub(crate) const SUGGEST: u16 = 1 << 13;
 /// A recovered document has been opened this session, so no more launch questions are asked.
 const RECOVERED: u16 = 1 << 14;
 /// What a document's own state leaves out when the document goes.
-const KEEP: u16 = ENABLED | DOT | SAID_FULL | RECOVERED;
+const KEEP: u16 = ENABLED | DOT | SAID_FULL | RECOVERED | MODE_SET;
 const PENDING: u16 = Q_LAUNCH | Q_OPEN | Q_SECOND;
+
+/// When the recovery copy is written (CORE-161). It is only ever the recovery copy, never the document.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum AutosaveMode {
+	/// No copy is written.
+	Off,
+	/// A copy after `AutosavePause` seconds without a key, once `WORK_FLOOR` seconds have passed since the document first changed; the
+	/// autosave minutes are the backstop, and the only point where a write that keeps being cut short is forced to the end.
+	Work,
+	/// A copy `Autosave` minutes after the document first changed, at the next pause of two seconds (one on the long-name builds).
+	Minutes,
+}
+
+/// Seconds after a document first changes before an As you work copy: a few keys never write one.
+pub const WORK_FLOOR: u32 = 10;
+/// Seconds of quiet an As you work copy waits for, unless the settings say otherwise.
+pub const PAUSE_DEFAULT: u8 = 3;
+/// The longest pause, in seconds.
+const PAUSE_MAX: u8 = 30;
+/// `QUILL.INI` sets the mode explicitly, so an old `Autosave=0` no longer means Off.
+const MODE_SET: u16 = 1 << 15;
 
 /// What the editor keeps about recovery: a few bytes, since the Windows 3.x data segment has no room for more. The list, the central
 /// folder and the question's file name are in one `Store` chunk.
@@ -100,6 +121,10 @@ pub(crate) struct State {
 	pub(crate) orig_time: u32,
 	interval: u8,
 	interval_default: u8,
+	mode: AutosaveMode,
+	mode_default: AutosaveMode,
+	pause: u8,
+	pause_default: u8,
 	writer: u8,
 	skip: u8,
 	debug_seconds: u16,
@@ -115,6 +140,10 @@ impl State {
 			orig_time: 0,
 			interval: 10,
 			interval_default: 10,
+			mode: AutosaveMode::Minutes,
+			mode_default: AutosaveMode::Minutes,
+			pause: PAUSE_DEFAULT,
+			pause_default: PAUSE_DEFAULT,
 			writer: 0,
 			skip: 0,
 			debug_seconds: 0,
@@ -576,6 +605,40 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	/// Sets the build's autosave defaults and applies them: the mode, the minutes (1 to 60; the backstop in As you work) and the
+	/// pause in seconds (1 to 30). Call it after `configure_recovery`.
+	pub fn configure_autosave(&mut self, mode: AutosaveMode, minutes: u8, pause: u8) {
+		let minutes = minutes.clamp(1, 60);
+		let pause = pause.clamp(1, PAUSE_MAX);
+		self.rcv.mode = mode;
+		self.rcv.mode_default = mode;
+		self.rcv.interval = minutes;
+		self.rcv.interval_default = minutes;
+		self.rcv.pause = pause;
+		self.rcv.pause_default = pause;
+	}
+
+	/// When the recovery copy is written.
+	pub fn autosave_mode(&self) -> AutosaveMode {
+		self.rcv.mode
+	}
+
+	/// Sets when the recovery copy is written.
+	pub fn set_autosave_mode(&mut self, mode: AutosaveMode) {
+		self.rcv.mode = mode;
+		self.rcv.flags |= MODE_SET;
+	}
+
+	/// The seconds of quiet As you work waits for.
+	pub fn autosave_pause(&self) -> u8 {
+		self.rcv.pause
+	}
+
+	/// Sets the seconds of quiet As you work waits for (1 to 30).
+	pub fn set_autosave_pause(&mut self, seconds: u8) {
+		self.rcv.pause = seconds.clamp(1, PAUSE_MAX);
+	}
+
 	/// The minutes between autosaves, 0 for never.
 	pub fn autosave_minutes(&self) -> u8 {
 		self.rcv.interval
@@ -591,22 +654,43 @@ impl<M: Measure + Clone> App<M> {
 		self.rcv.debug_seconds
 	}
 
-	/// Seconds between autosaves: the debug hook's, else the minutes of the setting; 0 for never.
+	/// True when the mode is As you work and the debug hook is not overriding it.
+	fn work_mode(&self) -> bool {
+		self.rcv.mode == AutosaveMode::Work && self.rcv.debug_seconds == 0
+	}
+
+	/// Seconds before a copy is due: the debug hook's; else 0 for Off, the floor for As you work, the minutes for Every N minutes.
 	pub(crate) fn autosave_interval(&self) -> u32 {
 		if self.rcv.debug_seconds > 0 {
 			u32::from(self.rcv.debug_seconds)
 		} else {
-			u32::from(self.rcv.interval) * 60
+			match self.rcv.mode {
+				AutosaveMode::Off => 0,
+				AutosaveMode::Work => WORK_FLOOR,
+				AutosaveMode::Minutes => u32::from(self.rcv.interval) * 60,
+			}
 		}
 	}
 
-	/// Seconds of quiet before an autosave: 2 on the 8.3 builds, 1 on the clients that have long names and the debug hook.
+	/// Seconds of quiet before an autosave: the pause in As you work; else 2 on the 8.3 builds, 1 on the clients that have long names
+	/// and the debug hook.
 	pub(crate) fn autosave_wait(&self) -> u32 {
-		if self.rcv.debug_seconds > 0 || self.rcv.writer >= 4 {
+		if self.work_mode() {
+			u32::from(self.rcv.pause)
+		} else if self.rcv.debug_seconds > 0 || self.rcv.writer >= 4 {
 			1
 		} else {
 			2
 		}
+	}
+
+	/// In As you work, the seconds after the document first changed from which a write that keeps being cut short runs to the end;
+	/// none in the other modes, where a third attempt is forced at once. Without minutes there is no backstop.
+	pub(crate) fn autosave_backstop(&self) -> Option<u32> {
+		self.work_mode().then(|| match self.rcv.interval {
+			0 => u32::MAX,
+			m => u32::from(m) * 60,
+		})
 	}
 
 	/// True when another window has this document, so nothing is written for it here.
@@ -624,9 +708,36 @@ impl<M: Measure + Clone> App<M> {
 				digits.get(usize::from(v < 10)..).unwrap_or(&[]),
 			);
 		}
+		let (mode_key, pause_key) = self.family_keys();
+		if self.rcv.mode != self.rcv.mode_default {
+			let v: &[u8] = match self.rcv.mode {
+				AutosaveMode::Off => b"off",
+				AutosaveMode::Work => b"work",
+				AutosaveMode::Minutes => b"minutes",
+			};
+			f(b"Quill", mode_key, v);
+		}
+		if self.rcv.pause != self.rcv.pause_default {
+			let v = self.rcv.pause;
+			let digits = [b'0' + v / 10, b'0' + v % 10];
+			f(
+				b"Quill",
+				pause_key,
+				digits.get(usize::from(v < 10)..).unwrap_or(&[]),
+			);
+		}
 	}
 
-	/// Takes in `Autosave` and `AutosaveSeconds`; true when the key was one of them.
+	/// The keys of the mode and the pause for this build: Windows 3.x and Windows 95 share a `QUILL.INI` and take different defaults.
+	fn family_keys(&self) -> (&'static [u8], &'static [u8]) {
+		match self.style() {
+			Style::Dos => (b"AutosaveMode", b"AutosavePause"),
+			Style::Long => (b"AutosaveMode32", b"AutosavePause32"),
+			Style::Dot => (b"AutosaveModeLinux", b"AutosavePauseLinux"),
+		}
+	}
+
+	/// Takes in the autosave keys; true when the key was one of them (another build's family key is taken and ignored).
 	pub(crate) fn rcv_apply_setting(&mut self, key: &[u8], value: &[u8]) -> bool {
 		let num = |v: &[u8]| {
 			v.iter()
@@ -635,10 +746,48 @@ impl<M: Measure + Clone> App<M> {
 					n.saturating_mul(10).saturating_add(u16::from(b - b'0'))
 				})
 		};
+		let (mode_key, pause_key) = self.family_keys();
 		if key.eq_ignore_ascii_case(b"Autosave") {
-			self.rcv.interval = num(value).min(60) as u8;
+			let minutes = num(value).min(60) as u8;
+			// A file from before the modes: 0 meant Off, unless the file already names the mode.
+			if minutes == 0 && self.rcv.flags & MODE_SET != 0 {
+				return true;
+			}
+			self.rcv.interval = minutes;
+			if minutes == 0 {
+				self.rcv.mode = AutosaveMode::Off;
+			}
 		} else if key.eq_ignore_ascii_case(b"AutosaveSeconds") {
 			self.rcv.debug_seconds = num(value);
+		} else if key.eq_ignore_ascii_case(mode_key) {
+			let word = |w: &[u8]| value.len() == w.len() && value.eq_ignore_ascii_case(w);
+			self.rcv.mode = if word(b"off") {
+				AutosaveMode::Off
+			} else if word(b"work") {
+				AutosaveMode::Work
+			} else if word(b"minutes") {
+				AutosaveMode::Minutes
+			} else {
+				self.rcv.mode_default
+			};
+			self.rcv.flags |= MODE_SET;
+			// An `Autosave=0` read before this key no longer turns anything off.
+			if self.rcv.mode != AutosaveMode::Off && self.rcv.interval == 0 {
+				self.rcv.interval = self.rcv.interval_default;
+			}
+		} else if key.eq_ignore_ascii_case(pause_key) {
+			self.rcv.pause = match num(value) {
+				0 => self.rcv.pause_default,
+				n => n.min(u16::from(PAUSE_MAX)) as u8,
+			};
+		} else if key.eq_ignore_ascii_case(b"AutosaveMode")
+			|| key.eq_ignore_ascii_case(b"AutosaveMode32")
+			|| key.eq_ignore_ascii_case(b"AutosaveModeLinux")
+			|| key.eq_ignore_ascii_case(b"AutosavePause")
+			|| key.eq_ignore_ascii_case(b"AutosavePause32")
+			|| key.eq_ignore_ascii_case(b"AutosavePauseLinux")
+		{
+			// Another build's keys: not ours to read.
 		} else {
 			return false;
 		}

@@ -9,6 +9,7 @@ use std::fmt::Write as _;
 
 use common::*;
 use quill_app::picture::WINDOW;
+use quill_app::recovery::AutosaveMode;
 use quill_host::png::encode_indexed;
 use quill_host::script::{parse_script, stage, MemFiles};
 use quill_paint::damage::{self, RowSet, PLANAR_ROW};
@@ -67,7 +68,8 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 	let (mut app, mut s, _) = new_app();
 	app.set_spell_live_default(sc.live);
 	if sc.recovery {
-		app.configure_recovery(10, 1, false);
+		app.configure_recovery(5, 1, false);
+		app.configure_autosave(AutosaveMode::Minutes, 5, 3);
 		app.set_recovery(true);
 		app.load_settings_with(&mut s, &mut files);
 	} else {
