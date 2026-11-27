@@ -32,6 +32,8 @@ A plan for the first (and perhaps only) public version of `site/try-reactos/`: a
 
 The build order is WP-WEB-1 (manifest) first, then the channel, the PDF printer and the sound spike side by side, then sound, the wallpaper name, the hosting pipeline, and one final image and state build that brings them together.
 
+**Since written (2026-11-27):** the shared clipboard, files dropped into the guest, time sync and screen size join the downloads on one host link, planned in [host-integration.md](host-integration.md). WP-WEB-2 is built there as WP-HOST-5; a helper in the guest owns COM1, so Quill's Print to PDF hands its file to the helper (`[Web] HostPort=LINK`, W9X-100) and `SENDHOST.CMD` goes through it, with this plan's direct frame as the fallback; WP-WEB-8 also waits for WP-HOST-3 to WP-HOST-7. HTTPS on `labs.liminalhq.ca` now works (owner, 2026-11-27), so the published page is a secure context.
+
 ## What was measured
 
 All of it on this machine on 2026-11-27, headless Chromium 156 through `harness/lib.ts`, v86 0.5.473 fetched by `tools/fetch-v86.sh`, the QAGRR parts and state served by `harness/serve.ts`, and QEMU with KVM on a copy-on-write (`snapshot=on`) view of `qagrr.img`. Screenshots are in `~/Documents/Liminal HQ/Quill/Web demo/plan-evidence/`.
@@ -185,13 +187,13 @@ Publishing the tarball is publishing ReactOS and WineVDM binaries: it needs the 
 | # | Package | Starts when | Runs beside |
 |---|---|---|---|
 | 1 | **WP-WEB-1** Clean address: manifest, hashed data, module split | Now | WP-WEB-4, WP-WEB-6 |
-| 2 | **WP-WEB-2** Host file channel (COM1) and the downloads list | After WP-WEB-1 | WP-WEB-3, WP-WEB-4 |
+| 2 | **WP-WEB-2** Host file channel (COM1) and the downloads list (built as WP-HOST-5, [host-integration.md](host-integration.md)) | After WP-WEB-1 | WP-WEB-3, WP-WEB-4 |
 | 3 | **WP-WEB-3** Print to PDF in `QUILL32.EXE` and `quill-pdf` | Now for the crate and the Win32 command; the send-to-port step after WP-WEB-2's frame is merged | WP-WEB-2, WP-WEB-4 |
 | 4 | **WP-WEB-4** Sound spike: an AC'97 device from the page | Now | WP-WEB-1, WP-WEB-3 |
 | 5 | **WP-WEB-5** Sound: the device, the controls, the state's audio | WP-WEB-4 says go, and WP-WEB-1 is merged | WP-WEB-3 |
 | 6 | **WP-WEB-6** "Afterglow Wallpaper" | Now (small) | Anything |
 | 7 | **WP-WEB-7** Hosting pipeline: pin, Pages steps, licences, staging script | After WP-WEB-1 | WP-WEB-5 |
-| 8 | **WP-WEB-8** The demo build: one image and state with everything, end to end | WP-WEB-2, 3, 5, 6, 7 merged, and the savers plan's packing | — |
+| 8 | **WP-WEB-8** The demo build: one image and state with everything, end to end | WP-WEB-2, 3, 5, 6, 7 merged, WP-HOST-3 to WP-HOST-7 merged, and the savers plan's packing | — |
 
 With the cap of three builders: WP-WEB-1, WP-WEB-3 and WP-WEB-4 start together (WP-WEB-6 is small enough to go to whichever finishes first); then WP-WEB-2, WP-WEB-5 and WP-WEB-7; WP-WEB-8 last. If WP-WEB-4 says no-go, WP-WEB-5 becomes "PC speaker only" (a page change of a few lines) and the owner decides between the v86 fork and no sound.
 
@@ -209,6 +211,7 @@ With the cap of three builders: WP-WEB-1, WP-WEB-3 and WP-WEB-4 start together (
 
 ### WP-WEB-2 Host file channel (COM1) and the downloads list
 
+- **Moved.** Built as WP-HOST-5 in [host-integration.md](host-integration.md#wp-host-5-files-both-ways-and-print-to-pdf-to-the-list), on the host link, with the finish line below unchanged.
 - **Finish line.** A file sent by `SENDHOST.CMD` or by any program writing the frame to COM1 appears under the screen within a second of its last byte, with its name and size, and **Download** saves the same bytes (SHA-256 equal). A frame with a wrong length or sum is listed as damaged. Bytes outside frames are ignored. The disk carries `C:\Quill\SENDHOST.CMD` and a desktop shortcut *Send to this computer* that accepts a dropped file.
 - **Files owned.** `site/try-reactos/host-files.js` (the parser as a pure function over bytes, the list, the Download button), its block in `index.html` and `try-reactos.css`, new `qagrr/SENDHOST.CMD`, `qagrr/qagrr.toml` (the `[[files]]` entry and the shortcut), new `harness/check-host-files.ts`, new `site/try-reactos/host-files.test.mjs` (Node's test runner, no dependency), `README.md` (*Files from the PC*), `docs/decisions.md` (SITE-15: the frame and COM1).
 - **Must not touch.** `manifest.js`, `sound.js`, `guest/**` (the old chain), `crates/**`, `win9x/**`.
@@ -272,7 +275,7 @@ With the cap of three builders: WP-WEB-1, WP-WEB-3 and WP-WEB-4 start together (
 - **Finish line.** One QAGRR build from a pinned reactos-liminal commit with the Quill programs of the same `main` commit (Print to PDF and `HostPort=COM1`), `SENDHOST.CMD`, the wallpaper name, the packed savers, and a state built with the AC'97 device; staged, packed and pinned; and an end-to-end run on the plain static server: no query string, the desktop, File > Print to PDF in Quill, the PDF in the list, a download whose SHA-256 equals the guest's file and whose first page matches Quill's preview, a saver's sound counted by the device. The tarball, its pin and the licences are ready for the owner; **nothing is published**.
 - **Files owned.** `qagrr/reactos-liminal.pin`, `site/try-reactos/web-data.pin` (the local tarball's sum, marked unpublished), new `harness/check-demo.ts`, `README.md` (*The published build*), `docs/progress.md`, `docs/decisions.md` (only if something changed on the way).
 - **Must not touch.** The modules and programs (bugs found go back to their packages as issues or small fixes in their own branches).
-- **Dependencies.** WP-WEB-2, 3, 5, 6 and 7 merged; the savers packing merged; the reactos-liminal changes in the next section that the owner chose.
+- **Dependencies.** WP-WEB-2, 3, 5, 6 and 7 merged; WP-HOST-3 to WP-HOST-7 merged (and the link's checks in the finish line, as [host-integration.md](host-integration.md#wp-web-8-additions) lists); the savers packing merged; the reactos-liminal changes in the next section that the owner chose.
 - **Tests.** `check-state.sh`, `check-clean.ts`, `check-host-files.ts`, `check-sound.ts` and the new `check-demo.ts`, throttled to 50 Mbit/s and 10 Mbit/s once each (time to the desktop recorded beside the README's table).
 - **Evidence.** A short sequence of canvas shots (desktop, Print to PDF, the list, the PDF's page), the timings, the sizes, into `~/Documents/Liminal HQ/Quill/Web demo/WP-WEB-8/`.
 - **Parallel.** None.
