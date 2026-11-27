@@ -17,7 +17,7 @@
 # so the same input gives the same names and the same web-manifest.json (its "built" comes from DIST/build-manifest.json, or from
 # SOURCE_DATE_EPOCH). Any other parts-* folder or state-* file in data/ is removed, so data/ holds only what the manifest names.
 # The state's sound card: build-state.sh leaves the card's registers beside the state as DIST/state.audio.json, and they go into the manifest as its
-# "audio" object (SITE-43). A state built without the card has no such file and no "audio", and the page then boots it without a card.
+# "audio" object (SITE-53). A state built without the card has no such file and no "audio", and the page then boots it without a card.
 # "partsDigest" is the SHA-256 of the list of every part's name and SHA-256, which is how --check notices a changed byte in a part
 # (the image's own sum cannot be checked without decompressing all of it).
 

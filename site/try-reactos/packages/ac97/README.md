@@ -1,6 +1,6 @@
 # ac97
 
-A virtual Intel AC'97 sound card for [v86](https://github.com/copy/v86), written for the Quill ReactOS demo (SITE-41). ReactOS's own `ac97.sys` drives it, so a guest that plays a sound reaches the visitor's speakers through Web Audio. It has no runtime dependency, and no v86 or browser dependency in its chip model.
+A virtual Intel AC'97 sound card for [v86](https://github.com/copy/v86), written for the Quill ReactOS demo (SITE-51). ReactOS's own `ac97.sys` drives it, so a guest that plays a sound reaches the visitor's speakers through Web Audio. It has no runtime dependency, and no v86 or browser dependency in its chip model.
 
 v86 has no sound card of its own beyond the PC speaker. This package adds one from the page, to v86 0.5.473 unchanged, through v86's internal PCI, I/O port, interrupt and memory API (the device is registered by wrapping `emulator.v86.init`, so it exists before the BIOS enumerates PCI and before a saved state is restored). The WP-WEB-4 spike proved the approach and its numbers are in `docs/plans/web-demo.md`; SITE-19 records the decision.
 
@@ -34,7 +34,7 @@ card.detach();               // silences, stops answering the guest, lets the ma
 
 `attachAc97` must be called after `new V86(...)` and before the machine runs. It registers the card when v86 builds its devices a moment later. `state` is checked with `isAc97State`; a state of another shape is refused (`stats().stateError`) and the card starts as if on a cold boot.
 
-**A saved state and the card go together.** A state saved with the card has its PCI function in the saved bus, so it must be restored with the card attached; a state saved without it must be restored without. The page keeps the registers in the manifest's `audio` object, and adds the card to a restored machine only when that object is there (SITE-43).
+**A saved state and the card go together.** A state saved with the card has its PCI function in the saved bus, so it must be restored with the card attached; a state saved without it must be restored without. The page keeps the registers in the manifest's `audio` object, and adds the card to a restored machine only when that object is there (SITE-53).
 
 **The guest never waits on the speakers.** When nothing is pulling sound (no context, a context the browser holds suspended, a hidden tab), the card's buffers are still taken at the real-time rate and dropped (`stats().drainedFrames`), so a guest that plays a sound and waits for it finishes on time.
 

@@ -22,6 +22,10 @@ The x86 emulator for the ReactOS demo page, taken unchanged from the `v86` packa
 
 Left out: the debug builds (`libv86-debug.*`, 12.5 MB `v86-debug.wasm`) and the CommonJS build `libv86.js`.
 
+## Internal API used
+
+Two page modules reach into v86's own objects, which are not a published interface, so each is tied to the version above. `power.js` wraps the ACPI power-management port's write handlers on `emulator.v86.cpu.io.ports` to see a guest Shut Down (SITE-40). The `ac97` package (`packages/ac97/src/v86.ts`, SITE-51) adds a virtual AC'97 sound card: it wraps the `emulator.v86` property and then `init` so it runs right after v86 builds its devices (before a saved state is restored), and it uses `cpu.devices.pci` (`devices`, `register_device`, `raise_irq`, `lower_irq`), `cpu.io.register_read` and `register_write`, and `cpu.read_blob` for guest memory. The package exports `V86_VERSION` and a test keeps it equal to the version in `tools/fetch-v86.sh`. A saved state made with the card is restored only with it attached (SITE-53).
+
 ## Updating
 
-Pick a version at least two weeks old, download its package, take the BIOS files from the commit in the new `package.json`'s version string, and update the version, commit, URLs and sums in `tools/fetch-v86.sh` and the hashes above. A saved machine state is tied to one v86 build, so rebuild any state with the new version.
+Pick a version at least two weeks old, download its package, take the BIOS files from the commit in the new `package.json`'s version string, and update the version, commit, URLs and sums in `tools/fetch-v86.sh` and the hashes above. After the update run `bun test` in `packages/ac97` and `harness/check-sound.ts` (the card's glue depends on v86's internals, and the package's pinned version must be changed with it). A saved machine state is tied to one v86 build, so rebuild any state with the new version.

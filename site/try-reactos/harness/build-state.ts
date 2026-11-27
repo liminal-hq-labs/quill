@@ -1,6 +1,6 @@
 // Boot the disk in headless Chromium, open Quill32 on the sample letter, let the disk go quiet and save the machine state.
 // The page posts the raw state to the server, which stores it in the images folder as NAME.bin, and the sound card's registers as NAME.audio.json
-// (SITE-43: the page adds the card on a cold boot, and the state is saved with the machine halted and no sound playing).
+// (SITE-53: the page adds the card on a cold boot, and the state is saved with the machine halted and no sound playing).
 // Usage: node build-state.ts [--name state-q32] [--manual] [--zero] [--param k=v ...]
 // --manual: launch Quill with the Run box from a CD (phase 1). Without it the image opens the demo letter itself, from its Run key.
 // --zero: before saving, run the guest's RAM-zeroing step (see the README) so free memory compresses.

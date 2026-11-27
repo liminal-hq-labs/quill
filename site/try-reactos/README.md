@@ -7,8 +7,10 @@ ReactOS 0.4.16 with Quill, running in [v86](https://copy.sh/v86/) (an x86 emulat
 | Path | What |
 |---|---|
 | `index.html`, `try-reactos.js`, `try-reactos.css` | The page: Start, Stop, Full screen, a status line and a builder and diagnostics panel (RAM, VGA memory, ACPI, JIT, boot order, disk, disk chunk size, CD and state URLs, a live read-out of IDE reads, video mode and MIPS, Save state) |
-| `manifest.js`, `host-link.js`, `sound.js` | The page's modules: `manifest.js` reads `web-manifest.json` and checks the emulator build (SITE-14); `host-link.js` attaches the host link to COM1 and fills the diagnostics *Link* row (SITE-31); `sound.js` is an empty seam (`attach`, `detach`) that sound fills in |
+| `manifest.js`, `host-link.js`, `sound.js` | The page's modules: `manifest.js` reads `web-manifest.json` and checks the emulator build (SITE-14); `host-link.js` attaches the host link to COM1 and fills the diagnostics *Link* row (SITE-31); `sound.js` is the page's sound: the card, the Sound button, the slider and the remembered level (SITE-51 to SITE-53; *Sound* below) |
 | `packages/host-link/`, `lib/host-link.js` | The page's end of the host link (a TypeScript package, tested with `bun test`) and the one built module the page loads |
+| `packages/ac97/`, `lib/ac97.js` | The virtual AC'97 sound card for v86 (a TypeScript package: the chip model, the v86 glue and the Web Audio output; `bun test`) and the one built module the page loads |
+| `harness/check-sound.ts`, `measure-sound.ts`, `sound-lib.ts` | Checks the page's sound with an AudioWorklet probe after the volume node, and measures the card's cost; `sound-lib.ts` holds the probe, the Run box and the Sounds tab steps |
 | `tools/stage-web.py`, `tools/stamp-web.py` | Stage a build as `data/parts-<hash>/`, `data/state-<hash>.l22.bin.zst` and `web-manifest.json`; keep the `?v=` stamps on the page's files current |
 | `harness/check-clean.ts` | Checks the clean address: the plain `/try-reactos/` restores the desktop and the address stays |
 | `power.js`, `harness/check-power.ts` | Tells the page when the guest has powered off (the ACPI sleep-enable write, since v86 emits nothing; SITE-40); the check runs Start, Shut Down, Turn on, Stop, Start, Reset and the cold boot headlessly and reads back the buttons and status after each |
@@ -160,7 +162,7 @@ site/try-reactos/qagrr/check-win16.sh WORK/images/qagrr.img SHOTS    # boot a co
 ### The saved state
 
 ```sh
-site/try-reactos/qagrr/build-state.sh DIST   # DIST holds parts/ from build-with-rl.sh; writes DIST/state.l22.bin.zst
+site/try-reactos/qagrr/build-state.sh DIST   # DIST holds parts/ from build-with-rl.sh; writes DIST/state.l22.bin.zst and DIST/state.audio.json (the sound card's registers)
 site/try-reactos/qagrr/check-state.sh DIST    # restores it in headless Chromium: desktop, Quill window, File > Open; then the session numbers
 ```
 
@@ -315,22 +317,37 @@ The disk is 4 GiB raw and nearly all of it is empty, so the parts are mostly a f
 
 The first frame shows at 0.15 s on both throttle profiles and the restored desktop is live when the state has arrived, so the time to the desktop is the state's download and does not change with the part size; the disk is read after it. The pitch session in `measure.ts` (typing, scrolling) reads no disk at all after a restore, so it cannot tell the sizes apart. 8 MiB is the default: 512 files, a session download 1.3 times that of 1 MiB parts (the limit was 1.5), and 1 to 5 s more disk time spread over the session. 4 MiB (1,024 files) would not fit a Release; 16 MiB reaches 1.5 times. Part sets of any size still load: the page reads `chunk` from the parts' `manifest.json`, and `?chunk=` overrides it.
 
-## The AC'97 sound spike
+## Sound
 
-`spikes/ac97/` holds the WP-WEB-4 experiment: an Intel ICH AC'97 controller and codec written in JavaScript (`ac97-model.js`, a pure register model), attached to v86 0.5.473 from the page through its PCI, I/O port, interrupt and memory internals (`ac97-v86.js`), with an `AudioWorklet` output that doubles as a capture point (`ac97-sink.js`). ReactOS's own `ac97.sys` drives it. The verdict, the numbers and the hand-offs are in the *WP-WEB-4 report* in `docs/plans/web-demo.md`. Nothing here is wired into the published page.
+The demo has sound: ReactOS's own `ac97.sys` drives a virtual Intel AC'97 card that the page adds to v86, and the page plays what the guest sends it through Web Audio. v86 0.5.473 has no such card (only the PC speaker, which the page leaves off), so the card is a TypeScript package, `packages/ac97/` (SITE-51, README there), registered from the page by wrapping `emulator.v86.init`, which runs right after v86 builds its devices and before a saved state is restored (SITE-19; the WP-WEB-4 spike in `docs/plans/web-demo.md` found the way). `v86/PROVENANCE.md` says which internals it uses.
 
-```sh
-node --test site/try-reactos/spikes/ac97/ac97-model.test.mjs   # the register model, no browser
-```
+- **On the page.** The player controls have a **Sound** button and a volume slider. Sound is on at 70 percent after **Start** (a squared taper: a gain of 0.49), the button mutes and unmutes, moving the slider unmutes, and both are remembered in this browser (`localStorage`, `quill-try-reactos-sound`; the page works if storage is blocked). `sound.js` creates the `AudioContext` inside the click that starts a machine (Start, Turn on, Reset), before anything is awaited, because browsers let sound begin only from a user gesture (SITE-52). If the browser holds the context back the machine still runs: the button reads *Sound off*, its title says why, and selecting it is the gesture the browser wanted. A browser with no Web Audio keeps the card (a saved desktop made with it needs it), disables the controls and plays nowhere. When nothing is listening (a held, suspended or missing context) the card's buffers are taken at the real-time rate and dropped, one buffer at a time with the guest's interrupt taken between them, so a guest that waits for a sound to end is never stuck. The diagnostics panel's *Sound* row shows the card, the output, the level, and the frames taken and dropped unheard.
+- **The power cycle.** The card attaches with the machine and is let go when it shuts down or stops, like the host link: Shut Down, Turn on, Stop, Start and Reset each detach the old card (silencing the output at once) and attach a new one. The audio context itself is suspended 1.5 s after a Stop so a Reset keeps one.
+- **The saved desktop and its card (SITE-53).** A state saved with the card has its PCI function in the saved bus, so it must be restored with the card, and one saved without it must not get one. `harness/build-state.ts` cold-boots with the card (the page adds it on any boot with no state), waits for the card to be idle and to hold no interrupt, stops the machine and saves the card's registers (about 800 bytes of JSON) as `NAME.audio.json`; `qagrr/build-state.sh` fails without them and leaves `DIST/state.audio.json`; `tools/stage-web.py` puts them in `web-manifest.json` as the `audio` object (checked for shape, and by `--check`). The page gives a restored machine its card only when the manifest's own state has registers, or when a file is named in the diagnostics panel's *Sound registers URL* (`?audio=`); any other state boots without a card, as before. A state restored without the registers would be silent (the codec's volume and rate are in the card). A cold boot has a card of its own: the driver then installs itself on the first boot.
+- **Checks.** `cd packages/ac97 && bun test && bun run typecheck && bun run check:built` (CI job *AC'97 sound card tests*; 35 tests: the spike's nine register-model tests, the saved-state shape, the interrupt hold, the glue on a fake v86 including its pinned version, the output on a fake audio context). In a browser, `harness/check-sound.ts` (with the server and a harness Xvfb running, as for `check-power.ts`): the guest plays *Critical Stop* from the Sounds tab of Sound and Audio Devices, opened through the Run box, and an `AudioWorklet` probe after the page's volume node counts and records what a speaker would have received (headless Chromium has no sound card). It checks the card in slot 3 and the saved registers accepted, silence at idle, the frames the card takes against the rate the guest chose, the peak against the volume's gain, no underruns while a sound plays, mute (the gain node, the probe, the guest still finishing its sound), unmute, the slider by keyboard, a reload that remembers the level, Stop and Reset in the middle of a sound, a context the browser will not resume, and a browser with no Web Audio. `harness/check-power.ts` also checks that the card is attached only while the machine is on and replaced by every Turn on, Start and Reset. `harness/measure-sound.ts` measures the cost. `BROWSER=firefox` runs `check-sound.ts` in Playwright's Firefox.
+- **A late interrupt.** The guest runs at a few million instructions a second and reaches its interrupt handler late, so with a card that races ahead two buffers can complete before one interrupt is taken, and ac97.sys, which counts interrupts, then feeds stale data: with the output held suspended *Critical Stop* played 2.7 times as long (481 buffers for 177) until the card was made to wait for each interrupt before the next buffer. The held path waits; a live output does not (waiting would slow and gap what a listener hears), and its 166 interrupts for 177 buffers still gave the exact length.
 
-The in-browser runs need the harness server and its own virtual display, never the desktop:
+### Measured
 
-```sh
-cd site/try-reactos/harness && bun install --frozen-lockfile
-Xvfb :95 -screen 0 1280x1000x24 -nolisten tcp &                # note its PID; end it by PID
-PORT=18101 IMAGES_DIR=~/.cache/quill-reactos-liminal-work/dist bun serve.ts &
-cd ../spikes/ac97 && unset WAYLAND_DISPLAY
-DISPLAY=:95 bun run-spike.ts probe      # cold boot with the device; BARs, interrupt line and the guest's register traffic
-DISPLAY=:95 bun run-spike.ts mips       # idle instruction rate (--no-ac97, --sink)
-DISPLAY=:95 bun run-spike.ts session    # boots, then runs snippets dropped in a folder, for driving the guest's Sounds tab
-```
+Headless Chromium 156 with no sound card, v86 0.5.473, the QAGRR saved desktop with the card's registers (`state.audio.json` from `qagrr/build-state.sh`: the state build took 1 min, the state is 14.7 MB compressed, 115 MB raw), on a shared workstation, 2026-11-27.
+
+| What | Result |
+|---|---|
+| *Critical Stop* from the Sounds tab (22,050 Hz) | The card took 39,045 frames in 177 buffers with 166 interrupts, raw peak 0.755 (the same as WP-WEB-4). A probe after the volume node heard 1.61 s of sound at a peak of 0.370 (0.755 times the gain of 0.49), with 0 underrun frames and 0 dropped frames while it played in four of five runs (the fifth had 384 frames, 8 ms, on a loaded machine) |
+| Mute and unmute | Gain 0 and 0 loud frames at the probe while the guest still finished its 39,045 frames; unmuted, 1.61 s again |
+| The slider (by keyboard) | 0, 100 and 30 percent give gains 0, 1 and 0.09; at 30 the probe's peak is 0.068; a reload shows 30 and the next machine starts at 0.3 |
+| Stop and Reset mid-sound | 1,535 loud frames (32 ms, the output's queue) reach the probe after Stop and none after Reset |
+| A context the browser will not resume | The guest finishes its sound (35,860 frames in 2.1 s) and 94,008 output frames are taken at the real-time rate and dropped; the button reads *Sound off*, and its click starts the output |
+| Idle guest, MIPS | 5.54 with no card (the old state), 5.55 with the card and a live output (four 10 s windows each; 5.48 to 5.60) |
+| Idle guest, browser CPU | 0.165 and 0.168 cores in all the browser's processes |
+| Guest playing *Critical Stop* every 2.3 s, MIPS | 3.73 with a live output and 3.73 with the output held, so a fall of a third that does not depend on the page's audio path; it was not separated from the guest doing the work of playing |
+| The page making the card's samples | 2.7 ms for each second of page time while playing (0.27 percent of a core), 0.15 cores in all processes |
+| The state build | 1 min on this machine; the card's registers are 773 bytes of JSON; the state is 14.7 MB compressed |
+
+Raw logs and the recorded sound (`critical-stop-through-the-page.wav`, what the probe heard at the output) are in `~/Documents/Liminal HQ/Quill/Web demo/WP-WEB-5/`.
+
+### Not verified
+
+Real speakers (every figure is from a probe in headless Chromium or Firefox: the samples were counted and recorded, not heard), Firefox with a real audio output, Safari, mobile browsers, a hidden tab (browsers throttle a hidden page's timers to once a second, which slows the held path's drain; the live output is driven by the audio thread), a machine without `AudioWorklet` (the `ScriptProcessorNode` fallback is tested on a fake context only) and CPU cost on a slow machine.
+
+**Firefox.** Playwright's Firefox 159 (headless, no sound card, `BROWSER=firefox bun check-sound.ts`) passes the same 58 checks as Chromium: the card in slot 3, 39,045 frames, 1.61 s heard at a peak of 0.370, mute, the slider, a reload, Stop, Reset, a refused context and no Web Audio. The Start click was a trusted input event, so the autoplay rules applied. That is Firefox on this Linux machine with a null output: Firefox on Windows or macOS, with real speakers, has not been run, and neither has Safari.

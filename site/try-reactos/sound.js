@@ -1,6 +1,6 @@
 // The page's sound: the `ac97` package's virtual sound card on the machine, the Sound button and the volume slider, and the choice remembered in this
 // browser. The page calls `prepare` from the click that starts a machine (a browser lets sound begin only from a user gesture), `attach` when the
-// machine is built and `detach` when it goes (SITE-41, SITE-42, SITE-43).
+// machine is built and `detach` when it goes (SITE-51, SITE-52, SITE-53).
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT

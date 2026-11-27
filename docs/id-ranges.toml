@@ -523,3 +523,11 @@ last = 50
 owner = "First demo launch (WP-LAUNCH)"
 status = "reserved"
 source = "docs/plans/first-demo-launch.md"
+
+[[block]]
+prefix = "SITE"
+first = 51
+last = 53
+owner = "Web demo sound package (WP-WEB-5)"
+status = "in use"
+source = "docs/plans/web-demo.md"

@@ -1,4 +1,4 @@
-// Measures what the sound card costs (SITE-41): the guest's instruction rate (MIPS), and the browser's CPU time across all its processes, with no card
+// Measures what the sound card costs (SITE-51): the guest's instruction rate (MIPS), and the browser's CPU time across all its processes, with no card
 // (a saved desktop made without it), with the card idle and its output live, with the card playing Critical Stop over and over, and with the output held
 // suspended so the card only drains. Four windows of 10 s each, one browser per variant, on the restored saved desktop. Prints one JSON line per variant.
 // Needs the server (bun serve.ts) with IMAGES_DIR holding state-nosound.l22.bin.zst (a state built without the card) beside the manifest's own data.

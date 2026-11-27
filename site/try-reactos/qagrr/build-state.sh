@@ -7,7 +7,7 @@
 #
 # Usage: build-state.sh DIST
 #   DIST   the folder build-with-rl.sh wrote: DIST/parts/ (manifest.json and the zstd parts). The state is written to DIST/state.l22.bin.zst, and
-#          the registers of the virtual sound card it was taken with to DIST/state.audio.json (SITE-43).
+#          the registers of the virtual sound card it was taken with to DIST/state.audio.json (SITE-53).
 # Environment:
 #   PORT           the harness server's port (default 18086; it binds 127.0.0.1)
 #   RUNTIME        bun or node (default bun when installed)

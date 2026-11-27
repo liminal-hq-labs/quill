@@ -128,7 +128,7 @@ class StageWeb(unittest.TestCase):
 
 
 class StageAudio(unittest.TestCase):
-	"""The state's sound card (SITE-43): its registers ride in the manifest's audio object, and only when the state was built with the card."""
+	"""The state's sound card (SITE-53): its registers ride in the manifest's audio object, and only when the state was built with the card."""
 
 	def setUp(self):
 		self.tmp = tempfile.mkdtemp()

@@ -1,4 +1,4 @@
-// Checks the page's sound (SITE-41 to SITE-43) in headless Chromium: the card is there and driven by ReactOS's own ac97.sys, the guest's Critical Stop
+// Checks the page's sound (SITE-51 to SITE-53) in headless Chromium: the card is there and driven by ReactOS's own ac97.sys, the guest's Critical Stop
 // reaches the speakers' end (an AudioWorklet probe after the volume node counts and records it), the Sound button mutes and unmutes, the slider sets the
 // level, the choice survives a reload, Stop and Reset silence it, a browser that holds the sound back (or has none) still runs the machine, and the
 // remembered level applies to the next machine. Needs tools/stage-web.py to have staged data/ and web-manifest.json with the sound card's registers
