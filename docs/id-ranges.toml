@@ -451,3 +451,51 @@ last = 40
 owner = "Web demo power state (fix/power-state)"
 status = "in use"
 source = "https://github.com/liminal-hq-labs/quill/pull/183"
+
+[[block]]
+prefix = "CORE"
+first = 210
+last = 229
+owner = "Unicode (WP-UNI)"
+status = "reserved"
+source = "docs/plans/unicode.md"
+
+[[block]]
+prefix = "DOS"
+first = 110
+last = 114
+owner = "Unicode (WP-UNI)"
+status = "reserved"
+source = "docs/plans/unicode.md"
+
+[[block]]
+prefix = "W16"
+first = 115
+last = 119
+owner = "Unicode (WP-UNI)"
+status = "reserved"
+source = "docs/plans/unicode.md"
+
+[[block]]
+prefix = "W9X"
+first = 125
+last = 129
+owner = "Unicode (WP-UNI)"
+status = "reserved"
+source = "docs/plans/unicode.md"
+
+[[block]]
+prefix = "LNX"
+first = 95
+last = 99
+owner = "Unicode (WP-UNI)"
+status = "reserved"
+source = "docs/plans/unicode.md"
+
+[[block]]
+prefix = "WUI"
+first = 95
+last = 97
+owner = "Unicode (WP-UNI)"
+status = "reserved"
+source = "docs/plans/unicode.md"
