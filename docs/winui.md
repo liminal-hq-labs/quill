@@ -177,6 +177,8 @@ Source for C: <https://learn.microsoft.com/windows/apps/windows-app-sdk/release-
 
 ## Work list
 
+From W3 on, the items are ordered as work packages `WP-WINUI-1` (a hosting decision, S0c, since S0b did not reach a go) to `WP-WINUI-11` in [ui-track.md](ui-track.md), with their dependencies and builder briefs (WUI-1, WUI-2). The table below is the original plan.
+
 Each item is sized for one pull request. Decisions D160 to D169 are kept here until they move into `decisions.md`.
 
 | PR | Contents | Acceptance |
