@@ -1,0 +1,31 @@
+# QUILLTST.DLL: a picture-kind module that writes a gradient, the test subject of the module loader (W9X-130 to W9X-135).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-mod-tst"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "A test module for the Win32 loader: one gradient, no input"
+license = "Apache-2.0 OR MIT"
+
+[lib]
+name = "quilltst"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+quill-modabi = { path = "../../../crates/quill-modabi" }
+quill-w32rt = { path = "../../quill-w32rt", features = ["dll"] }
+
+[features]
+# A module that reports another interface major, to test that the loader refuses it.
+wrong-major = []
+
+[package.metadata.quill]
+layer = "shell"
+no_std = true
+alloc = false
+float = false

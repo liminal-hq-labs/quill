@@ -135,3 +135,7 @@ user32.dll!GetCaretBlinkTime
 user32.dll!KillTimer
 kernel32.dll!GetDateFormatA
 kernel32.dll!GetTimeFormatA
+kernel32.dll!LoadLibraryA
+kernel32.dll!FreeLibrary
+kernel32.dll!SetErrorMode
+kernel32.dll!GetLastError

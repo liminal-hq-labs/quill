@@ -529,7 +529,7 @@ prefix = "W9X"
 first = 130
 last = 139
 owner = "Optional modules on Windows 95 (WP-MOD)"
-status = "reserved"
+status = "in use"
 source = "docs/plans/modules.md"
 
 [[block]]

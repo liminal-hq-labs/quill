@@ -1,0 +1,4 @@
+# The functions QUILLTST.DLL and its variants may import, as dll!Function: the panic handler's ExitProcess only (W9X-134).
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+kernel32.dll!ExitProcess

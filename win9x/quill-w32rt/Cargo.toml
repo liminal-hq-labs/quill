@@ -1,0 +1,30 @@
+# The runtime a Quill Win32 program or module needs when it has no C library, and the loader for modules (W9X-133).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-w32rt"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Quill's Win32 runtime: heap, stack probe, 64-bit division, panic handler, DLL entry and module loader"
+license = "Apache-2.0 OR MIT"
+
+[dependencies]
+quill-modabi = { path = "../../crates/quill-modabi", optional = true }
+
+[features]
+# The global allocator over the process heap. A module that needs no memory of its own leaves it off (QUILLPIC has none).
+heap = []
+# For a module: the entry macro, `_fltused` as an assembly label (a `cdylib` exports a `#[no_mangle]` item), and the checks on the
+# structs a caller hands in.
+dll = ["dep:quill-modabi"]
+# For a program: `module::load` and friends (path, load, check, start, free, status and log line). Not linked by `QUILL32.EXE` yet.
+loader = ["dep:quill-modabi"]
+
+[package.metadata.quill]
+layer = "shell"
+no_std = true
+alloc = false
+float = false

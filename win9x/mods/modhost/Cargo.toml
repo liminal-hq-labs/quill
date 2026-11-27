@@ -1,0 +1,26 @@
+# MODHOST.EXE: the test program of the Win32 module loader. Never staged on a disk (W9X-131).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-mod-host"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Loads the test module the way the shell does and checks the loader's answers"
+license = "Apache-2.0 OR MIT"
+
+[[bin]]
+name = "modhost"
+path = "src/main.rs"
+
+[dependencies]
+quill-modabi = { path = "../../../crates/quill-modabi" }
+quill-w32rt = { path = "../../quill-w32rt", features = ["loader"] }
+
+[package.metadata.quill]
+layer = "shell"
+no_std = true
+alloc = false
+float = false

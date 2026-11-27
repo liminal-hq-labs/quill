@@ -32,7 +32,8 @@ mod chrome;
 mod dialogs;
 mod gdi;
 mod pdf;
-mod rt;
+// The runtime with no C library: the allocator over the process heap, the stack probe, the division helpers and the panic handler.
+quill_w32rt::runtime!(heap);
 mod scheme;
 mod sys;
 mod tips;

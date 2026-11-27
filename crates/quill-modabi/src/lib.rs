@@ -74,6 +74,13 @@ pub const fn name_of(kind: u16) -> Option<&'static str> {
 pub const DOS_EXTENSION: &str = ".DMD";
 /// The extension of a Windows 3.x module file, with the dot.
 pub const WIN16_EXTENSION: &str = ".DLL";
+/// The extension of a Windows 95 and later module file, with the dot. The stems are the same as on Windows 3.x; the two builds keep
+/// their files in folders of their own where they share one (INS-27).
+pub const WIN32_EXTENSION: &str = ".DLL";
+/// The name a Win32 module exports `info(*ModInfo) -> Status` under (cdecl, undecorated, found with `GetProcAddress`; no ordinals).
+pub const WIN32_INFO_EXPORT: &str = "QuillModuleInfo";
+/// The name a Win32 module exports `start(*ModStart) -> Status` under: it fills the kind's table, as a `.DMD`'s `app_start` does.
+pub const WIN32_START_EXPORT: &str = "QuillModuleStart";
 
 // ---------------------------------------------------------------------------------------------------------------------------
 // Status
@@ -102,6 +109,9 @@ pub const QS_INTERNAL: Status = 7;
 pub const QS_MISSING: Status = 8;
 /// The module is from another interface major, or, in a release build, from another build.
 pub const QS_VERSION: Status = 9;
+/// The loader could not get the memory to load the module. Never raised by a module; a loader's answer (Windows 95 and later), so an
+/// addition within major 1.
+pub const QS_NOMEMORY: Status = 10;
 
 /// A short name for a status, for the log line a refused module writes (`QUILL.LOG`, `PICS.LOG`). Unknown values read `"?"`.
 pub const fn status_name(status: Status) -> &'static str {
@@ -116,6 +126,7 @@ pub const fn status_name(status: Status) -> &'static str {
 		QS_INTERNAL => "INTERNAL",
 		QS_MISSING => "MISSING",
 		QS_VERSION => "VERSION",
+		QS_NOMEMORY => "NOMEMORY",
 		_ => "?",
 	}
 }

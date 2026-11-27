@@ -77,6 +77,26 @@ name = "quill-job"
 version = "0.0.0"
 
 [[package]]
+name = "quill-mod-host"
+version = "0.0.0"
+dependencies = [
+ "quill-modabi",
+ "quill-w32rt",
+]
+
+[[package]]
+name = "quill-mod-tst"
+version = "0.0.0"
+dependencies = [
+ "quill-modabi",
+ "quill-w32rt",
+]
+
+[[package]]
+name = "quill-modabi"
+version = "0.0.0"
+
+[[package]]
 name = "quill-mouse"
 version = "0.0.0"
 
@@ -118,6 +138,13 @@ name = "quill-text"
 version = "0.0.0"
 
 [[package]]
+name = "quill-w32rt"
+version = "0.0.0"
+dependencies = [
+ "quill-modabi",
+]
+
+[[package]]
 name = "quill-win9x"
 version = "0.0.0"
 dependencies = [
@@ -130,4 +157,5 @@ dependencies = [
  "quill-image",
  "quill-pdfdoc",
  "quill-picture",
+ "quill-w32rt",
 ]

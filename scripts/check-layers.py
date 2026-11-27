@@ -83,7 +83,7 @@ def crate_files(pkg):
 def has_no_std(pkg):
 	pat = re.compile(r"^\s*#!\[(no_std|cfg_attr\(.*\bno_std\b.*\))\]", re.M)
 	for t in pkg["targets"]:
-		if "lib" in t["kind"] or "bin" in t["kind"]:
+		if "lib" in t["kind"] or "cdylib" in t["kind"] or "bin" in t["kind"]:
 			try:
 				with open(t["src_path"], encoding="utf-8") as f:
 					if pat.search(f.read()):

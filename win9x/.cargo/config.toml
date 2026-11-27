@@ -9,16 +9,13 @@ target = "win9x.json"
 [target.win9x]
 linker = "lld-link"
 rustflags = [
-        # No CRT and no std, so the entry point is ours and nothing newer than Win98 gets imported.
+    # No CRT and no std, so nothing newer than Win98 gets imported. The entry point and the fixed base are per artefact: the program's
+    # `build.rs` sets `/ENTRY:start` and `/FIXED`, each module's sets its own (W9X-132).
     "-C", "link-arg=/NODEFAULTLIB",
-    "-C", "link-arg=/ENTRY:start",
     # Subsystem version 4.0 is what the Windows 9x loader expects.
     "-C", "link-arg=/SUBSYSTEM:WINDOWS,4.0",
-    # Windows 9x predates ASLR; load at the preferred base with no relocations.
-    "-C", "link-arg=/FIXED",
+    # Windows 9x predates ASLR (NT, ReactOS and Wine honour this): the load address is the same on every run.
     "-C", "link-arg=/DYNAMICBASE:NO",
-    # Menu, icon and version information, written by tools/res_pack.py (build.sh makes it).
-    "-C", "link-arg=resources/quill.res",
     # No jump tables: they are data inside the code section, which the Pentium scan would read as instructions.
     "-C", "llvm-args=-min-jump-table-entries=1000",
 ]

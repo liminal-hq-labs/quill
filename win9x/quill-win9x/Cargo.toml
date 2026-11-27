@@ -16,6 +16,7 @@ name = "quill32"
 path = "src/main.rs"
 
 [dependencies]
+quill-w32rt = { path = "../quill-w32rt", features = ["heap"] }
 quill-app = { path = "../../crates/quill-app", features = ["long-names"] }
 quill-chrome = { path = "../../crates/quill-chrome" }
 quill-picture = { path = "../../crates/quill-picture" }

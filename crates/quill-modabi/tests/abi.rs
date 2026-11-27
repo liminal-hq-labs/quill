@@ -87,8 +87,9 @@ fn the_versions_kinds_and_statuses_are_the_published_values() {
 		QS_INTERNAL,
 		QS_MISSING,
 		QS_VERSION,
+		QS_NOMEMORY,
 	];
-	assert_eq!(statuses, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+	assert_eq!(statuses, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 	for (i, a) in statuses.iter().enumerate() {
 		assert_ne!(status_name(*a), "?");
 		for b in &statuses[i + 1..] {
@@ -96,7 +97,8 @@ fn the_versions_kinds_and_statuses_are_the_published_values() {
 			assert_ne!(status_name(*a), status_name(*b));
 		}
 	}
-	assert_eq!(status_name(10), "?");
+	assert_eq!(status_name(QS_NOMEMORY), "NOMEMORY");
+	assert_eq!(status_name(11), "?");
 	assert_eq!(status_name(u16::MAX), "?");
 	assert_eq!(size_of::<Status>(), 2);
 }
@@ -130,6 +132,26 @@ fn file_names_carry_no_version_digit() {
 	}
 	assert_eq!(name_of(KIND_PIC), Some("QUILLPIC"));
 	assert_eq!((DOS_EXTENSION, WIN16_EXTENSION), (".DMD", ".DLL"));
+	// Windows 95 and later keep the stems and the extension of Windows 3.x, in a folder of their own where both share one (INS-27).
+	assert_eq!(WIN32_EXTENSION, ".DLL");
+}
+
+#[test]
+fn the_win32_exports_are_two_names_found_by_name() {
+	assert_eq!(
+		(WIN32_INFO_EXPORT, WIN32_START_EXPORT),
+		("QuillModuleInfo", "QuillModuleStart")
+	);
+	for name in [WIN32_INFO_EXPORT, WIN32_START_EXPORT] {
+		// Undecorated: a cdecl name carries no `@n`, and nothing in it needs quoting for `GetProcAddress`.
+		assert!(name.bytes().all(|b| b.is_ascii_alphabetic()));
+	}
+	// `NOMEMORY` is a loader's answer, so a module never raises it and the major stays 1.
+	assert_eq!((QS_NOMEMORY, ABI_MAJOR), (10, 1));
+}
+
+#[test]
+fn a_kind_the_interface_does_not_know_has_no_name() {
 	assert_eq!(name_of(0), None);
 	assert_eq!(name_of(5), None);
 }

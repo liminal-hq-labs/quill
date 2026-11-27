@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
 [workspace]
-members = ["quill-win9x"]
+members = ["quill-win9x", "quill-w32rt", "mods/tst", "mods/modhost"]
 resolver = "2"
 
 [profile.dev]
