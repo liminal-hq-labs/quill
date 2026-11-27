@@ -78,10 +78,13 @@ working_dir = 'C:\Quill'
 description = "Quill, 32-bit build, opening the demo letter"
 icon = 'C:\Quill\QUILLDESK.ICO'
 
+# The shortcut starts WineVDM's own launcher. A shortcut (or the Run box) that names `QUILL.EXE` directly reaches WineVDM through ReactOS's
+# 16-bit hand-off, which drops the command line: Quill opens Untitled. `otvdmw.exe` (the windowed launcher, no console) hands the path and the
+# document to the task intact.
 [[shortcuts]]
 name = "Quill (Windows 3.x, slow)"
-target = 'C:\Quill\QUILL.EXE'
-arguments = 'C:\Quill\DEMO16.QLD'
+target = 'C:\Program Files\otvdm\otvdmw.exe'
+arguments = 'C:\Quill\QUILL.EXE C:\Quill\DEMO16.QLD'
 working_dir = 'C:\Quill'
 description = "Quill, Windows 3.x build, opening the demo letter. Slow: WineVDM inside the emulator is emulation inside emulation"
 icon = 'C:\Quill\QUILLDESK.ICO'
