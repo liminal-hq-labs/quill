@@ -31,7 +31,7 @@ Quill is the companion application to the Liminal HQ blog series *Cross-compilin
 | DOS | `QUILLDOS.EXE` (go32 with a built-in DPMI host) | MS-DOS 5 or later on a 486 or later with a VGA | Text mode (80 × 25 or 80 × 50) first; a graphics mode with real fonts (`/G`) second |
 | Linux terminal | `quill-tty` | Linux, in a terminal of at least 80 × 25 | The DOS text screen on crossterm, with the same editor; see [docs/linux.md](docs/linux.md) |
 | Linux command line | `quill` | Linux | `cat`, `convert` and `info` for documents, with no screen |
-| Linux desktop | `quill` (`linux/quill-gtk`) | Linux with GTK 4.20 or later, on Wayland or X11 | A libadwaita window with the Windows menu bar, toolbar, formatting bar, ruler, status bar and dialogs over an editable page (keys, input method, caret, selection, pointer, Save), drawn by Quill's own renderer at the exact device scale. Built in its own workspace; see [docs/linux.md](docs/linux.md) |
+| Linux desktop | `quill` (`linux/quill-gtk`) | Linux with GTK 4.20 or later, on Wayland or X11 | A libadwaita window with the Windows menu bar, toolbar, formatting bar, ruler, status bar and dialogs over an editable page (keys, input method, caret, selection, pointer, Save); every dialog but Print is answered through the window, with Alt mnemonics, Enter and Esc, drawn by Quill's own renderer at the exact device scale. Built in its own workspace; see [docs/linux.md](docs/linux.md) |
 
 - Every build reads and writes byte-identical `.QLD` and RTF files and has the same document limits, so a document moves between them unchanged. A build that cannot show a property keeps it (see [Build differences](#build-differences)).
 - Windows 95 on a 486 uses the Win16 build: the Win32 build's floor is a Pentium (D33).

@@ -19,6 +19,10 @@ use quill_app::{Command, Dialog, CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHR
 
 use quill_gtk::actions::{action_name, is_stateful, is_text_key};
 use quill_gtk::blink::Blink;
+use quill_gtk::choose::{
+	complete_path, default_save_filter, AlertAsker, Asker, Chooser, Failure, GtkChooser, Reply,
+	ScriptChooser,
+};
 use quill_gtk::dialogs::{self, DialogView, Env};
 use quill_gtk::doc::{Document, Overlay};
 use quill_gtk::format_bar::{apply as apply_format, FormatBar, FormatEdit, FormatState};
@@ -29,6 +33,8 @@ use quill_gtk::settings::WindowSettings;
 use quill_gtk::status::{Status, StatusInfo};
 use quill_gtk::toolbar;
 use quill_gtk::view::{View, Zoom, LINE_STEP};
+
+mod selftest;
 
 use crate::page::QuillPage;
 
@@ -65,6 +71,9 @@ pub struct Opts {
 	pub self_test_input: bool,
 	/// Show every dialog, press every button that does not close it, report each on standard output and quit.
 	pub self_test_dialogs: bool,
+	/// Answer the file dialogs and the unsaved-changes question from this script (`quill_gtk::choose::parse_script`) and print
+	/// what happens, one line each.
+	pub script_chooser: Option<PathBuf>,
 	/// Force a dark or a light desk.
 	pub dark: Option<bool>,
 	/// Do not read or write the window settings.
@@ -74,9 +83,6 @@ pub struct Opts {
 	/// Test hook: show this text as being composed, as an input method's preedit.
 	pub preedit: Option<String>,
 }
-
-/// The dialogs a test hook can show by name.
-pub const DIALOG_NAMES: [&str; 6] = ["find", "replace", "fonts", "tabs", "spelling", "about"];
 
 /// Makes the application icon known to GTK: the installed theme has it, and a build run from the source tree finds it in
 /// `linux/data/icons`. Also loads the few rules the chrome needs, in named colours only.
@@ -126,6 +132,8 @@ pub struct Ui {
 	status: Status,
 	actions: RefCell<Vec<(Command, gio::SimpleAction)>>,
 	last_dialog: RefCell<Option<Rc<DialogView>>>,
+	chooser: RefCell<Rc<dyn Chooser>>,
+	asker: RefCell<Rc<dyn Asker>>,
 	im: gtk::IMMulticontext,
 	overlay: RefCell<Overlay>,
 	blink: Cell<Blink>,
@@ -135,6 +143,7 @@ pub struct Ui {
 	zoom_acc: Cell<f64>,
 	syncing: Cell<bool>,
 	closing: Cell<bool>,
+	closes: Cell<u32>,
 	settings: RefCell<WindowSettings>,
 	opts: Opts,
 }
@@ -186,28 +195,6 @@ fn primary_menu() -> gio::Menu {
 	about.append(Some("_About Quill"), Some("win.about"));
 	menu.append_section(None, &about);
 	menu
-}
-
-fn filters() -> (gio::ListStore, gtk::FileFilter) {
-	let make = |name: &str, suffixes: &[&str]| {
-		let f = gtk::FileFilter::new();
-		f.set_name(Some(name));
-		for s in suffixes {
-			f.add_suffix(s);
-		}
-		f
-	};
-	let all_docs = make("All documents", &["qld", "rtf", "txt"]);
-	let store = gio::ListStore::new::<gtk::FileFilter>();
-	store.append(&all_docs);
-	store.append(&make("Quill documents", &["qld"]));
-	store.append(&make("Rich text", &["rtf"]));
-	store.append(&make("Text files", &["txt"]));
-	let everything = gtk::FileFilter::new();
-	everything.set_name(Some("All files"));
-	everything.add_pattern("*");
-	store.append(&everything);
-	(store, all_docs)
 }
 
 impl Ui {
@@ -320,6 +307,8 @@ impl Ui {
 		toasts.set_child(Some(&view_stack));
 		window.set_content(Some(&toasts));
 
+		let chooser: Rc<dyn Chooser> = Rc::new(GtkChooser::new(&window));
+		let asker: Rc<dyn Asker> = Rc::new(AlertAsker::new(&window));
 		let ui = Rc::new(Ui {
 			app: app.clone(),
 			window,
@@ -341,6 +330,8 @@ impl Ui {
 			status,
 			actions: RefCell::new(Vec::new()),
 			last_dialog: RefCell::new(None),
+			chooser: RefCell::new(chooser),
+			asker: RefCell::new(asker),
 			im: gtk::IMMulticontext::new(),
 			overlay: RefCell::new(Overlay {
 				active: true,
@@ -354,11 +345,52 @@ impl Ui {
 			zoom_acc: Cell::new(0.0),
 			syncing: Cell::new(false),
 			closing: Cell::new(false),
+			closes: Cell::new(0),
 			settings: RefCell::new(settings),
 			opts,
 		});
+		dialogs::set_trace(ui.tracing());
+		if let Some(file) = ui.opts.script_chooser.clone() {
+			match std::fs::read_to_string(&file)
+				.map_err(|e| e.to_string())
+				.and_then(|t| quill_gtk::choose::parse_script(&t))
+			{
+				Ok(steps) => ui.use_script(ScriptChooser::new(steps, true)),
+				Err(e) => eprintln!("quill: {}: {e}", file.display()),
+			}
+		}
 		ui.wire(app);
 		ui
+	}
+
+	/// Closes the window for good: the editor said Exit, or the question allowed the close. Under `--self-test-dialogs` the window
+	/// stays, so the next case can run, and the close is counted.
+	fn close_window(&self) {
+		self.closes.set(self.closes.get() + 1);
+		if self.opts.self_test_dialogs {
+			self.trace("window: closing");
+			return;
+		}
+		self.closing.set(true);
+		self.window.close();
+	}
+
+	/// Answers the file dialogs and the unsaved-changes question from `script` from now on.
+	fn use_script(&self, script: Rc<ScriptChooser>) {
+		*self.chooser.borrow_mut() = script.clone();
+		*self.asker.borrow_mut() = script;
+	}
+
+	/// True when the test hooks ask for a line on standard output for each dialog.
+	fn tracing(&self) -> bool {
+		self.opts.script_chooser.is_some() || self.opts.self_test_dialogs
+	}
+
+	/// Prints a line of the trace.
+	fn trace(&self, line: &str) {
+		if self.tracing() {
+			println!("{line}");
+		}
 	}
 
 	/// The Gio action for a command, made once: stateful (a check mark) when the item can have one.
@@ -576,10 +608,7 @@ impl Ui {
 				return glib::Propagation::Proceed;
 			};
 			if u.doc.borrow().unsaved_work() && !u.closing.get() {
-				let cont: Continue = Rc::new(|u| {
-					u.closing.set(true);
-					u.window.close();
-				});
+				let cont: Continue = Rc::new(|u| u.close_window());
 				u.confirm_unsaved(cont);
 				return glib::Propagation::Stop;
 			}
@@ -617,7 +646,7 @@ impl Ui {
 			self.changed();
 		}
 		if self.opts.open_dialog {
-			self.open_dialog();
+			self.open_dialog(false);
 		}
 		if self.opts.save_as_dialog {
 			let ui = self.clone();
@@ -1077,8 +1106,7 @@ impl Ui {
 			self.handle_dialog(d);
 		}
 		if self.doc.borrow().quit_requested() {
-			self.closing.set(true);
-			self.window.close();
+			self.close_window();
 			return;
 		}
 		self.rebuild_menus();
@@ -1108,6 +1136,7 @@ impl Ui {
 
 	/// Shows the dialog the editor asked for.
 	fn handle_dialog(self: &Rc<Self>, d: Dialog) {
+		self.trace(&format!("dialog {d:?}: asked"));
 		let env = self.env();
 		let shown = match d {
 			Dialog::About => {
@@ -1115,7 +1144,7 @@ impl Ui {
 				None
 			}
 			Dialog::Open => {
-				self.open_dialog();
+				self.open_dialog(false);
 				None
 			}
 			Dialog::SaveAs => {
@@ -1137,12 +1166,16 @@ impl Ui {
 			Dialog::Spelling => dialogs::spelling(&env),
 			Dialog::ConfirmSave(c) => {
 				let cont: Continue = Rc::new(move |u| {
-					u.doc
-						.borrow_mut()
-						.with(|app, s, f| app.run_confirmed(s, f, c));
+					let next = u.doc.borrow_mut().with(|app, s, f| {
+						app.run_confirmed(s, f, c);
+						app.take_dialog()
+					});
+					// Open, once the question is answered, goes on to ask for the file; the question is not asked again.
+					if next == Some(Dialog::Open) {
+						u.open_dialog(true);
+					}
 					if u.doc.borrow().quit_requested() {
-						u.closing.set(true);
-						u.window.close();
+						u.close_window();
 					}
 					u.rebuild_menus();
 					let g = u.doc.borrow().geometry();
@@ -1211,32 +1244,6 @@ impl Ui {
 		self.window.close();
 	}
 
-	/// The test hook behind `--self-test-dialogs`: shows each dialog, presses every button that does not close it, and says what
-	/// happened.
-	fn self_test_dialogs(self: &Rc<Self>) {
-		for name in DIALOG_NAMES {
-			match self.show_dialog_named(name) {
-				Some(v) => {
-					let ids = v.button_ids();
-					let pressed: Vec<u16> = ids
-						.iter()
-						.copied()
-						.filter(|i| *i != 2)
-						.filter(|i| v.press(*i))
-						.collect();
-					println!("dialog {name}: shown, buttons {ids:?}, pressed {pressed:?}");
-					if v.dialog.is_mapped() {
-						v.dialog.force_close();
-					}
-				}
-				None if name == "about" => println!("dialog about: shown"),
-				None => println!("dialog {name}: not shown"),
-			}
-		}
-		self.closing.set(true);
-		self.window.close();
-	}
-
 	/// The unsaved-changes question: Save, Don't Save or Cancel, with the shared verdict (`end_session_allowed`, as the Windows
 	/// shells' question on logging off).
 	fn confirm_unsaved(self: &Rc<Self>, cont: Continue) {
@@ -1245,28 +1252,15 @@ impl Ui {
 			.borrow()
 			.name()
 			.map_or_else(|| "Untitled".to_string(), str::to_string);
-		let dialog = adw::AlertDialog::new(
-			Some(&format!("Save changes to {name}?")),
-			Some("Your changes will be lost if you do not save them."),
-		);
-		dialog.add_responses(&[
-			("cancel", "_Cancel"),
-			("discard", "_Don\u{2019}t Save"),
-			("save", "_Save"),
-		]);
-		dialog.set_response_appearance("discard", adw::ResponseAppearance::Destructive);
-		dialog.set_response_appearance("save", adw::ResponseAppearance::Suggested);
-		dialog.set_default_response(Some("save"));
-		dialog.set_close_response("cancel");
 		let ui = self.clone();
-		dialog.choose(
-			Some(&self.window),
-			gio::Cancellable::NONE,
-			move |response| {
-				let answer = match response.as_str() {
-					"save" => ANSWER_SAVE,
-					"discard" => ANSWER_DISCARD,
-					_ => 0,
+		let asker = self.asker.borrow().clone();
+		asker.ask_save(
+			&name,
+			Box::new(move |reply| {
+				let answer = match reply {
+					Reply::Save => ANSWER_SAVE,
+					Reply::Discard => ANSWER_DISCARD,
+					Reply::Cancel => 0,
 				};
 				if answer == ANSWER_SAVE {
 					let ui2 = ui.clone();
@@ -1279,7 +1273,7 @@ impl Ui {
 					ui.doc.borrow_mut().discard_changes();
 					cont(&ui);
 				}
-			},
+			}),
 		);
 	}
 
@@ -1299,76 +1293,72 @@ impl Ui {
 	}
 
 	fn save_as_dialog(self: &Rc<Self>, then: Saved) {
-		let (store, default) = filters();
-		let dialog = gtk::FileDialog::builder()
-			.title("Save As")
-			.modal(true)
-			.filters(&store)
-			.default_filter(&default)
-			.build();
 		let (folder, name) = {
 			let d = self.doc.borrow();
 			(
-				d.path().and_then(|p| p.parent().map(gio::File::for_path)),
+				d.path().and_then(|p| p.parent().map(Path::to_path_buf)),
 				d.name().unwrap_or("Untitled.qld").to_string(),
 			)
 		};
-		if let Some(f) = folder {
-			dialog.set_initial_folder(Some(&f));
-		}
-		dialog.set_initial_name(Some(&name));
+		// GTK's dialog cannot say which type was chosen, so a bare name takes the type listed first: the document's own.
+		let first = default_save_filter(Some(&name));
 		let ui = self.clone();
-		dialog.save(Some(&self.window), gio::Cancellable::NONE, move |res| {
-			let saved = match res {
-				Ok(file) => match file.path() {
-					Some(path) => {
+		let chooser = self.chooser.borrow().clone();
+		chooser.save_as(
+			folder,
+			name,
+			first,
+			Box::new(move |outcome| {
+				let saved = match outcome {
+					Ok(choice) => {
+						let path = complete_path(&choice.path, choice.filter.unwrap_or(first));
 						let r = ui.doc.borrow_mut().save_as(&path);
 						match &r {
-							Ok(()) => ui.toast("Saved"),
+							Ok(()) => {
+								ui.toast("Saved");
+								ui.trace(&format!("saved {}", path.display()));
+							}
 							Err(m) => ui.toast(m),
 						}
 						ui.rebuild_menus();
 						r.is_ok()
 					}
-					None => false,
-				},
-				Err(e)
-					if e.matches(gtk::DialogError::Dismissed)
-						|| e.matches(gtk::DialogError::Cancelled) =>
-				{
-					false
-				}
-				Err(e) => {
-					ui.toast(&format!("The Save As dialog failed: {e}"));
-					false
-				}
-			};
-			then(&ui, saved);
-		});
+					Err(Failure::Cancelled) => false,
+					Err(Failure::Failed(m)) => {
+						ui.toast(&format!("The Save As dialog failed: {m}"));
+						false
+					}
+				};
+				then(&ui, saved);
+			}),
+		);
 	}
 
 	fn picture_dialog(self: &Rc<Self>) {
-		let f = gtk::FileFilter::new();
-		f.set_name(Some("Pictures"));
-		for s in ["bmp", "png"] {
-			f.add_suffix(s);
-		}
-		let store = gio::ListStore::new::<gtk::FileFilter>();
-		store.append(&f);
-		let dialog = gtk::FileDialog::builder()
-			.title("Insert Picture")
-			.modal(true)
-			.filters(&store)
-			.build();
+		let folder = self
+			.doc
+			.borrow()
+			.path()
+			.and_then(|p| p.parent().map(Path::to_path_buf));
 		let ui = self.clone();
-		dialog.open(Some(&self.window), gio::Cancellable::NONE, move |res| {
-			if let Some(path) = res.ok().and_then(|f| f.path()) {
-				if let Err(m) = ui.doc.borrow_mut().insert_picture(&path) {
-					ui.toast(&m);
+		let chooser = self.chooser.borrow().clone();
+		chooser.picture(
+			folder,
+			Box::new(move |outcome| match outcome {
+				Ok(choice) => {
+					let r = ui.doc.borrow_mut().insert_picture(&choice.path);
+					match r {
+						Ok(()) => ui.trace(&format!("picture {}", choice.path.display())),
+						Err(m) => ui.toast(&m),
+					}
+					ui.changed();
 				}
-				ui.changed();
-			}
-		});
+				Err(Failure::Cancelled) => {}
+				Err(Failure::Failed(m)) => {
+					ui.toast(&format!("The Insert Picture dialog failed: {m}"))
+				}
+			}),
+		);
 	}
 
 	/// Opens a document in this window, asking about unsaved changes first.
@@ -1386,6 +1376,7 @@ impl Ui {
 		let result = self.doc.borrow_mut().open(path);
 		match result {
 			Ok(()) => {
+				self.trace(&format!("opened {}", path.display()));
 				let geom = self.doc.borrow().geometry();
 				self.view.borrow_mut().set_geometry(geom);
 				self.rebuild_menus();
@@ -1400,38 +1391,24 @@ impl Ui {
 		}
 	}
 
-	fn open_dialog(self: &Rc<Self>) {
-		let (store, default) = filters();
-		let dialog = gtk::FileDialog::builder()
-			.title("Open")
-			.modal(true)
-			.filters(&store)
-			.default_filter(&default)
-			.build();
+	/// Asks for a file to open. `confirmed` when the unsaved-changes question has been answered already.
+	fn open_dialog(self: &Rc<Self>, confirmed: bool) {
 		let folder = self
 			.doc
 			.borrow()
 			.path()
-			.and_then(|p| p.parent().map(gio::File::for_path));
-		if let Some(f) = folder {
-			dialog.set_initial_folder(Some(&f));
-		}
+			.and_then(|p| p.parent().map(Path::to_path_buf));
 		let ui = self.clone();
-		dialog.open(
-			Some(&self.window),
-			gio::Cancellable::NONE,
-			move |res| match res {
-				Ok(file) => {
-					if let Some(path) = file.path() {
-						ui.open_path(&path);
-					}
-				}
+		let chooser = self.chooser.borrow().clone();
+		chooser.open(
+			folder,
+			Box::new(move |outcome| match outcome {
+				Ok(choice) if confirmed => ui.open_now(&choice.path),
+				Ok(choice) => ui.open_path(&choice.path),
 				// Closing the dialog without a choice is not a failure.
-				Err(e)
-					if e.matches(gtk::DialogError::Dismissed)
-						|| e.matches(gtk::DialogError::Cancelled) => {}
-				Err(e) => eprintln!("quill: the Open dialog failed: {e}"),
-			},
+				Err(Failure::Cancelled) => {}
+				Err(Failure::Failed(m)) => eprintln!("quill: the Open dialog failed: {m}"),
+			}),
 		);
 	}
 

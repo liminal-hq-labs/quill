@@ -40,6 +40,8 @@ For tests and screenshots:
       --open-dialog    Open the Open dialog at start
       --save-as-dialog Open the Save As dialog at start
       --dialog NAME    Show a dialog at start: find, replace, fonts, tabs, spelling or about
+      --script-chooser FILE  Answer the file dialogs and the unsaved-changes question from FILE (one answer a line)
+                       and print each dialog and answer; see quill_gtk::choose::parse_script
       --self-test-input  Check the pointer's shape and a drag past the page's edge, report and quit
       --self-test-dialogs  Show every dialog, press its buttons, report and quit
       --no-settings    Do not read or write the window settings";
@@ -74,6 +76,7 @@ fn parse() -> Result<(Opts, Vec<PathBuf>, bool), String> {
 			"--open-dialog" => o.open_dialog = true,
 			"--save-as-dialog" => o.save_as_dialog = true,
 			"--dialog" => o.dialog = Some(value(&a, &mut args)?),
+			"--script-chooser" => o.script_chooser = Some(PathBuf::from(value(&a, &mut args)?)),
 			"--self-test-input" => o.self_test_input = true,
 			"--self-test-dialogs" => o.self_test_dialogs = true,
 			"--no-settings" => o.no_settings = true,

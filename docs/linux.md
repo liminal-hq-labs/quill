@@ -248,7 +248,7 @@ The menu tree's accelerators are registered as they are written (`Ctrl+N`, `Ctrl
 ### Not proved
 
 - **A real GNOME session.** Everything was seen under Xvfb with Adwaita's default look and no window manager, so the header bar's window controls are libadwaita's own drawing, not the compositor's; the system accent colour, the `prefer-dark` setting from the desktop and a different icon theme were not tried (the accent in the shots is libadwaita's default). Weston and the portal dialogs were not rerun for this step.
-- **Mnemonics** (Alt and a letter on the menu bar) and the accelerators were exercised only through Ctrl+A; the rest of the table is tested as data.
+- **Mnemonics** were first run in G3 (see Dialogs and keyboard); the accelerators were exercised through Ctrl+A, Ctrl+F and Ctrl+Q; the rest of the table is tested as data.
 - **The ruler's drags** and the tab-kind button were checked by clicking the scale and the button, not by dragging a marker.
 - **Print, Print Preview, Print Setup and Help** show a toast that says they are not in this client yet (G6).
 - **Orca and keyboard navigation** of the new bars are G7.
@@ -334,6 +334,43 @@ Cut, Copy and Paste use the editor's own clipboard (its 2,048-byte text buffer, 
 - **Not yet live from the chrome** (they answer with a toast or have no effect on the page): Print, Print Preview, Print Setup and Help (toasts, G6); Check Spelling as You Type (the setting toggles and is saved, but the page draws no marks); Document > Header, Footer, First Page Header and Footer (the editor switches story, but the page paints the body, so the header's text is not shown while it is edited and no caret is drawn); Find Next with no search (opens Find).
 - **Text with a selection typed over, undo of typing, and every format command** run through the editor's own code, which the host tests; they were not each repeated here.
 
+## Dialogs and keyboard (G3)
+
+Every `quill_app::native::Dialog` except `Print` (a toast until G6) is reached from the menu and from the keyboard in the real window, answered through it, and checked against the document.
+
+### The dialogs
+
+- **Find and Replace** are one box built from `quill-dialogs`: Find Next, Replace and Replace All call `App::find_text`; Match case and Whole word are the check boxes. Replace opens the same box with the focus on Replace with.
+- **Fonts** sets the face, size and style of the selection on OK; **Tabs** sets, clears and clears all; **Spelling** walks the misspellings with Ignore, Ignore All, Change, Change All and Add (it needs `EN_CA.DIC` in the current folder, beside the program or in `$XDG_DATA_HOME/quill`).
+- **About** is `adw::AboutDialog`. **Open**, **Save As** and **Insert Picture** are GTK's file chooser; **the unsaved-changes question** is an `adw::AlertDialog` with Cancel, Don't Save and Save.
+- The question is asked by New, Open, a recent file, a drop, a file handed to a running window, Exit and closing the window. Save with no name goes to Save As first, and Cancel there stops the command (LNX-11). After the question, Open goes on to the file chooser and does not ask again.
+
+### The seam (LNX-25)
+
+`quill_gtk::choose` holds a `Chooser` (Open, Save As, Insert Picture: the start folder, the suggested name, the types) and an `Asker` (the question). `GtkChooser` and `AlertAsker` are the real ones; `ScriptChooser` answers both from a queue, one answer per line (`open PATH`, `save-as PATH [N]`, `picture PATH`, `cancel`, `fail MESSAGE`, `save`, `discard`, `stay`). `quill --script-chooser FILE` runs the window on a script and prints a line for each dialog, answer and effect; `quill --self-test-dialogs` runs every dialog and every asking command through one and prints what each did.
+
+### Types and names (LNX-26, LNX-27)
+
+Open lists Quill documents (`*.qld`), Rich Text (`*.rtf`), Text (`*.txt`) and All files, and starts on the first. Save As lists the first three; Insert Picture lists pictures, bitmaps and PNG. `gtk::FileDialog` cannot say which type was chosen (it has `filters` and `default-filter` and no way to read the choice back), so the typed extension decides, and a bare name takes the type listed first, which is the one that matches the document's own extension (`.qld` for a new document). `quill_app::savename` adds it.
+
+### Keys (LNX-28)
+
+- The menu bar takes Alt and the letter of each menu (Alt+F, then O for Open); the labels' `&` is a GTK mnemonic everywhere.
+- In a dialog the `&` of each label is a mnemonic on the control it labels (Alt+N is Find what, Alt+C Match case, Alt+B Bold); a list's label focuses the list.
+- Enter runs the dialog's default button, also from a choice or a list. Esc closes the dialog and counts as Cancel (a Spelling check ends). The focus starts in the first control and Tab follows the description's order.
+
+### What was proved
+
+- **Tests** (`cargo test`): `src/choose.rs` (the types, name completion, the script) and `tests/dialogs.rs`, which starts its own Xvfb and runs the window. `--self-test-dialogs` answers About, Find (every button, match case, whole word, not found), Replace, Fonts (OK and Cancel), Tabs, Spelling, Open (a file, Cancel, a missing file), Save As (each type, a typed extension, no type, Cancel, and Save with no name), Insert Picture (a picture, a file that is not one, Cancel) and the question for each asking command with Save, Don't Save and Cancel; the test checks the lines and compares every saved file with the bytes a headless `Document` writes.
+- **Keys under xdotool** in the same Xvfb: Alt+F then O runs Open; in Find, Alt+C, Alt+W, Alt+P and Alt+N toggle and focus, Tab goes on, Enter presses Find Next and Esc closes; in Fonts, Alt+C then F opens it, Alt+B and Alt+I tick, Enter is OK and Esc cancels.
+- **Shots** (`tools/dialog-shots.sh`; `docs/media/gtk-dialog-replace-light.png`, `gtk-dialog-mnemonics-light.png`, `gtk-dialog-open-weston.png`): every dialog in light and dark at scale 1 and 2, the File menu opened with Alt+F, the mnemonics shown with Alt held, and the real Open and Save As choosers under a headless Weston.
+
+### Not proved
+
+- **The real choosers were shown, not answered.** A headless Weston has no input device, so a choice in GTK's own dialog was not made; the answer path is tested through the seam.
+- **A real drop and a real hand-off** (a second `quill FILE` reaching a running window) were tested through `open_path`, which both call, not through the drag or the D-Bus call.
+- **A real GNOME session**, the portal's chooser, and mnemonic display under a window manager.
+
 ## Desktop integration and packaging
 
 - **Desktop entry:** `Type=Application`, `Name=Quill`, `GenericName=Word Processor`, `Exec=quill %F`, `MimeType=application/x-quill-document;application/rtf;text/rtf;text/plain;`, `Categories=Office;WordProcessor;`.
@@ -368,7 +405,7 @@ Items marked *new files* touch only new files and one line of the root `Cargo.to
 | G0 | The GTK4 spike | A 1.5× screenshot shows a one-pixel checkerboard with no blur | P5. **Built**, see [linux-spike.md](linux-spike.md) |
 | G1 | Read-only viewer | Opens every file in `tests/docs`; layout equals the goldens | G0. **Built**, see [The GTK4 viewer (G1)](#the-gtk4-viewer-g1) |
 | G2 | Editing: keys, IME, caret, mouse | The host's editing scenarios replayed through the GTK command layer save identical bytes | G1 and the pointer work |
-| G3 | Menus and native dialogs | Every `Dialog` variant is shown and answered | G2 |
+| G3 | Menus and native dialogs | Every `Dialog` variant is shown and answered | G2. **Built**, see [Dialogs and keyboard (G3)](#dialogs-and-keyboard-g3) |
 | G4 | Toolbar, formatting bar, ruler, status bar | The same commands as the host chrome tests | G3 and the shared view |
 | C1 | `quill-app` clipboard: `copy_rtf`, `copy_text`, `paste_rtf`, `paste_text` | Round trip into LibreOffice; unblocks the Win32 clipboard the SPEC describes | After the open `quill-app` branches merge |
 | G5 | GTK clipboard | Copy from Quill and paste into LibreOffice keeps bold, and back | C1 |

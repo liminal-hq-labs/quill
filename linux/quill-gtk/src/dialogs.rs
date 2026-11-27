@@ -9,11 +9,13 @@
 // below (Find and Replace, Fonts, Tabs, Spelling) read and set them the way the Windows dialog procedures do, and so a test hook
 // can press a button by ID.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use adw::prelude::*;
+use gtk::{gdk, glib};
 use quill_app::view::family_of;
 use quill_app::FindAction;
 use quill_core::doc::cflag;
@@ -23,6 +25,17 @@ use crate::actions::label_of;
 use crate::doc::Document;
 use crate::format_bar::{size_items, size_text};
 use crate::names::lossy_ansi;
+
+static TRACE: AtomicBool = AtomicBool::new(false);
+
+/// Turns on one line of standard output for each dialog that is shown, focused, toggled, pressed or closed (the test hooks).
+pub fn set_trace(on: bool) {
+	TRACE.store(on, Ordering::Relaxed);
+}
+
+fn tracing() -> bool {
+	TRACE.load(Ordering::Relaxed)
+}
 
 /// What a control is, as far as a row of a dialog needs to know.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -198,6 +211,7 @@ pub struct DialogView {
 	checks: HashMap<u16, gtk::CheckButton>,
 	texts: HashMap<u16, gtk::Label>,
 	buttons: HashMap<u16, gtk::Button>,
+	cancelled: Cell<bool>,
 }
 
 impl DialogView {
@@ -210,6 +224,8 @@ impl DialogView {
 		let mut texts = HashMap::new();
 		let mut buttons = HashMap::new();
 		let body = gtk::Box::new(gtk::Orientation::Vertical, 12);
+		// The first control the person can type in or choose from: where the focus starts.
+		let mut first_focus: Option<gtk::Widget> = None;
 		for row in &spec.rows {
 			match row {
 				Row::Text { id, text, boxed } => {
@@ -228,6 +244,7 @@ impl DialogView {
 				}
 				Row::Field { label, id, kind } => {
 					let col = gtk::Box::new(gtk::Orientation::Vertical, 6);
+					let mut focus_target: Option<gtk::Widget> = None;
 					let widget: gtk::Widget = match kind {
 						ControlKind::Entry => {
 							let e = gtk::Entry::builder().activates_default(true).build();
@@ -263,6 +280,7 @@ impl DialogView {
 								.min_content_height(110)
 								.build();
 							sw.add_css_class("card");
+							focus_target = Some(lb.clone().upcast());
 							lists.insert(*id, (lb, RefCell::new(Vec::new())));
 							sw.upcast()
 						}
@@ -271,11 +289,12 @@ impl DialogView {
 						let l = gtk::Label::with_mnemonic(&label_of(label));
 						l.set_xalign(0.0);
 						l.add_css_class("heading");
-						match kind {
-							ControlKind::List => {}
-							_ => l.set_mnemonic_widget(Some(&widget)),
-						}
+						// A list's mnemonic goes to the list inside its frame.
+						l.set_mnemonic_widget(Some(focus_target.as_ref().unwrap_or(&widget)));
 						col.append(&l);
+					}
+					if first_focus.is_none() {
+						first_focus = Some(focus_target.unwrap_or_else(|| widget.clone()));
 					}
 					col.append(&widget);
 					body.append(&col);
@@ -336,7 +355,41 @@ impl DialogView {
 			.child(&body)
 			.content_width((i32::from(spec.width) * 2).clamp(320, 560))
 			.build();
+		for (id, c) in &checks {
+			let (id, name) = (*id, spec.name);
+			c.connect_toggled(move |c| {
+				if tracing() {
+					println!(
+						"dialog {name} control {id}: {}",
+						if c.is_active() { "on" } else { "off" }
+					);
+				}
+			});
+		}
+		// Enter runs the default button from a choice or a list too, which would otherwise take it for themselves.
+		if let Some(default) = &default {
+			for (drop, _) in drops.values() {
+				let key = gtk::EventControllerKey::new();
+				key.set_propagation_phase(gtk::PropagationPhase::Capture);
+				let default = default.clone();
+				key.connect_key_pressed(move |_, k, _, state| {
+					let plain = state.difference(gdk::ModifierType::LOCK_MASK).is_empty();
+					if plain && matches!(k, gdk::Key::Return | gdk::Key::KP_Enter) {
+						default.emit_clicked();
+						glib::Propagation::Stop
+					} else {
+						glib::Propagation::Proceed
+					}
+				});
+				drop.add_controller(key);
+			}
+			for (list, _) in lists.values() {
+				let default = default.clone();
+				list.connect_row_activated(move |_, _| default.emit_clicked());
+			}
+		}
 		dialog.set_default_widget(default.as_ref());
+		dialog.set_focus(first_focus.as_ref());
 		Rc::new(DialogView {
 			dialog,
 			spec,
@@ -346,10 +399,12 @@ impl DialogView {
 			checks,
 			texts,
 			buttons,
+			cancelled: Cell::new(false),
 		})
 	}
 
-	/// Calls `f` with the control ID of a button when it is pressed. The Cancel and Close buttons (ID 2) also close the dialog.
+	/// Calls `f` with the control ID of a button when it is pressed. The Cancel and Close buttons (ID 2) also close the dialog,
+	/// and Esc or any other way of closing the dialog counts as pressing Cancel: `f` hears ID 2 once, whichever way it was.
 	pub fn on_button(self: &Rc<Self>, f: impl Fn(&Rc<DialogView>, u16) + 'static) {
 		let f = Rc::new(f);
 		for (id, b) in &self.buttons {
@@ -358,6 +413,12 @@ impl DialogView {
 			let me = Rc::downgrade(self);
 			b.connect_clicked(move |_| {
 				if let Some(me) = me.upgrade() {
+					if tracing() {
+						println!("dialog {} button {id}: pressed", me.spec.name);
+					}
+					if id == 2 {
+						me.cancelled.set(true);
+					}
 					f(&me, id);
 					if id == 2 {
 						me.dialog.close();
@@ -365,6 +426,39 @@ impl DialogView {
 				}
 			});
 		}
+		let me = Rc::downgrade(self);
+		self.dialog.connect_closed(move |_| {
+			if let Some(me) = me.upgrade() {
+				if tracing() {
+					println!("dialog {}: closed", me.spec.name);
+				}
+				if !me.cancelled.replace(true) {
+					f(&me, 2);
+				}
+			}
+		});
+	}
+
+	/// The control ID of the entry, choice or list that has the keyboard focus, when one has.
+	pub fn focused_id(&self) -> Option<u16> {
+		let focus = self.dialog.focus()?;
+		let is = |w: &gtk::Widget| *w == focus || focus.is_ancestor(w);
+		self.entries
+			.iter()
+			.find(|(_, e)| is(e.upcast_ref()))
+			.map(|(id, _)| *id)
+			.or_else(|| {
+				self.choices
+					.iter()
+					.find(|(_, (d, _))| is(d.upcast_ref()))
+					.map(|(id, _)| *id)
+			})
+			.or_else(|| {
+				self.lists
+					.iter()
+					.find(|(_, (l, _))| is(l.upcast_ref()))
+					.map(|(id, _)| *id)
+			})
 	}
 
 	/// The test hook: presses the button with this control ID. False when there is none.
@@ -467,7 +561,15 @@ impl DialogView {
 	}
 
 	/// Shows the dialog over `parent`.
-	pub fn present(&self, parent: &impl IsA<gtk::Widget>) {
+	pub fn present(self: &Rc<Self>, parent: &impl IsA<gtk::Widget>) {
+		let me = Rc::downgrade(self);
+		self.dialog.connect_focus_widget_notify(move |_| {
+			if let Some(v) = me.upgrade().filter(|_| tracing()) {
+				if let Some(id) = v.focused_id() {
+					println!("dialog {} focus: control {id}", v.spec.name);
+				}
+			}
+		});
 		self.dialog.present(Some(parent));
 	}
 }
@@ -483,6 +585,19 @@ pub struct Env {
 	pub changed: Rc<dyn Fn()>,
 	/// Shows a short message as a toast.
 	pub toast: Rc<dyn Fn(&str)>,
+}
+
+/// The document's text, paragraphs separated by a line feed: what a test compares.
+pub fn document_text(doc: &Document) -> String {
+	doc.read(|app, s| {
+		let end = app.doc().body.len().saturating_sub(1);
+		(0..end)
+			.map(|p| match app.doc().body.read_byte(s, p).unwrap_or(b' ') {
+				b'\r' | b'\n' => '\n',
+				b => quill_tty::cp1252::decode(b),
+			})
+			.collect()
+	})
 }
 
 fn ansi(text: &str, max: usize) -> Vec<u8> {

@@ -15,6 +15,9 @@
 //!   menus, toolbar, formatting bar, ruler, status bar and dialogs as GTK4 and libadwaita widgets over Gio actions that run the
 //!   shared `Command`s. Each has a plain-data part (the tree, the specs, the layout) that is tested without a display.
 //!
+//! - [`choose`] is the seam the window asks for a file name and for the answer to the unsaved-changes question through: GTK's own
+//!   dialogs in the window, a script in the tests.
+//!
 //! - [`keys`] turns GTK key events into the editor's `Key`; [`command`] does what a key, a committed string or a movement means to
 //!   the editor (generic over its measure, so a replay test can use the host's text grid); [`blink`] is the caret's blink.
 //!
@@ -22,6 +25,7 @@
 
 pub mod actions;
 pub mod blink;
+pub mod choose;
 pub mod command;
 pub mod dialogs;
 pub mod doc;
