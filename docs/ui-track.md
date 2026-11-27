@@ -15,7 +15,7 @@ The work packages that finish Quill's two modern clients: the GTK4 client to par
 
 ## Where the clients stand
 
-**GTK4** (`linux/quill-gtk`). G1 (viewer), G2a (libadwaita shell and the Windows chrome) and G2 (editing, input method, pointer, Save) are built. Of the plan's later items, G4 (bars, ruler, status) came with G2a; G3 is mostly there (Find, Replace, Fonts, Tabs, Spelling, About, the unsaved-changes question, Open, Save As and Insert Picture through `GtkFileDialog`) but the file dialogs were never answered by a test, mnemonics were never run, and `Dialog::Print` is a toast. Not started: the system clipboard (G5), printing (G6), accessibility (G7), spelling marks on the page, header and footer editing on the page, packaging (G8).
+**GTK4** (`linux/quill-gtk`). G1 (viewer), G2a (libadwaita shell and the Windows chrome) and G2 (editing, input method, pointer, Save) are built. Of the plan's later items, G4 (bars, ruler, status) came with G2a; G3 is mostly there (Find, Replace, Fonts, Tabs, Spelling, About, the unsaved-changes question, Open, Save As and Insert Picture through `GtkFileDialog`) but the file dialogs were never answered by a test, mnemonics were never run, and `Dialog::Print` is a toast. G3 has since been built (WP-GTK-1, LNX-25 to LNX-28). Not started: the system clipboard (G5), printing (G6), accessibility (G7), spelling marks on the page, header and footer editing on the page, packaging (G8).
 
 **WinUI 3** (`winui/`). Only the spikes exist. S0a passed (a pixel-exact page in a Reactor window from a zip built on Linux). S0b did not reach a go: a child window under XAML is invisible, an owned pop-up takes typing, dead keys and Alt codes, and AccessKit returns the document text, but input methods, the rest of the text pattern, Narrator, Tab handover and dialogs over the pop-up were never run. So there is no viewer (W3) yet, and the hosting is undecided (WUI-1).
 
@@ -36,26 +36,29 @@ The two clients' sequences are independent of each other except where noted; wit
 
 | # | Package | Starts when | Runs beside |
 |---|---|---|---|
-| 1 | **WP-GTK-1** Dialogs and keyboard (G3) | Now: needs nothing from the parked block | WP-WINUI-1, WP-WINUI-2 |
-| 2 | **WP-GTK-2** System clipboard (G5) | The shared clipboard bridge in `quill-app` has merged (below) | WP-WINUI-* |
-| 3 | **WP-GTK-3** Printing and print preview (G6) | After WP-GTK-1; **goes before WP-GTK-2** if the bridge has not merged | WP-WINUI-* |
-| 4 | **WP-GTK-4** libadwaita finish and dark mode | After WP-GTK-3 | WP-WINUI-* |
-| 5 | **WP-GTK-5** Accessibility (G7) | After WP-GTK-4 | WP-WINUI-* |
-| 6 | **WP-GTK-6** The page's own parity: spelling marks, headers and footers | After WP-GTK-1; can go anywhere after it | WP-WINUI-* |
-| 7 | **WP-GTK-7** The parked block's dialogs and keys on GTK | Each item when its shared part has merged | WP-WINUI-* |
-| 8 | **WP-GTK-8** Help viewer | After WP-GTK-5 | WP-WINUI-* |
-| 9 | **WP-GTK-9** Packaging and a `linux` CI job (G8) | Later, by owner's call | — |
-| 10 | **WP-WINUI-1** Hosting decision (S0c) | Now (VM time; one heavy tool at a time) | WP-GTK-1, WP-WINUI-2 |
-| 11 | **WP-WINUI-2** The portable shell core | Now (host only, new files) | WP-GTK-1, WP-WINUI-1 |
-| 12 | **WP-WINUI-3** Viewer (W3) | WP-WINUI-1 has decided the hosting; WP-WINUI-2 merged | GTK packages |
-| 13 | **WP-WINUI-4** Editing and input (W4) | After WP-WINUI-3 | GTK packages |
-| 14 | **WP-WINUI-5** Menus and dialogs (W5) | After WP-WINUI-4 | GTK packages |
-| 15 | **WP-WINUI-6** Command bars, ruler and status line (W6) | After WP-WINUI-5 | GTK packages |
-| 16 | **WP-WINUI-7** Clipboard (W7) | After WP-WINUI-4 and WP-GTK-2 | GTK packages |
-| 17 | **WP-WINUI-8** Mica, dark mode and high contrast (W8) | After WP-WINUI-6 | GTK packages |
-| 18 | **WP-WINUI-9** Narrator and input methods (W9) | After WP-WINUI-4 and WP-GTK-5 | GTK packages |
-| 19 | **WP-WINUI-10** Printing and preview (W10) | After WP-WINUI-6 | GTK packages |
-| 20 | **WP-WINUI-11** Packaging and CI (W11) | Later, by owner's call | — |
+| 1 | **WP-GTK-1** Dialogs and keyboard (G3) | Built | — |
+| 2 | **WP-GTK-3a** Print Preview (G6) | Now: needs nothing shared | WP-WINUI-* |
+| 3 | **WP-GTK-8** Help viewer | After WP-GTK-3a when pull request #167 (`quill-pdf`, `quill-pdfdoc`) has not merged; otherwise after WP-GTK-3c | WP-WINUI-* |
+| 4 | **WP-GTK-3b** Export as PDF (G6) | WP-GTK-3a merged and `quill-pdf` and `quill-pdfdoc` (WP-WEB-3, #167) merged | WP-WINUI-* |
+| 5 | **WP-GTK-3c** Print (G6) | After WP-GTK-3b | WP-WINUI-* |
+| 6 | **WP-GTK-2** System clipboard (G5) | The shared clipboard bridge in `quill-app` has merged (below); takes the next free GTK slot | WP-WINUI-* |
+| 7 | **WP-GTK-4** libadwaita finish and dark mode | After WP-GTK-3c | WP-WINUI-* |
+| 8 | **WP-GTK-10** Dark paper | After WP-GTK-4 | WP-WINUI-* |
+| 9 | **WP-GTK-5** Accessibility (G7) | After WP-GTK-10 | WP-WINUI-* |
+| 10 | **WP-GTK-6** The page's own parity: spelling marks, headers and footers | Anywhere after WP-GTK-1 | WP-WINUI-* |
+| 11 | **WP-GTK-7** The parked block's dialogs and keys on GTK | Each item when its shared part has merged | WP-WINUI-* |
+| 12 | **WP-GTK-9** Packaging and a `linux` CI job (G8) | Later, by owner's call | — |
+| 13 | **WP-WINUI-1** Hosting decision (S0c) | Now (VM time; one heavy tool at a time) | GTK packages, WP-WINUI-2 |
+| 14 | **WP-WINUI-2** The portable shell core | Now (host only, new files) | GTK packages, WP-WINUI-1 |
+| 15 | **WP-WINUI-3** Viewer (W3) | WP-WINUI-1 has decided the hosting; WP-WINUI-2 merged | GTK packages |
+| 16 | **WP-WINUI-4** Editing and input (W4) | After WP-WINUI-3 | GTK packages |
+| 17 | **WP-WINUI-5** Menus and dialogs (W5) | After WP-WINUI-4 | GTK packages |
+| 18 | **WP-WINUI-6** Command bars, ruler and status line (W6) | After WP-WINUI-5 | GTK packages |
+| 19 | **WP-WINUI-7** Clipboard (W7) | After WP-WINUI-4 and WP-GTK-2 | GTK packages |
+| 20 | **WP-WINUI-8** Mica, dark mode and high contrast (W8) | After WP-WINUI-6 | GTK packages |
+| 21 | **WP-WINUI-9** Narrator and input methods (W9) | After WP-WINUI-4 and WP-GTK-5 | GTK packages |
+| 22 | **WP-WINUI-10** Printing and preview (W10) | After WP-WINUI-6 | GTK packages |
+| 23 | **WP-WINUI-11** Packaging and CI (W11) | Later, by owner's call | — |
 
 With the builder cap of three, the steady state is one GTK builder, one WinUI builder, and the third slot for the parked block or the architecture track. WP-WINUI-1 and WP-WINUI-2 are the only pair inside one client that run together (one is VM work, the other host code in new files).
 
@@ -67,7 +70,10 @@ The architecture follow-ups (`quill-session`, `quill-chrome`, `quill-picture`, `
 |---|---|---|
 | Parked block: rich clipboard copy | The bridge `docs/clipboard.md` describes: `App::take_clip_request`, `copy_to`, `paste_from`, with the 2,048-byte buffer gone. Nothing of it is in `quill-app` today | WP-GTK-2 (hard), WP-WINUI-7 (hard) |
 | Parked block: Page Layout, Numbering, Header and Footer dialogs; preferences (Tools > Options); Size Picture; Page Break and word movement keys; Edit menu state | The shared descriptions and `App` calls | WP-GTK-7 (hard, per item); WP-WINUI-5 takes whatever has landed |
-| Parked block: GTK and Win16 picture wiring | Pictures on the GTK page | None here; WP-GTK-3 prints what the page shows |
+| Parked block: GTK and Win16 picture wiring | Pictures on the GTK page | None here; WP-GTK-3a to 3c print what the page shows |
+| Web lane: `quill-pdf` and `quill-pdfdoc` (WP-WEB-3, pull request #167) | The PDF writer with a text layer and the document walker, on `main` | WP-GTK-3b (hard), WP-GTK-3c (hard) |
+| The owner of `quill-pdf` and `quill-pdfdoc`, then the architecture lane: S1 to S4 and S6 of [gtk-print-help.md](plans/gtk-print-help.md#what-the-shared-crates-are-asked-for) | Embedded TrueType (WP-PDF-1), one walker for preview and paper (WP-PDF-2), pictures at their own resolution, a list of pages, `Command::ExportPdf` in the menu tree | WP-GTK-3b and 3c (soft: they ship the first stage without them) |
+| Content lane: S5 | A help topic per dialog with its `[MAP]` number | WP-GTK-8 (soft: F1 in a dialog opens the contents) |
 | Autosave plan PR 18 (`feat/gtk-executor`) and PR 19 (`feat/winui-executor`) | Worker threads, autosave and the logout inhibit on GTK and WinUI | None here; PR 18 can land between any two GTK packages, PR 19 after WP-WINUI-4 |
 | `quill-flow` (C6) | Confirm-save routing, menu state | WP-GTK-1 and WP-WINUI-5 use today's `quill_app::session` and `App::menu_mark`; they move later |
 | `quill-menu` (C2) | Command vocabulary and the menu tree | WP-GTK-1, WP-WINUI-5 use `quill_app::menu_items` today |
@@ -97,21 +103,15 @@ The architecture follow-ups (`quill-session`, `quill-chrome`, `quill-picture`, `
 - **Dependencies.** **Hard:** the parked block's rich clipboard bridge in `quill-app`. No plain-text stand-in (LNX-23).
 - **Tests.** The `Clipboard` implementation against `quill-clip`'s own tests' cases; under a private Xvfb, `xclip -selection clipboard -t text/rtf -o` after a copy gives what `quill_clip::copy` writes, and `xclip -i -t text/rtf` then Paste saves the expected bytes; a damaged RTF with text beside it pastes the text; an emoji in UTF-8 text is refused with the count.
 - **Evidence.** A shot of a paste from LibreOffice keeping bold and colour, and of the refusal toast.
-- **Parallel.** With WinUI packages. Waits for the bridge; WP-GTK-3 goes first if the bridge is late.
+- **Parallel.** With WinUI packages. Waits for the bridge; the print packages and WP-GTK-8 go first if the bridge is late.
 
-### WP-GTK-3 Printing and print preview (G6)
+### WP-GTK-3a, 3b and 3c Printing, preview and Export as PDF (G6)
 
-- **Finish line.** File > Print opens GTK's print dialog and prints every sheet as the page shows it, at the printer's resolution up to 300 dpi, through `gtk::PrintOperation` (which uses the print portal under Flatpak; LNX-22). File > Print Preview shows one or two pages in the window from the same painter with the Windows build's keys (Page Up, Page Down, T, P, Esc); Print Setup runs GTK's page setup for the printer. Headers, footers, fields and page numbers print.
-- **Files owned.** New `linux/quill-gtk/src/print.rs` and `src/preview.rs`, new `tests/print.rs`; `src/window.rs` (wiring `Dialog::Print` and the three commands); docs rows as before.
-- **Must not touch.** As WP-GTK-1. If `quill_paint` cannot draw a header or a field on a sheet at a given scale, stop and report.
-- **Dependencies.** None in the parked block. A text-layer PDF (`quill to-pdf`, P7b) is not needed and not done here.
-- **Tests.** Export to PDF with `PrintOperationAction::Export`, `pdftoppm` at 300 dpi, compared with `paint_sheet` at the same scale (within 2 per channel on 99.9 % of pixels); the page count; header, footer and page number on each page of a three-page document; the preview's keys as a state machine.
-- **Evidence.** The print dialog, the preview at one and two pages, and a rendered PDF page beside the screen.
-- **Parallel.** With WinUI packages; may run before WP-GTK-2.
+The owner's answer of 2026-11-27 (a proper PDF with a text layer, LNX-80) replaced the raster design of LNX-22. The design, the three packages (Print Preview, Export as PDF, Print), their files, tests, evidence and briefs are in [plans/gtk-print-help.md](plans/gtk-print-help.md): `quill_pdfdoc::export` (pull request #167) with the window's own `OutlineMeasure` writes the PDF that is both the exported file and what `gtk::PrintDialog` prints (through CUPS, or the print portal under Flatpak); preview is Quill's own from the pixel surface.
 
 ### WP-GTK-4 libadwaita finish and dark mode
 
-- **Finish line.** The window looks and behaves like a current GNOME application in a real GNOME compositor: the desktop's dark preference, accent colour and high contrast are followed (the ruler, selection, focus rings and desk colours included); the window adapts below 600 logical pixels (an `adw::Breakpoint` moves the formatting bar's boxes into an overflow and drops the zoom box, as the Win32 build drops its zoom pane under 560); F6 moves the focus between the page, the toolbar, the formatting bar, the ruler and the status bar; `gtk-enable-animations` off stops the caret blink. The paper stays white (LNX-5) unless the owner asks for the dark paper option.
+- **Finish line.** The window looks and behaves like a current GNOME application in a real GNOME compositor: the desktop's dark preference, accent colour and high contrast are followed (the ruler, selection, focus rings and desk colours included); the window adapts below 600 logical pixels (an `adw::Breakpoint` moves the formatting bar's boxes into an overflow and drops the zoom box, as the Win32 build drops its zoom pane under 560); F6 moves the focus between the page, the toolbar, the formatting bar, the ruler and the status bar; `gtk-enable-animations` off stops the caret blink. The paper stays white (LNX-5); the dark paper option is WP-GTK-10, after this package, through the colour wrapper this package adds for the accent.
 - **Files owned.** `linux/quill-gtk/src/window.rs`, `src/ruler.rs`, `src/status.rs`, `src/format_bar.rs`, `src/toolbar.rs`, `src/blink.rs`, `tools/chrome-shots.sh`; docs rows.
 - **Must not touch.** As WP-GTK-1.
 - **Dependencies.** None.
@@ -151,17 +151,15 @@ The architecture follow-ups (`quill-session`, `quill-chrome`, `quill-picture`, `
 
 ### WP-GTK-8 Help viewer
 
-- **Finish line.** Help > Contents (F1) opens a GTK window that shows `QUILL.HLP` through `quill-help`: the contents topic, headings, paragraphs, bold, bullets, jumps and pop-ups, Back, and a search over topic titles.
-- **Files owned.** New `linux/quill-gtk/src/help.rs`, `linux/quill-gtk/Cargo.toml` (adds `quill-help`); `src/window.rs`; docs rows.
-- **Must not touch.** As WP-GTK-1, including `crates/quill-help/**`.
-- **Dependencies.** None. Owner decision on scope (below).
-- **Tests.** Every topic of `assets/help/quill.qhm` opens; every jump resolves.
-- **Evidence.** Contents, a topic and a pop-up.
-- **Parallel.** With WinUI packages.
+An in-app libadwaita window over the parsed `assets/help/quill.qhm` (LNX-87): contents, jumps, pop-ups, Back and Forward, search and F1, in [plans/gtk-print-help.md](plans/gtk-print-help.md#wp-gtk-8-help-viewer), with its brief. Wanted by the owner (2026-11-27).
 
 ### WP-GTK-9 Packaging and CI (G8)
 
-As G8 in [linux.md](linux.md#work-list): PKGBUILD, Flatpak manifest on `org.gnome.Platform`, a `linux` CI job in a shared image with GTK4 development files, AppStream data, a release workflow; D185 (the `quill` name) decided first. Later, by the owner's call; no brief yet.
+As G8 in [linux.md](linux.md#work-list): PKGBUILD, Flatpak manifest on `org.gnome.Platform`, a `linux` CI job in a shared image with GTK4 development files, AppStream data, a release workflow; D185 (the `quill` name) decided first. Inside Flatpak it adds the host's `/run/host/fonts` and `/run/host/user-fonts` to the font set, so the layout matches the native build, and checks printing through the real print portal. Later, by the owner's call; no brief yet.
+
+### WP-GTK-10 Dark paper
+
+`[Quill] PaperColour=theme` draws the editing page as dark paper in the dark style, by the colour rules of LNX-88; print, preview, export and thumbnails stay white. In [plans/gtk-print-help.md](plans/gtk-print-help.md#wp-gtk-10-dark-paper), with its brief. Wanted by the owner (2026-11-27), off by default, after WP-GTK-4.
 
 ## WinUI 3 packages
 
@@ -381,25 +379,9 @@ Xvfb), the refusal toast. Docs: linux.md clipboard section (LNX-18 superseded), 
 progress row, LNX- rows. Must not touch: as WP-GTK-1, plus crates/quill-clip.
 ```
 
-### WP-GTK-3 Printing and print preview
+### WP-GTK-3a, 3b, 3c, WP-GTK-8 and WP-GTK-10
 
-```text
-Package WP-GTK-3, Printing and print preview (G6). Branch feat/gtk-print-g6.
-Read: decisions LNX-1, LNX-22, D189, D81; the Win32 print and preview rows in docs/progress.md (M4);
-crates/quill-paint/src/page.rs (paint_sheet and its Scale); gtk::PrintOperation in gtk4-rs 0.11.
-Build: src/print.rs: a PrintOperation whose draw-page paints the sheet with paint_sheet at the context's dpi
-(capped at 300) into an RGBA buffer, in bands if a page is over 64 MB, and paints it onto the cairo context
-at the page's physical size; n-pages from the layout; headers, footers and fields with the page number and
-count; the print date and time set as the Windows builds do. Print Setup runs the page setup dialog for the
-printer and keeps its settings for the session. src/preview.rs: File > Print Preview replaces the page with
-one or two pages drawn by the same painter, Page Up and Down, T, P and Esc, and a small header bar with the
-same commands. Wire Dialog::Print and the three commands in window.rs.
-Tests: export to PDF (PrintOperationAction::Export) for letter.rtf and a three-page document; pdftoppm -r 300
-compared with paint_sheet at 300 dpi (2 per channel, 99.9 % of pixels); the page count; header, footer and
-page number per page; the preview's keys.
-If quill-paint cannot draw a header, footer or field on a sheet, stop and report. Evidence (GTK4/WP-GTK-3/):
-the print dialog, the preview at one and two pages, a PDF page beside the screen. Docs as usual.
-```
+Their briefs are in [plans/gtk-print-help.md](plans/gtk-print-help.md#builder-briefs), the first (WP-GTK-3a Print Preview) in full.
 
 ### WP-GTK-4 libadwaita finish and dark mode
 
@@ -415,7 +397,7 @@ Run the window in a real GNOME compositor headless (mutter --headless --virtual-
 gsettings in that session only: color-scheme, accent-color, high-contrast. If neither compositor starts,
 fall back to Xvfb and say so. Tests: the colour choices and the breakpoint layout as data; F6 order; blink.
 Evidence (GTK4/WP-GTK-4/): light, dark, high contrast, two accents, narrow, at scale 1 and 2.
-OWNER DECISION if asked about dark paper: default no (LNX-5), swap in this package's scope.
+Dark paper is WP-GTK-10's; build the colour wrapper for the accent so it can extend it.
 ```
 
 ### WP-GTK-5 Accessibility
@@ -451,7 +433,7 @@ Tests: the marks equal F7's stops once the scan is done; the popover's choices c
 Win32 menu does; header typing saves the host scenario's bytes. Evidence (GTK4/WP-GTK-6/).
 ```
 
-### WP-GTK-7, WP-GTK-8 and the WinUI packages
+### WP-GTK-7 and the WinUI packages
 
 These briefs are written by the lead when each package's start condition holds, from the package's entry above and the common preamble, because their inputs (the parked block's shared parts, the hosting decision) are not on `main` yet. WP-WINUI-1 and WP-WINUI-2 can start now:
 
@@ -497,7 +479,7 @@ Each is taken with the default so no package waits; the last column is where to 
 | Start the GTK packages now, beside the parked block, or after it as the queue's section C says? | Start WP-GTK-1, WP-WINUI-1 and WP-WINUI-2 now: they touch only the clients' own folders and need nothing from the block | The "Starts when" column above |
 | WinUI hosting: the Reactor window with an owned pop-up page (P2), or one Win32 window with DirectComposition and DWM Mica (Option B, which imitates WinUI's chrome)? | Decided by WP-WINUI-1's measurements: P2 if it passes every open check, Option B otherwise | WUI-1 |
 | Who builds the clipboard bridge in `quill-app`? | The parked block's "rich clipboard copy" item, before WP-GTK-2 | This page's "What the track needs" table; or add a WP-CORE-CLIP package to this track |
-| GTK printing: raster pages through `gtk::PrintOperation`, or a text-layer PDF (`quill to-pdf`, P7b) to the portal? | Raster pages through `PrintOperation` (LNX-22); P7b later for export | LNX-22 and WP-GTK-3 |
-| A dark paper option for display? | No: the paper stays white (LNX-5) | WP-GTK-4's scope |
-| A help viewer on GTK (and later WinUI)? | Yes, a GTK window over `quill-help` (WP-GTK-8) | Drop WP-GTK-8 from the order table |
+| GTK printing: raster pages through `gtk::PrintOperation`, or a text-layer PDF? | **Decided by the owner** (2026-11-27): a PDF with a text layer from `quill-pdf`, printed through `gtk::PrintDialog` (LNX-80, LNX-81) | [plans/gtk-print-help.md](plans/gtk-print-help.md#owner-decisions) |
+| A dark paper option for display? | **Decided by the owner** (2026-11-27): yes, off by default, after WP-GTK-4 (WP-GTK-10, LNX-88) | [plans/gtk-print-help.md](plans/gtk-print-help.md#owner-decisions) |
+| A help viewer on GTK (and later WinUI)? | **Decided by the owner** (2026-11-27): yes on GTK, an in-app window over the help source (WP-GTK-8, LNX-87) | [plans/gtk-print-help.md](plans/gtk-print-help.md#owner-decisions) |
 | Reactor version for W3 onward | Stay on 0.100.0 (the spike's) unless WP-WINUI-1 finds 0.101 or later fixes the command bar's `ComboBox` and gives the window handle | WUI-2 and `winui/quill-winui/Cargo.toml` |

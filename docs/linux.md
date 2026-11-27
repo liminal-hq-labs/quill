@@ -145,7 +145,7 @@ The client is GTK4 with libadwaita, in its own workspace under `linux/quill-gtk`
 - **Menus** are a `GMenuModel` from `menu_items` and `menu_title`, one action per `Command`, refreshed after each command. They are popovers, not a classic menu bar.
 - **Dialogs:** `set_native_dialogs(true)` then `take_dialog()`. Open and Save As use `GtkFileDialog`, the save prompt `AdwAlertDialog`, About `AdwAboutDialog`, and Find, Replace, Fonts, Tabs and Spelling a generic builder from `assets/dialogs/dialogs.json` (D86).
 - **Clipboard:** `GdkClipboard` offering `text/rtf`, `application/rtf`, `text/plain;charset=utf-8` and `image/png` for a lone picture.
-- **Printing** writes a PDF from `quill-raster`'s page and hands it to the print portal (D189).
+- **Printing** writes a PDF with a text layer through `quill-pdfdoc` and `quill-pdf`, laid out with the window's own measure, and hands it to `gtk::PrintDialog`, which reaches the print portal under Flatpak (D189, LNX-80).
 - **Text files** on Linux are usually UTF-8, so `quill-formats` gains a UTF-8 option: read UTF-8 when valid, and offer "Text Files (UTF-8)" on Save As, as DOS does with CP437 (D190).
 
 ### Spike G0
@@ -386,7 +386,7 @@ The Windows 95 build runs under Wine, but Quill hard-codes 96 dpi, so it cannot 
 
 ## Work list
 
-The GTK items still open (G3, G5, G6, G7, G8 and the page's spelling marks and header editing) are ordered as work packages `WP-GTK-1` to `WP-GTK-9` in [ui-track.md](ui-track.md), with their dependencies and builder briefs (LNX-21). The table below is the original plan.
+The GTK items still open (G3, G5, G6, G7, G8 and the page's spelling marks and header editing) are ordered as work packages `WP-GTK-1` to `WP-GTK-10` in [ui-track.md](ui-track.md) (printing, help and dark paper in [plans/gtk-print-help.md](plans/gtk-print-help.md)), with their dependencies and builder briefs (LNX-21). The table below is the original plan.
 
 Items marked *new files* touch only new files and one line of the root `Cargo.toml`, so they can land beside the open branches.
 
@@ -410,7 +410,7 @@ Items marked *new files* touch only new files and one line of the root `Cargo.to
 | C1 | `quill-app` clipboard: `copy_rtf`, `copy_text`, `paste_rtf`, `paste_text` | Round trip into LibreOffice; unblocks the Win32 clipboard the SPEC describes | After the open `quill-app` branches merge |
 | G5 | GTK clipboard | Copy from Quill and paste into LibreOffice keeps bold, and back | C1 |
 | C2 | `view.rs` geometry from `Measure::resolution()` instead of 96 | Win16 golden still 12 of 12; Wine screenshots unchanged | The shared view |
-| G6 | Print preview; print by PDF through the portal | Preview equals the raster goldens; a PDF reaches the print dialog | P7b |
+| G6 | Print preview; Export as PDF and print from one `quill-pdfdoc` PDF with a text layer through `gtk::PrintDialog` (LNX-80) | Preview equals the page's painter; the PDF's text and word positions equal the layout; a PDF reaches the print dialog | `quill-pdf` and `quill-pdfdoc` (WP-WEB-3); WP-GTK-3a to 3c |
 | C3 | `Surface` and one shared painter extracted from `gdi.rs`, Win16's painter and `quill-raster` | All Windows and raster goldens unchanged | The open branches and G1 |
 | G2a | The libadwaita shell and the chrome: menu bar, toolbar, formatting bar, ruler, status bar, dialogs | Every bar and dialog shown and answered; the page still pixel-exact | G1. **Built**, see [The libadwaita shell and the chrome (G2a)](#the-libadwaita-shell-and-the-chrome-g2a) |
 | G2 | Editing: keys, input method, caret, pointer, Save | The host's editing scenarios replayed through the GTK command layer save identical bytes | G2a. **Built**, see [Editing in the GTK client (G2)](#editing-in-the-gtk-client-g2) |
