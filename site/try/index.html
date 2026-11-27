@@ -21,7 +21,7 @@
 		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
 		<link rel="apple-touch-icon" href="../img/quill-256.png">
 		<link rel="stylesheet" href="../css/site.css?v=a4d3a119">
-		<link rel="stylesheet" href="../css/try.css?v=fc9dccd7">
+		<link rel="stylesheet" href="../css/try.css?v=4cfb372a">
 		<script>
 			// Apply a remembered theme before the first paint, so the page does not flash the other one.
 			try {
@@ -30,8 +30,9 @@
 			} catch (e) {}
 		</script>
 		<script src="../js/site.js?v=732915f9" defer></script>
+		<script src="../js/pointer.js?v=a23d70f4" defer></script>
 		<script src="bridge.js?v=3bdc0994" data-module="lib/dos-bridge.js?v=b2e050c0" defer></script>
-		<script src="try.js?v=ee8a8ac2" defer></script>
+		<script src="try.js?v=a937c55c" defer></script>
 	</head>
 	<body>
 		<a class="skip-link" href="#main">Skip to the content</a>
@@ -107,10 +108,19 @@
 						</div>
 						<p class="mouse-hint" data-mouse-hint aria-live="polite"></p>
 						<p class="build" data-bridge-state hidden></p>
-						<p class="speed" data-speed hidden>
-							<label for="pointer-speed">Pointer speed</label>
-							<input id="pointer-speed" type="range" min="0.5" max="2" step="0.1" value="1" data-speed-input>
-						</p>
+						<p class="mouse-hint" data-pointer-debug hidden></p>
+						<div class="mouse-controls" data-mouse-controls hidden>
+							<fieldset class="mouse-mode" data-mouse-mode>
+								<legend>Mouse</legend>
+								<label><input type="radio" name="mouse" value="follow" checked> <span>Follow</span></label>
+								<label><input type="radio" name="mouse" value="capture"> <span>Capture</span></label>
+							</fieldset>
+							<p class="speed" data-speed hidden>
+								<label for="pointer-speed">Pointer speed</label>
+								<input id="pointer-speed" type="range" min="0.5" max="2" step="0.1" value="1" data-speed-input>
+							</p>
+							<button class="button button--alt" type="button" data-trace hidden>Save pointer trace</button>
+						</div>
 						<div class="keybar" data-keybar hidden role="group" aria-label="On-screen keys, for a phone or tablet">
 							<button class="button button--alt" type="button" data-key="f10">F10 menu</button>
 							<button class="button button--alt" type="button" data-key="esc">Esc</button>
@@ -126,8 +136,8 @@
 					<h3 id="mouse-title">Mouse and touch</h3>
 					<p>In the graphics modes Quill has a pointer of its own: click the menus, the toolbar and the formatting bar, drag in the page to select, drag the scroll bars and the ruler's markers, and use the dialogs. Text mode takes the mouse too, a cell at a time.</p>
 					<ul class="plain-list">
-						<li><strong>With a mouse:</strong> click the screen once and the browser hands it your pointer; Quill's pointer then follows your mouse. <kbd>Esc</kbd> gives your pointer back (inside a Quill menu or dialog, press it again to close that). Selecting the screen again captures it again. If the pointer feels slow or fast, the <em>Pointer speed</em> slider under the screen changes it.</li>
-						<li><strong>On a phone or tablet:</strong> the screen works like a laptop's trackpad. Drag a finger to move Quill's pointer, tap to click where the pointer is, and hold a finger still for a moment and then drag to hold the button down (to select text or drag a scroll bar). The row of keys under the screen stands in for the keyboard; turn the phone sideways, or use <strong>Full screen</strong>, for a bigger picture.</li>
+						<li><strong>With a mouse:</strong> Quill's pointer stays under yours. Your own pointer is hidden over the screen, and Quill's follows it to the pixel, so slow and diagonal movements stay smooth. This is <em>Follow</em>, the default. Choose <em>Capture</em> under the screen to have the browser lock the mouse to the screen instead (click the screen once; <kbd>Esc</kbd> gives your pointer back, and inside a Quill menu or dialog press it again to close that). The <em>Pointer speed</em> slider appears while the mouse is captured.</li>
+						<li><strong>On a phone or tablet:</strong> the screen works like a laptop's trackpad. Drag a finger to move Quill's pointer, tap to click where the pointer is, tap with two fingers to right-click, and hold a finger still for a moment and then drag to hold the button down (to select text or drag a scroll bar). The row of keys under the screen stands in for the keyboard; turn the phone sideways, or use <strong>Full screen</strong>, for a bigger picture.</li>
 					</ul>
 					<p>The disk carries FreeDOS's <a href="https://freedos.org/">CuteMouse</a> driver, which Quill reads as it would on a real PC: a disk booted in DOSBox has no mouse driver of its own.</p>
 					<h3 id="keys-title">Keys</h3>
