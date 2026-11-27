@@ -99,6 +99,7 @@ export function buildLine(loaded) {
 	const m = loaded.manifest;
 	const short = (text, n) => (typeof text === "string" ? text.slice(0, n) : "?");
 	const parts = ["Build " + (m.built || "(undated)"), "disk " + short(m.partsSha256, 12), "state " + short(m.stateSha256, 12), "v86 " + (m.v86.version || "?") + " (" + m.v86.libv86 + ", " + m.v86.wasm + ")"];
+	parts.push(m.audio ? "sound card saved" : "no sound card in the state");
 	if (m.quill) parts.push("Quill " + short(m.quill, 7));
 	if (m.reactosLiminal) parts.push("reactos-liminal " + short(m.reactosLiminal, 7));
 	return parts.join(" · ");

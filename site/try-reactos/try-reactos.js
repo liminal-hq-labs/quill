@@ -5,9 +5,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 // The ?v= on a module's address is the first 8 hex of its SHA-256; tools/stamp-web.py keeps them current (SITE-14).
-import { applyManifest, buildLine, emulatorFiles, loadManifest, refetchFresh } from "./manifest.js?v=73de4d88";
+import { applyManifest, buildLine, emulatorFiles, loadManifest, refetchFresh } from "./manifest.js?v=d70e20f6";
 import * as hostLink from "./host-link.js?v=01f7d6f8";
-import * as sound from "./sound.js?v=295d6486";
+import * as sound from "./sound.js?v=368f1ac1";
 import * as power from "./power.js?v=bda0a706";
 
 const player = document.querySelector("[data-player]");
@@ -131,6 +131,7 @@ function config(overrides) {
 		disk: form.elements.disk.value.trim(),
 		cdrom: form.elements.cdrom.value.trim(),
 		state: form.elements.state.value.trim(),
+		audio: form.elements.audio.value.trim(),
 		chunk: Number(form.elements.chunk.value) || 0,
 	};
 	return Object.assign(c, overrides || {});
@@ -222,6 +223,8 @@ function hook(e) {
 
 async function start(overrides) {
 	const c = config(overrides);
+	// First, while the browser still counts the click as the visitor's own: the audio context can only be started from a gesture.
+	sound.prepare();
 	setPower("starting");
 	say("Loading the emulator…");
 	try {
@@ -249,6 +252,8 @@ async function start(overrides) {
 		if (c.disk) opts.hda = await asyncImage(c.disk, c.chunk);
 		if (c.cdrom) opts.cdrom = await asyncImage(c.cdrom);
 		if (c.state) opts.initial_state = { url: c.state };
+		let audio = named ? loadedManifest.manifest.audio || null : null;
+		if (c.audio) audio = await (await fetch(c.audio)).json();
 		startedAt = performance.now();
 		stats.startedAt = startedAt;
 		say("Starting…");
@@ -256,7 +261,9 @@ async function start(overrides) {
 		emulator = new V86(opts);
 		hook(emulator);
 		hostLink.attach(emulator);
-		sound.attach(emulator);
+		// The card's saved registers belong to the state they were taken with: the manifest's own, or the file named in the panel. Any other
+		// saved state has none, and so gets no card (its PCI bus has no such slot).
+		sound.attach(emulator, { restoring: Boolean(c.state), audio });
 		seamsAttached = true;
 		const machine = emulator;
 		unwatchPower = power.watch(machine, () => enteredShutdown(machine));

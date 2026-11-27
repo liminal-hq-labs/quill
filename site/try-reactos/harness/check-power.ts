@@ -1,6 +1,6 @@
 // Checks the power cycle (SITE-40): Start, Shut Down from the guest's Start menu, Turn on, Stop, Start, Reset, and the diagnostics
 // panel's cold boot. After each step the buttons, their labels, the status line and the stage's power attribute are read back and must
-// agree with the machine (`is_running()`), and the guest's own pixels and a screenshot of the page are saved for each state.
+// agree with the machine (`is_running()`; the host link and the sound card attach and detach with it), and the guest's own pixels and a screenshot of the page are saved for each state.
 // Needs `tools/stage-web.py` to have staged data/ and web-manifest.json, and the server (bun serve.ts) running.
 // Input goes through the page's emulator API and pixels come from the canvas, never the host desktop. Exits non-zero on a failed check.
 // Usage: BASE=http://127.0.0.1:8161 bun check-power.ts OUTDIR
@@ -41,6 +41,10 @@ const ui = () =>
 			power: (document.querySelector("[data-stage]") as HTMLElement).dataset.power,
 			api: (window as any).tryReactos.powerState(),
 			link: !!(window as any).tryReactos.hostLink,
+			sound: (window as any).tryReactos.soundHandle ? ((window as any).tryReactos.soundHandle.stats().registered ? "card" : "waiting") : "none",
+			soundOutput: (window as any).tryReactos.soundHandle ? (window as any).tryReactos.soundHandle.outputState() : "none",
+			soundRow: document.querySelector("[data-sound-readout] dd")?.textContent ?? "",
+			soundButton: (document.querySelector("[data-sound]") as HTMLButtonElement).disabled,
 			machine: e ? (e.is_running() ? "running" : "stopped") : "none",
 			dim: getComputedStyle(document.querySelector(".screen-canvas")!).filter,
 		};
@@ -71,6 +75,11 @@ const matches = (state: string, u: Ui, why: string) => {
 	expect(u.power === state && u.api === state, `${why}: the power state is ${u.power}/${u.api}, wanted ${state}`);
 	// The host link attaches with the machine and detaches when it shuts down or stops (the seams' attach and detach across the cycle).
 	expect(u.link === (state === "on"), `${why}: the host link is ${u.link ? "attached" : "detached"} in the ${state} state`);
+	// The sound card attaches with the machine and is let go when it shuts down or stops, like the link; the output is live while the machine is on.
+	expect(u.sound === (state === "on" ? "card" : "none"), `${why}: the sound card is ${u.sound} in the ${state} state`);
+	expect(u.soundOutput === (state === "on" ? "running" : "none"), `${why}: the sound output is ${u.soundOutput} in the ${state} state`);
+	expect(state === "on" ? /AC'97 card in PCI slot 3/.test(u.soundRow) : /^off \(/.test(u.soundRow), `${why}: the Sound row reads "${u.soundRow}" in the ${state} state`);
+	expect(!u.soundButton, `${why}: the Sound button is ready in the ${state} state`);
 	for (const [field, value] of Object.entries(want[state])) expect((u as any)[field] === value, `${why}: ${field} is ${(u as any)[field]}, wanted ${value} (${state})`);
 	expect(state === "shutdown" ? /brightness/.test(u.dim) : u.dim === "none", `${why}: the screen's filter is ${u.dim}`);
 };
@@ -113,6 +122,7 @@ try {
 
 	// 2. Shut Down in the guest.
 	await page.evaluate("window.__first = window.tryReactos.emulator");
+	await page.evaluate("window.__card = window.tryReactos.soundHandle");
 	report.shutdownDetectedMs = await shutDown("Shut Down");
 	await sleep(1500);
 	const down = await ui();
@@ -130,6 +140,7 @@ try {
 	const on = await ui();
 	matches("on", on, "Turn on");
 	expect(await page.evaluate("window.tryReactos.emulator !== window.__first && !window.__first.is_running()"), "Turn on did not replace the stopped machine");
+	expect(await page.evaluate("window.tryReactos.soundHandle !== window.__card && window.__card.outputState() === 'none' && window.tryReactos.soundHandle.stats().registered"), "Turn on did not give the new machine a new card (the old one is detached)");
 	expect(/^Running\./.test(on.status), `the status after Turn on is "${on.status}"`);
 	await shoot("4-turned-on");
 
@@ -152,6 +163,7 @@ try {
 	await toDesktop("Reset");
 	matches("on", await ui(), "Reset");
 	expect(await page.evaluate("window.tryReactos.emulator !== window.__first"), "Reset kept the same machine");
+	expect(await page.evaluate("window.tryReactos.soundHandle.stats().registered && window.tryReactos.soundHandle.stats().stateError === ''"), "Reset: the new card is registered and took the saved registers");
 	await shoot("6-reset");
 
 	// 7. Shut Down once more, then Reset from the shut down state, then Stop from it.
@@ -179,6 +191,7 @@ try {
 	expect((await waitFor(page, "window.tryReactos.powerState() === 'on'", 60000)) !== null, "the cold boot never reached the on state");
 	matches("on", await ui(), "cold boot");
 	expect((await page.evaluate("window.tryReactos.config.state")) === "", "the cold boot kept a saved state");
+	expect(await page.evaluate("window.tryReactos.soundHandle.stats().registered && window.tryReactos.soundHandle.stats().counters.dmaFrames === 0"), "the cold boot has a card of its own, with no saved registers");
 	await page.click("[data-stop]");
 	matches("off", await ui(), "Stop after the cold boot");
 
