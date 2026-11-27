@@ -1,6 +1,6 @@
 # Work packages: the architecture follow-ups and the editor features
 
-The build order for two tracks that share `crates/quill-app`: the architecture follow-ups (`WP-ARCH-*`: `quill-chrome`, `quill-picture`, `quill-session`, `quill-input`, `quill-menu`, `quill-settings`, `quill-flow`, `quill-a11y`) and the editor features on every build (`WP-ED-*`: Unicode U1 and U2, the editing review's PRs 2 to 4, Page Break and word keys, Edit menu state, the rich clipboard, preferences, and the Page Layout, Numbering and Header and Footer dialogs). A third set, Reveal Codes (`WP-CODES-1` to `WP-CODES-10`), is planned in [plans/reveal-codes.md](plans/reveal-codes.md) and placed in the waves below from wave 9. Each package is one pull request for one Sonnet builder. The rules that keep builders out of each other's files are [ARCH-6](decisions.md); the layer order is ARCH-7. Packages are ticked off in [progress.md](progress.md) as they merge; this page changes only when the order does.
+The build order for two tracks that share `crates/quill-app`: the architecture follow-ups (`WP-ARCH-*`: `quill-chrome`, `quill-picture`, `quill-session`, `quill-input`, `quill-menu`, `quill-settings`, `quill-flow`, `quill-a11y`) and the editor features on every build (`WP-ED-*`: Unicode U1 and U2, the editing review's PRs 2 to 4, Page Break and word keys, Edit menu state, the rich clipboard, preferences, and the Page Layout, Numbering and Header and Footer dialogs). A third set, Reveal Codes (`WP-CODES-1` to `WP-CODES-10`), is planned in [plans/reveal-codes.md](plans/reveal-codes.md) and placed in the waves below from wave 9. The rest of Unicode (`WP-UNI-1` to `WP-UNI-10`, the v1 core; `WP-UNI-11` to `WP-UNI-15` later) is planned in [plans/unicode.md](plans/unicode.md), which also updates WP-ED-4, WP-ED-10 and WP-ED-11; its packages are placed in the waves below. Each package is one pull request for one Sonnet builder. The rules that keep builders out of each other's files are [ARCH-6](decisions.md); the layer order is ARCH-7. Packages are ticked off in [progress.md](progress.md) as they merge; this page changes only when the order does.
 
 Written against `origin/main` at `535470a`, with the DOS autosave branch (`feat/autosave-dos`, DOS-47, DOS-48, CORE-69) in flight. Sizes marked **[E]** are estimates for the package to measure; everything else was read in the code.
 
@@ -24,23 +24,23 @@ Two lanes edit `crates/quill-app/src`, each with at most one open branch there: 
 | Wave | ARCH lane | ED lane | Side | Waits for |
 |---|---|---|---|---|
 | 1 (now) | WP-ARCH-1 `quill-chrome` | WP-ED-1 Enter flags, then WP-ED-2 paste undo | (the DOS autosave builder) | — |
-| 2 | WP-ARCH-2 `quill-picture` | WP-ED-3 End affinity, WP-ED-4 Unicode U1a | — | DOS autosave merged, for WP-ED-3 |
+| 2 | WP-ARCH-2 `quill-picture` | WP-ED-3 End affinity, WP-ED-4 Unicode U1a | WP-UNI-1 Unicode tables in `quill-text`, WP-UNI-2 Unicode test documents (both can start now) | DOS autosave merged, for WP-ED-3 |
 | 3 | WP-ARCH-3 `quill-session` (or WP-ARCH-4 first, if autosave has not merged) | WP-ED-5 rich clipboard in the editor | — | DOS autosave merged, for WP-ARCH-3 |
 | 4 | WP-ARCH-4 `quill-input` | WP-ED-6 rich clipboard on Windows | — | — |
 | 5 | WP-ARCH-5 `quill-menu` | WP-ED-7 word keys | — | — |
 | 6 | WP-ARCH-6 `quill-settings` | WP-ED-8 Page Break, WP-ED-9 Edit menu state | WP-ARCH-9 Win16 strings from resources | — |
 | 7 | WP-ARCH-7 `quill-flow` | (WP-ED-8 or WP-ED-9 finishing) | — | — |
-| 8 (freeze) | WP-ED-10 Unicode U1b, then WP-ED-11 Unicode U2 | — (nothing else open in `quill-app`, `quill-paint` or the shells' key maps and painters) | Windows-shell-only work: WP-ED-6 if late | every earlier package merged |
-| 9 | WP-ARCH-8 `quill-a11y` (after WP-GTK-5) | WP-ED-12 default tab stops, WP-PREF-2 settings by id (was WP-ED-13) | WP-CODES-1 Reveal Codes core (`quill-core` and `quill-cli` only) | the freeze ended |
-| 10 | WP-CODES-2 Reveal Codes on the DOS text screen | WP-PREF-5 Tools > Options on DOS (was WP-ED-15) | WP-PREF-3 Win16 profile functions (was WP-ED-14) | WP-CODES-1, WP-ARCH-8 and WP-PREF-2, for WP-CODES-2 |
-| 11 | WP-CODES-3 deleting a code | WP-PREF-6 Options on the DOS graphics screen; then WP-PREF-7 and WP-PREF-8 on Windows (were WP-ED-16) | WP-ED-17 Page Layout | — |
+| 8 (freeze) | WP-ED-10 Unicode U1b, then WP-ED-11 Unicode U2, then WP-UNI-3 placeholders, clusters and line breaks | — (nothing else open in the freeze set, rule 4) | Windows-shell-only work: WP-ED-6 if late | every earlier package merged; WP-UNI-1 for WP-UNI-3 |
+| 9 | WP-ARCH-8 `quill-a11y` (after WP-GTK-5) | WP-ED-12 default tab stops, WP-UNI-5 typing any character, then WP-PREF-2 settings by id (was WP-ED-13) | WP-CODES-1 Reveal Codes core (`quill-core` and `quill-cli` only); WP-UNI-4 Unicode in files (after WP-ED-12); WP-UNI-8 GTK shows every unshaped script (UI track) | the freeze ended |
+| 10 | WP-CODES-2 Reveal Codes on the DOS text screen | WP-UNI-7 Find, spelling and words beyond ASCII, then WP-PREF-5 Tools > Options on DOS (was WP-ED-15) | WP-PREF-3 Win16 profile functions (was WP-ED-14); WP-UNI-6 the clipboard in Unicode (after WP-ED-6) | WP-CODES-1, WP-ARCH-8 and WP-PREF-2, for WP-CODES-2 |
+| 11 | WP-CODES-3 deleting a code | WP-PREF-6 Options on the DOS graphics screen; then WP-PREF-7 and WP-PREF-8 on Windows (were WP-ED-16) | WP-ED-17 Page Layout; WP-UNI-9 PDF beyond WinAnsi | — |
 | 12 | WP-CODES-4 Reveal Codes on DOS graphics, the pointer on both DOS screens | WP-ED-18 Numbering | WP-ED-19 Header and Footer | — |
 | 13 | WP-CODES-7 editing a code, pending codes | — | WP-CODES-5 Reveal Codes on Windows 95 | WP-ED-19, for WP-CODES-7 |
 | 14 | WP-CODES-8 dragging codes | — | WP-CODES-6 Reveal Codes on Windows 3.x | WP-CODES-5 and WP-ARCH-9, for WP-CODES-6 |
 
-From wave 10 the ARCH lane's slot in `crates/quill-app/src` carries the Reveal Codes packages, one at a time, since the ARCH packages end with WP-ARCH-8; the GTK and WinUI panes (WP-CODES-9 and WP-CODES-10) run in the UI track's lane once WP-GTK-5 and WP-WINUI-9 have merged. WP-CODES-5 and WP-CODES-9 touch no shared crate and can be pulled forward to any wave after WP-CODES-3.
+From wave 10 the ARCH lane's slot in `crates/quill-app/src` carries the Reveal Codes packages, one at a time, since the ARCH packages end with WP-ARCH-8; the GTK and WinUI panes (WP-CODES-9 and WP-CODES-10) run in the UI track's lane once WP-GTK-5 and WP-WINUI-9 have merged. WP-CODES-5 and WP-CODES-9 touch no shared crate and can be pulled forward to any wave after WP-CODES-3. WP-UNI-10, which saves one multi-script document on every build and compares the bytes, closes Unicode v1 once every other WP-UNI package of v1 has merged; no package that lets a character outside Windows-1252 into a document merges before WP-UNI-3 (CORE-210).
 
-Why this order and not the list's: `quill-session` owns the idle cadence the DOS autosave builder is writing into `dos/quill-dos/src/main.rs` and `idle.rs` right now, so it waits for that merge; `quill-chrome` touches no file the autosave branch changes except one `use` line, so it goes first. `quill-a11y` is built from the snapshot GTK's WP-GTK-5 makes (LNX-24), once the text is UTF-8 (WP-ED-11), so it is written once. Unicode U1b and U2 run in a freeze after every move, because they touch about 70 call sites across `quill-app`, `quill-paint` and the shells; a move landing under them would mean rebasing the widest change in the track.
+Why this order and not the list's: `quill-session` owns the idle cadence the DOS autosave builder is writing into `dos/quill-dos/src/main.rs` and `idle.rs` right now, so it waits for that merge; `quill-chrome` touches no file the autosave branch changes except one `use` line, so it goes first. `quill-a11y` is built from the snapshot GTK's WP-GTK-5 makes (LNX-24), once the text is UTF-8 (WP-ED-11), so it is written once. Unicode U1b, U2 and the placeholders (WP-UNI-3) run in a freeze after every move, because they touch about 70 call sites across `quill-app`, `quill-paint` and the shells and every page painter; a move landing under them would mean rebasing the widest change in the track.
 
 ## What the UI track needs first
 
@@ -68,7 +68,7 @@ These are ARCH-6 in full.
 1. **Files are owned.** Each package lists the files it owns. Two open branches never own the same file, except: `crates/quill-app/src/lib.rs` (owned by the items each package names), `SPEC.md`, `docs/decisions.md` and `docs/progress.md` (append rows; resolve on rebase), the lockfiles (regenerate), `crates/quill-dialogs/src/generated.rs` (regenerate with `emit-resources --dialogs`), `win16/examples/quill/segments.json` (only the lines for the package's crate) and `scripts/layer-allow.txt` (delete lines only).
 2. **A move changes no behaviour; a behaviour change moves no code.** A move's `git diff tests/golden` is empty and its sizes stay within the move limits under [Budgets](#budgets).
 3. **Shims where the layers allow them.** A move into a crate below `quill-app` (`quill-input`, `quill-menu`, `quill-settings`) leaves `pub use` re-exports in `quill-app`, so no shell changes. A move into a crate above it (`quill-chrome`, `quill-picture`, `quill-flow`, `quill-session`) cannot, because `quill-app` cannot depend upward: it changes the shells' `use` lines and manifests in the same pull request and nothing else in a shell file.
-4. **The freeze.** While WP-ED-10 or WP-ED-11 is open, no other branch is open in `crates/quill-app/src`, `crates/quill-paint/src`, `crates/quill-clip`, `crates/quill-spell`, `crates/quill-grid`, or a shell's key map or page painter.
+4. **The freeze.** While WP-ED-10, WP-ED-11 or WP-UNI-3 is open, no other branch is open in `crates/quill-app/src`, `crates/quill-paint/src`, `crates/quill-core/src/layout.rs`, `crates/quill-clip`, `crates/quill-spell`, `crates/quill-grid`, `crates/quill-fonts`, or a shell's key map or page painter (the list is in [plans/unicode.md](plans/unicode.md#the-migration-path-and-the-freeze)).
 5. **Branch late, rebase, never merge main in.** A package branches from `origin/main` once the packages it depends on have merged, and is brought up to date by rebase and `git push --force-with-lease`.
 6. **New lists edit themselves once.** WP-ARCH-1 writes the final `ORDER` of `scripts/check-layers.py` for every crate this track adds, so no later package edits it.
 7. **UI slices are handed over, not built here.** A `WP-ED-*` package is done when its shared part and the DOS, Windows 3.x and Windows 95 slices are in; its GTK and WinUI slices are the UI track's (WP-GTK-7 and the WinUI packages of [ui-track.md](ui-track.md)), and progress records them as "with the UI track" until they land.
@@ -86,7 +86,7 @@ Measured at the branch point and again before the pull request; the pull request
 | DOS, Windows 3.x and Windows 95 floppies | DOS 437,248 bytes free before autosave, about 427,000 after (DOS-48) | Each feature package reports `installer/tools/verify-disks.sh` for the disks it grows |
 | `QUILL32.EXE` imports | `win9x/tools/imports.allow` | A new import is named in the brief and added to the list in the same change |
 
-The DOS ledger the track expects, all **[E]**: moves 0; WP-ED-1 to WP-ED-4 about +1 KB; WP-ED-5 +2 to +4; WP-ED-7 +1 to +1.5; WP-ED-8 +0.5; WP-ED-9 +1; WP-ED-10 +0 to +1.5; WP-ED-11 +5 to +8; WP-ED-12 +0.3; WP-ED-13 +2 to +4; WP-ED-15 +6 to +10; WP-ED-17 to WP-ED-19 +3 to +5 each. That is +31 to +48 KB, about 467 to 484 KB, so the stop at 480 KB is likely to be reached near the dialogs, and the DOS floppy (which packs the executable to about 58 %) still has room. Reveal Codes adds +11 to +16.5 KB more after WP-ED-19 ([plans/reveal-codes.md](plans/reveal-codes.md#budgets)), so it is the package set most likely to meet that stop. [plans/modules.md](plans/modules.md) moves the DOS file dialog and the modal dialogs into `QUILLDLG.DMD`, which would leave the executable at about 438 to 458 KB with Reveal Codes in.
+The DOS ledger the track expects, all **[E]**: moves 0; WP-ED-1 to WP-ED-4 about +1 KB; WP-ED-5 +2 to +4; WP-ED-7 +1 to +1.5; WP-ED-8 +0.5; WP-ED-9 +1; WP-ED-10 +0 to +1.5; WP-ED-11 +5 to +8; WP-ED-12 +0.3; WP-ED-13 +2 to +4; WP-ED-15 +6 to +10; WP-ED-17 to WP-ED-19 +3 to +5 each. That is +31 to +48 KB, about 467 to 484 KB, so the stop at 480 KB is likely to be reached near the dialogs, and the DOS floppy (which packs the executable to about 58 %) still has room. Reveal Codes adds +11 to +16.5 KB more after WP-ED-19 ([plans/reveal-codes.md](plans/reveal-codes.md#budgets)), so it is the package set most likely to meet that stop. [plans/modules.md](plans/modules.md) moves the DOS file dialog and the modal dialogs into `QUILLDLG.DMD`, which would leave the executable at about 438 to 458 KB with Reveal Codes in. The rest of Unicode v1 (WP-UNI-3 to WP-UNI-7) adds +9.3 to +15.3 KB more [E] ([plans/unicode.md](plans/unicode.md#costs-and-budgets), DOS-112): about 447 to 473 KB with the module, past the 480 KB stop without it, so WP-MOD-4 should land before WP-UNI-5.
 
 ## Decision ids
 
@@ -108,6 +108,7 @@ Ranges reserved for this track, above every id on `main`, in the autosave branch
 | CORE, ARCH, DOS, W16, W9X, LNX, WUI | CORE-180 to CORE-199, ARCH-35, DOS-90 to DOS-99, W16-100 to W16-104, W9X-95 to W9X-99, LNX-70 to LNX-74, WUI-70 to WUI-74 | Reveal Codes, [plans/reveal-codes.md](plans/reveal-codes.md) |
 | CORE, DOS, W16, W9X, INS, ARCH | CORE-90 to CORE-99, DOS-50 to DOS-59, W16-40 to W16-49, W9X-40 and W9X-41, INS-20 to INS-22, ARCH-40 to ARCH-42 | Optional modules, [plans/modules.md](plans/modules.md) (WP-MOD-1 to WP-MOD-8). DOS-52 revises DOS-70's budget rule once a module exists |
 | CORE, DOS, W16, W9X, LNX, WUI | CORE-200 to CORE-209, DOS-100 to DOS-109, W16-110 to W16-114, W9X-120 to W9X-124, LNX-90 to LNX-94, WUI-80 to WUI-84 | The status bar, [plans/status-bar.md](plans/status-bar.md) |
+| CORE, DOS, W16, W9X, LNX, WUI | CORE-210 to CORE-229, DOS-110 to DOS-114, W16-115 to W16-119, W9X-125 to W9X-129, LNX-95 to LNX-99, WUI-95 to WUI-97 | Unicode, [plans/unicode.md](plans/unicode.md) (WP-UNI-1 to WP-UNI-15). The Unicode ids of the editor track's own block are CORE-100 (U1a, U1b), CORE-103 and CORE-104 (U2); CORE-211 (positions) is written by WP-ED-4 |
 
 ## Gates and evidence
 
@@ -492,14 +493,17 @@ when End reaches a soft wrap".
 - **Budget:** DOS ≤ +0.5 KB; Win16 data 0.
 - **Tests:** G-HOST (goldens unchanged), G-DOS, G-W16, G-W32.
 - **Evidence:** none visual (no change); the size and bench figures in the PR.
-- **Decisions:** CORE-100.
+- **Decisions:** CORE-100, CORE-211.
+- **Updated by [plans/unicode.md](plans/unicode.md#wp-ed-4--unicode-u1a-updated):** the API names (`Pos`, `snap`, `check`, `chars`, `read_str`) and a test-only insert of UTF-8 text, so the boundary property is proved on multi-byte text.
 
 ```text
 Package WP-ED-4: Unicode plan U1a ("Quill Unicode plan.md", Phase 1) — Pos, Range<Pos> and the checked API in
 quill-core and quill-formats. Branch refactor/text-pos after WP-ED-1..3 merge. Keep read_byte public with
 #[doc(hidden)] (WP-ED-10 makes it private); no caller outside core and formats changes. Every golden
 unchanged. Gates: G-HOST, G-DOS (Δ ≤ +0.5 KB), G-W16 (data Δ 0), G-W32, G-MD. Decision CORE-100 (the plan's
-CORE-62, renumbered). PR: "Give text offsets their own type in the core".
+CORE-62, renumbered) and CORE-211. Use the API names of docs/plans/unicode.md and add a test-only insert of
+UTF-8 text so the boundary property is proved on multi-byte text. PR: "Give text offsets their own type in
+the core".
 ```
 
 ### WP-ED-5 — The rich clipboard in the editor
@@ -617,15 +621,17 @@ state".
 - **Tests:** every golden byte-identical on the host, DOS, Win16, Win32 and GTK; G-HOST, G-DOS, G-W16, G-W32, G-GTK.
 - **Evidence:** before and after, equal: an accented French paragraph on `dos-text-25`, `dos-gfx-vbe`, `win16-311`, `win32-wine`, `gtk-xvfb`.
 - **Decisions:** CORE-100 (continued).
-- **UI slice:** GTK's `keys.rs` and text input hand `char`; the refusal (LNX-14) stays until U5.
+- **Updated by [plans/unicode.md](plans/unicode.md#wp-ed-10--unicode-u1b-updated-freeze):** `App::caret_column` (characters from the line's start on a device with pixels, cells on the text screens) replaces `caret - l.start` in the status line, and WP-BAR-2 reads it; the Find box and the dialog text fields take `Key::Char(char)`; the terminal's key map hands `char`.
+- **UI slice:** GTK's `keys.rs` and text input hand `char`; the refusal (LNX-14) stays until WP-UNI-5 or WP-UNI-8.
 
 ```text
 Package WP-ED-10: Unicode plan U1b — callers on Pos and chars, Key::Char(char), read_byte forbidden outside
 quill-core. FREEZE: tell the orchestrator before you branch; nothing else may be open in quill-app,
 quill-paint, quill-clip, quill-spell, quill-grid or a shell's key map or painter until you merge. Branch
 refactor/app-pos-chars after WP-ARCH-7 and WP-ED-4. No behaviour change: every golden byte-identical. Gates:
-G-HOST, G-DOS, G-W16, G-W32, G-GTK, G-MD. Evidence in Editor features/WP-ED-10. Decision CORE-100. PR: "Read
-text by character everywhere outside the core".
+G-HOST, G-DOS, G-W16, G-W32, G-GTK, G-MD. Evidence in Editor features/WP-ED-10. Decision CORE-100. Add
+App::caret_column and use it in the status line; the Find box and dialog text fields take Key::Char(char);
+the terminal key map hands char. PR: "Read text by character everywhere outside the core".
 ```
 
 ### WP-ED-11 — Unicode U2: UTF-8 in the buffers (freeze)
@@ -636,23 +642,25 @@ text by character everywhere outside the core".
 - **Budget:** DOS +5 to +8 KB **[E]** (expect a DOS-70 raise, with savings named first); Win16 code +4 to +7 KB, data 0 to +16 **[E]**.
 - **Tests:** every golden and saved file byte-identical; the fuzz target; `win16/tools/bench-w31.sh` and the DOS key-to-paint figures within the gate; G-HOST, G-DOS, G-W16, G-W32, G-GTK, G-DISK.
 - **Evidence:** the accented French document on all five platforms, before and after, equal; the bench table.
-- **Decisions:** CORE-103 (supersedes D11), CORE-104 (`MAX_TEXT` in bytes).
-- **UI slice:** none needed for parity; U3 and U5 (placeholders, input) are not in this track.
+- **Decisions:** CORE-103 (supersedes D11), CORE-104 (`MAX_TEXT` in bytes), DOS-112 (the Unicode series' budget, with the raise).
+- **Updated by [plans/unicode.md](plans/unicode.md#wp-ed-11--unicode-u2-updated-freeze):** every entry point (keys, paste, the RTF and text readers, `.QLD`) still narrows to Windows-1252, so no document holds a character outside it until WP-UNI-3 has merged; the RTF reader builds UTF-8 and narrows it on the way in.
+- **UI slice:** none needed for parity; the placeholders and input are WP-UNI-3, WP-UNI-5 and WP-UNI-8 ([plans/unicode.md](plans/unicode.md)).
 
 ```text
 Package WP-ED-11: Unicode plan U2 — UTF-8 storage, files byte-identical. FREEZE as WP-ED-10. Branch
 feat/text-utf8 after WP-ED-10. Measure the 386/486 bench before and after (win16/tools/bench-w31.sh, the DOS
 key-to-paint run) and the DOS size; if the DOS budget is passed, take savings first, then a DOS row raising it
 by the measured cost rounded to 4 KB with the floppy's free bytes (DOS-70). Gates: G-HOST (fuzz target too),
-G-DOS, G-W16, G-W32, G-GTK, G-DISK, G-MD. Evidence in Editor features/WP-ED-11. Decisions CORE-103, CORE-104;
-SPEC limits and characters. PR: "Keep the document's text as UTF-8".
+G-DOS, G-W16, G-W32, G-GTK, G-DISK, G-MD. Evidence in Editor features/WP-ED-11. Decisions CORE-103, CORE-104,
+DOS-112; SPEC limits and characters. Every entry point narrows to Windows-1252 as today (the RTF reader
+builds UTF-8 and narrows it). PR: "Keep the document's text as UTF-8".
 ```
 
 ### WP-ED-12 — Default tab stops in the document
 
 - **Finish line:** the document holds its default tab interval (twips, 720 by default) in `DOCP` as an optional trailing field that a 1.0 reader skips, RTF reads and writes `\deftabN`, layout uses it, and every build reads and writes it (the owner's decision: default tabs are offered, so the file must carry them).
 - **Owns:** `PageSetup` in `crates/quill-core/src/doc.rs` and layout's default tab; `DOCP` in `crates/quill-formats/src/qld.rs`; `\deftab` in `rtf.rs`; SPEC's file format section; file goldens with the field.
-- **Depends on:** WP-ED-11 (the freeze).
+- **Depends on:** the freeze ended (WP-UNI-3). WP-UNI-4 owns `qld.rs` and `rtf.rs` after this package, so it waits for it.
 - **Budget:** DOS about +0.3 KB; Win16 data 0.
 - **Tests:** round trips; a 1.0 fixture opens; LibreOffice reads `\deftab`; G-HOST, G-DOS, G-W16, G-W32.
 - **Evidence:** a document with a 0.75-inch default tab on `dos-text-25`, `win16-311`, `win32-wine`, `gtk-xvfb`.
@@ -810,5 +818,5 @@ DOS-76, W16-69, W9X-66; SPEC Headers and footers. PR: "Add the Header and Footer
 - **CORE-64 is used twice** in `docs/decisions.md` (the default-extension rule, and the page view scrolling in pixels). Neither is renumbered here, because the SPEC and the code comments cite both; the next change that touches either should give the second one a sub-number under CORE-65 and fix its citations.
 - **The layer of `quill-session` was written two ways**: the web and layering addendum put it in the kit, the threading plan at the top of the editor. ARCH-8 settles it as the editor's top.
 - **`quill-base` (the review's B1) is still not built**, so five base crates use the document model for `Store` and `Source` (V3 in `scripts/layer-allow.txt`). This track does not need it: `quill-settings` works on slices (ARCH-9) and nothing else here is base-and-store. It stays deferred.
-- **The Unicode plan's decision ids CORE-62 to CORE-68** were taken by the pictures and zoom work after it was written; its U1 and U2 take CORE-100 to CORE-104 here.
+- **The Unicode plan's decision ids CORE-62 to CORE-68** were taken by the pictures and zoom work after it was written; its U1 and U2 take CORE-100, CORE-103 and CORE-104 here (CORE-101 and CORE-102 are the rich clipboard's and Edit menu state's), and the rest of Unicode has CORE-210 to CORE-229 ([plans/unicode.md](plans/unicode.md)).
 - **`docs/architecture.md`'s directory sketch** still lists `quill-pack` (not built) and leaves out `quill-job`, `quill-mouse` and `quill-text`; WP-ARCH-1 fixes the crate table and sketch when it edits that page.
