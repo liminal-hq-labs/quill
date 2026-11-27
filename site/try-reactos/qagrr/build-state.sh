@@ -6,7 +6,8 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
 # Usage: build-state.sh DIST
-#   DIST   the folder build-with-rl.sh wrote: DIST/parts/ (manifest.json and the zstd parts). The state is written to DIST/state.l22.bin.zst.
+#   DIST   the folder build-with-rl.sh wrote: DIST/parts/ (manifest.json and the zstd parts). The state is written to DIST/state.l22.bin.zst, and
+#          the registers of the virtual sound card it was taken with to DIST/state.audio.json (SITE-43).
 # Environment:
 #   PORT           the harness server's port (default 18086; it binds 127.0.0.1)
 #   RUNTIME        bun or node (default bun when installed)
@@ -40,7 +41,7 @@ if [ ! -d "$try/harness/node_modules/playwright-core" ]; then
 fi
 
 server_pid=
-cleanup() { [ -z "$server_pid" ] || kill "$server_pid" 2>/dev/null || true; rm -f "$dist/state-qagrr.bin"; }
+cleanup() { [ -z "$server_pid" ] || kill "$server_pid" 2>/dev/null || true; rm -f "$dist/state-qagrr.bin" "$dist/state-qagrr.audio.json"; }
 trap cleanup EXIT
 (cd "$try/harness" && PORT=$port IMAGES_DIR=$dist LOG_FILE=$dist/state-requests.json exec "$runtime" serve.ts) >"$dist/state-serve.log" 2>&1 &
 server_pid=$!
@@ -48,12 +49,16 @@ for _ in $(seq 1 60); do curl -fs "http://127.0.0.1:$port/__stats" >/dev/null 2>
 curl -fs "http://127.0.0.1:$port/__stats" >/dev/null || { echo "the harness server did not start; see $dist/state-serve.log" >&2; exit 1; }
 
 echo "== boot in v86 and save the state"
-rm -f "$dist/state-qagrr.bin"
+rm -f "$dist/state-qagrr.bin" "$dist/state-qagrr.audio.json"
 (cd "$try/harness" && BASE=http://127.0.0.1:$port timeout "$timeout_seconds" "$runtime" build-state.ts --name state-qagrr --param disk=/images/parts/.img.zst)
 kill "$server_pid" 2>/dev/null || true
 server_pid=
 
+# The page added the sound card on this cold boot and saved its registers beside the state; stage-web.py puts them in the manifest's audio object.
+[ -s "$dist/state-qagrr.audio.json" ] || { echo "the sound card's registers were not saved: $dist/state-qagrr.audio.json is missing" >&2; exit 1; }
+cp -f "$dist/state-qagrr.audio.json" "$dist/state.audio.json"
+
 echo "== zstd -22 --ultra"
 zstd -22 --ultra -T0 -f -q "$dist/state-qagrr.bin" -o "$dist/state.l22.bin.zst"
 ls -l "$dist/state.l22.bin.zst"
-echo "done: $dist/state.l22.bin.zst"
+echo "done: $dist/state.l22.bin.zst and $dist/state.audio.json"

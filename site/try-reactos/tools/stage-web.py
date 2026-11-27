@@ -5,7 +5,7 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# usage: python3 -I site/try-reactos/tools/stage-web.py DIST [--out DIR] [--v86 DIR]   stage DIST (parts/, state.l22.bin.zst, build-manifest.json)
+# usage: python3 -I site/try-reactos/tools/stage-web.py DIST [--out DIR] [--v86 DIR]   stage DIST (parts/, state.l22.bin.zst, state.audio.json, build-manifest.json)
 #        python3 -I site/try-reactos/tools/stage-web.py --check [--out DIR] [--v86 DIR]   verify what is staged against the manifest
 #
 # DIST is the folder qagrr/build-with-rl.sh and build-state.sh leave their output in. --out is the page's folder (default: the one
@@ -16,6 +16,8 @@
 #   data/state-<first 12 hex of the state file's SHA-256>.l22.bin.zst
 # so the same input gives the same names and the same web-manifest.json (its "built" comes from DIST/build-manifest.json, or from
 # SOURCE_DATE_EPOCH). Any other parts-* folder or state-* file in data/ is removed, so data/ holds only what the manifest names.
+# The state's sound card: build-state.sh leaves the card's registers beside the state as DIST/state.audio.json, and they go into the manifest as its
+# "audio" object (SITE-43). A state built without the card has no such file and no "audio", and the page then boots it without a card.
 # "partsDigest" is the SHA-256 of the list of every part's name and SHA-256, which is how --check notices a changed byte in a part
 # (the image's own sum cannot be checked without decompressing all of it).
 
@@ -31,6 +33,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PAGE_DIR = os.path.normpath(os.path.join(HERE, ".."))
 MANIFEST_FILE = "web-manifest.json"
 STATE_SUFFIX = ".l22.bin.zst"
+AUDIO_FILE = "state.audio.json"
+# The card's saved registers (packages/ac97 `Ac97State`): 128 codec words and three bus-master channels.
+AUDIO_NAM_WORDS = 128
+AUDIO_CHANNELS = 3
 V86_VERSION_RE = re.compile(r'^version="([0-9.]+)"', re.M)
 
 
@@ -45,6 +51,21 @@ def sha256_file(path):
 def read_json(path):
 	with open(path, encoding="utf-8") as f:
 		return json.load(f)
+
+
+def audio_problem(audio):
+	"""Why `audio` is not the registers of a sound card (the shape packages/ac97 reads), or an empty string."""
+	if not isinstance(audio, dict) or audio.get("version") != 1:
+		return "it is not a version 1 object"
+	nam = audio.get("nam")
+	if not isinstance(nam, list) or len(nam) != AUDIO_NAM_WORDS or not all(isinstance(w, int) and 0 <= w <= 0xFFFF for w in nam):
+		return f"nam must be {AUDIO_NAM_WORDS} 16-bit words"
+	if not isinstance(audio.get("globCnt"), int):
+		return "globCnt must be an integer"
+	channels = audio.get("ch")
+	if not isinstance(channels, list) or len(channels) != AUDIO_CHANNELS or not all(isinstance(c, dict) for c in channels):
+		return f"ch must be {AUDIO_CHANNELS} channels"
+	return ""
 
 
 def parts_digest(parts_dir):
@@ -110,6 +131,11 @@ def stage(dist, out, v86_dir):
 			path = os.path.join(data, other)
 			shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
 
+	audio_src = os.path.join(dist, AUDIO_FILE)
+	audio = read_json(audio_src) if os.path.isfile(audio_src) else None
+	if audio is not None and audio_problem(audio):
+		raise SystemExit(f"stage-web: {audio_src} is not a sound card's saved registers: {audio_problem(audio)}")
+
 	manifest = {
 		"version": 1,
 		"built": built_time(build),
@@ -122,6 +148,7 @@ def stage(dist, out, v86_dir):
 		"stateSha256": state_sha,
 		"stateBytes": os.path.getsize(state_src),
 		"v86": v86_info(v86_dir),
+		**({"audio": audio} if audio is not None else {}),
 		"quill": extra.get("quill_commit", ""),
 		"reactosLiminal": extra.get("reactos_liminal_commit", ""),
 	}
@@ -154,6 +181,8 @@ def check(out, v86_dir):
 		problems.append(f"{m['state']} is missing")
 	elif os.path.getsize(state) != m["stateBytes"] or sha256_file(state) != m["stateSha256"]:
 		problems.append(f"{m['state']} is not the file the manifest names (its size or SHA-256 differs)")
+	if "audio" in m and audio_problem(m["audio"]):
+		problems.append(f"the manifest's audio object is not a sound card's saved registers: {audio_problem(m['audio'])}")
 	if os.path.isdir(v86_dir) and os.path.isfile(os.path.join(v86_dir, "libv86.mjs")):
 		have = v86_info(v86_dir)
 		for key in ("libv86", "wasm"):

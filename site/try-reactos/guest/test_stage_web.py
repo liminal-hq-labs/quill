@@ -46,6 +46,13 @@ def make_dist(root, image_sha="ab" * 32, state=b"state-bytes", part=b"part-bytes
 	return dist
 
 
+def card_state(**changes):
+	"""A sound card's saved registers, in the shape packages/ac97 saves: 128 codec words and three channels."""
+	state = {"version": 1, "nam": [0] * 128, "globCnt": 0, "ch": [{"bdbar": 0, "civ": 0, "lvi": 0, "sr": 1, "picb": 0, "piv": 0, "cr": 0} for _ in range(3)]}
+	state.update(changes)
+	return state
+
+
 def make_v86(root, js=b"js", wasm=b"wasm"):
 	v86 = os.path.join(root, "v86")
 	write(os.path.join(v86, "libv86.mjs"), js)
@@ -118,6 +125,65 @@ class StageWeb(unittest.TestCase):
 		self.stage()
 		make_v86(self.tmp, js=b"another build")
 		self.assertTrue(any("libv86" in p for p in stage_web.check(self.out, self.v86)))
+
+
+class StageAudio(unittest.TestCase):
+	"""The state's sound card (SITE-43): its registers ride in the manifest's audio object, and only when the state was built with the card."""
+
+	def setUp(self):
+		self.tmp = tempfile.mkdtemp()
+		self.addCleanup(shutil.rmtree, self.tmp, True)
+		self.out = os.path.join(self.tmp, "page")
+		os.makedirs(os.path.join(self.out, "data"))
+		self.v86 = make_v86(self.tmp)
+
+	def stage(self):
+		return stage_web.stage(make_dist(self.tmp), self.out, self.v86)
+
+	def listing(self):
+		found = {}
+		for base, _dirs, names in os.walk(self.out):
+			for n in names:
+				p = os.path.join(base, n)
+				found[os.path.relpath(p, self.out)] = stage_web.sha256_file(p)
+		return found
+
+	def stage_with_audio(self, audio, **kw):
+		dist = make_dist(self.tmp, **kw)
+		write(os.path.join(dist, "state.audio.json"), json.dumps(audio).encode())
+		return stage_web.stage(dist, self.out, self.v86)
+
+	def test_a_state_without_the_card_has_no_audio_object(self):
+		self.assertNotIn("audio", self.stage())
+
+	def test_the_registers_go_into_the_manifest(self):
+		audio = card_state(globCnt=7)
+		m = self.stage_with_audio(audio)
+		self.assertEqual(m["audio"], audio)
+		with open(os.path.join(self.out, "web-manifest.json"), encoding="utf-8") as f:
+			self.assertEqual(json.load(f)["audio"], audio)
+		self.assertEqual(stage_web.check(self.out, self.v86), [])
+
+	def test_a_second_run_with_the_registers_is_identical(self):
+		self.stage_with_audio(card_state())
+		before = self.listing()
+		self.stage_with_audio(card_state())
+		self.assertEqual(self.listing(), before)
+
+	def test_registers_of_another_shape_are_refused(self):
+		for bad in (card_state(version=2), card_state(nam=[0] * 127), card_state(nam=[70000] + [0] * 127), card_state(ch=[]), card_state(globCnt="x"), []):
+			with self.assertRaises(SystemExit):
+				self.stage_with_audio(bad)
+
+	def test_check_fails_on_a_manifest_whose_audio_is_broken(self):
+		self.stage_with_audio(card_state())
+		path = os.path.join(self.out, "web-manifest.json")
+		with open(path, encoding="utf-8") as f:
+			manifest = json.load(f)
+		manifest["audio"]["nam"] = [1]
+		with open(path, "w", encoding="utf-8") as f:
+			json.dump(manifest, f)
+		self.assertTrue(any("audio" in p for p in stage_web.check(self.out, self.v86)))
 
 
 class StampWeb(unittest.TestCase):
