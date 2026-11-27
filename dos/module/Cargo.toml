@@ -1,0 +1,18 @@
+# The module crates: the `.DMD` format (`desk-module`), the host packer (`dmdpack`) and the module side's guest crate (`desk-guest`), as one
+# workspace with host tests (`cd module && cargo test`).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+#
+# `desk-module` and `desk-guest` are `no_std` and build for the host and for the DOS target (`dos/dos-elf.json`); the cross builds take
+# `--target` and `-Zbuild-std` on the command line, so the default target stays the host's. `dmdpack` is `std` and runs on the host only.
+# Nothing outside this workspace depends on it yet; see PROVENANCE.md.
+[workspace]
+members = ["format", "pack", "guest", "quill"]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false

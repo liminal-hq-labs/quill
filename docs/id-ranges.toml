@@ -121,7 +121,7 @@ prefix = "CORE"
 first = 90
 last = 99
 owner = "Optional modules (WP-MOD)"
-status = "reserved"
+status = "in use"
 source = "docs/plans/modules.md"
 
 [[block]]
@@ -169,7 +169,7 @@ prefix = "DOS"
 first = 50
 last = 59
 owner = "Optional modules (WP-MOD)"
-status = "reserved"
+status = "in use"
 source = "docs/plans/modules.md"
 
 [[block]]

@@ -1,0 +1,17 @@
+[package]
+name = "quill-modtest"
+description = "Host tests that put quill-modabi's interface in a .DMD file: pack, unpack, relocate, check the build"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+desk-module = { path = "../format" }
+quill-modabi = { path = "../../../crates/quill-modabi" }
+
+[package.metadata.quill]
+layer = "tool"
+no_std = false
+alloc = true
+float = false

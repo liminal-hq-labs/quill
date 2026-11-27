@@ -1,0 +1,13 @@
+[package]
+name = "quill-modabi"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "The optional-module interface: C-style structs, status codes, kinds, versions and the build-id check"
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = false
+float = false
