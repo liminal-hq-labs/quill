@@ -15,7 +15,7 @@ ReactOS 0.4.16 with Quill, running in [v86](https://copy.sh/v86/) (an x86 emulat
 | `tools/fetch-v86.sh`, `make-parts.mjs`, `build-manifest.py`, `job-summary.py` | Downloads and checks the pinned v86; splits a raw disk image into zstd parts for v86's chunked disk; writes the build manifest; prints it as a CI job summary |
 | `demo/` | The pitch document Quill opens: `demo.rtf` and `demo.qld`, and `demo16.*` for the Windows 3.x icon; `make-demo.sh` rebuilds them |
 | `guest/` | Builds the guest disk and the artifacts from the official ReactOS install CD: `build-all.sh` (the whole chain), `install-golden.sh` with `unattend.inf` (the unattended install), `build-image.sh` with the trim lists, registry settings, wallpaper, desktop icon (`make_desk_icon.py`), shortcut writer and the build VM scripts (see [Build everything with one command](#build-everything-with-one-command) and [Rebuild the trimmed guest](#rebuild-the-trimmed-guest)) |
-| `qagrr/` | The Quill Afterglow Remaster Remix (QAGRR), the recipe that replaces `guest/` and `tools/` one piece at a time: `qagrr.toml` (extends the Afterglow base recipe in reactos-liminal, with Quill's names, programs, documents and shortcuts), `trim-extra.txt` (the six network card drivers), `quill-run.reg`, `reactos-liminal.pin` (the pinned reactos-liminal commit) and `build-with-rl.sh` (fetches that commit and runs `rl`); see [Build with rl](#build-with-rl) |
+| `qagrr/` | The Quill Afterglow Remaster Remix (QAGRR), the recipe that replaces `guest/` and `tools/` one piece at a time: `qagrr.toml` (extends the Afterglow base recipe in reactos-liminal, with Quill's names, programs, documents and shortcuts), `trim-extra.txt` (the six network card drivers), `quill-run.reg` (the cold-boot `Run` key and the error-report switches), `reactos-liminal.pin` (the pinned reactos-liminal commit) and `build-with-rl.sh` (fetches that commit and runs `rl`); see [Build with rl](#build-with-rl) |
 
 The disk images, CDs, states and parts live outside git, in `~/.cache/reactos/web/` (the server maps it to `/images/`; override with `IMAGES_DIR`). Never copy them into the repository.
 
@@ -96,7 +96,7 @@ The pointer set is part of the pinned source: the pointers are generated, `user3
 
 ## Build with rl
 
-The ReactOS pipeline now lives in [reactos-liminal](https://github.com/liminal-hq-labs/reactos-liminal) (the `rl` command), which builds the Afterglow ReactOS remaster (AGR). Quill is a downstream consumer: its own remix, the Quill Afterglow Remaster Remix (QAGRR), is the recipe in `qagrr/`. It extends the AGR base recipe and owns only what is Quill's: the computer and owner names, the trim beyond the base profile, the programs, the demo documents, the two desktop shortcuts and the 48 px icon size. The wallpaper, the orb, the icons, the logon and the boot logo come from the base and are not repeated.
+The ReactOS pipeline now lives in [reactos-liminal](https://github.com/liminal-hq-labs/reactos-liminal) (the `rl` command), which builds the Afterglow ReactOS remaster (AGR). Quill is a downstream consumer: its own remix, the Quill Afterglow Remaster Remix (QAGRR), is the recipe in `qagrr/`. It extends the AGR base recipe and owns only what is Quill's: the computer and owner names, the trim beyond the base profile, the programs, the demo documents, the two desktop shortcuts, the 48 px icon size, the cold-boot `Run` key (`quill-run.reg`, a recipe-relative `.reg` file in `settings.reg_files`) and the wallpaper. The orb, the icons, the logon, the boot logo and the `afterfetch` and `neofetch` files come from the base and are not repeated (`[[files]]` merge by destination).
 
 ```sh
 site/try-reactos/qagrr/build-with-rl.sh --check-trim                 # base profile + trim-extra.txt = the old trim lists
@@ -104,12 +104,10 @@ site/try-reactos/qagrr/build-with-rl.sh --dry-run                    # rl explai
 site/try-reactos/qagrr/build-with-rl.sh --quill-dir DIR --work DIR   # install, image, parts, manifest
 ```
 
-`build-with-rl.sh` fetches the commit in `qagrr/reactos-liminal.pin` into `~/.cache/quill-reactos-liminal` (outside the repository), then runs `rl explain`, `install`, `image`, `parts` and `manifest`. `--work` is rl's work directory. Set `RL_QEMU_LOCK` to a lock file to run the two QEMU steps under `flock`. The `reactos-qagrr.yml` workflow does the same on a runner, by hand only.
+`build-with-rl.sh` fetches the commit in `qagrr/reactos-liminal.pin` into `~/.cache/quill-reactos-liminal` (outside the repository), then runs `rl explain`, `fetch`, `install`, `image`, `parts` and `manifest`. Before the image it renders the wallpaper with `guest/quillify.py` (the base recipe's pinned Afterglow scene with the Quill emblem on its sun), which the recipe lists in `[[files]]`; rl then skips its own scene. rl's `base` trim keeps the Applications Manager and the browser stub, which the old lists removed, so `--check-trim` expects those three entries to differ. `--work` is rl's work directory. Set `RL_QEMU_LOCK` to a lock file to run the two QEMU steps under `flock`. The `reactos-qagrr.yml` workflow does the same on a runner, by hand only.
 
-Not yet moved, so the page still uses the old chain (`build-all.sh`) until a later change retires it:
+Not yet moved, so the page still uses the old chain (`build-all.sh`) until a later change retires it (the new build has been booted in QEMU, but not in the page):
 
-- the cold-boot `Run` key that opens the demo letter (`qagrr/quill-run.reg`), because rl's `settings.reg_files` accepts only its own files;
-- the Quill emblem on the wallpaper (`quillify.py`), which the recipe leaves to the base art for now;
 - the saved v86 state (`harness/build-state.ts`).
 
 ## Build everything with one command

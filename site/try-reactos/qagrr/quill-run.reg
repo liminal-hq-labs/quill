@@ -1,10 +1,20 @@
 Windows Registry Editor Version 5.00
 
 ; Cold boot: open the demo letter when the shell starts, so the saved state shows Quill with the demo open.
-; Not yet applied by the recipe: rl's `settings.reg_files` names only its own files (see build-with-rl.sh and docs/decisions.md SITE-10).
+; Listed in qagrr.toml's settings.reg_files, so `rl image` applies it in the build VM after rl's own files. It also carries the error-reporting
+; switches of the old demo-settings.reg; the rest of that file (display, wallpaper, icon size, hidden icons) comes from rl's own settings.
 ;
 ; (c) Copyright 2026 Liminal HQ, Scott Morris
 ; SPDX-License-Identifier: Apache-2.0 OR MIT
 
 [HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run]
 "Quill"="\"C:\\Quill\\QUILL32.EXE\" \"C:\\Quill\\DEMO.QLD\""
+
+; No crash or error-reporting prompts.
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\PCHealth\ErrorReporting]
+"DoReport"=dword:00000000
+"ShowUI"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\Windows Error Reporting]
+"DontShowUI"=dword:00000001
+"Disabled"=dword:00000001

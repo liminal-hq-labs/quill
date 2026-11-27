@@ -9,12 +9,12 @@
 #   --quill-dir DIR  folder with QUILL.EXE and QUILL32.EXE (the Quill builds); needed unless --dry-run
 #   --out DIR        the outputs: parts/ and build-manifest.json (default WORK/dist)
 #   --dry-run        explain the recipe and print the plans for install and image; run nothing
-#   --check-trim     prove that rl's base trim profile plus trim-extra.txt removes exactly what guest/trim-list-1..3.txt remove
+#   --check-trim     prove that rl's base trim profile plus trim-extra.txt removes what guest/trim-list-1..3.txt remove, less the Applications Manager and browser stub entries rl keeps
 # Environment:
 #   RL_REPO        where to fetch reactos-liminal from (default https://github.com/liminal-hq-labs/reactos-liminal.git)
 #   RL_SRC_CACHE   where the pinned checkout goes (default ~/.cache/quill-reactos-liminal); named by the commit
 #   RL_QEMU_LOCK   a lock file; when set, `rl install` and `rl image` run under `flock` on it, so two builds never start QEMU together
-# Needs git, python3 and what `rl doctor` checks (QEMU, mtools, xorriso, zstd); the QUILLDESK.ICO step needs what guest/make_desk_icon.py needs.
+# Needs git, python3 and what `rl doctor` checks (QEMU, mtools, xorriso, zstd); the QUILLDESK.ICO and wallpaper steps need what guest/make_desk_icon.py and guest/quillify.py need (numpy, rsvg-convert, ImageMagick 7).
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -67,10 +67,13 @@ if [ "$check_trim" = 1 ]; then
 	old=$(mktemp)
 	new=$(mktemp)
 	trap 'rm -f "$old" "$new"' EXIT
-	entries "$here/../guest/trim-list-1.txt" "$here/../guest/trim-list-2.txt" "$here/../guest/trim-list-3.txt" | sort > "$old"
+	# rl's base profile keeps the Applications Manager (rapps.exe and its Start menu link, RL-42) and the browser stub (iexplore.exe, RL-40),
+	# which the old lists removed.
+	entries "$here/../guest/trim-list-1.txt" "$here/../guest/trim-list-2.txt" "$here/../guest/trim-list-3.txt" \
+		| grep -vxF -e 'f ReactOS/system32/rapps.exe' -e 'd Program Files/Internet Explorer' -e 'f Documents and Settings/Administrator/Start Menu/Programs/ReactOS Applications Manager.lnk' | sort > "$old"
 	entries "$rl_dir/profiles/base.txt" "$here/trim-extra.txt" | sort > "$new"
 	if diff "$old" "$new"; then
-		echo "base + trim-extra.txt = the old trim lists: $(wc -l < "$old") entries, entry for entry"
+		echo "base + trim-extra.txt = the old trim lists less the three entries rl keeps (Applications Manager, browser stub): $(wc -l < "$old") entries, entry for entry"
 		exit 0
 	fi
 	echo "base + trim-extra.txt differs from the old trim lists" >&2
@@ -89,11 +92,18 @@ if [ "$dry_run" = 1 ]; then
 	exit 0
 fi
 
-# The payload the recipe's [[files]] name: the programs and the desktop icon.
-[ -f "$quill_dir/QUILL.EXE" ] && [ -f "$quill_dir/QUILL32.EXE" ] || { echo "--quill-dir needs QUILL.EXE and QUILL32.EXE" >&2; exit 1; }
+# The payload the recipe's [[files]] name: the programs, the desktop icon and the wallpaper.
+if [ ! -f "$quill_dir/QUILL.EXE" ] || [ ! -f "$quill_dir/QUILL32.EXE" ]; then echo "--quill-dir needs QUILL.EXE and QUILL32.EXE" >&2; exit 1; fi
 mkdir -p "$payload"
 cp "$quill_dir/QUILL.EXE" "$quill_dir/QUILL32.EXE" "$payload/"
 python3 -I "$here/../guest/make_desk_icon.py" "$payload/QUILLDESK.ICO"
+
+# The wallpaper: the Afterglow scene the recipe pins, with the Quill emblem on its sun, cut to 1024 x 768 with Afterglow's own seeded dither.
+# `rl fetch` puts the pinned source in WORK/afterglow/COMMIT; Quill renders its overlay itself and the recipe lists the BMP in [[files]].
+echo "== rl fetch"
+rl fetch "$recipe" --work "$work"
+read -r afterglow_commit scene < <(rl explain "$recipe" | python3 -I -c 'import json, sys; afterglow = json.load(sys.stdin)["recipe"]["inputs"]["afterglow"]; print(afterglow["commit"], afterglow["wallpaper"])')
+python3 -I "$here/../guest/quillify.py" "$work/afterglow/$afterglow_commit/assets/wallpapers/afterglow-$scene.svg" "$payload/quill-wallpaper.bmp" --dither 1
 
 echo "== rl install"
 locked "$rl_dir/rl" install "$recipe" --work "$work"

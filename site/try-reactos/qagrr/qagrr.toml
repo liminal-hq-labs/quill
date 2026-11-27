@@ -18,17 +18,25 @@ owner_name = "Quill demo"
 
 # The detailed Quill icon shows on the desktop at 48 px. The stock desktop icons are hidden and the three stock shortcuts removed so only
 # the Quill shortcuts remain; the mouse has no acceleration, so the page can predict the guest pointer exactly.
+# `reg_files` lists the base recipe's named files again (a list replaces) plus the two Quill adds: `quill-run.reg`, beside this recipe, is
+# applied after them. The wallpaper path is the base recipe's; the BMP written there is Quill's own (see [[files]] below).
 [settings]
 icon_size = 48
-reg_files = ["display", "quiet", "watermark-off", "mouse-linear", "hide-desktop-icons"]
+reg_files = ["display", "quiet", "watermark-off", "afterglow-logon", "mouse-linear", "hide-desktop-icons", "quill-run.reg"]
 remove_desktop_shortcuts = ["Applications Manager", "Command Prompt", "Read Me"]
 
 # The base profile plus the network card drivers v86 does not emulate.
 [trim]
 extra = ["trim-extra.txt"]
 
-# The programs and QUILLDESK.ICO are staged into payload/ by build-with-rl.sh (the programs come from a Quill build, the icon from
-# guest/make_desk_icon.py). The demo documents are the committed ones.
+# These [[files]] merge with the base recipe's by destination, so the base's afterfetch and the neofetch family are inherited, not repeated.
+# The programs, QUILLDESK.ICO and the wallpaper are staged into payload/ by build-with-rl.sh (the programs come from a Quill build, the
+# icon from guest/make_desk_icon.py, the wallpaper from guest/quillify.py: the Afterglow dusk scene with the Quill emblem on its sun). The
+# wallpaper takes the place of the scene rl would render, at the path settings.wallpaper names. The demo documents are the committed ones.
+[[files]]
+source = "payload/quill-wallpaper.bmp"
+destination = "ReactOS/afterglow-wallpaper.bmp"
+
 [[files]]
 source = "payload/QUILL32.EXE"
 destination = "Quill/QUILL32.EXE"
