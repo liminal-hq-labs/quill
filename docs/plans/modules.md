@@ -438,7 +438,7 @@ Reveal Codes stays in the EXE on every build: its view model runs per paint, the
 | Order | Package | Lane | Needs | Size | Parallel with |
 |---:|---|---|---|---|---|
 | 1 | **WP-MOD-1** `quill-modabi` and the `.DMD` toolchain, host only | Side | — | M | Anything, the freeze included |
-| 1 | **WP-MOD-8** The DOS packed-size gate and the module rows in `size-report.sh` | Side | — | S | Anything |
+| 1 | **WP-MOD-8** The DOS packed-size gate and the module rows in `size-report.sh` (**done**: `installer/budgets.toml`, `installer/tools/size-gate.py`, CI job `Disk sizes`; INS-22, DOS-51) | Side | — | S | Anything |
 | 2 | **WP-MOD-2** The DOS loader in `rt` and `HELLO.DMD` in DOSBox | Side | WP-MOD-1 | M | Anything |
 | 3 | **WP-MOD-3** `QUILLPIC.DMD`: PNG out of `QUILLDOS.EXE`, with the installer (**the proof**) | Side | WP-MOD-2, WP-ARCH-2 | M to L | ED and ARCH lanes (no `quill-app/src` files) |
 | 4 | **WP-MOD-6** `QUILLPIC.DLL` on Windows 3.x | Side | WP-MOD-3; the rust-win16 runtime on its `main` (the gate passed, D30) | L | WP-MOD-4 |
@@ -464,6 +464,7 @@ At most three builders at once: WP-MOD-1 and WP-MOD-8 now beside the two lanes' 
 
 - **Finish line.** `installer/tools/build-disks.sh` (or `verify-disks.sh`) prints the packed bytes of `QUILLDOS.EXE` and of every `*.DMD` staged for `dos-x86`, their sum (program bytes) and the DOS floppy's free bytes, and fails below 128 KB free; `dos/tools/size-report.sh` lists each `dos/dist/*.DMD` against its budget (none yet: the section prints "no modules").
 - **Owns.** `installer/tools/verify-disks.sh`, `dos/tools/size-report.sh`. **Must not touch** everything else.
+- **As built.** The gate is `installer/tools/size-gate.py`, run by `verify-disks.sh`, over the figures in `installer/budgets.toml` (INS-22), which `size-report.sh` and `build-disks.sh` read too. It reports each file's packed size, the program bytes and the free bytes per disk in `SIZES.txt` and the job summary, and runs in CI as the job `Disk sizes` (the three programs, the dictionaries and the three disks are built there, in the `ci-dos` image).
 - **Tests.** G-DISK; `size-report.sh` on a build. **Budgets.** No executable changes. **Decisions.** DOS-51.
 
 #### WP-MOD-2 — the DOS loader and `HELLO.DMD`

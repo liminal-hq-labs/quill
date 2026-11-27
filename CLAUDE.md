@@ -30,6 +30,7 @@ python3 -I scripts/check-site.py # links and assets in site/, the GitHub Pages p
 bash scripts/build-try.sh --build        # the Try Quill disk bundle, site/try/quill.<hash>.jsdos and try-manifest.json (FreeDOS 1.3 + QUILLDOS.EXE for js-dos; needs mtools)
 bash scripts/check-try.sh        # the Try Quill cache busting: hashed bundle, manifest, page versions (needs mtools)
 python3 -I tools/test_icons.py   # the committed icons; bash tools/make-icons.sh rebuilds them
+python3 -I installer/tools/test_size_gate.py  # make sizes; make disks runs the size gate on real disks against installer/budgets.toml
 python3 -I scripts/check-ids.py   # decision-id registry; scripts/next-id.sh PREFIX COUNT OWNER reserves a block
 docker run --rm -v "$PWD:/workdir" davidanson/markdownlint-cli2:v0.17.2 "**/*.md"
 ```

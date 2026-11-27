@@ -3,9 +3,9 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-.PHONY: installer disks installer-dos installer-w31 installer-w95 dos gtk validate fmt clippy test headers floats layers ids goldens wasm bare
+.PHONY: installer disks sizes installer-dos installer-w31 installer-w95 dos gtk validate fmt clippy test headers floats layers ids goldens wasm bare
 
-validate: fmt clippy test headers floats layers ids magic wasm bare
+validate: fmt clippy test headers floats layers ids sizes magic wasm bare
 	@echo "validate: ok"
 
 fmt:
@@ -55,6 +55,10 @@ installer:
 disks:
 	bash installer/tools/build-disks.sh --stage
 	bash installer/tools/verify-disks.sh
+
+# The size gate's own tests (installer/budgets.toml is the one file of budgets); `make disks` runs the gate on real disks.
+sizes:
+	python3 -I installer/tools/test_size_gate.py
 
 installer-dos:
 	bash dos/tools/fetch-tools.sh

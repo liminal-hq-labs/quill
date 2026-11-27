@@ -1,0 +1,52 @@
+# Quill's size budgets: the one file the size gate (`installer/tools/size-gate.py`), `installer/tools/build-disks.sh` and
+# `dos/tools/size-report.sh` read.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# Change a figure here, with the decision row that says why (DOS-70, DOS-52, W16-60, INS-22), and nowhere else. All sizes are bytes.
+
+# The 1.44 MB floppy every disk is built for.
+[floppy]
+capacity = 1457664
+
+# QUILLDOS.EXE as dos/build.sh leaves it, before packing (DOS-48, DOS-70). The stop is 480 KB (491,520); a package that passes this
+# figure first takes savings, then raises it by its measured cost rounded up to 4 KB, in a DOS decision row of its own.
+[executable.QUILLDOS]
+file = "dos-x86/QUILLDOS.EXE"
+budget = 442368
+stop = 491520
+
+# QUILL.EXE's automatic data segment (data, stack and heap) must keep this much of its 64 KB free (W16-60). The gate reads the
+# segment's size from the NE header, so the figure is the same one win16/tools/ne_pack.py checks against 64 KB.
+[win16.data_segment]
+file = "win16-x86/QUILL.EXE"
+min_free = 1024
+
+# Each disk: the image, the target the installer builds it for, the program it holds and the free bytes it must keep.
+# DOS keeps 128 KB free (DOS-70, DOS-51); the Windows disks keep 64 KB, the figure the disk scripts used before this file.
+[disk.dos]
+image = "QUILL-DOS.IMG"
+target = "dos-x86"
+program = "QUILLDOS.EXE"
+min_free = 131072
+
+[disk.w31]
+image = "QUILL-W31.IMG"
+target = "win16-x86"
+program = "QUILL.EXE"
+min_free = 65536
+
+[disk.w95]
+image = "QUILL-W95.IMG"
+target = "windows-x86"
+program = "QUILL32.EXE"
+min_free = 65536
+
+# Optional modules on the DOS disk (DOS-52, modules plan section 5.9): each file's own budget, in bytes as staged in
+# installer/dist/dos-x86 and built in dos/dist. None exists yet; a `*.DMD` staged without a row here fails the gate.
+[module."QUILLPIC.DMD"]
+budget = 16384
+
+[module."QUILLDLG.DMD"]
+budget = 65536

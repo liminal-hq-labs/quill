@@ -11,12 +11,16 @@
 #
 # A symbol belongs to the first crate its demangled name mentions, so a generic function instantiated for quill-dos's types is
 # charged to the crate that defines it. The totals count text and data symbols only; BSS (the stacks, the heap pages) is not in the
-# executable. Compare two builds by running the report on each and diffing the "by crate" tables. Needs nm and size.
+# executable. Compare two builds by running the report on each and diffing the "by crate" tables. Needs nm, size and python3.
+#
+# The budgets (the executable and each module) are in installer/budgets.toml, which the size gate (installer/tools/size-gate.py)
+# reads too; the gate also measures the packed sizes on the disks.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 ELF="${1:-${CARGO_TARGET_DIR:-$HERE/target}/dos-elf/release/quill-dos}"
 TOP="${2:-25}"
-BUDGET=442368
+GATE="$HERE/../installer/tools/size-gate.py"
+BUDGET="$(python3 -I "$GATE" get executable.QUILLDOS.budget)"
 [ -f "$ELF" ] || { echo "size-report: $ELF not found; run dos/build.sh" >&2; exit 1; }
 
 echo "== sections ($ELF)"
@@ -26,6 +30,23 @@ if [ -f "$exe" ]; then
 	bytes="$(wc -c < "$exe")"
 	echo "QUILLDOS.EXE: $bytes bytes of $BUDGET ($((BUDGET - bytes)) left)"
 fi
+
+echo
+echo "== modules (dos/dist/*.DMD against installer/budgets.toml)"
+modules=0
+for module in "$HERE"/dist/*.DMD; do
+	[ -f "$module" ] || continue
+	modules=1
+	name="$(basename "$module")"
+	bytes="$(wc -c < "$module")"
+	limit="$(python3 -I "$GATE" modules | awk -v n="$name" '$1 == n { print $2 }')"
+	if [ -n "$limit" ]; then
+		if [ "$bytes" -le "$limit" ]; then echo "$name: $bytes bytes of $limit ($((limit - bytes)) left)"; else echo "$name: $bytes bytes of $limit (OVER by $((bytes - limit)))"; fi
+	else
+		echo "$name: $bytes bytes, NO BUDGET in installer/budgets.toml"
+	fi
+done
+[ "$modules" = 1 ] || echo "no modules"
 
 echo
 echo "== by crate (bytes of text and data symbols)"
