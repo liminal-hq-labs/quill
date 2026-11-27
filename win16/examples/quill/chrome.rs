@@ -339,11 +339,10 @@ pub fn zoom_layout(width: i32) -> Option<ZoomLayout> {
 	(width >= ZOOM_MIN_CLIENT).then(|| ZoomLayout::new(width, ZOOM_METRICS))
 }
 
-/// A zoom button: a raised face with a bar (minus) or a cross (plus) on it, or, when there is no level that way, the sign embossed
-/// in grey as a disabled control shows it.
-fn zoom_button(dc: u32, range: (i32, i32), top: i32, h: i32, plus: bool, enabled: bool) {
-	bevel(dc, range.0, top + 1, range.1 - range.0 - 1, h - 2, false);
-	let (mid_x, mid_y) = ((range.0 + range.1) / 2 - 1, top + h / 2);
+/// A zoom sign, a bar (minus) or a cross (plus), in the middle of `range`, flat on the status bar: black, or, when there is no level
+/// that way, embossed in grey as a disabled control shows it.
+fn zoom_sign(dc: u32, range: (i32, i32), top: i32, h: i32, plus: bool, enabled: bool) {
+	let (mid_x, mid_y) = ((range.0 + range.1) / 2, top + h / 2);
 	let sign = |dx: i32, colour: u32| {
 		fill(dc, mid_x - 4 + dx, mid_y - 1 + dx, 9, 2, colour);
 		if plus {
@@ -392,16 +391,13 @@ pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8], zoom: &[u8], sho
 		);
 		RestoreDC(dc, saved);
 		if let Some(l) = layout {
-			// A raised box, like a button, with the zoom in it, between the two buttons.
-			bevel(
-				dc,
-				l.field.0,
-				top + 1,
-				l.field.1 - l.field.0 - 1,
-				h - 2,
-				false,
-			);
-			zoom_button(
+			// The control is part of the bar's sunken panel: the signs and the zoom sit on its face, with a thin etched line (shadow,
+			// then white) between the parts.
+			for x in [l.field.0, l.plus.0] {
+				fill(dc, x, top + 3, 1, h - 6, SHADOW);
+				fill(dc, x + 1, top + 3, 1, h - 6, WHITE);
+			}
+			zoom_sign(
 				dc,
 				l.minus,
 				top,
@@ -409,7 +405,7 @@ pub fn paint_status(dc: u32, top: i32, width: i32, text: &[u8], zoom: &[u8], sho
 				false,
 				zoom_step(shown, false).is_some(),
 			);
-			zoom_button(dc, l.plus, top, h, true, zoom_step(shown, true).is_some());
+			zoom_sign(dc, l.plus, top, h, true, zoom_step(shown, true).is_some());
 			TextOut(
 				dc,
 				(l.field.0 + 6) as u32,
