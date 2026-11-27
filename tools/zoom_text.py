@@ -3,7 +3,7 @@
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
-"""usage: python3 -I tools/zoom_text.py frames DIR
+"""usage: python3 -I tools/zoom_text.py frames DIR [--client L,T,R,B] [--zooms 50,75,...] [--words 6,6,...]
        python3 -I tools/zoom_text.py sizes FRAME [Z [L,T,R,B]]
        python3 -I tools/zoom_text.py crop FRAME OUT [--scale N]
        python3 -I tools/zoom_text.py preview DIR
@@ -185,25 +185,25 @@ def compare(label, im, bands, z, ref):
 	return bad
 
 
-def reference(im, client=CLIENT):
+def reference(im, client=CLIENT, words=WORDS):
 	"""The 100 % page's lines, and for each the words and the centres of its gaps."""
 	_, ref_bands = lines_of(im, client)
-	if len(ref_bands) != len(WORDS):
-		print(f"zoom_text: {len(ref_bands)} lines found at 100 %, wanted {len(WORDS)}")
+	if len(ref_bands) != len(words):
+		print(f"zoom_text: {len(ref_bands)} lines found at 100 %, wanted {len(words)}")
 		return None
-	return ref_bands, [words_with(im, band, WORDS[i]) for i, band in enumerate(ref_bands)]
+	return ref_bands, [words_with(im, band, words[i]) for i, band in enumerate(ref_bands)]
 
 
-def check(folder):
-	frames = {z: load(f"{folder}/z{z:03d}.png") for z in ZOOMS}
-	ref = reference(frames[100])
+def check(folder, client=CLIENT, zooms=ZOOMS, words=WORDS):
+	frames = {z: load(f"{folder}/z{z:03d}.png") for z in zooms}
+	ref = reference(frames[100], client, words)
 	if ref is None:
 		return 1
 	bad = 0
-	for z in ZOOMS:
+	for z in zooms:
 		if z == 100:
 			continue
-		_, bands = lines_of(frames[z])
+		_, bands = lines_of(frames[z], client)
 		bad += compare(f"zoom {z}%", frames[z], bands, z, ref)
 		bad += same_size(f"zoom {z}%", bands)
 	if bad:
@@ -343,8 +343,17 @@ def sizes(frame, zoom, client):
 
 
 def main(argv):
-	if len(argv) == 3 and argv[1] == "frames":
-		return check(argv[2])
+	if len(argv) >= 3 and argv[1] == "frames":
+		# `--client L,T,R,B` is where the page area is (a Win16 page crop is the whole image: 0,0,W,H); `--zooms 25,50,...` the frames.
+		client, zooms, words = CLIENT, ZOOMS, WORDS
+		for flag, value in zip(argv[3::2], argv[4::2]):
+			if flag == "--client":
+				client = tuple(int(v) for v in value.split(","))
+			elif flag == "--words":
+				words = tuple(int(v) for v in value.split(","))
+			elif flag == "--zooms":
+				zooms = tuple(int(v) for v in value.split(","))
+		return check(argv[2], client, zooms, words)
 	if 3 <= len(argv) <= 5 and argv[1] == "sizes":
 		zoom = int(argv[3]) if len(argv) > 3 else 100
 		client = tuple(int(v) for v in argv[4].split(",")) if len(argv) > 4 else CLIENT

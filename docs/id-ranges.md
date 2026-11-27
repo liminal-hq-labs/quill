@@ -57,6 +57,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | W16-100 to W16-104 | Reveal Codes (WP-CODES) | reserved | [plans/reveal-codes.md](plans/reveal-codes.md) |
 | W16-110 to W16-114 | Status bar (WP-BAR) | in use | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
 | W16-115 to W16-119 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
+| W16-120 | Windows 3.x zoom word spacing | in use | [decisions.md](decisions.md) |
 
 ## W9X
 
