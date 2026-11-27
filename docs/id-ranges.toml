@@ -507,3 +507,11 @@ last = 94
 owner = "WinUI real window (WP-WINUI)"
 status = "in use"
 source = "docs/plans/winui-real-window.md"
+
+[[block]]
+prefix = "INS"
+first = 23
+last = 25
+owner = "Printable media set"
+status = "in use"
+source = "assets/media/README.md"

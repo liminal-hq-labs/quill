@@ -99,6 +99,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 |---|---|---|---|
 | INS-8 to INS-9 | Preferences (WP-PREF) | reserved | [plans/preferences.md](plans/preferences.md) |
 | INS-20 to INS-22 | Optional modules (WP-MOD) | reserved | [plans/modules.md](plans/modules.md) |
+| INS-23 to INS-25 | Printable media set | in use | assets/media/README.md |
 
 ## SITE
 

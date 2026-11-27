@@ -96,3 +96,7 @@ To run it again:
 bash installer/tools/stage.sh --build && bash installer/tools/build-disks.sh
 SHOTS=docs/media bash installer/tools/e2e-w95.sh    # leave SHOTS out to run without screenshots
 ```
+
+## Printed media
+
+Labels for the three disks, the all-in-one disk and a documents disk, the CD face and jewel case inserts, stickers, a manual booklet and a shortcut card are drawn by `assets/media/gen_media.py` and laid out on Letter and A4 by `assets/media/render.py`, in two directions (INS-23 to INS-25). The sizes, the standards they follow and how to change the version on them are in [assets/media/README.md](../assets/media/README.md).
