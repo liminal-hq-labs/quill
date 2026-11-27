@@ -1,0 +1,42 @@
+<!--
+	Quill toolbar Open glyph master: an open folder, drawn on the 16 by 15 grid of the toolbar strip.
+
+	(c) Copyright 2026 Liminal HQ, Scott Morris
+	SPDX-License-Identifier: Apache-2.0 OR MIT
+
+	One user unit is one pixel of the 16 by 15 glyph, so a 1-unit ink outline centred on a half-unit lands on whole pixels and the
+	hand-hinted glyph in make_toolbar.py (glyph_open) is this drawing at 1x. The colours are the glyph's: the 16 standard Windows
+	colours yellow, olive, white, grey and black. The back sheet has a rounded tab that slopes down to its top edge, the inside of
+	the back sheet is in shadow (olive) under a lit rim, a sheet of paper stands inside, and the front flap leans forward: its top
+	edge is lower than the back's and sits further right, its bottom edge meets the back's, so the flap is a parallelogram with no
+	bar across the front. The flap's lit edge (top and left) is white; a gentle ramp to a slightly deeper yellow is for sizes above
+	16 px only.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 15" width="192" height="180" role="img">
+	<title>Quill: open folder</title>
+	<defs>
+		<path id="qof-back" d="M1.5 13.5V3.5Q1.5 2.5 2.5 2.5H5.5L6.5 3.5H11.5Q12.5 3.5 12.5 4.5V13.5Z"/>
+		<path id="qof-flap" d="M4.5 7.5H15.5L12.5 13.5H1.5Z"/>
+		<clipPath id="qof-back-clip"><use href="#qof-back"/></clipPath>
+		<clipPath id="qof-flap-clip"><use href="#qof-flap"/></clipPath>
+		<linearGradient id="qof-flap-ramp" x1="0" y1="7.5" x2="0" y2="13.5" gradientUnits="userSpaceOnUse">
+			<stop offset="0" stop-color="#ffff00"/>
+			<stop offset="1" stop-color="#ecec00"/>
+		</linearGradient>
+	</defs>
+	<!-- The back sheet: a lit yellow rim on the top and left, the olive inside. -->
+	<use href="#qof-back" fill="#ffff00"/>
+	<g clip-path="url(#qof-back-clip)">
+		<use href="#qof-back" fill="#808000" transform="translate(1.5 1.5)"/>
+	</g>
+	<!-- A sheet of paper inside, with one grey line of text. -->
+	<rect x="4" y="5" width="7" height="3" fill="#ffffff"/>
+	<rect x="5" y="6" width="5" height="1" fill="#808080"/>
+	<use href="#qof-back" fill="none" stroke="#000000" stroke-width="1" stroke-linejoin="round"/>
+	<!-- The front flap, leaning forward: white lit edge on the top and left, then the yellow face. -->
+	<use href="#qof-flap" fill="#ffffff"/>
+	<g clip-path="url(#qof-flap-clip)">
+		<use href="#qof-flap" fill="url(#qof-flap-ramp)" transform="translate(1.5 1.5)"/>
+	</g>
+	<use href="#qof-flap" fill="none" stroke="#000000" stroke-width="1" stroke-linejoin="round"/>
+</svg>
