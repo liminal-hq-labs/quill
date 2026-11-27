@@ -1,6 +1,6 @@
 # Preferences: one settings model and an Options window on every build
 
-The plan for a Preferences window (Tools > Options) on the DOS text and graphics screens, Windows 3.x, Windows 95 and later, the GTK client, the WinUI client and the Linux terminal, over one settings model in the core. Autosave comes first: its interval and folder become something a person can change, and its default gets shorter now, ahead of the window. Written against `origin/main` at `89a714d`, with the DOS autosave merged (DOS-47, DOS-48, CORE-69) and the Windows, terminal, GTK and WinUI autosave still to come (the autosave plan's PRs 8, 9, 11, 18 and 19).
+The plan for a Preferences window (Tools > Options) on the DOS text and graphics screens, Windows 3.x, Windows 95 and later, the GTK client, the WinUI client and the Linux terminal, over one settings model in the core. Autosave comes first: it gains a mode that saves as you work, its interval and folder become something a person can change, and its defaults change now, ahead of the window. Written against `origin/main` at `89a714d`, with the DOS autosave merged (DOS-47, DOS-48, CORE-69) and the Windows, terminal, GTK and WinUI autosave still to come (the autosave plan's PRs 8, 9, 11, 18 and 19).
 
 It builds on the preferences design of 2026-11-24 (`~/Documents/Liminal HQ/Quill/Quill preferences design.md`, with the owner's answers to its fifteen questions) and on [work-packages.md](../work-packages.md), whose rules, budgets, gates (G-HOST, G-DOS, G-W16, G-W32, G-GTK, G-DISK, G-MD), evidence folders and common brief every package here uses. **This series replaces WP-ED-13 to WP-ED-16** (ARCH-30): the same ground, cut so the model lands early as new files, the autosave rows come first and every build has its own package. Sizes marked **[E]** are estimates for the package to measure; everything else was read in the code.
 
@@ -9,6 +9,7 @@ It builds on the preferences design of 2026-11-24 (`~/Documents/Liminal HQ/Quill
 - [The answer in short](#the-answer-in-short)
 - [What exists today](#what-exists-today)
 - [Autosave's default: change it now](#autosaves-default-change-it-now)
+- [Autosave as you work](#autosave-as-you-work)
 - [The settings](#the-settings)
 - [The model: quill-settings](#the-model-quill-settings)
 - [Where each build keeps its settings](#where-each-build-keeps-its-settings)
@@ -25,9 +26,10 @@ It builds on the preferences design of 2026-11-24 (`~/Documents/Liminal HQ/Quill
 
 ## The answer in short
 
-- **Autosave every 5 minutes, not 10, on DOS and Windows 3.x, now** (WP-PREF-0, CORE-150): Windows 95 stays at 5 and the modern clients at 2. It is a one-line change in the DOS shell and three lines of the SPEC, costs no bytes, and every existing install picks it up, because `Autosave=` is written only when it differs from the default.
+- **Autosave every 5 minutes, not 10, on DOS and Windows 3.x, now** (WP-PREF-0, CORE-150, approved by the owner on 2026-11-27): Windows 95 stays at 5 and the modern clients at 2. Every existing install picks it up, because `Autosave=` is written only when it differs from the default.
+- **Autosave as you work** (WP-PREF-0, CORE-161): a mode that writes the recovery copy after a few seconds without a key, on by default on Windows 95, the terminal, GTK and WinUI, offered but off by default on DOS and Windows 3.x, where a write on a 386 is long enough to feel. `[Quill] AutosaveMode` is `off`, `work` or `minutes`; the minutes stay as the backstop. It is the existing scheduler with two numbers changed, so it lands in WP-PREF-0 with the defaults.
 - **One model.** `quill-settings` (base layer, `no_std`, no `alloc`, no floats, no panics) works on byte slices: a compiled, versioned schema table (`QSET`, ARCH-31), a total parser and formatter for each kind of value, the `QUILL.INI` reader and a merging writer that keeps every line it does not change, the `Profile` trait, the layers and the migrations. The file format is written down in `docs/settings-format.md` and carries `[Settings] Version=1` (CORE-151).
-- **Seven pages, one list.** General, New documents, Spelling, Save, View, Screen (DOS only) and Advanced (GTK and WinUI only); 30 settings, each with its builds, default and how it applies. A page shows only the rows its build has.
+- **Seven pages, one list.** General, New documents, Spelling, Save, View, Screen (DOS only) and Advanced (GTK and WinUI only); 32 settings, each with its builds, default and how it applies. A page shows only the rows its build has.
 - **Each build in its own style.** A text-cell dialog on the DOS text screens, the same dialog as a Windows 3.1 window on the graphics screen, Word 2.0's category dialog on Windows 3.x, a COMCTL32 property sheet on Windows 95, an `AdwPreferencesDialog` on GTK and a Settings page with a navigation pane on WinUI. Retro builds apply on OK or Apply; GTK and WinUI apply live.
 - **Order.** WP-PREF-0 now; WP-PREF-1 (the model, new files) and WP-PREF-4 (the `quill settings` command) beside the ARCH lane now; the window after the Unicode freeze, where WP-ED-13 to WP-ED-16 stood. Owner decision on pulling it before the freeze is at the end.
 
@@ -51,13 +53,31 @@ Read in the code at `89a714d`.
 
 ## Autosave's default: change it now
 
-**Recommendation: yes, change it now, in WP-PREF-0, ahead of the window.** DOS and Windows 3.x go from 10 minutes to 5; Windows 95 stays at 5; the terminal, GTK, WinUI and the web stay at 2.
+**Decided (the owner, 2026-11-27): change it now, in WP-PREF-0, ahead of the window.** DOS and Windows 3.x go from 10 minutes to 5; Windows 95 stays at 5; the terminal, GTK, WinUI and the web stay at 2. On the builds where autosave as you work is the default, the minutes are the backstop (see the next section).
 
 - **What 10 minutes costs.** An autosave is due when the interval has passed since the document first changed after its last save or autosave, and then waits for two seconds of quiet. So a power cut loses up to the interval plus the wait plus the write. Ten minutes was Word 97's AutoRecover default, which is the shape of the loss the owner describes: a long stretch of typing between copies, discovered only after the machine went down.
 - **What 5 minutes costs.** At most twice as many writes, and only while the document is changing. A write never runs while a key is coming: it starts after two seconds of quiet, polls for input every 4 KB and stops at once when a key waits, leaving the old copy. On a 386 the autosave plan estimates 0.2 to 0.6 seconds for a 50 KB document and 1 to 2.5 seconds for 250 KB; the forced write after two cut-short attempts is the only visible pause, so a person whose pauses are all shorter than the write sees one about every five minutes on a large document instead of every ten, and someone who pauses for a few seconds now and then never sees one. Copies from a floppy go to `RECOVER\` on the program's disk (DOS-47), so a floppy is never written more often.
 - **Why not 2 on the retro builds.** At 2 minutes a 250 KB document on a 386 would bring a forced pause of 1 to 2.5 seconds every two or three minutes for a person who types in short bursts, and most writes would start in the brief pauses of thinking, the moments a 386 is then slowest to answer the next key. The modern clients keep 2 because their writes are milliseconds and, once their executors land, off the UI thread.
 - **Why not wait for the window.** The window is many packages away (it needs the settings model and the Unicode freeze before it). The default protects everyone who never opens it, and the window then lets a person go down to 1 minute, which is what the owner did for himself.
 - **Who it changes.** Everyone without an `Autosave=` line, which is everyone: nothing writes the key at the default and no UI can set it yet. A hand-written `Autosave=10` stays 10.
+
+## Autosave as you work
+
+The owner's ask (2026-11-27): save after a short pause in typing, a few seconds of quiet, and let a person turn it off because an older machine may be too slow. **What is saved is the recovery copy, never the document itself** (CORE-161): writing over `LETTER.QLD` at every pause would take away Don't Save and the meaning of Save, and would replace the original on a floppy with every pause. The recovery copy already holds everything a crash needs, and Recover brings it back.
+
+| Mode | `AutosaveMode` | A copy is written | Default on |
+|---|---|---|---|
+| Off | `off` | Never | — |
+| As you work | `work` | After `AutosavePause` seconds without a key or button (3 by default), and no sooner than 10 seconds after the document first changed since the last copy; and in any case once `Autosave` minutes have passed, as the backstop | Windows 95 (W32), the terminal, GTK, WinUI, the web |
+| Every N minutes | `minutes` | `Autosave` minutes after the document first changed since the last copy, at the next two seconds of quiet (one on the modern clients), as today | DOS text and graphics, Windows 3.x |
+
+- **Why these defaults.** The Win32 build's floor is a Pentium (D33), where a 250 KB copy is a fraction of a second and stops at the next key; the modern clients write in milliseconds and will write from a worker. On a 386 the same copy is 1 to 2.5 seconds, so writing it at every three-second pause would put a write in front of most of the keys that follow a pause; there the person chooses As you work in Options, and the help line says `On a slow computer, typing may pause while Quill saves.`. OWNER DECISION at the end.
+- **It is the scheduler that exists** (CORE-17, CORE-20, CORE-69's questions unchanged). `Probe::due` already asks for an interval since the document first became dirty and for a quiet time; As you work only changes the two numbers it is fed: the interval becomes the 10-second floor and the quiet becomes `AutosavePause`. Every other rule is the same: the job is last in `App::idle`'s order, it runs only in plain editing and never in a second window, it writes through `save_recovery` into the same slot, a waiting key stops the write and keeps the old copy, a failed write backs off and says `Quill cannot autosave: the disk is full.` once a session, and the debug hook `[Debug] AutosaveSeconds` still overrides everything.
+- **The forced write.** Today, after two writes cut short, the third is announced and runs to the end. In As you work that would make every third pause a visible stop on a slow machine, so the forced write waits until the backstop's minutes have passed since the document first changed; until then a cut-short write simply tries again at the next pause.
+- **Recovery files are unchanged.** One current copy and one set-aside copy per document, the same names, the same `RCOV` chunk (flag 8, autosave), the same list in `QUILL.INI` (written when a document's first copy is made, not at every write), the same lock note. The two-copy rule means each write replaces only the current copy, so the disk holds no more than it does at 5 minutes.
+- **What a person sees.** No `Autosaved.` flash in As you work (it would blink at every pause); the flash stays for Every N minutes when the save polish adds it. `Autosaving LETTER.QLD...` shows only for the backstop's forced write.
+- **Disk and floppies.** A copy goes beside the document, or to `RECOVER\` for a document on a floppy, so a floppy is never written at every pause. Every write is a `.$$$` file and a rename, so a cut never leaves half a copy.
+- **Keys** (CORE-161). `[Quill] AutosaveMode` (`off`, `work`, `minutes`) and `[Quill] AutosavePause` (1 to 30 seconds, default 3). Windows 3.x and Windows 95 share one `QUILL.INI` but take different defaults, so the mode is a family key (`AutosaveMode` for the 8.3 builds, `AutosaveMode32`, `AutosaveModeLinux`, `AutosaveModeWinUI`) and so is the pause; `Autosave` minutes stay shared. A file from before has no mode: `Autosave=0` there reads as Off and any other value as Every N minutes on the builds whose default is minutes, so nobody who turned autosave off finds it on.
 
 ## The settings
 
@@ -82,7 +102,9 @@ Builds: **DT** the DOS text screens, **DG** the DOS graphics screen (one `QUILLD
 | Spelling | Language | `[Spelling] Language` | `en-CA`, `en-US`, `en-GB` | `en-CA` | all | New |
 | Spelling | Ignore words in capitals | `[Spelling] IgnoreCaps` | 0, 1 | 1 | all | Live |
 | Spelling | Always suggest | `[Spelling] AlwaysSuggest` | 0, 1 | 1 | all | Live |
-| Save | Save recovery information every … minutes | `[Quill] Autosave` | 0 (off), 1 to 60 | 5 on DT, DG, W16, W32; 2 on TTY, GTK, WUI (CORE-150) | DT, DG now; W16, W32, TTY, GTK, WUI with their autosave packages | Live |
+| Save | Save recovery information: Off, As you work, Every … minutes | `[Quill] AutosaveMode` (family: `AutosaveMode32`, `AutosaveModeLinux`, `AutosaveModeWinUI`) | `off`, `work`, `minutes` | `minutes` on DT, DG, W16; `work` on W32, TTY, GTK, WUI (CORE-161) | DT, DG now; W16, W32, TTY, GTK, WUI with their autosave packages | Live |
+| Save | … minutes (and the backstop for As you work) | `[Quill] Autosave` | 1 to 60 (0 still reads as Off) | 5 on DT, DG, W16, W32; 2 on TTY, GTK, WUI (CORE-150) | as the mode | Live |
+| Save | Pause before saving as you work | `[Quill] AutosavePause` (family keys as the mode) | 1 to 30 seconds | 3 | as the mode | Live |
 | Save | Recovery folder | `[Quill] RecoveryDir` (`RecoveryDir32`, `RecoveryDirLinux`, `RecoveryDirWinUI`) | path; empty is the build's own | empty | as Autosave | Live |
 | Save | Always keep a backup copy | `[Quill] Backup` | 0, 1 (`.BAK` beside the document) | 0 | all (WP-PREF-13) | Live |
 | View | Toolbar, Formatting bar, Ruler, Status bar | `[Quill] Toolbar`, `FormattingBar`, `Ruler`, `StatusBar` | 0, 1 | 1 | DG, W16, W32, GTK, WUI; Ruler and Status bar on DT, TTY | Live |
@@ -96,7 +118,7 @@ Builds: **DT** the DOS text screens, **DG** the DOS graphics screen (one `QUILLD
 
 - **Kept as keys, not shown:** `Window`, `Folder` (the last folder, remembered), `[Recent]`, `[Recent32]`, `[RecentLinux]`, `[Recovery]` lists, `RecoveryDirPrev` (written by Quill, see [How a change applies](#how-a-change-applies)), `PictureMemory`, `Threads` (the Win32 worker was a no-go for Windows 9x, W9X-13, so only the modern clients have threads and they have no choice to make), `[Debug] Trace`, `[Debug] AutosaveSeconds`, `gtk.ini`.
 - **The recovery question at start is not a setting.** It is always asked, before a file named on the command line and before `Startup=last`.
-- **Page sizes fit the DOS dialog.** `quill-dlg`'s `Focus<16>` holds 16 controls; with the page list and four buttons a page has room for 11. The largest page, New documents, has 9 (four margin fields).
+- **Page sizes fit the DOS dialog.** `quill-dlg`'s `Focus<16>` holds 16 controls; with the page list and four buttons a page has room for 11. The largest page, New documents, has 9 (four margin fields); Save has 8 (three mode buttons, the minutes, the pause, the folder and its note, the backup).
 
 ## The model: quill-settings
 
@@ -146,7 +168,7 @@ A reader checks the magic, refuses a newer major version and bounds every offset
 
 - **Writing** (CORE-152, CORE-157). Only changed keys are written, after a fresh read of the file, so a second Quill window's changes survive; a value equal to the inherited default deletes its key (B1 fixed). A second window keeps the values it started with until its next start.
 - **Validation.** A field that cannot hold its value refuses OK with the flow's message (`Type a number from 1 to 60.`, `Type a measurement such as 1.25" or 3.2 cm.`) and puts the focus back on it.
-- **Autosave** (CORE-158). A new interval counts from the next idle pass, so lowering it to 1 minute on a document changed six minutes ago writes a copy at the next pause. Unticking stops new copies and keeps the ones there, which still protect work done; Save and close remove them as before. Ticking again restores the interval last shown. A new recovery folder is checked with a probe file before OK takes it (`Quill cannot write to C:\SAFE.`); the old folder is kept in `RecoveryDirPrev` and read at launch until it holds no copies, so no copy is stranded by the change.
+- **Autosave** (CORE-158). A new mode, interval or pause counts from the next idle pass, so lowering it to 1 minute on a document changed six minutes ago writes a copy at the next pause. Off stops new copies and keeps the ones there, which still protect work done; Save and close remove them as before. The minutes and the pause keep their values while the mode is Off, and are greyed. A new recovery folder is checked with a probe file before OK takes it (`Quill cannot write to C:\SAFE.`); the old folder is kept in `RecoveryDirPrev` and read at launch until it holds no copies, so no copy is stranded by the change.
 - **Screen settings on DOS** apply at the next start (the owner's choice); a switch on the command line shows `Overridden for this session by /G.`.
 - **Help.** F1 (DOS, Windows 3.x), What's This (Windows 95) and the row subtitles (GTK, WinUI) all show the setting's help line from the schema.
 
@@ -161,7 +183,7 @@ A reader checks the magic, refuses a newer major version and bounds every offset
 
 | Build | Opens from | Title | Form |
 |---|---|---|---|
-| DOS text | Tools > Options..., the Spelling dialog's `< Options >` (at the Spelling page) | Options | A shadowed text-cell box, 72 by 12 cells (at most 76 by 19), built at run time from the schema |
+| DOS text | Tools > Options..., the Spelling dialog's `< Options >` (at the Spelling page) | Options | A shadowed text-cell box, 72 by 13 cells (at most 76 by 19), built at run time from the schema |
 | DOS graphics | The same | Options | The same state drawn as a Windows 3.1 dialog by the overlay |
 | Windows 3.x | Tools > Options..., Spelling's Options | Options | A category list and one `RT_DIALOG` holding every page |
 | Windows 95 | Tools > Options..., Spelling's Options | Options | A COMCTL32 4.00 property sheet |
@@ -173,22 +195,23 @@ A reader checks the magic, refuses a newer major version and bounds every offset
 
 ### DOS text
 
-The style of the Spelling and file dialogs: a frame with the page list on the left, the page's controls on the right, the buttons under them and the focused setting's help line on the status row. Tab and Shift+Tab move through the ring; Up and Down in the list change the page at once; Ctrl+PgUp and Ctrl+PgDn change it from anywhere; Alt and a mnemonic go to a control; Space toggles; Alt+Down opens a list; Enter is OK and Esc is Cancel; F1 opens the setting's help topic. The box is centred on 80 × 50 and drawn in the mono attributes with `/MONO`. The Save page at 80 × 25:
+The style of the Spelling and file dialogs: a frame with the page list on the left, the page's controls on the right, the buttons under them and the focused setting's help line on the status row. Tab and Shift+Tab move through the ring; Up and Down in the list change the page at once; Ctrl+PgUp and Ctrl+PgDn change it from anywhere; Alt and a mnemonic go to a control; Space toggles; Alt+Down opens a list; Enter is OK and Esc is Cancel; F1 opens the setting's help topic. The box is centred on 80 × 50 and drawn in the mono attributes with `/MONO`. The Save page at 80 × 25, with As you work chosen (on DOS the default is Every 5 minutes):
 
 ```text
   ┌────────────────────────────── Options ───────────────────────────────┐
-  │ ┌───────────────┐                                                    │
-  │ │ General       │  [X] Save &recovery information every [ 5] minutes │
-  │ │ New documents │                                                    │
-  │ │ Spelling      │  Recovery &folder:                                 │
-  │ │▒Save▒▒▒▒▒▒▒▒▒▒│  [                                               ] │
-  │ │ View          │  Empty means C:\QUILL\RECOVER\                     │
-  │ │ Screen        │                                                    │
-  │ └───────────────┘  [ ] Always keep a &backup copy                    │
+  │ ┌───────────────┐  Save recovery information:                        │
+  │ │ General       │    ( ) &Off                                        │
+  │ │ New documents │    (•) As you &work, after [ 3] seconds' pause     │
+  │ │ Spelling      │    ( ) &Every [ 5] minutes                         │
+  │ │▒Save▒▒▒▒▒▒▒▒▒▒│                                                    │
+  │ │ View          │  Recovery &folder:                                 │
+  │ │ Screen        │  [                                               ] │
+  │ └───────────────┘  Empty means C:\QUILL\RECOVER\                     │
+  │                    [ ] Always keep a &backup copy                    │
   │                                                                      │
   │       < OK >      < Cancel >      < &Defaults >      < Help >        │
   └──────────────────────────────────────────────────────────────────────┘
- Quill saves a copy of unsaved work this often, so a power cut loses less.
+ On a slow computer, typing may pause while Quill saves.
 ```
 
 ### DOS graphics
@@ -205,7 +228,7 @@ A property sheet (`PropertySheetA`, the 40-byte V1 structure sizes so retail Win
 
 ### GTK
 
-An `AdwPreferencesDialog` with search, pages General, New documents, Spelling, Save, View and Advanced, and rows from the schema (the label is the title, the help line the subtitle): `AdwSwitchRow`, `AdwComboRow`, `AdwSpinRow`, `AdwEntryRow`, a `GtkFontDialogButton` for the font, `GtkFileDialog.select_folder` for the recovery folder, and Import, Export and Reset all as button rows with Reset behind an `AdwAlertDialog` (LNX-60). The autosave row is an `AdwExpanderRow` with its switch on and the minutes inside. Live apply, as the GNOME guidelines ask; the theme row drives `adw::StyleManager`.
+An `AdwPreferencesDialog` with search, pages General, New documents, Spelling, Save, View and Advanced, and rows from the schema (the label is the title, the help line the subtitle): `AdwSwitchRow`, `AdwComboRow`, `AdwSpinRow`, `AdwEntryRow`, a `GtkFontDialogButton` for the font, `GtkFileDialog.select_folder` for the recovery folder, and Import, Export and Reset all as button rows with Reset behind an `AdwAlertDialog` (LNX-60). The autosave rows are an `AdwComboRow` for the mode (Off, As you work, Every few minutes) with `AdwSpinRow`s for the pause and the minutes under it, the one that does not apply greyed. Live apply, as the GNOME guidelines ask; the theme row drives `adw::StyleManager`.
 
 ### WinUI
 
@@ -237,7 +260,7 @@ ARCH-30 is recorded in `docs/decisions.md` with this plan; each package records 
 | ARCH-30 | The preferences work is the WP-PREF series of this plan, replacing WP-ED-13 to WP-ED-16; `quill-settings` is created by WP-PREF-1 as new files ahead of WP-ARCH-6, which then moves the recent list and the editor onto it | This plan |
 | ARCH-31 | The schema is a compiled, versioned byte table (`QSET`) read in place on every build, from `include_bytes!` or `RT_RCDATA` | WP-PREF-1 |
 | ARCH-32 | The SPEC's settings table is generated from the schema and checked by `make-docs --check` | WP-PREF-2 |
-| CORE-150 | Autosave every 5 minutes on DOS, Windows 3.x and Windows 95, every 2 on the terminal, GTK, WinUI and the web; 0 to 60, 0 off, 1 the least the window offers | WP-PREF-0 |
+| CORE-150 | Autosave every 5 minutes on DOS, Windows 3.x and Windows 95, every 2 on the terminal, GTK, WinUI and the web; 1 to 60, 0 read as Off; decided by the owner on 2026-11-27 | WP-PREF-0 |
 | CORE-151 | `QUILL.INI` format version 1: grammar, encodings, limits, `[Settings] Version`, migrations, never lowered, unknown lines kept byte for byte, family keys | WP-PREF-1 |
 | CORE-152 | Layers: build default, `QUILLDEF.INI`, `QUILL.INI`, session; a value equal to the inherited one deletes its key; writes merge after a fresh read | WP-PREF-1 |
 | CORE-153 | Settings are read and written by id through the schema (`App::get`, `App::set`); the dialog edits a `Draft`; three apply classes | WP-PREF-2 |
@@ -248,6 +271,7 @@ ARCH-30 is recorded in `docs/decisions.md` with this plan; each package records 
 | CORE-158 | Autosave rows: a new interval counts from the next idle pass; off keeps existing copies; a new folder is probed, and the old one read at launch until empty (`RecoveryDirPrev`) | WP-PREF-5 |
 | CORE-159 | Start-up: a blank document or the last one, after the recovery question, and never over a file on the command line | WP-PREF-5 |
 | CORE-160 | `Backup=1` keeps the previous file as `<name>.BAK`, made by the safe save's replace step | WP-PREF-13 |
+| CORE-161 | `AutosaveMode`: Off, As you work (a copy after `AutosavePause` seconds of quiet, at least 10 seconds after the first change, the minutes as the backstop and the only forced write) or Every N minutes; As you work by default on Windows 95 and the modern clients, Every 5 minutes on DOS and Windows 3.x; it writes the recovery copy, never the document; family keys for the mode and the pause | WP-PREF-0 |
 | DOS-80 | The text-cell Options dialog is built from the schema; the graphics screen and the terminal draw the same state | WP-PREF-5 |
 | DOS-81 | `Rows`, `Graphics` and `Scheme` are settings applied at the next start; the switches override them for the session only and are never saved (`Kept` goes) | WP-PREF-2 |
 | DOS-82, DOS-83, DOS-85 | Budget raises for WP-PREF-2, WP-PREF-5 and WP-PREF-6, each after savings, by the measured cost rounded up to 4 KB, with the floppy's free bytes (DOS-70) | WP-PREF-2, 5, 6 |
@@ -269,7 +293,7 @@ The lanes are work-packages.md's: the **ARCH lane** (moves), the **ED lane** (on
 
 | When | ED lane | Side | UI track | Waits for |
 |---|---|---|---|---|
-| Now | — | WP-PREF-0 autosave default (touches no `quill-app` file), then WP-PREF-1 the model (new files) | — | — |
+| Now | WP-PREF-0 autosave defaults and the mode (`recovery.rs`, `idle.rs`; files no open ED package owns) | WP-PREF-1 the model (new files) | — | — |
 | After WP-PREF-1 | — | WP-PREF-4 `quill settings` | — | WP-PREF-1 |
 | Wave 6 | (WP-ARCH-6 in the ARCH lane adopts WP-PREF-1's `ini` and `Profile`) | — | — | WP-PREF-1, WP-ARCH-5 |
 | Wave 9 (after the freeze) | WP-PREF-2 settings by id | — | — | WP-ARCH-6, WP-ARCH-7, WP-ED-11 |
@@ -278,7 +302,8 @@ The lanes are work-packages.md's: the **ARCH lane** (moves), the **ED lane** (on
 | Wave 12 | (WP-ED-18 Numbering) | WP-PREF-8 Windows 3.x dialog | WP-PREF-11 WinUI (once WP-WINUI-5 merges) | WP-PREF-3, WP-ARCH-9, WP-ED-5 for WP-PREF-8 |
 | Wave 13 | WP-PREF-13 backup copy | WP-PREF-12 installer defaults (when the installer can write INI files) | — | WP-PREF-5; the Liminal Installer INI writes |
 
-- **Autosave on the other builds is the autosave plan's**, not this series': Windows 3.x (its PR 8), Windows 95 (PR 9), the terminal (PR 11), GTK (PR 18) and WinUI (PR 19). Each of those turns its build's bit on in the schema's Autosave and Recovery folder rows, so the Save page grows those rows the day the build autosaves, and they take the CORE-150 default.
+- **WP-PREF-0 starts now** (the owner, 2026-11-27). It owns the autosave settings in `crates/quill-app/src/recovery.rs` and the probe's inputs in `idle.rs`, which no open package owns; if another ED-lane branch is open in `quill-app`, both proceed on their own files and the second to merge rebases. WP-ARCH-3 (`quill-session`) must not touch either file and waits for nothing here.
+- **Autosave on the other builds is the autosave plan's**, not this series': Windows 3.x (its PR 8), Windows 95 (PR 9), the terminal (PR 11), GTK (PR 18) and WinUI (PR 19). Each of those calls `configure_autosave` with its build's defaults (As you work on Windows 95, the terminal, GTK and WinUI) and turns its build's bit on in the schema's autosave rows, so the Save page grows them the day the build autosaves.
 - **WP-ED-12** (default tab stops in the document) adds its row's build bits when it lands; WP-PREF-5 does not wait for it.
 - **Three builders at most.** Waves 11 and 12 also hold WP-ED-17 to WP-ED-19 (Page Layout, Numbering, Header and Footer); the orchestrator fills the three slots from both lists in their order, the ED lane's package first, and the UI track's packages run in that track's own slots.
 
@@ -286,7 +311,7 @@ The lanes are work-packages.md's: the **ARCH lane** (moves), the **ED lane** (on
 
 | Limit | Now | This series |
 |---|---|---|
-| `QUILLDOS.EXE` | About 436,224 of 442,368 bytes, about 6 KB left (DOS-48) | WP-PREF-0 0; WP-PREF-2 +2 to +4 KB **[E]** (the schema 1.4 KB, `Values`, the layers, less the hand-written match and `Kept`); WP-PREF-5 +6 to +10 KB **[E]** (the dialog is one painter over the schema, not code per page, plus the labels table about 2.5 KB); WP-PREF-6 +2 to +4 KB **[E]**; WP-PREF-13 +0.5 KB. +10.5 to +18.5 KB, replacing the editor track's +8 to +14 for WP-ED-13 and WP-ED-15. Raises follow DOS-70, each in its own DOS row (DOS-82, DOS-83, DOS-85); the stop at 480 KB or 128 KB free on the floppy holds |
+| `QUILLDOS.EXE` | About 436,224 of 442,368 bytes, about 6 KB left (DOS-48) | WP-PREF-0 +0.3 to +0.6 KB **[E]** (the mode, the pause and their keys), inside the 6 KB; WP-PREF-2 +2 to +4 KB **[E]** (the schema 1.4 KB, `Values`, the layers, less the hand-written match and `Kept`); WP-PREF-5 +6 to +10 KB **[E]** (the dialog is one painter over the schema, not code per page, plus the labels table about 2.5 KB); WP-PREF-6 +2 to +4 KB **[E]**; WP-PREF-13 +0.5 KB. +10.8 to +19.1 KB, replacing the editor track's +8 to +14 for WP-ED-13 and WP-ED-15. Raises follow DOS-70, each in its own DOS row (DOS-82, DOS-83, DOS-85); the stop at 480 KB or 128 KB free on the floppy holds |
 | DOS floppy | About 427,000 bytes free (DOS-48) | The executable packs to about 58 %, so the series costs about 6 to 11 KB of floppy; each package reports `installer/tools/verify-disks.sh` |
 | Windows 3.x data segment | About 2 KB free; nothing merges below 1,024 (W16-60) | WP-PREF-2 at most +40 bytes (the schema's handle; the table is in `RT_RCDATA` from the start); WP-PREF-3 0 or less (the whole-file buffer goes); WP-PREF-8 +100 to +300 **[E]**, with 1,024 still free |
 | Windows 3.x stack | `check_stack_log.py` margin | At least 2,048 to spare with the Options dialog open and its draft (about 520 bytes) on the stack |
@@ -296,6 +321,7 @@ The lanes are work-packages.md's: the **ARCH lane** (moves), the **ED lane** (on
 
 ## Tests and goldens
 
+- **Autosave** (WP-PREF-0): host tests over `@clock` and `@quiet` for each mode (As you work: no copy at 2 seconds of quiet, a copy at 3 once 10 seconds have passed since the first change, a new copy after more typing and another pause, a cut-short write retried at the next pause and forced only after the backstop's minutes; Every N minutes: as today; Off: none), the INI keys at and away from the defaults and the version 0 reading of `Autosave=0`; DOSBox `m17-autosave-work` (`AutosaveMode=work`, type, pause three seconds, cut off, the next start offers the copy).
 - **The model** (WP-PREF-1), 10,000 cases each with `proptest`: `parse(format(v)) == v` for every kind; `ini::rewrite` with no changes is the identity on any bytes, and with changes alters only the named keys; `IniFile` agrees with a map model and with a fake profile API that follows the Windows rules; random bytes never panic the INI reader or the schema reader; a value equal to the inherited one deletes its key; an 8.3 build never reads a `*32`, `*Linux` or `*WinUI` key; migration is idempotent and version is never lowered. Goldens in `tests/golden/settings/`: `settings.qset` and its text dump `schema.txt`, the defaults INI each build would write (`defaults-dos.ini` to `defaults-winui.ini`), a version 0 file and its migration, an export.
 - **The schema's sync tests:** `settings.qset` and `generated.rs` equal what `emit-resources --settings` makes from `settings.json`; keys and mnemonics unique per page; every page fits `Focus<16>`; the SPEC's table equals `make-docs --check` (WP-PREF-2).
 - **The editor** (WP-PREF-2): `m4-quill.ini` changes once, reviewed (the version line and the language key); a 4 KB INI loads whole (B3); unknown keys and sections survive a DOS save (B4); `/50` is never saved; Windows 95 can go back to Canadian English (B1).
@@ -308,20 +334,20 @@ The lanes are work-packages.md's: the **ARCH lane** (moves), the **ED lane** (on
 
 Every package uses work-packages.md's rules (owned files, branch late, rebase, the `dialogs.json` rule) and the common brief. Evidence goes to `~/Documents/Liminal HQ/Quill/Editor features/WP-PREF-n/`.
 
-### WP-PREF-0 — Autosave every 5 minutes on DOS and Windows 3.x
+### WP-PREF-0 — Autosave every 5 minutes, and autosave as you work
 
-- **Finish line:** the DOS screens autosave every 5 minutes by default; the SPEC says 5 for DOS and Windows 3.x (so the Windows 3.x autosave package builds it that way) and still 5 for Windows 95 and 2 for the modern clients; a hand-written `Autosave=10` is still honoured; no byte of `QUILLDOS.EXE` changes in size.
-- **Owns:** the `configure_recovery` line and its comment in `dos/quill-dos/src/main.rs`; the `configure_recovery` literal in `crates/quill-host/src/script.rs` and `crates/quill-paint/tests/shell.rs`; `crates/quill-host/tests/autosave_default.rs` (new); the autosave sentences and the `Autosave` row of `SPEC.md`; the D195 row and sentence in `docs/linux.md`; CORE-150; a progress row.
-- **Must not touch:** `crates/quill-app/src` (the ED lane's); the idle loop; the debug hook.
-- **Depends on:** nothing. Parallel with everything open.
-- **Budget:** DOS Δ 0; nothing else built differently.
-- **Tests:** the new host test (no copy at 4 minutes 59 seconds, a copy at 5 minutes and the idle wait; `Autosave` absent from the INI at 5, written at 10; a file with `Autosave=10` reads 10); every golden unchanged; G-HOST, G-DOS, G-MD.
-- **Evidence:** `QUILL.INI` after a run with the default and after one with `Autosave=10`, as text files.
-- **Decisions:** CORE-150.
+- **Finish line:** the editor has `AutosaveMode` (Off, As you work, Every N minutes) and `AutosavePause`, with the scheduling of [Autosave as you work](#autosave-as-you-work), read and written as `QUILL.INI` keys at and away from each build's defaults; a shell gives its defaults with one call; the DOS screens default to Every 5 minutes and take `AutosaveMode=work` from the file; the SPEC gives every build's defaults (5 minutes on DOS, Windows 3.x and Windows 95, 2 on the modern clients; As you work on Windows 95 and the modern clients), so the Windows, terminal, GTK and WinUI autosave packages build them that way; a hand-written `Autosave=10` and an old `Autosave=0` keep their meaning.
+- **Owns:** the autosave settings in `crates/quill-app/src/recovery.rs` (`configure_recovery`, a new `configure_autosave`, `autosave_interval`, `autosave_wait`, `rcv_each_setting`, `rcv_apply_setting`); the forced-write rule in `autosave_go` and the probe's interval and quiet in `autosave_pass` in `crates/quill-app/src/idle.rs`; the `configure_recovery` call and its comment in `dos/quill-dos/src/main.rs`; the same call in `crates/quill-host/src/script.rs` and `crates/quill-paint/tests/shell.rs`; `crates/quill-host/tests/autosave_modes.rs` (new); the DOS scenario `m17-autosave-work`; the autosave sentences and rows of `SPEC.md`; the D195 row and sentence in `docs/linux.md`; CORE-150, CORE-161; a progress row.
+- **Must not touch:** the job order in `App::idle`; `save_recovery` and the recovery file names; the questions (CORE-69); any Windows, terminal, GTK or WinUI shell (none autosaves yet).
+- **Depends on:** nothing. Starts now, in the ED lane, on files no open package owns.
+- **Budget:** DOS +0.3 to +0.6 KB **[E]**, inside the 6 KB left; no other build links it differently.
+- **Tests:** the autosave bullet of [Tests and goldens](#tests-and-goldens); every existing golden unchanged; G-HOST, G-DOS, G-MD.
+- **Evidence:** `QUILL.INI` after runs with the default, with `Autosave=10` and with `AutosaveMode=work`, as text files; the `m17-autosave-work` recovery question on `dos-text-25`.
+- **Decisions:** CORE-150, CORE-161.
 
 ### WP-PREF-1 — `quill-settings`: the model, the schema and the file format
 
-- **Finish line:** `crates/quill-settings` with the modules of [The model](#the-model-quill-settings); `assets/settings/settings.json` describing all 30 settings; `emit-resources --settings` writing `settings.qset`, `settings.qstx` and `generated.rs`; `docs/settings-format.md` with the INI and `QSET` formats; the property tests and goldens; nothing links it yet.
+- **Finish line:** `crates/quill-settings` with the modules of [The model](#the-model-quill-settings); `assets/settings/settings.json` describing all 32 settings; `emit-resources --settings` writing `settings.qset`, `settings.qstx` and `generated.rs`; `docs/settings-format.md` with the INI and `QSET` formats; the property tests and goldens; nothing links it yet.
 - **Owns:** `crates/quill-settings/**` (new); `assets/settings/**` (new); the `--settings` mode in `crates/quill-host/src/bin/emit-resources.rs` (a new function and its argument branch only); `docs/settings-format.md` (new); `tests/golden/settings/**` (new); the root `Cargo.toml` members and `Cargo.lock`; the crate row in `docs/architecture.md`; ARCH-31, CORE-151, CORE-152.
 - **Must not touch:** `crates/quill-app`; any shell; `recent.rs` (WP-ARCH-6 moves it).
 - **Depends on:** nothing.
@@ -444,50 +470,80 @@ Each brief follows the common brief of [work-packages.md](../work-packages.md#th
 ### WP-PREF-0 (full)
 
 ```text
-Package WP-PREF-0: autosave every 5 minutes, not 10, on DOS and Windows 3.x. Plan:
-docs/plans/preferences.md ("Autosave's default: change it now" and WP-PREF-0). A small, exact change.
+Package WP-PREF-0: autosave every 5 minutes on DOS and Windows 3.x, and autosave as you work. The
+owner approved the defaults on 2026-11-27 and wants this now, ahead of the Options window. Plan:
+docs/plans/preferences.md ("Autosave's default: change it now", "Autosave as you work",
+WP-PREF-0). Read crates/quill-app/src/idle.rs and recovery.rs first, and SPEC "Idle time and
+autosave".
 
-Branch feat/autosave-five-minutes from origin/main; worktree
-~/source/worktrees/quill/autosave-five.
+Branch feat/autosave-as-you-work from origin/main; worktree
+~/source/worktrees/quill/autosave-work. You own the autosave settings in recovery.rs and the
+probe's inputs and the forced-write rule in idle.rs; nothing else in crates/quill-app/src. If
+another branch is open in quill-app, keep to these files; the second to merge rebases.
 
-1. dos/quill-dos/src/main.rs: add `const AUTOSAVE_MINUTES: u8 = 5;` near the other constants of the
-   recovery set-up, with a doc comment "The minutes between recovery copies when QUILL.INI has no
-   Autosave= (CORE-150)", and pass it to configure_recovery in place of 10. Rewrite the comment above
-   the call to say "every five minutes". Touch nothing else in the file.
-2. crates/quill-host/src/script.rs (play_rows) and crates/quill-paint/tests/shell.rs: the literal 10 in
-   configure_recovery becomes 5, with a comment naming CORE-150, so the host's runs stay the DOS
-   screens' twins. Do not touch crates/quill-app/src: the default is the shell's to give.
-3. New test crates/quill-host/tests/autosave_default.rs (SPDX header), driving App with
-   configure_recovery(5, 0, false), set_recovery(true) and the clock the existing idle tests use
-   (crates/quill-host/tests/idle.rs shows how): (a) one edit, then idle passes with 4 min 59 s
-   elapsed and the quiet satisfied: no copy; at 5 min and 2 s of quiet: one copy; (b) save_settings_with
-   at the default writes no Autosave line; after set_autosave_minutes(10) it writes Autosave=10;
-   (c) a QUILL.INI holding "[Quill]\r\nAutosave=10\r\n" reads back 10 and writes it back unchanged.
-4. Run `cargo nextest run --workspace`: every golden must be unchanged. If one changes, it is because a
-   test leaned on 10; read it, fix the test's set-up rather than the golden, and say so in the PR.
-5. Docs, in the same commit as the code or a docs commit right after:
-   - SPEC.md: in "Idle time and autosave" the interval list becomes "5 on DOS, Windows 3.x and
-     Windows 95, 2 on Linux"; in the DOS "Autosave and recovery" bullet "every ten minutes" becomes
-     "every five minutes"; the settings table's [Quill] Autosave default becomes "`5` (DOS, Win16 and
-     Win32), `2` (Linux)".
-   - docs/linux.md: the D195 row and the autosave sentence say DOS and Windows 3.x 5, Windows 95 5,
-     Linux 2, citing CORE-150.
-   - docs/decisions.md: CORE-150, Status Assumed with "OWNER DECISION: 5 minutes on the retro builds
-     and 2 on the modern ones; swap AUTOSAVE_MINUTES in dos/quill-dos/src/main.rs and the SPEC rows".
-     Choice: the defaults above, 0 to 60 kept, 0 off. Alternatives: 10 (Word 97's, the loss the owner
-     met), 2 everywhere (a forced pause every few minutes on a 386 with a large document), 3. Why: at
-     most twice the writes, each after two seconds of quiet and stopped by a key; 0.2 to 0.6 s for
-     50 KB on a 386, copies from floppies go to RECOVER\ on the program's disk (DOS-47).
-   - docs/progress.md: a row for the change, with what was run.
-6. Gates: G-HOST; G-DOS (dos/tools/size-report.sh before and after: the size must not change, say
-   both figures); G-MD. No Win16, Win32 or GTK build is affected (none autosaves yet); say so.
-7. Evidence in ~/Documents/Liminal HQ/Quill/Editor features/WP-PREF-0/: QUILL.INI after a host run
-   with the default (no Autosave line) and after one with Autosave=10 (the line kept), as .ini text.
-8. PR: "Autosave every five minutes on DOS and Windows 3.x". Labels: enhancement, dos.
+1. recovery.rs: add `pub enum AutosaveMode { Off, Work, Minutes }` (Copy, Eq, Debug) and
+   `pub fn configure_autosave(&mut self, mode: AutosaveMode, minutes: u8, pause: u8)` that sets
+   the value and the default of each (minutes 1 to 60, pause 1 to 30, clamped);
+   configure_recovery keeps its signature and sets minutes as today, so existing callers work.
+   Getters and setters for mode and pause beside autosave_minutes. Constants with doc comments:
+   WORK_FLOOR = 10 (seconds after the first change before an As-you-work copy), PAUSE_DEFAULT = 3.
+2. The two numbers the probe gets (autosave_interval, autosave_wait): Off gives interval 0;
+   Minutes gives minutes * 60 and today's wait (2 s on the 8.3 builds, 1 on the others); Work gives
+   WORK_FLOOR and the pause. The debug hook AutosaveSeconds still wins over all of it, as today.
+   Probe and the job order do not change.
+3. idle.rs autosave_go: in Work mode the forced write (cut >= ABANDONS) happens only once the
+   seconds since the first change reach minutes * 60; before that an abandoned write just counts
+   and waits for the next pause. Minutes mode is exactly as today. Say why in a comment.
+4. Settings keys (rcv_each_setting, rcv_apply_setting): AutosaveMode (off, work, minutes; case-
+   insensitive; anything else is the default) and AutosavePause, each written only when it
+   differs from its default, like Autosave. The family key the build reads and writes is
+   AutosaveMode / AutosavePause on the 8.3 builds, AutosaveMode32 / AutosavePause32 on Win32,
+   ...Linux on the Linux clients, ...WinUI on WinUI: take the family from the existing Style
+   (Dos, Long, Dot) the way RecoveryDir does, and leave a WinUI case for its shell to add.
+   Autosave stays one shared key, 1 to 60; reading Autosave=0 with no mode key in the file means
+   Off (the old meaning), and writing Off writes AutosaveMode=off and leaves Autosave alone.
+5. dos/quill-dos/src/main.rs: `const AUTOSAVE_MINUTES: u8 = 5;` with a doc comment citing
+   CORE-150, and after configure_recovery(AUTOSAVE_MINUTES, writer, false) call
+   configure_autosave(AutosaveMode::Minutes, AUTOSAVE_MINUTES, 3) (CORE-161). Rewrite the comment
+   above it: every five minutes unless QUILL.INI says otherwise, or as you work with
+   AutosaveMode=work. crates/quill-host/src/script.rs and crates/quill-paint/tests/shell.rs: 10
+   becomes 5, same mode, so the host stays the DOS screens' twin.
+6. Tests, new crates/quill-host/tests/autosave_modes.rs (SPDX header), with the clock and quiet of
+   crates/quill-host/tests/idle.rs: the cases in the plan's "Autosave" tests bullet, plus Minutes at
+   4 min 59 s (none) and 5 min with 2 s quiet (one); INI: no autosave lines at the defaults,
+   Autosave=10, AutosaveMode=work and AutosavePause=5 written when set and read back, an old
+   "[Quill]\r\nAutosave=0\r\n" reads as Off and is not rewritten as on; a Win32-style app
+   (Style::Long) reads AutosaveMode32 and ignores AutosaveMode. Every existing golden must stay
+   unchanged; if one changes, fix the test's set-up, not the golden, and say so in the PR.
+7. DOS scenario m17-autosave-work beside m17-autosave (same harness; QUILL.INI with
+   AutosaveMode=work and AutosavePause=2): type, wait three seconds, cut the program off, the next
+   start offers the copy, Recover brings the letters back. Host and DOSBox frames equal.
+8. Docs in the same change:
+   - SPEC.md: "Idle time and autosave" gets the modes (the plan's table and rules: the floor, the
+     pause, the backstop and the forced write, no flash in As you work, the recovery copy and
+     never the document) and the defaults (5 minutes on DOS, Windows 3.x and Windows 95, 2 on
+     Linux; As you work on Windows 95, Linux and WinUI, Every N minutes on DOS and Windows 3.x);
+     the DOS "Autosave and recovery" bullet says every five minutes, or as you work with
+     AutosaveMode=work; the settings table gets AutosaveMode and AutosavePause rows and the new
+     Autosave defaults.
+   - docs/linux.md: the D195 row and the autosave sentence, citing CORE-150 and CORE-161.
+   - docs/decisions.md: CORE-150 (Decided by the owner, 2026-11-27: the minutes above; why: the
+     plan's section) and CORE-161 (Assumed, with "OWNER DECISION: As you work by default on
+     Windows 95 and the modern clients, Every 5 minutes on DOS and Windows 3.x; swap in each
+     shell's configure_autosave call and the SPEC rows"; alternatives: As you work everywhere, or
+     only on the modern clients; writing the document itself; a quiet of 1 or 5 seconds).
+   - docs/progress.md: a row with what was run.
+9. Gates: G-HOST; G-DOS (dos/tools/size-report.sh before and after; report both and the
+   difference, expected +0.3 to +0.6 KB; past the budget stop and report); G-MD. No Windows, terminal
+   or GTK shell calls configure_autosave yet; say so.
+10. Evidence in ~/Documents/Liminal HQ/Quill/Editor features/WP-PREF-0/: the three QUILL.INI files
+   of the package's evidence line, and the recovery question of m17-autosave-work on dos-text-25.
+11. PR: "Autosave every five minutes, or as you work". Labels: enhancement, core, dos.
 
-Finish line: the DOS screens write a recovery copy five minutes after the first unsaved change (at
-the next two-second pause), a hand-set Autosave=10 still gives ten, the SPEC says 5 for DOS and
-Windows 3.x, the size and every golden are unchanged.
+Finish line: the DOS screens write a recovery copy five minutes after the first unsaved change by
+default, or three seconds after each pause with AutosaveMode=work; Off, an old Autosave=0 and a
+hand-set Autosave=10 keep their meaning; the SPEC gives every build's defaults; the size is within
+the budget and every existing golden is unchanged.
 ```
 
 ### WP-PREF-1 (full)
@@ -522,7 +578,7 @@ Branch feat/quill-settings-model from origin/main; worktree ~/source/worktrees/q
    rule); migrate (version 0 to 1: [Quill] Language=0..2 to [Spelling] Language=en-CA|en-US|en-GB);
    draft (Draft<const N, const T>); transfer (export and import with taken and ignored counts; what
    is not exported per the plan).
-3. assets/settings/settings.json: all 30 settings of the plan's table, with every field the plan's
+3. assets/settings/settings.json: all 32 settings of the plan's table, with every field the plan's
    schema paragraph names (id, section, key, legacy keys, kind, range, defaults per build with
    "locale" where the shell supplies it, page, order, label, help line, mnemonic, builds, applies,
    family, exported, help id). Labels in sentence case, Canadian English, one mnemonic per page,
@@ -714,11 +770,14 @@ Each default below is taken so no builder waits; the last column is where to swa
 
 | Question | Default taken | Where to swap |
 |---|---|---|
-| Change the autosave default now, and to what? | Yes, in WP-PREF-0: 5 minutes on DOS, Windows 3.x and Windows 95, 2 on the modern clients | `AUTOSAVE_MINUTES` in `dos/quill-dos/src/main.rs` and CORE-150; after WP-PREF-1, the defaults in `assets/settings/settings.json` |
+| Change the autosave default now, and to what? | **Decided** (the owner, 2026-11-27): 5 minutes on DOS, Windows 3.x and Windows 95, 2 on the modern clients, in WP-PREF-0 now | — |
+| Autosave as you work by default where? | Windows 95, the terminal, GTK and WinUI; Every 5 minutes on DOS and Windows 3.x, where As you work is offered but off | Each shell's `configure_autosave` call, CORE-161 and the SPEC rows; after WP-PREF-1, `settings.json` |
+| How long a pause before saving as you work? | 3 seconds (1 to 30), and at least 10 seconds after the first change | `PAUSE_DEFAULT` and `WORK_FLOOR` in `recovery.rs`, CORE-161 |
+| As you work saves the recovery copy, not the document? | Yes (CORE-161) | A fourth mode, "Save the document itself", would be a new decision with its own package |
 | The window before or after the Unicode freeze? | After: WP-PREF-2 and WP-PREF-5 take WP-ED-13's and WP-ED-15's waves (9 and 10), keeping "Unicode first under a freeze" | Move WP-PREF-2 and WP-PREF-5 to waves 7 and 8 in [Order and lanes](#order-and-lanes) and work-packages.md; WP-ED-10 then also covers the dialog's text fields |
 | DOS-80 to DOS-89 for this series? | Yes, carved out of the editor track's DOS-70 to DOS-89 | The id table in [Decisions](#decisions) and work-packages.md's id table (DOS-90 to DOS-99 are free instead) |
 | The schema as one byte table on every build? | Yes (ARCH-31) | WP-PREF-1; the alternative is a Rust const table with `RT_RCDATA` on Windows 3.x only |
-| Unticking autosave keeps the copies already written? | Yes (CORE-158) | WP-PREF-5's flow |
+| Autosave Off keeps the copies already written? | Yes (CORE-158) | WP-PREF-5's flow |
 | Export leaves out paths and recent files? | Yes (CORE-155) | `exported` in `settings.json` |
 | Windows 95: `QUILL.INI`, not the registry? | `QUILL.INI` through the profile functions (W9X-91) | WP-PREF-7 |
 | GTK: `QUILL.INI`, not GSettings? | `QUILL.INI` (LNX-60) | WP-PREF-10 |
