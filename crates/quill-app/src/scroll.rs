@@ -10,7 +10,7 @@ use quill_core::store::ReadStore;
 
 use crate::App;
 
-/// The grey gap between pages, and above the first line shown.
+/// The grey gap between pages, and above the first sheet at the scroll origin.
 pub const PAGE_GAP: i32 = 10;
 pub const PAGE_TOP: i32 = 8;
 /// What an arrow of the vertical scroll bar moves the page, a notch of the wheel three times, in pixels.
@@ -20,12 +20,13 @@ pub const SHEET_SHADOW: i32 = 5;
 /// Pixels per inch of the page view.
 pub const DPI: u16 = 96;
 
-/// The page view's vertical geometry: pages one under another with a grey gap, the first line shown at `PAGE_TOP`.
+/// The page view's vertical geometry: pages one under another with a grey gap. At the scroll origin the first sheet's top is `PAGE_TOP`
+/// below the area's top, with its top margin showing, as in Word's print layout (CORE-232).
 #[derive(Copy, Clone, Debug)]
 pub struct PageGeom {
 	pub page_h: i32,
 	pub margin_t: i32,
-	/// The y of the first line shown, in the pages' own coordinates.
+	/// The y of the area's top (less `PAGE_TOP`), in the pages' own coordinates: 0 is the top of the first sheet.
 	pub top: i32,
 }
 
@@ -38,7 +39,13 @@ impl PageGeom {
 			margin_t: to_units(page.margin_t, DPI),
 			top: 0,
 		};
-		g.top = app.line_at(s, app.top_line()).map_or(0, |l| g.cum(&l)) + app.vsub;
+		// With the first line at the top, `vsub` counts from the top of the sheet (the margin shows); from any later line it counts from
+		// that line's top.
+		let base = match app.top_line() {
+			0 => 0,
+			first => app.line_at(s, first).map_or(0, |l| g.cum(&l)),
+		};
+		g.top = base + app.vsub;
 		g
 	}
 
@@ -160,13 +167,11 @@ impl<M: Measure + Clone> App<M> {
 		self.vsub = 0;
 	}
 
-	/// Where the page is scrolled to in pixels: 0 with the first line at the top of the page area, and a pixel more for each the
-	/// pages have moved up past it. A vertical scroll bar of the page view stands on this, not on lines, so a page with one line
+	/// Where the page is scrolled to in pixels: 0 with the top of the first sheet `PAGE_TOP` below the top of the page area, and a pixel
+	/// more for each the pages have moved up past it. A vertical scroll bar of the page view stands on this, not on lines, so a page with one line
 	/// (an empty one) still scrolls and the whole of its sheet comes into view.
 	pub fn vscroll_pos<S: ReadStore + ?Sized>(&self, s: &S) -> i32 {
-		let g = PageGeom::of(self, s);
-		let first = self.line_at(s, 0).map_or(0, |l| g.cum(&l));
-		(g.top - first).max(0)
+		PageGeom::of(self, s).top.max(0)
 	}
 
 	/// How far the page can scroll ([`App::vscroll_pos`]'s greatest value): until the bottom of the last sheet, with its shadow and
@@ -177,11 +182,10 @@ impl<M: Measure + Clone> App<M> {
 			return 0;
 		}
 		let g = PageGeom::of(self, s);
-		let first = self.line_at(s, 0).map_or(0, |l| g.cum(&l));
 		let pages = self.page_total(s).max(1) as i32;
 		let bottom = (pages - 1) * (g.page_h + PAGE_GAP) + g.page_h;
-		let end = bottom + SHEET_SHADOW + PAGE_TOP - (self.view_h - PAGE_TOP) - first;
-		end.max(g.top - first).max(0)
+		let end = bottom + SHEET_SHADOW + PAGE_TOP - (self.view_h - PAGE_TOP);
+		end.max(g.top).max(0)
 	}
 
 	/// True when the page area is drawn in pixels (a window or the graphics screen), so the page scrolls by [`App::vscroll_pos`];
@@ -196,19 +200,19 @@ impl<M: Measure + Clone> App<M> {
 	}
 
 	/// Scrolls the page to `pos` pixels (see [`App::vscroll_pos`]), within 0 and [`App::vscroll_max`]: the first line shown is the last
-	/// one that starts at or above it and the rest is the pixels past that line's top. The caret stays where it is. Returns true when
+	/// one that starts at or above it (the first line counts from the top of its sheet) and the rest is the pixels past that. The caret stays where it is. Returns true when
 	/// the view moved.
 	pub fn set_vscroll_pos<S: ReadStore + ?Sized>(&mut self, s: &S, pos: i32) -> bool {
 		let pos = pos.clamp(0, self.vscroll_max(s));
 		let g = PageGeom::of(self, s);
-		let Some(l0) = self.line_at(s, 0) else {
+		if self.line_at(s, 0).is_none() {
 			return false;
-		};
+		}
 		let (before_top, before_sub) = (self.top, self.vsub);
-		let goal = g.cum(&l0) + pos;
+		let goal = pos;
 		// Start a page before the one the goal is on: checkpoints are per page.
 		let page = ((goal / (g.page_h + PAGE_GAP).max(1)) as u32).max(1);
-		let mut found = (0u32, g.cum(&l0));
+		let mut found = (0u32, 0);
 		self.lines_from_page(s, page, |i, l| {
 			let c = g.cum(l);
 			if c > goal {
@@ -217,6 +221,10 @@ impl<M: Measure + Clone> App<M> {
 			found = (i, c);
 			true
 		});
+		// From the first line the count starts at the top of the sheet, not at the line.
+		if found.0 == 0 {
+			found.1 = 0;
+		}
 		self.top = found.0;
 		self.vsub = goal - found.1;
 		(self.top, self.vsub) != (before_top, before_sub)

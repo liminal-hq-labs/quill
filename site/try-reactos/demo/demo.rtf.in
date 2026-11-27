@@ -1,6 +1,8 @@
 {\rtf1\ansi\ansicpg1252\deff0\deflang4105{\fonttbl{\f0\froman\fcharset0 Times New Roman;}}
 {\info{\title Hi, this is Quill}{\author Liminal HQ Labs}}
 \paperw12240\paperh15840\margl1800\margr1800\margt1440\margb1440
+{\header\pard\qr\f0\fs18 Quill \emdash  a word processor in Rust\par}
+{\footer\pard\qc\f0\fs18 Page {\field{\*\fldinst PAGE}{\fldrslt 1}} of {\field{\*\fldinst NUMPAGES}{\fldrslt 1}}\par}
 \pard\sb240\sa120\f0\fs32\b @ICON64@\~Hi, this is Quill\b0\fs24\par
 \pard\sa120\fs24 You are typing into a word processor written in Rust. One core, compiled for MS-DOS, Windows 3.1, Windows 95/98/Me and Linux. @WHICH@\par
 \pard\sa120\tx1400\tx3000\tx4900\tx6900 \b Runs on:\b0\tab MS-DOS\tab Windows 3.x\tab Windows 9x\tab Linux\par

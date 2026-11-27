@@ -33,6 +33,8 @@ impl Measure for Fixed {
 
 /// A letter sheet is 11 inches, 1,056 pixels, high.
 const SHEET: i32 = 1056;
+/// The top margin, an inch, which shows above the first line at the scroll origin (CORE-232).
+const MARGIN: i32 = 96;
 
 fn doc(lines: u32, view_h: i32) -> (App<Fixed>, HostStore, MemFiles) {
 	let mut s = HostStore::new();
@@ -117,7 +119,7 @@ fn the_pixel_position_is_what_was_asked_for() {
 		assert_eq!(app.vscroll_pos(&s), want.min(max), "asked for {want}");
 	}
 	app.set_vscroll_pos(&s, -5);
-	assert_eq!(app.vscroll_pos(&s), 0, "never above the first line");
+	assert_eq!(app.vscroll_pos(&s), 0, "never above the top of the sheet");
 	app.set_vscroll_pos(&s, i32::MAX);
 	assert_eq!(app.vscroll_pos(&s), max, "never past the foot");
 }
@@ -128,7 +130,11 @@ fn a_line_scroll_puts_the_page_back_on_a_line() {
 	app.set_vscroll_pos(&s, 100);
 	app.scroll_to(&s, 3);
 	assert_eq!(app.top_line(), 3);
-	assert_eq!(app.vscroll_pos(&s), 3 * 16, "the lines are 16 pixels apart");
+	assert_eq!(
+		app.vscroll_pos(&s),
+		MARGIN + 3 * 16,
+		"the lines are 16 pixels apart, under the margin"
+	);
 }
 
 #[test]
@@ -143,11 +149,11 @@ fn typing_on_a_scrolled_empty_page_brings_the_caret_back() {
 #[test]
 fn a_key_brings_the_caret_back_from_a_page_scrolled_past_it() {
 	let (mut app, mut s, mut f) = doc(40, 300);
-	app.set_vscroll_pos(&s, 5 * 16 + 3);
+	app.set_vscroll_pos(&s, MARGIN + 5 * 16 + 3);
 	app.key(&mut s, &mut f, Key::Down);
 	assert_eq!(
 		app.vscroll_pos(&s),
-		SCROLL_LINE,
+		MARGIN + SCROLL_LINE,
 		"the caret's line, the second, is at the top"
 	);
 }
@@ -241,4 +247,31 @@ proptest! {
 			prop_assert!(foot <= view_h || view_h < SHEET);
 		}
 	}
+}
+
+#[test]
+fn a_document_opens_at_the_top_of_its_sheet_with_a_gap_above_it() {
+	let (app, s, _) = doc(3, 600);
+	let g = PageGeom::of(&app, &s);
+	assert_eq!(app.vscroll_pos(&s), 0);
+	assert_eq!(
+		g.page_y(0, 0),
+		PAGE_TOP,
+		"the sheet's top, under a grey gap"
+	);
+	let (_, first, _) = app.caret_xy(&s).unwrap();
+	assert_eq!(
+		g.line_y(&first, 0),
+		PAGE_TOP + MARGIN,
+		"the first line, under the top margin"
+	);
+}
+
+#[test]
+fn the_caret_moving_to_the_first_line_shows_the_top_of_the_sheet() {
+	let (mut app, mut s, mut f) = doc(40, 300);
+	app.set_vscroll_pos(&s, 20 * 16);
+	app.key(&mut s, &mut f, Key::Down);
+	app.key(&mut s, &mut f, Key::CtrlHome);
+	assert_eq!(app.vscroll_pos(&s), 0, "the sheet's top is in view again");
 }
