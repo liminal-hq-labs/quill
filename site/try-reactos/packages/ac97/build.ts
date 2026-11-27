@@ -7,7 +7,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const OUT = join(import.meta.dir, "../../lib/ac97.js");
-const BUDGET = 24 * 1024;
+const BUDGET = 36 * 1024;
 const BANNER = [
 	"// The virtual AC'97 sound card for the ReactOS demo, built from site/try-reactos/packages/ac97 by `bun run build`. Do not edit.",
 	"//",

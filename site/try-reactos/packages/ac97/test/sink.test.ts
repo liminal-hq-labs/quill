@@ -50,6 +50,7 @@ function guest() {
 			register_write: (port, _o, w8, w16, w32) => void ports.set(port, { ...ports.get(port), w8, w16, w32 }),
 		},
 		read_blob: (a, n) => memory.subarray(a, a + n),
+		write_blob: (blob, a) => memory.set(blob, a),
 	};
 	class Machine implements V86Machine {
 		cpu = cpu;
