@@ -137,6 +137,43 @@ jobs:
       - name: Check the guest scripts
         run: shellcheck -S warning site/try-reactos/guest/fetch-afterglow.sh site/try-reactos/guest/prepare-afterglow.sh site/try-reactos/guest/prepare-pointers.sh
 
+  host-link:
+    name: Host link tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      # The vectors are written from the specification by a script; the files on disk must be what it writes. The Rust codec reads the same
+      # files in the workspace's test job.
+      - name: Check the shared vectors are current
+        run: python3 -I tests/host-link/gen_vectors.py --check
+
+      - name: Install the package's tools
+        working-directory: site/try-reactos/packages/host-link
+        run: bun install --frozen-lockfile
+
+      - name: Test the package
+        working-directory: site/try-reactos/packages/host-link
+        run: bun test
+
+      - name: Check the types
+        working-directory: site/try-reactos/packages/host-link
+        run: bun run typecheck
+
+      # site/try-reactos/lib/host-link.js is what the page loads: it must be what the package builds, within its 40 KB budget.
+      - name: Check the built module is current
+        working-directory: site/try-reactos/packages/host-link
+        run: bun run check:built
+
   layers:
     name: Layers
     runs-on: ubuntu-24.04

@@ -7,7 +7,8 @@ ReactOS 0.4.16 with Quill, running in [v86](https://copy.sh/v86/) (an x86 emulat
 | Path | What |
 |---|---|
 | `index.html`, `try-reactos.js`, `try-reactos.css` | The page: Start, Stop, Full screen, a status line and a builder and diagnostics panel (RAM, VGA memory, ACPI, JIT, boot order, disk, disk chunk size, CD and state URLs, a live read-out of IDE reads, video mode and MIPS, Save state) |
-| `manifest.js`, `host-files.js`, `sound.js` | The page's modules: `manifest.js` reads `web-manifest.json` and checks the emulator build (SITE-14); the other two are empty seams (`attach`, `detach`) that the file channel and sound fill in |
+| `manifest.js`, `host-link.js`, `sound.js` | The page's modules: `manifest.js` reads `web-manifest.json` and checks the emulator build (SITE-14); `host-link.js` attaches the host link to COM1 and fills the diagnostics *Link* row (SITE-31); `sound.js` is an empty seam (`attach`, `detach`) that sound fills in |
+| `packages/host-link/`, `lib/host-link.js` | The page's end of the host link (a TypeScript package, tested with `bun test`) and the one built module the page loads |
 | `tools/stage-web.py`, `tools/stamp-web.py` | Stage a build as `data/parts-<hash>/`, `data/state-<hash>.l22.bin.zst` and `web-manifest.json`; keep the `?v=` stamps on the page's files current |
 | `harness/check-clean.ts` | Checks the clean address: the plain `/try-reactos/` restores the desktop and the address stays |
 | `v86/` | v86 0.5.473 and its BIOS files, fetched by `tools/fetch-v86.sh` (not committed). `v86/PROVENANCE.md` lists versions, hashes and licences (v86 is BSD-2-Clause; SeaBIOS and SeaVGABIOS are LGPL-3.0) |
@@ -63,6 +64,15 @@ cd site/try-reactos/harness && bun serve.ts && bun check-clean.ts OUTDIR        
 - **Overrides.** A field named in the address bar wins over the manifest's value for it, even when empty: `?state=` (nothing) starts a cold boot over the manifest's disk, and `?disk=` and `?state=` name another machine. `?manifest=URL` names another manifest and `?manifest=none` ignores it (the measuring scripts pass this, through `pageUrl`, because they name their machine in full). Without a manifest (a folder with no `data/`) the page says so in the status line and opens the diagnostics.
 - **The emulator.** A saved state belongs to one v86 build. The page loads `libv86.mjs`, `v86.wasm` and the BIOS files with `?v=` from the manifest, hashes the first two, and stops with a plain message when they differ from the manifest's hashes (the check is skipped where `crypto.subtle` does not exist, as on a plain-HTTP LAN address). The page's own script and style sheet, and the script's modules, carry `?v=` from `tools/stamp-web.py`.
 - **Diagnostics.** The panel shows the manifest's build line and **Force fresh copy**, which replaces the browser's copies of the manifest and the emulator files and reloads at the same address.
+
+## The host link
+
+The page and the guest talk over COM1 with `LHQ-PKT` frames (SITE-30): the clipboard, files, the clock and the screen's size will use it. The specification is [`docs/host-link.md`](../../docs/host-link.md); this section is how the page's side is built and checked.
+
+- **Package.** `packages/host-link/` is a private ES-module package with no runtime dependency: `src/frame.ts` (parser and encoders), `src/message.ts` (bodies and reassembly), `src/flow.ts` (credits), `src/link.ts` (`hello` and its retry, the per-channel queues, errors, statistics) and `src/index.ts` (`attach(emulator)`). It was written against v86 0.5.473 (`serial0-output-byte` and `serial_send_bytes`, see `v86/PROVENANCE.md`).
+- **Build.** `cd packages/host-link && bun install && bun run build` writes `lib/host-link.js` (one minified module, under 40 KB), which is committed; `bun run check:built` fails when the committed copy differs from what the sources build. `python3 -I tools/stamp-web.py` then restamps the page's `?v=` versions.
+- **Tests.** `bun test` (the shared vectors in `tests/host-link/vectors/`, a random-input test and a fake serial bus) and `bun run typecheck`. The Rust codec for the guest, `crates/quill-hostlink`, reads the same vectors in `cargo nextest run -p quill-hostlink`. CI runs both (*Host link tests* and *Tests*).
+- **On the page.** `host-link.js` attaches the link when Start is selected and detaches it on Stop. The diagnostics panel has a *Link* row: *off*, *no helper* (nothing has answered yet; the page sends `hello` again every 5 s), or the helper's name and protocol with the bytes and messages each way, the credit left and the errors by code. The saved state has no helper on its disk yet, so a cold boot shows *no helper* and nothing else changes.
 
 ## The mouse
 
