@@ -15,10 +15,6 @@ id = "CORE-64"
 note = "The default-extension rule and the page view scrolling in pixels; docs/work-packages.md, Found while planning, says the second takes a sub-number under CORE-65 the next time it is touched."
 
 # Two blocks that overlap today. Recorded, not renumbered; the owner settles which keeps the ids.
-[[known_overlap]]
-prefix = "W9X"
-owners = ["Reveal Codes (WP-CODES)", "Host integration (WP-HOST)"]
-note = "docs/work-packages.md reserves W9X-100 to W9X-104 for Reveal Codes, and docs/plans/host-integration.md reserves W9X-100 and W9X-101 for itself. docs/plans/preferences.md and host-integration.md say W9X-95 to W9X-99 belong to Reveal Codes; no block records that, so W9X-95 to W9X-99 are unreserved."
 
 # Pull requests that are open and add ids. Blocks they reserve carry the pull request as their source.
 [[open_pr]]
@@ -378,19 +374,19 @@ source = "docs/plans/web-demo.md"
 
 [[block]]
 prefix = "W9X"
+first = 95
+last = 99
+owner = "Reveal Codes (WP-CODES)"
+status = "reserved"
+source = "docs/plans/reveal-codes.md"
+
+[[block]]
+prefix = "W9X"
 first = 100
 last = 101
 owner = "Host integration (WP-HOST)"
 status = "reserved"
 source = "docs/plans/host-integration.md"
-
-[[block]]
-prefix = "W9X"
-first = 100
-last = 104
-owner = "Reveal Codes (WP-CODES)"
-status = "reserved"
-source = "docs/plans/reveal-codes.md"
 
 [[block]]
 prefix = "W9X"

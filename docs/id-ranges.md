@@ -60,8 +60,8 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | W9X-60 to W9X-79 | Editor track (WP-ED) | reserved | [work-packages.md](work-packages.md#decision-ids) |
 | W9X-80 to W9X-84 | Zoom review | in use | [plans/zoom-review.md](plans/zoom-review.md) |
 | W9X-90 to W9X-94 | Print to PDF (WP-WEB-3) | in use | [plans/web-demo.md](plans/web-demo.md) |
+| W9X-95 to W9X-99 | Reveal Codes (WP-CODES) | reserved | [plans/reveal-codes.md](plans/reveal-codes.md) |
 | W9X-100 to W9X-101 | Host integration (WP-HOST) | reserved | [plans/host-integration.md](plans/host-integration.md) |
-| W9X-100 to W9X-104 | Reveal Codes (WP-CODES) | reserved | [plans/reveal-codes.md](plans/reveal-codes.md) |
 | W9X-110 to W9X-119 | Preferences (WP-PREF) | reserved | [plans/preferences.md](plans/preferences.md) |
 | W9X-120 to W9X-124 | Status bar (WP-BAR) | reserved | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
 
@@ -121,7 +121,6 @@ Ids that `decisions.md` already used outside every block when the registry began
 
 Recorded as found, not renumbered. The check accepts exactly these and fails if one stops applying.
 
-- **Overlap in W9X:** Reveal Codes (WP-CODES) and Host integration (WP-HOST). docs/work-packages.md reserves W9X-100 to W9X-104 for Reveal Codes, and docs/plans/host-integration.md reserves W9X-100 and W9X-101 for itself. docs/plans/preferences.md and host-integration.md say W9X-95 to W9X-99 belong to Reveal Codes; no block records that, so W9X-95 to W9X-99 are unreserved.
 - **Duplicate CORE-64:** The default-extension rule and the page view scrolling in pixels; docs/work-packages.md, Found while planning, says the second takes a sub-number under CORE-65 the next time it is touched.
 
 ## Open pull requests
