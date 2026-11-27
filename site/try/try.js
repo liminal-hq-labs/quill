@@ -366,6 +366,7 @@
 							if (event === "emu-ready") say("Starting FreeDOS…");
 							if (event === "ci-ready") {
 								ci = arg;
+								if (window.quillBridge) window.quillBridge.attach(arg);
 								watchStage();
 								chooseMode(mode);
 								show("running");

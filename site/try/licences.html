@@ -108,6 +108,11 @@
 								<td><a href="https://github.com/caiiiycuk/js-dos">github.com/caiiiycuk/js-dos</a>, <a href="https://www.dosbox.com/">dosbox.com</a></td>
 							</tr>
 							<tr>
+								<th scope="row">The page's bridge to the PC (<code>bridge.js</code>, the <code>dos-bridge</code> module), two empty hard disk images (<code>C:</code> and <code>D:</code>) and <code>SYNC.COM</code> on the floppy, a program of 19 bytes</th>
+								<td>Apache-2.0 OR MIT. The images are empty FAT volumes formatted by <code>mtools</code>, a build tool (GNU General Public Licence, version 3) that is not part of the page or the disk; <code>SYNC.COM</code> is written by the build from its bytes, which are listed in <code>scripts/make-bridge-disks.py</code>.</td>
+								<td><a href="https://github.com/liminal-hq-labs/quill/tree/main/site/try">site/try</a>, <a href="https://github.com/liminal-hq-labs/quill/blob/main/scripts/make-bridge-disks.py">scripts/make-bridge-disks.py</a></td>
+							</tr>
+							<tr>
 								<th scope="row">The fonts for the graphics mode (<code>QUILL.FNT</code>) </th>
 								<td>SIL Open Font Licence 1.1. Desk Serif, Sans and Mono, copyright 2026 Liminal HQ, Scott Morris.</td>
 								<td><a href="https://github.com/liminal-hq-labs/quill/tree/main/assets/fonts/desk">assets/fonts/desk</a></td>
@@ -119,7 +124,7 @@
 							</tr>
 						</tbody>
 					</table>
-					<p>The disk is a repeatable build, not a download: <code>scripts/build-try.sh</code> in the repository fetches the FreeDOS 1.3 floppy edition from a pinned address, checks it against a pinned SHA-256 sum, takes the kernel, the shell and the boot sector from its boot floppy without changing them, and fetches CuteMouse the same way, and adds Quill's files and a short <code>FDCONFIG.SYS</code> and one batch file for each display. The GitHub Pages workflow runs it on every publish, so the disk on this site is always built from the source in the repository. Inside the PC, <code>FREEDOS.TXT</code> says the same.</p>
+					<p>The disk is a repeatable build, not a download: <code>scripts/build-try.sh</code> in the repository fetches the FreeDOS 1.3 floppy edition from a pinned address, checks it against a pinned SHA-256 sum, takes the kernel, the shell and the boot sector from its boot floppy without changing them, and fetches CuteMouse the same way, and adds Quill's files and a short <code>FDCONFIG.SYS</code> and one batch file for each display, then packs the floppy with two empty hard disk images that the page and FreeDOS share (the page puts today's date on one, so Quill's date is not 1998). The GitHub Pages workflow runs it on every publish, so the disk on this site is always built from the source in the repository. Inside the PC, <code>FREEDOS.TXT</code> says the same.</p>
 					<p>FreeDOS is a trademark or project name of its community; this page is not affiliated with the FreeDOS Project. js-dos and DOSBox belong to their authors.</p>
 					<p><a class="button button--alt" href="./">Back to Try Quill</a></p>
 				</div>

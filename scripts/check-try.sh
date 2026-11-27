@@ -86,12 +86,57 @@ second="$(field bundle)"
 [ ! -e "$OUT/$first" ] || fail "the old bundle $first was not removed"
 [ "$(cat "$OUT/try-manifest.json")" != "$old_manifest" ] || fail "the manifest did not change"
 
+# The bundle carries the two shared hard disks, empty and well formed (docs/plans/dos-page-bridge.md): the right sizes and geometry, a
+# partition table with correct end values, a FAT12 volume on C: and a FAT16 one on D:, SYNC.COM on the floppy, and at most 64 KB more
+# than a bundle without them (the two images compressed).
+python3 -I - "$OUT/$(field bundle)" <<'PY' || fail "the bundle's hard disks are not as the page expects"
+import sys, zipfile
+
+z = zipfile.ZipFile(sys.argv[1])
+names = z.namelist()
+for want in (".jsdos/dosbox.conf", "fl.img", "c.img", "d.img"):
+	assert want in names, want + " is not in the bundle"
+conf = z.read(".jsdos/dosbox.conf").decode()
+assert "imgmount 2 c.img -size 512,63,16,16 -t hdd -fs none" in conf, "c.img is not mounted as C:"
+assert "imgmount 3 d.img -size 512,63,16,64 -t hdd -fs none" in conf, "d.img is not mounted as D:"
+assert conf.index("imgmount 3") < conf.index("boot fl.img"), "the disks are mounted after the boot"
+for name, cylinders, kind, fs, label in (("c.img", 16, 0x01, b"FAT12   ", b"QUILLDOCS"), ("d.img", 64, 0x06, b"FAT16   ", b"FROMPC")):
+	data = z.read(name)
+	total = cylinders * 16 * 63
+	assert len(data) == total * 512, f"{name} is {len(data)} bytes, not {total * 512}"
+	assert data[510:512] == b"\x55\xaa", f"{name} has no partition table"
+	entry = data[446:462]
+	assert entry[4] == kind, f"{name}'s partition type is {entry[4]:02x}"
+	assert int.from_bytes(entry[8:12], "little") == 63 and int.from_bytes(entry[12:16], "little") == total - 63, f"{name}'s partition is not sectors 63 to the end"
+	# The end CHS is the disk's last sector (without it FreeDOS says "suspect partition").
+	assert entry[5:8] == bytes([15, 63 | (((cylinders - 1) >> 8) << 6), (cylinders - 1) & 0xFF]), f"{name}'s end CHS is wrong"
+	boot = data[63 * 512 : 64 * 512]
+	assert boot[54:62] == fs, f"{name} is not {fs.decode().strip()}"
+	assert boot[24:26] == (63).to_bytes(2, "little") and boot[26:28] == (16).to_bytes(2, "little"), f"{name}'s BPB geometry is not 63 by 16"
+	assert int.from_bytes(boot[28:32], "little") == 63, f"{name}'s hidden sectors are not 63"
+	assert label in data[63 * 512 : 130 * 512], f"{name} has no label {label.decode()}"
+sizes = {i.filename: i.compress_size for i in z.infolist()}
+assert sizes["c.img"] + sizes["d.img"] <= 64 * 1024, f"the two images are {sizes['c.img'] + sizes['d.img']} bytes zipped, over 64 KB"
+PY
+# SYNC.COM is on the floppy: INT 21h AH=0Dh and a read of drive 80h, 19 bytes (scripts/make-bridge-disks.py has the listing).
+python3 -I - "$OUT/$(field bundle)" <<'PY' || fail "SYNC.COM is not on the floppy as built"
+import sys, zipfile
+
+floppy = zipfile.ZipFile(sys.argv[1]).read("fl.img")
+want = bytes.fromhex("b40dcd21b80102b90100ba8000bb0002cd13c3")
+assert want in floppy, "SYNC.COM's bytes are not on fl.img"
+PY
+
 # The page's own files carry current versions, and the player's are named by the manifest.
 python3 -I "$HERE/stamp-try.py" --check
 
 # The page reads the manifest uncached and does not name a bundle itself.
 grep -q "cache: \"no-store\"" "$ROOT/site/try/try.js" || fail "try.js does not fetch the manifest with no-store"
 grep -q "opfsRoot" "$ROOT/site/try/try.js" || fail "try.js does not give js-dos a storage folder named by the build"
+grep -q 'window.quillBridge.attach(arg)' "$ROOT/site/try/try.js" || fail "try.js lacks the one line that hands the player to the bridge"
+[ "$(grep -c quillBridge "$ROOT/site/try/try.js")" = 1 ] || fail "try.js has more than the one bridge line"
+grep -q 'bridge.js?v=' "$ROOT/site/try/index.html" || fail "index.html does not load bridge.js, stamped"
+grep -q 'data-module="lib/dos-bridge.js?v=' "$ROOT/site/try/index.html" || fail "index.html does not name the bridge module, stamped"
 ! grep -Eq 'quill(\.[0-9a-f]{12})?\.jsdos' "$ROOT/site/try/index.html" "$ROOT/site/try/try.js" || fail "a page file names a bundle; only the manifest may"
 
 echo "check-try: ok ($first -> $second)"
