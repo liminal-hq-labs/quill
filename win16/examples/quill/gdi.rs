@@ -655,6 +655,20 @@ fn draw_line(
 		dc: app_measure_dc(),
 		grid: false,
 	};
+	// The misspelt words of this line (Check Spelling as You Type) and where the layout put the first and last of their characters.
+	let mut marks = [(0u32, 0u32, i32::MAX, i32::MIN); 4];
+	let mut marked = 0;
+	if app.spell_live() {
+		for (st, en) in app
+			.spell_marks(s, l.start, l.start + l.len)
+			.take(marks.len())
+		{
+			if let Some(m) = marks.get_mut(marked) {
+				*m = (st, en, i32::MAX, i32::MIN);
+				marked += 1;
+			}
+		}
+	}
 	quill_core::layout::walk_line(
 		doc,
 		s,
@@ -662,6 +676,12 @@ fn draw_line(
 		StoryKind::Body,
 		l,
 		|p, c, x, w, leader, cf| {
+			for m in marks.iter_mut().take(marked) {
+				if p >= m.0 && p < m.1 {
+					m.2 = m.2.min(x);
+					m.3 = m.3.max(x + w);
+				}
+			}
 			let selected = sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
 			if c == 0x01 {
 				flush(&mut n, &run, run_x, run_cf, run_sel, ts);
@@ -805,6 +825,91 @@ fn draw_line(
 		},
 	);
 	flush(&mut n, &run, run_x, run_cf, run_sel, ts);
+	// The wave goes in after the text, from the layout's own positions, under the glyphs the caret and the clicks agree with.
+	let room = (at.y(z, line_h) - base - 1).clamp(1, 3);
+	for m in marks.iter().take(marked) {
+		if m.2 < m.3 {
+			wavy_underline(dc, at.x(z, m.2), at.x(z, m.3), base + 1, room);
+		}
+	}
+}
+
+/// A red zig-zag two pixels a step from `x0` to `x1` at `y`, `depth` pixels deep.
+#[inline(never)]
+fn wavy_underline(dc: u32, x0: i32, x1: i32, y: i32, depth: i32) {
+	unsafe {
+		let pen = CreatePen(0, 1, 0x0000_00FF);
+		let old = SelectObject(dc, pen);
+		let mut x = x0;
+		let mut low = false;
+		MoveTo(dc, x as u32, y as u32);
+		while x < x1 {
+			x = (x + 2).min(x1);
+			low = !low;
+			LineTo(dc, x as u32, (y + if low { depth } else { 0 }) as u32);
+		}
+		SelectObject(dc, old);
+		DeleteObject(pen);
+	}
+}
+
+/// The first and last position of the lines in the window, for the scanner to check: `area` and `pct` are what `paint_page` takes.
+#[inline(never)]
+pub fn visible_span(area: Rect16, pct: i32, app: &QApp, s: &FarStore) -> (u32, u32) {
+	let z = Zoom(pct);
+	let g = PageGeom::of(app, s);
+	let (top, bottom) = (i32::from(area.top), i32::from(area.bottom));
+	let first = app.top_line();
+	let (mut lo, mut hi) = (u32::MAX, 0);
+	app.for_each_line_from(s, first, |i, l| {
+		if i < first {
+			return true;
+		}
+		if top + z.d(g.line_y(l, 0)) > bottom {
+			return false;
+		}
+		lo = lo.min(l.start);
+		hi = hi.max(l.start + l.len);
+		true
+	});
+	if lo < hi { (lo, hi) } else { (0, 0) }
+}
+
+/// The rectangle of the lines that hold the positions `lo` to `hi`, a little taller for the wave under them, or `None` when no line
+/// is in the window.
+#[inline(never)]
+pub fn range_rect(
+	area: Rect16,
+	pct: i32,
+	app: &QApp,
+	s: &FarStore,
+	lo: u32,
+	hi: u32,
+) -> Option<Rect16> {
+	let z = Zoom(pct);
+	let g = PageGeom::of(app, s);
+	let (mut top, mut bottom) = (i32::MAX, i32::MIN);
+	app.for_each_line_from_pos(s, lo, |_, l| {
+		if l.start > hi {
+			return false;
+		}
+		if l.start + l.len + 1 > lo {
+			let y = i32::from(area.top) + z.d(g.line_y(l, 0));
+			top = top.min(y);
+			bottom = bottom.max(y + z.d(l.ascent + l.descent));
+		}
+		true
+	});
+	if top > bottom {
+		return None;
+	}
+	let r = Rect16::new(
+		i32::from(area.left),
+		(top - 1).max(i32::from(area.top)),
+		i32::from(area.right),
+		(bottom + 4).min(i32::from(area.bottom)),
+	);
+	(r.bottom > r.top).then_some(r)
 }
 
 /// The memory DC the editor measures with.

@@ -59,6 +59,16 @@ const EXIT_TIMER: u32 = 3;
 const BLINK_TIMER: u32 = 4;
 const _: () = assert!(EXIT_TIMER != 1 && EXIT_TIMER != tips::TIMER && tips::TIMER != 1);
 const _: () = assert!(BLINK_TIMER > EXIT_TIMER && BLINK_TIMER != tips::TIMER);
+/// The Check Spelling as You Type timer (W16-21): armed 300 ms after a key, a click, a scroll or a command, then every 55 ms while the
+/// scan has words left.
+const SPELL_TIMER: u32 = 5;
+const _: () = assert!(SPELL_TIMER > BLINK_TIMER && SPELL_TIMER != tips::TIMER);
+/// Words checked in a tick, and the ids of the pop-up menu on a misspelt word: up to five suggestions, Ignore All, Add to Dictionary.
+const SPELL_WORDS: u32 = 4;
+const ID_SPELL: u32 = 900;
+const ID_SPELL_IGNORE: u32 = 905;
+const ID_SPELL_ADD: u32 = 906;
+const WM_RBUTTONDOWN: u32 = 0x0204;
 const WM_CTLCOLOR: u32 = 0x0019;
 const WM_INITMENU: u32 = 0x0116;
 const WM_HSCROLL: u32 = 0x0114;
@@ -155,6 +165,10 @@ struct Shell {
 	blink_on: bool,
 	blink_focus: bool,
 	blink_ms: u16,
+	/// The first position of the misspelt word the pop-up menu is open on, and whether the scanner must be told what is on the screen
+	/// before its next tick.
+	spell_at: u32,
+	spell_fresh: bool,
 }
 
 static mut SH: Shell = Shell {
@@ -187,6 +201,8 @@ static mut SH: Shell = Shell {
 	blink_on: true,
 	blink_focus: true,
 	blink_ms: 0,
+	spell_at: 0,
+	spell_fresh: true,
 };
 
 fn app() -> &'static mut QApp {
@@ -855,6 +871,7 @@ fn sync_chrome(hwnd: u32) {
 				let on = match c {
 					Command::Chrome(bit) => app().chrome_on(*bit),
 					Command::Zoom(z) => app().zoom() == *z,
+					Command::SpellAsYouType => app().spell_live(),
 					_ => continue,
 				};
 				CheckMenuItem(menu, 100 + i as u32, if on { 8 } else { 0 });
@@ -919,6 +936,7 @@ fn press(hwnd: u32, k: Key) {
 	let before = view::signature(app(), store());
 	app().key(store(), &mut Win16Files, k);
 	after_edit(hwnd, before);
+	spell_arm(hwnd);
 }
 
 /// Runs a command from the menu or the toolbar.
@@ -993,11 +1011,139 @@ fn run_command(hwnd: u32, c: Command) {
 	} else {
 		app().command(store(), &mut Win16Files, c);
 	}
-	if matches!(c, Command::Chrome(_) | Command::Zoom(_)) {
+	if matches!(
+		c,
+		Command::Chrome(_) | Command::Zoom(_) | Command::SpellAsYouType
+	) {
 		sync_chrome(hwnd);
 		invalidate_all(hwnd);
 	}
 	after_edit(hwnd, before);
+	spell_arm(hwnd);
+}
+
+// ---- Check Spelling as You Type (W16-21) -----------------------------------------------------------------------------------------
+
+/// A key, a click, a scroll or a command was handled: the scan starts again after 300 ms of quiet. Nothing is armed while the setting
+/// is off, so a build that never turns it on pays one comparison.
+#[inline(never)]
+fn spell_arm(hwnd: u32) {
+	if !app().spell_live() || sh().grid || !app().editing() {
+		return;
+	}
+	sh().spell_fresh = true;
+	unsafe { SetTimer(hwnd, SPELL_TIMER, 300, 0) };
+}
+
+/// The timer fired: tells the scanner which lines show, checks a few words, paints again the lines whose marks changed, and asks for
+/// the next batch while there is more to do.
+#[inline(never)]
+fn spell_tick(hwnd: u32) {
+	if !app().spell_live() || sh().grid || !app().editing() {
+		unsafe { KillTimer(hwnd, SPELL_TIMER) };
+		return;
+	}
+	let area = page_area(hwnd);
+	let pct = zoom_now(page_w(hwnd));
+	if core::mem::take(&mut sh().spell_fresh) {
+		let (lo, hi) = gdi::visible_span(area, pct, app(), store());
+		app().spell_set_view(lo, hi);
+	}
+	if !app().spell_live_ready(store(), &mut Win16Files) {
+		unsafe { KillTimer(hwnd, SPELL_TIMER) };
+		return;
+	}
+	let more = app().spell_idle(store(), SPELL_WORDS);
+	if let Some((lo, hi)) = app().spell_take_changed() {
+		if let Some(r) = gdi::range_rect(area, pct, app(), store(), lo, hi) {
+			unsafe { InvalidateRect(hwnd, gdi::fp(&r), 0) };
+		}
+	}
+	unsafe {
+		if more {
+			SetTimer(hwnd, SPELL_TIMER, 55, 0);
+		} else {
+			KillTimer(hwnd, SPELL_TIMER);
+		}
+	}
+}
+
+/// The right button went down at (`x`, `y`), or Shift+F10 was pressed (`at` is `None`: the caret's place): over a misspelt word a
+/// pop-up menu of up to five suggestions, Ignore All and Add to Dictionary. Windows 3.1 has no `TPM_RETURNCMD` and no
+/// `WM_CONTEXTMENU`, so the choice comes back as a `WM_COMMAND` with an id from `ID_SPELL`, and `spell_choose` carries it out.
+#[inline(never)]
+fn spell_menu(hwnd: u32, at: Option<(i32, i32)>) {
+	if sh().grid || !app().spell_live() || !app().editing() {
+		return;
+	}
+	let (app, s) = (app(), store());
+	let (pos, x, y) = match at {
+		Some((x, y)) => {
+			if y < view::chrome_height(app) || y >= i32::from(page_area(hwnd).bottom) {
+				return;
+			}
+			let (px, py, stride) = to_page(hwnd, x, y);
+			(app.pos_at_point(s, px, py, stride), x, y)
+		}
+		None => {
+			let area = page_area(hwnd);
+			let Some(r) = gdi::caret_rect(area, sh().hscroll, zoom_now(page_w(hwnd)), app, s)
+			else {
+				return;
+			};
+			(app.caret(), i32::from(r.left), i32::from(r.bottom))
+		}
+	};
+	let Some((lo, _)) = app.spell_mark_at(s, pos) else {
+		return;
+	};
+	sh().spell_at = lo;
+	let sg = app.spell_suggestions_at(s, lo);
+	unsafe {
+		let menu = CreatePopupMenu();
+		for i in 0..sg.len().min(5) {
+			let Some(c) = sg.get(i) else { continue };
+			let mut text = [0u8; 40];
+			let n = usize::from(c.len).min(text.len() - 1);
+			text[..n].copy_from_slice(c.text.get(..n).unwrap_or(&[]));
+			AppendMenu(menu, MF_STRING, ID_SPELL + i as u32, np(text.as_ptr()));
+		}
+		if sg.is_empty() {
+			AppendMenu(menu, MF_STRING | 1, 0, cs!("(No suggestions)"));
+		}
+		AppendMenu(menu, MF_SEPARATOR, 0, 0);
+		AppendMenu(menu, MF_STRING, ID_SPELL_IGNORE, cs!("Ignore All"));
+		AppendMenu(menu, MF_STRING, ID_SPELL_ADD, cs!("Add to Dictionary"));
+		let mut p = [x as i16, y as i16];
+		ClientToScreen(hwnd, np(p.as_mut_ptr()));
+		// TPM_RIGHTBUTTON. The menu is modal; the id of the item comes to the window as a WM_COMMAND.
+		TrackPopupMenu(menu, 2, p[0] as u16 as u32, p[1] as u16 as u32, 0, hwnd, 0);
+		DestroyMenu(menu);
+	}
+}
+
+/// The pop-up menu's choice: replaces the word with the suggestion, or ignores or adds it. The word is found again from the position the
+/// menu was opened on, so no suggestion text is kept between the menu and its answer.
+#[inline(never)]
+fn spell_choose(hwnd: u32, id: u32) {
+	let (app, s, lo) = (app(), store(), sh().spell_at);
+	let done = match id {
+		ID_SPELL_IGNORE => app.spell_ignore_at(s, lo),
+		ID_SPELL_ADD => app.spell_add_at(s, &mut Win16Files, lo),
+		_ => {
+			let sg = app.spell_suggestions_at(s, lo);
+			sg.get((id - ID_SPELL) as usize).is_some_and(|c| {
+				let with = c.text.get(..usize::from(c.len)).unwrap_or(&[]);
+				app.spell_replace_at(s, lo, with)
+			})
+		}
+	};
+	if done {
+		let before = view::signature(app, s);
+		after_edit(hwnd, before);
+		invalidate_all(hwnd);
+		spell_arm(hwnd);
+	}
 }
 
 /// Writes a recovery copy of the document when it has unsaved work: beside the original, or in the central folder for a document with
@@ -1091,6 +1237,7 @@ fn mouse_down(hwnd: u32, x: i32, y: i32, shift: bool) {
 		return;
 	}
 	blink_restart(hwnd);
+	spell_arm(hwnd);
 	let (app, s) = (app(), store());
 	if let Some(part) = zoom_part_at(hwnd, x, y) {
 		sh().zoom_down = Some(part);
@@ -1314,6 +1461,7 @@ const LINE_PX: i32 = view::SCROLL_LINE;
 
 /// A scroll bar message: `code` is what the user did and `thumb` where the box is.
 fn scroll_bar(hwnd: u32, vertical: bool, code: u32, thumb: u32) {
+	spell_arm(hwnd);
 	let (app, s) = (app(), store());
 	if vertical {
 		// The bar stands on page units: an arrow moves 16 pixels of the screen and a page is the window less two arrows' worth.
@@ -1732,6 +1880,11 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 			// Alt with a key: Alt+Backspace is Undo; the rest is the system's (the menus).
 			WM_SYSKEYDOWN => {
 				let shift = GetKeyState(0x10) & 0x8000 != 0;
+				// Shift+F10: the pop-up menu of a misspelt word at the caret, where a mouse would have the right button.
+				if wparam == 0x79 && shift && app().spell_live() {
+					spell_menu(hwnd, None);
+					return 0;
+				}
 				let ctrl = GetKeyState(0x11) & 0x8000 != 0;
 				match accel::from_vk(wparam as u16, ctrl, shift, true) {
 					Some(Accel::Command(c)) => {
@@ -1771,6 +1924,8 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 					DestroyWindow(hwnd);
 				} else if wparam == BLINK_TIMER {
 					blink_tick(hwnd);
+				} else if wparam == SPELL_TIMER {
+					spell_tick(hwnd);
 				} else if wparam == tips::TIMER {
 					if tips::tick(hwnd, app()) {
 						invalidate_status(hwnd);
@@ -1825,6 +1980,11 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				mouse_down(hwnd, lo16(lparam), hi16(lparam), wparam & MK_SHIFT != 0);
 				0
 			}
+			WM_RBUTTONDOWN => {
+				tips::dismiss();
+				spell_menu(hwnd, Some((lo16(lparam), hi16(lparam))));
+				0
+			}
 			WM_MOUSEMOVE => {
 				mouse_move(hwnd, lo16(lparam), hi16(lparam));
 				0
@@ -1856,6 +2016,8 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 					.and_then(|i| quill_app::zoom_field::zoom_command(i as usize))
 				{
 					run_command(hwnd, c);
+				} else if (ID_SPELL..=ID_SPELL_ADD).contains(&id) {
+					spell_choose(hwnd, id);
 				} else if id >= 100 && ((id - 100) as usize) < NCMDS {
 					let c = (*core::ptr::addr_of!(CMDS))[(id - 100) as usize];
 					if sh().grid {
