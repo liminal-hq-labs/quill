@@ -90,6 +90,8 @@ pub struct Gfx {
 	cap: Cap,
 	at: (i32, i32),
 	now: u32,
+	/// The clock's tick the file dialog's type-ahead was last aged to.
+	aged: u32,
 	/// The widths of characters 0x20 to 0xFF in the interface font, for the menu's and the bar's geometry.
 	adv: [u16; GLYPHS],
 	drop: Option<(Pop, usize)>,
@@ -157,6 +159,7 @@ impl Gfx {
 			cap: Cap::None,
 			at: (0, 0),
 			now: 0,
+			aged: 0,
 			adv,
 			drop: None,
 			rest: None,
@@ -249,6 +252,12 @@ impl Gfx {
 			}
 			Ev::Wheel(n) => self.wheel(app, s, f, n, ctx),
 			Ev::Tick => {
+				// The file dialog's type-ahead ages a step for each tick of the clock that has passed (a busy program catches up at
+				// most a few steps).
+				for _ in 0..ctx.tick.wrapping_sub(self.aged).min(16) {
+					app.file_tick();
+				}
+				self.aged = ctx.tick;
 				self.rest_tip();
 				sure |= self.repeat(app, s);
 			}

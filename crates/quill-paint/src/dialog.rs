@@ -69,6 +69,19 @@ pub fn hit(o: &Overlay, x: i32, y: i32) -> Option<usize> {
 }
 
 fn button<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid, down: bool) {
+	button_face(sf, ui, r, w.bytes(), (w.default, w.focus), down);
+}
+
+/// A push button of label `label` (with `&` before its mnemonic) in `r`: `(default, focus)` give it the heavy border and the dotted
+/// focus rectangle, `down` shows it held by the pointer. The file dialog's buttons are drawn by this too.
+pub(crate) fn button_face<Sf: Surface + ?Sized>(
+	sf: &mut Sf,
+	ui: &Ui<Sf::Font>,
+	r: Rect,
+	label: &[u8],
+	(default, focus): (bool, bool),
+	down: bool,
+) {
 	sf.fill_rect(r, FACE);
 	if down {
 		// Held by the pointer: one outline, the bevel sunk, and the label a pixel down and right.
@@ -78,7 +91,7 @@ fn button<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid
 			Rect::new(r.left + 1, r.top + 1, r.right - 1, r.bottom - 1),
 			false,
 		);
-	} else if w.default || w.focus {
+	} else if default || focus {
 		outline(sf, r, INK);
 		let inner = Rect::new(r.left + 1, r.top + 1, r.right - 1, r.bottom - 1);
 		outline(sf, inner, INK);
@@ -100,12 +113,12 @@ fn button<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid
 			true,
 		);
 	}
-	let tw = ui.label_width(sf, w.bytes());
+	let tw = ui.label_width(sf, label);
 	let off = i32::from(down);
 	let x = r.left + (r.width() - tw) / 2 + off;
 	let y = r.top + (r.height() - ui.height) / 2 + off;
-	ui.label(sf, x, y, w.bytes(), INK);
-	if w.focus {
+	ui.label(sf, x, y, label, INK);
+	if focus {
 		dotted(
 			sf,
 			Rect::new(r.left + 4, r.top + 4, r.right - 4, r.bottom - 4),
@@ -156,21 +169,45 @@ pub fn field_pos(text: &[u8], skip: usize, dx: i32, width: &mut dyn FnMut(&[u8])
 	best
 }
 
-fn edit<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
+/// A white box with the sunken two-line edge of an edit field.
+pub(crate) fn sunken<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect) {
 	sf.fill_rect(r, LIGHT);
 	bevel(sf, r, false);
 	sf.hline(r.left + 1, r.right - 1, r.top + 1, INK);
 	sf.vline(r.left + 1, r.top + 1, r.bottom - 1, INK);
+}
+
+fn edit<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) {
+	edit_face(
+		sf,
+		ui,
+		r,
+		w.bytes(),
+		(usize::from(w.caret), usize::from(w.anchor)),
+		w.focus,
+	);
+}
+
+/// A sunken field of `r` holding `text`, with the caret at `caret` and the other end of the selection at `anchor` when `focus` is set.
+/// The file dialog's name and path fields are drawn by this too.
+pub(crate) fn edit_face<Sf: Surface + ?Sized>(
+	sf: &mut Sf,
+	ui: &Ui<Sf::Font>,
+	r: Rect,
+	text: &[u8],
+	(caret, anchor): (usize, usize),
+	focus: bool,
+) {
+	sunken(sf, r);
 	let inner = Rect::new(r.left + 2, r.top + 2, r.right - 2, r.bottom - 2);
-	let text = w.bytes();
 	let (x0, room) = field_text_box(r);
-	let caret = usize::from(w.caret).min(text.len());
+	let caret = caret.min(text.len());
 	let skip = field_skip(text, caret, room, &mut |t| ui.width(sf, t));
 	let shown = text.get(skip..).unwrap_or(&[]);
 	let y = r.top + (r.height() - ui.height) / 2;
 	sf.clip(Some(inner));
-	let (s, e) = if w.focus && w.anchor != w.caret {
-		let a = usize::from(w.anchor).min(text.len());
+	let (s, e) = if focus && anchor != caret {
+		let a = anchor.min(text.len());
 		(a.min(caret).max(skip), a.max(caret).max(skip))
 	} else {
 		(0, 0)
@@ -185,7 +222,7 @@ fn edit<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, w: &Wid) 
 	} else {
 		ui.text(sf, x0, y, shown, INK);
 	}
-	if w.focus {
+	if focus {
 		let x = x0 + ui.width(sf, text.get(skip..caret).unwrap_or(&[]));
 		sf.vline(x, y, y + ui.height, INK);
 	}

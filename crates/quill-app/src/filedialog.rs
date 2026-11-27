@@ -20,11 +20,11 @@ use quill_dlg::types::Kind;
 use crate::{App, Files, Key, Mode, Prompt, NAME_MAX};
 
 /// How many bytes of a box's line.
-pub(crate) const LINE_MAX: usize = 46;
+pub const LINE_MAX: usize = 46;
 
 /// One line of a message box.
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub(crate) struct Line {
+pub struct Line {
 	buf: [u8; LINE_MAX],
 	len: usize,
 }
@@ -54,19 +54,41 @@ impl Line {
 		}
 	}
 
-	pub(crate) fn bytes(&self) -> &[u8] {
+	/// The bytes of the line.
+	pub fn bytes(&self) -> &[u8] {
 		self.buf.get(..self.len).unwrap_or(&[])
 	}
 }
 
-/// A message box over the dialog.
+/// A message box over the dialog, for a painter to draw.
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub(crate) enum FileBox {
+pub enum FileBox {
 	None,
 	/// A question with Yes and No: the focused button (0 Yes, 1 No) and two lines
 	Ask(u8, Line, Line),
 	/// A notice with OK, or with Retry and Cancel when a drive can be tried again; the focused button
 	Say(Option<u8>, u8, Line, Line),
+}
+
+/// The open file dialog as a painter sees it.
+#[derive(Copy, Clone)]
+pub struct FileView<'a> {
+	/// The dialog's state: folder, list, fields, drop-downs.
+	pub dlg: &'a FileDlg,
+	/// The message box over it, if any.
+	pub boxed: FileBox,
+	/// The date pattern (`MM/dd/yyyy`) for [`crate::filetext::date_text`].
+	pub date: &'a [u8],
+	/// Whether the clock shows 24 hours.
+	pub h24: bool,
+}
+
+impl FileView<'_> {
+	/// True when a box is open over the dialog: a question, a notice or the name of a new folder. The dialog under it is drawn as it
+	/// is and takes no part in the keys.
+	pub fn covered(&self) -> bool {
+		self.boxed != FileBox::None || self.dlg.new_folder().is_some()
+	}
 }
 
 /// A folder the shell names among the places.
@@ -100,6 +122,8 @@ impl Named {
 pub(crate) struct State {
 	/// The shell uses this dialog in place of the name prompt.
 	pub on: bool,
+	/// The dialog is laid out for the graphics screen: its list shows the graphics painter's items, not text rows.
+	pub graphics: bool,
 	pub dlg: Option<FileDlg>,
 	pub kind: Kind,
 	pub boxed: FileBox,
@@ -112,9 +136,15 @@ pub(crate) struct State {
 }
 
 impl State {
+	/// The date pattern in use.
+	pub(crate) fn date_pattern(&self) -> &[u8] {
+		self.date.get(..usize::from(self.date_len)).unwrap_or(&[])
+	}
+
 	pub(crate) const fn new() -> State {
 		State {
 			on: false,
+			graphics: false,
 			dlg: None,
 			kind: Kind::Open,
 			boxed: FileBox::None,
@@ -202,6 +232,12 @@ impl<M: Measure + Clone> App<M> {
 		self.fd.on = on;
 	}
 
+	/// Says the file dialog is drawn on the graphics screen, where its list shows 15 items of 16 pixels (`Layout::graphics_items`)
+	/// and not the text screen's rows. Call it with `set_file_dialog`.
+	pub fn set_file_dialog_graphics(&mut self, on: bool) {
+		self.fd.graphics = on;
+	}
+
 	/// The folders the file dialog shows among its places after the drives: `label` at most 12 bytes. The shell gives the program's
 	/// own folder and the samples folder when there is one; at most two are kept.
 	pub fn set_file_places(&mut self, places: &[(&[u8], &[u8])]) {
@@ -229,6 +265,18 @@ impl<M: Measure + Clone> App<M> {
 		} else {
 			named(b"Documents", path)
 		};
+	}
+
+	/// What a painter of the file dialog draws: the dialog, the box over it and how dates and times are written. `None` when the dialog
+	/// is not open.
+	pub fn file_view(&self) -> Option<FileView<'_>> {
+		let dlg = self.fd.dlg.as_ref().filter(|_| self.file_dialog_open())?;
+		Some(FileView {
+			dlg,
+			boxed: self.fd.boxed,
+			date: self.fd.date_pattern(),
+			h24: self.fd.h24,
+		})
 	}
 
 	/// True while the file dialog is open.
@@ -324,9 +372,19 @@ impl<M: Measure + Clone> App<M> {
 				nr += 1;
 			}
 		}
-		let rows = Layout::new(Screen::Text(self.rows as u16 + 2), kind)
-			.map_or(1, |l| l.list_rows)
-			.min(255) as u8;
+		let screen = if self.fd.graphics {
+			Screen::Graphics
+		} else {
+			Screen::Text(self.rows as u16 + 2)
+		};
+		let rows = Layout::new(screen, kind).map_or(1, |l| {
+			if self.fd.graphics {
+				u16::from(l.graphics_items())
+			} else {
+				l.list_rows
+			}
+			.min(255)
+		}) as u8;
 		let mut start = Start::new(last, name, rows);
 		start.type_index = type_index;
 		start.folders = folders.get(..n).unwrap_or(&[]);

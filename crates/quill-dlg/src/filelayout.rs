@@ -22,6 +22,10 @@ pub const TEXT_COLS: u16 = 80;
 /// The cells of the graphics screen (640 by 480 pixels of 8 by 22).
 pub const GFX_COLS: u16 = 80;
 pub const GFX_ROWS: u16 = 21;
+/// The height of a cell on the graphics screen, in pixels.
+pub const GFX_CELL_H: u32 = 22;
+/// The pitch of a list item on the graphics screen, in pixels.
+pub const GFX_ITEM_H: u32 = 16;
 /// The smallest text screen the dialog fits on: the list shows 3 rows.
 pub const TEXT_ROWS_MIN: u16 = 16;
 
@@ -310,6 +314,11 @@ impl Layout {
 	pub fn items_that_fit(&self, cell_h: u32, pitch_px: u32) -> u32 {
 		let h = self.rect(Part::List).map_or(0, |r| u32::from(r.h));
 		(h * cell_h).checked_div(pitch_px).unwrap_or(0)
+	}
+
+	/// How many items of the graphics list's pitch the list and the places show: 15.
+	pub fn graphics_items(&self) -> u8 {
+		self.items_that_fit(GFX_CELL_H, GFX_ITEM_H).min(255) as u8
 	}
 
 	/// The row of the list a cell is on, counted from the first visible entry, in text cells.

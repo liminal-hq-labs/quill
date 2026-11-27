@@ -1,0 +1,43 @@
+# G9 (graphics): the file dialog's Open. Folders, files, sizes and dates of a disk, the places, the type drop-down, the sort arrow,
+# type-ahead, a folder entered and left, Look in and a file taken by its name. No frame lists the drive's root, where DOS keeps
+# the DPMI swap file with the real date. Every frame's CRC-32 must equal the host's in both
+# graphics modes (the keys are played from a file: the dialog needs Alt chords, which AUTOTYPE cannot hold).
+@dialog
+@dir QUILL
+@place Quill C:\QUILL
+@cwd C:\DOCS
+@dir DOCS\LETTERS\OLD
+@dir DOCS\2025
+@dir QUILL\SAMPLES
+@copy letter.qld DOCS\
+@copy letter.rtf DOCS\
+@copy plain.qld DOCS\
+@copy pic.bmp DOCS\
+@copy wide.rtf DOCS\
+@copy lists.rtf DOCS\LETTERS\
+@stamp DOCS\LETTER.QLD 2026-11-24 18:45
+@stamp DOCS\LETTER.RTF 2026-11-02 09:05
+@stamp DOCS\PLAIN.QLD 2026-03-14 12:00
+@stamp DOCS\PIC.BMP 2025-10-01 08:30
+@stamp DOCS\WIDE.RTF 2026-05-02 14:30
+@place Samples C:\QUILL\SAMPLES
+f10 down enter                # File > Open...
+altt f4                       # Files of type: the drop-down
+end enter                     # All Files
+altl down down down           # the list: 2025, LETTERS, then the first file; its name goes in the field
+alt2 alt2                     # sort by size, then largest first
+alt3                          # by date
+alt1                          # by name again
+l                             # type-ahead: LETTERS ...
+l                             # ... and the next entry that starts with L
+@wait 10
+p                             # a new prefix after ten ticks: PIC.BMP
+altn l e t t e r              # a name typed in the field
+altl home down down enter     # the list: into LETTERS
+bspace                        # back up to DOCS
+alti f4                       # Look in: the drop-down
+down esc                      # closed again
+altp end enter                # the Samples place: C:\QUILL\SAMPLES
+altp home enter               # the C: place: its own folder, C:\DOCS
+altn end bspace bspace bspace bspace bspace bspace   # the typed name emptied
+p l a i n period q l d enter  # opens DOCS\PLAIN.QLD by its name

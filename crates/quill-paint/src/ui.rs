@@ -57,6 +57,7 @@ impl<F: Copy> Ui<F> {
 	}
 
 	/// Draws `text` with its top at `y`; returns the x after it.
+	#[inline(never)]
 	pub fn text<Sf: Surface<Font = F> + ?Sized>(
 		&self,
 		sf: &mut Sf,
@@ -82,11 +83,13 @@ impl<F: Copy> Ui<F> {
 	}
 
 	/// The width of `text`.
+	#[inline(never)]
 	pub fn width<Sf: Surface<Font = F> + ?Sized>(&self, sf: &mut Sf, text: &[u8]) -> i32 {
 		text.iter().map(|c| sf.advance(self.font, *c)).sum()
 	}
 
 	/// The width of a label written with an `&` before its mnemonic, the `&` not counted.
+	#[inline(never)]
 	pub fn label_width<Sf: Surface<Font = F> + ?Sized>(&self, sf: &mut Sf, label: &[u8]) -> i32 {
 		label
 			.iter()
@@ -96,6 +99,7 @@ impl<F: Copy> Ui<F> {
 	}
 
 	/// Draws a label with its mnemonic underlined (the letter after the `&`); returns the x after it.
+	#[inline(never)]
 	pub fn label<Sf: Surface<Font = F> + ?Sized>(
 		&self,
 		sf: &mut Sf,

@@ -228,6 +228,8 @@ run_gfx_scenario() { # <label> <machine> <arguments> <16|256> [scenario, default
 	local keys
 	keys="$(grep -v '^@' "$file" | sed 's/#.*//' | tr -s ' \n\t' ' ' | sed 's/^ //; s/ $//')"
 	export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT\nQUILL_TIMES=D:\\TIMES.TXT'
+	# `@prompt` keeps the one-line name prompt in place of the file dialog, as the host does.
+	if grep -q '^@prompt' "$file"; then DOS_ENV+=$'\nQUILL_PROMPT=1'; fi
 	export DOS_KEEP="$WORK/keep"
 	# A frame takes longer to draw than a text screen, and a busy host stretches it: the keys go in slowly enough that the BIOS buffer never fills.
 	export DOS_AUTOTYPE="-w 2 -p $pace $keys"
@@ -265,6 +267,7 @@ run_mouse_gfx() { # <label> <machine> <arguments> <16|256> [scenario, default g8
 	cp "$ROOT/tests/docs/$doc" "$disk/$(echo "$doc" | tr '[:lower:]' '[:upper:]')"
 	cp "$file" "$disk/MOUSE.TXT"
 	export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT\nQUILL_MOUSE=MOUSE.TXT'
+	if grep -q '^@prompt' "$file"; then DOS_ENV+=$'\nQUILL_PROMPT=1'; fi
 	export DOS_KEEP="$WORK/keep"
 	unset DOS_AUTOTYPE
 	export DOS_TIMEOUT=400
@@ -291,6 +294,50 @@ run_mouse_gfx g8-mouse-vbe svga_s3 /G 256
 for scen in menus dialogs toolbar scroll hscroll fields ruler; do
 	run_mouse_gfx "g8-gfx-$scen-12h" svga_s3 /G16 16 "g8-gfx-$scen"
 	run_mouse_gfx "g8-gfx-$scen-vbe" svga_s3 /G 256 "g8-gfx-$scen"
+done
+# The file dialog in graphics (tests/scenarios/g9-gfx-*.keys): the dialog's folders, dates and sizes come from a real disk, as in the text
+# scenarios (`stage_disk`), and the keys are played from a file (Alt chords and waits). The program and its font sit in the folder QUILL,
+# out of every listing; the CRC-32 of every frame must equal the host's in both graphics modes, and the video memory read back equal each
+# frame. No frame lists the drive's root, where DOS keeps the DPMI swap file with the real date, and the scenarios end before a file they
+# wrote is listed, so no date has to be swapped for the host's as the text scenarios do.
+run_dialog_gfx() { # <label> <machine> <arguments> <16|256> <scenario>
+	local label="$1" machine="$2" args="$3" depth="$4" scen="$5"
+	[ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = "$label" ] || return 0
+	local file="$ROOT/tests/scenarios/$scen.keys"
+	local disk="$WORK/disk-$label"
+	rm -rf "$disk" "$WORK/keep"
+	mkdir -p "$disk/QUILL"
+	cp "$HERE/dist/QUILLDOS.EXE" "$disk/QUILL/"
+	cp "$ROOT/tests/fonts/QUILLTST.FNT" "$disk/QUILL/QUILL.FNT"
+	cp "$file" "$disk/QUILL/MOUSE.TXT"
+	stage_disk "$file" "$disk"
+	local cwd open
+	cwd="$(grep '^@cwd' "$file" | sed 's/#.*//' | awk '{print $2}' | sed 's/^C:\\*//' || true)"
+	open="$(grep '^@open' "$file" | sed 's/#.*//' | awk '{print $2}' || true)"
+	export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT\nQUILL_FNT=C:\\QUILL\\QUILL.FNT\nQUILL_MOUSE=C:\\QUILL\\MOUSE.TXT'
+	export DOS_KEEP="$WORK/keep"
+	unset DOS_AUTOTYPE
+	export DOS_TIMEOUT=1200
+	local rc=0
+	DOS_CWD="$cwd" DOS_MACHINE="$machine" "$HERE/tools/dosrun.sh" "$disk" "C:\\QUILL\\QUILLDOS.EXE $args $open" > "$WORK/$label.out" || rc=$?
+	[ "$rc" = 0 ] || fail "$label: QUILLDOS.EXE exited with $rc"
+	[ ! -s "$WORK/$label.out" ] || { cat "$WORK/$label.out" >&2; fail "$label: it printed something, so it did not stay in graphics"; }
+	tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/$label-frames.txt"
+	grep '^frame' "$WORK/$label-frames.txt" | sed 's/ video .*//' > "$WORK/$label-sums.txt"
+	diff -u "$ROOT/tests/golden/gfx/$scen.$depth.sums" "$WORK/$label-sums.txt" > "$WORK/$label.diff" || { head -40 "$WORK/$label.diff" >&2; fail "$label: a frame differs from the host's"; }
+	if awk '/^frame/ && $4 != $6 { bad = 1; print > "/dev/stderr" } END { exit bad }' "$WORK/$label-frames.txt"; then :; else
+		fail "$label: the video memory differs from the frame drawn"
+	fi
+	echo "e2e: $label: all $(grep -c '^frame' "$WORK/$label-frames.txt") frames equal the host's, and the video memory read back equals each frame"
+	if [ "$scen" = g9-gfx-save-as ]; then
+		cmp "$disk/DOCS/NEW.RTF" "$ROOT/tests/golden/files/m16-new.rtf" || fail "$label: the saved NEW.RTF differs from the host's"
+		echo "e2e: $label: the saved NEW.RTF is byte-identical to the host's"
+	fi
+}
+# G9: the file dialog (Open and Save As), drawn by the same painter, in both graphics modes.
+for scen in open save-as; do
+	run_dialog_gfx "g9-gfx-$scen-12h" svga_s3 /G16 16 "g9-gfx-$scen"
+	run_dialog_gfx "g9-gfx-$scen-vbe" svga_s3 /G 256 "g9-gfx-$scen"
 done
 # G7: the pull-down menus and every dialog, drawn by the same painter.
 # The dialog frames take longer to draw than the menus, so these keys go in more slowly still.

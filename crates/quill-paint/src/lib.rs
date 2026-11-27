@@ -26,6 +26,7 @@ pub mod cursor;
 pub mod damage;
 pub mod dialog;
 pub mod drop;
+pub mod filedlg;
 pub mod layout;
 pub mod menu;
 pub mod page;

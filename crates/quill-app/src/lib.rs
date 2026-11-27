@@ -22,6 +22,8 @@ pub mod datefmt;
 mod edit;
 #[cfg(feature = "text-file-dialog")]
 mod filedialog;
+#[cfg(feature = "text-file-dialog")]
+pub mod filetext;
 mod find;
 pub mod flow;
 mod form;
@@ -59,6 +61,8 @@ use quill_grid::GridMeasure;
 pub use chrome::{
 	tab_stop, CharState, CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR, STYLE_NAMES,
 };
+#[cfg(feature = "text-file-dialog")]
+pub use filedialog::{FileBox, FileView, Line as FileLine};
 pub use native::{Dialog, FindAction, VERSION};
 pub use overlay::{Mark, Overlay, Wid, Wk, WIDS, WID_TEXT};
 pub use paint::{

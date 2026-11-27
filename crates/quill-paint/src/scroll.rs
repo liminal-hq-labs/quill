@@ -111,7 +111,8 @@ pub fn pos_at(p: &Parts, coord: i32, range: i32) -> i32 {
 	((coord - start).clamp(0, p.travel) * range + p.travel / 2) / p.travel
 }
 
-fn arrow<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, dir: u8, enabled: bool) {
+/// An arrow button in `r` pointing up, down, left or right (`dir` 0 to 3), greyed when not `enabled`.
+pub(crate) fn arrow<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, dir: u8, enabled: bool) {
 	let ink = if enabled { INK } else { SHADOW };
 	sf.fill_rect(r, FACE);
 	outline(sf, r, INK);
@@ -120,8 +121,16 @@ fn arrow<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, dir: u8, enabled: bool) {
 		Rect::new(r.left + 1, r.top + 1, r.right - 1, r.bottom - 1),
 		true,
 	);
-	let (cx, cy) = ((r.left + r.right) / 2, (r.top + r.bottom) / 2);
-	// A triangle four rows deep.
+	triangle(
+		sf,
+		((r.left + r.right) / 2, (r.top + r.bottom) / 2),
+		dir,
+		ink,
+	);
+}
+
+/// A solid triangle four rows deep centred on `(cx, cy)`, pointing up, down, left or right (`dir` 0 to 3).
+pub(crate) fn triangle<Sf: Surface + ?Sized>(sf: &mut Sf, (cx, cy): (i32, i32), dir: u8, ink: Rgb) {
 	for i in 0..4 {
 		match dir {
 			0 => sf.hline(cx - i, cx + i + 1, cy - 2 + i, ink),

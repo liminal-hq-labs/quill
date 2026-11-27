@@ -577,6 +577,7 @@ dependencies = [
  "proptest",
  "quill-app",
  "quill-core",
+ "quill-dlg",
  "quill-formats",
  "quill-heap",
  "quill-host",
