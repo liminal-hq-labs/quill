@@ -1,8 +1,8 @@
 # The reactos-liminal commit that builds QAGRR. Read by build-with-rl.sh: the first line that is not a comment is the full commit hash.
-# The head of reactos-liminal main (the full-ReactOS base recipe, the compact recipe QAGRR extends, Canadian regional and pointer defaults, and the pipeline: patchers, `rl pin`, `rl lock`, recipe-relative `.reg` files and merged `[[files]]`). To move: set a newer commit, then run
+# The reactos-liminal commit that pins Afterglow main with the card faces (RL-63), on the head of reactos-liminal main: the full-ReactOS base recipe, the compact recipe QAGRR extends, Canadian regional and pointer defaults, and the pipeline. To move: set a newer commit, then run
 # `build-with-rl.sh --check-trim` and a dry run.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-77b9a83263a7c797ac4474277a432688154af309
+ee856704ea3a76732eafa7b0dfcf3b7df86c4836
