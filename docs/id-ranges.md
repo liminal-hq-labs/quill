@@ -64,7 +64,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 
 | Range | Owner | Status | Source |
 |---|---|---|---|
-| W9X-40 to W9X-41 | Optional modules (WP-MOD) | reserved | [plans/modules.md](plans/modules.md) |
+| W9X-40 to W9X-41 | Optional modules (WP-MOD) | in use | [plans/modules.md](plans/modules.md) |
 | W9X-60 to W9X-79 | Editor track (WP-ED) | reserved | [work-packages.md](work-packages.md#decision-ids) |
 | W9X-80 to W9X-84 | Zoom review | in use | [plans/zoom-review.md](plans/zoom-review.md) |
 | W9X-90 to W9X-94 | Print to PDF (WP-WEB-3) | in use | [plans/web-demo.md](plans/web-demo.md) |
@@ -73,6 +73,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | W9X-110 to W9X-119 | Preferences (WP-PREF) | reserved | [plans/preferences.md](plans/preferences.md) |
 | W9X-120 to W9X-124 | Status bar (WP-BAR) | in use | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
 | W9X-125 to W9X-129 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
+| W9X-130 to W9X-139 | Optional modules on Windows 95 (WP-MOD) | reserved | [plans/modules.md](plans/modules.md) |
 
 ## LNX
 
@@ -103,8 +104,9 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | Range | Owner | Status | Source |
 |---|---|---|---|
 | INS-8 to INS-9 | Preferences (WP-PREF) | reserved | [plans/preferences.md](plans/preferences.md) |
-| INS-20 to INS-22 | Optional modules (WP-MOD) | reserved | [plans/modules.md](plans/modules.md) |
+| INS-20 to INS-22 | Optional modules (WP-MOD) | in use | [plans/modules.md](plans/modules.md) |
 | INS-23 to INS-25 | Printable media set | in use | assets/media/README.md |
+| INS-26 to INS-28 | Optional modules on Windows 95 (WP-MOD) | reserved | [plans/modules.md](plans/modules.md) |
 
 ## SITE
 
