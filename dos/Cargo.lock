@@ -151,6 +151,7 @@ version = "0.0.0"
 dependencies = [
  "quill-app",
  "quill-core",
+ "quill-dlg",
  "quill-image",
  "quill-strike",
 ]

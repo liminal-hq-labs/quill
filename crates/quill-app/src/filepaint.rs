@@ -25,7 +25,8 @@ use quill_grid::Grid;
 
 use super::{put_label, shadow, Cursor, HOT};
 use crate::filedialog::{FileBox, Line};
-use crate::{datefmt, recent, App, Scheme};
+use crate::filetext::{counts, date_text, field_window, icon_of, size_text, time_text, type_name};
+use crate::{recent, App, Scheme};
 
 const CHROME: u8 = 0x70;
 const BODY: u8 = 0x07;
@@ -87,83 +88,6 @@ fn fill<const R: usize>(g: &mut Grid<R>, r: Rect, a: u8) {
 fn put_right<const R: usize>(g: &mut Grid<R>, end: u16, y: u16, t: &[u8], a: u8) {
 	let start = (end + 1).saturating_sub(t.len() as u16);
 	put(g, start, y, t, a, t.len());
-}
-
-/// `12 KB`: the size in kilobytes, rounded up as Windows 95 shows it (an empty file is `0 KB`).
-fn size_text(size: u32, out: &mut [u8; 12]) -> usize {
-	let kb = size.div_ceil(1024);
-	let mut digits = [0u8; 10];
-	let mut i = digits.len();
-	let mut v = kb;
-	loop {
-		i -= 1;
-		if let Some(d) = digits.get_mut(i) {
-			*d = b'0' + (v % 10) as u8;
-		}
-		v /= 10;
-		if v == 0 {
-			break;
-		}
-	}
-	let mut n = 0;
-	for b in digits.get(i..).unwrap_or(&[]).iter().chain(b" KB") {
-		if let Some(slot) = out.get_mut(n) {
-			*slot = *b;
-			n += 1;
-		}
-	}
-	n
-}
-
-/// The date of a DOS stamp in the dialog's pattern, with two-digit years when `short`.
-fn date_text<M: Measure + Clone>(
-	app: &App<M>,
-	date: u16,
-	short: bool,
-	out: &mut [u8; 16],
-) -> usize {
-	let mut pat = [0u8; 10];
-	let mut n = 0;
-	let src = app
-		.fd
-		.date
-		.get(..usize::from(app.fd.date_len))
-		.unwrap_or(&[]);
-	let mut i = 0;
-	while let Some(&c) = src.get(i) {
-		// `yyyy` becomes `yy` on the text screen.
-		if short && c == b'y' && src.get(i..i + 4) == Some(b"yyyy") {
-			for _ in 0..2 {
-				if let Some(slot) = pat.get_mut(n) {
-					*slot = b'y';
-					n += 1;
-				}
-			}
-			i += 4;
-			continue;
-		}
-		if let Some(slot) = pat.get_mut(n) {
-			*slot = c;
-			n += 1;
-		}
-		i += 1;
-	}
-	let year = 1980 + u32::from(date >> 9);
-	let (month, day) = (u32::from((date >> 5) & 15), u32::from(date & 31));
-	datefmt::format(pat.get(..n).unwrap_or(&[]), year, month, day, out)
-}
-
-fn time_text<M: Measure + Clone>(app: &App<M>, time: u16, out: &mut [u8; 16]) -> usize {
-	let (h, m) = (u32::from(time >> 11), u32::from((time >> 5) & 63));
-	datefmt::format_time(h, m, app.fd.h24, b"", b"", b"", out)
-}
-
-fn icon_of(e: &Entry) -> Icon {
-	match e.kind() {
-		EntryKind::Up => Icon::Parent,
-		EntryKind::Folder => Icon::Folder,
-		EntryKind::File => file_icon(e.name()),
-	}
 }
 
 /// A button's text and its rectangle's width: `<` and `>` round the label, centred, with the mnemonic letter in its own colour.
@@ -288,12 +212,6 @@ pub(super) fn draw<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>
 		}
 	}
 	cursor
-}
-
-/// Which part of a field's text shows when it is `w` cells wide and the caret is at `cursor`: the start, and how much.
-fn field_window(len: usize, cursor: usize, w: usize) -> (usize, usize) {
-	let start = if cursor >= w { cursor + 1 - w } else { 0 };
-	(start, len.saturating_sub(start).min(w))
 }
 
 fn look_in<const R: usize>(g: &mut Grid<R>, l: &Layout, dlg: &FileDlg, roles: &Roles, focus: u8) {
@@ -541,21 +459,8 @@ fn stamp<const R: usize, M: Measure + Clone>(
 		return;
 	}
 	let mut out = [0u8; 16];
-	let n = date_text(app, e.date(), true, &mut out);
+	let n = date_text(app.fd.date_pattern(), e.date(), true, &mut out);
 	put(g, x, y, out.get(..n).unwrap_or(&[]), a, 8);
-}
-
-fn type_name(e: &Entry) -> &'static [u8] {
-	match e.kind() {
-		EntryKind::Up | EntryKind::Folder => b"Folder",
-		EntryKind::File => match file_icon(e.name()) {
-			Icon::Document => b"Quill document",
-			Icon::Rtf => b"Rich text file",
-			Icon::Text => b"Text file",
-			Icon::Picture => b"Picture",
-			_ => b"File",
-		},
-	}
 }
 
 fn preview<const R: usize, M: Measure + Clone, S: ReadStore + ?Sized>(
@@ -614,10 +519,10 @@ fn preview<const R: usize, M: Measure + Clone, S: ReadStore + ?Sized>(
 	}
 	if e.date() != 0 {
 		let mut out = [0u8; 16];
-		let n = date_text(app, e.date(), true, &mut out);
+		let n = date_text(app.fd.date_pattern(), e.date(), true, &mut out);
 		put(g, x, y + 4, out.get(..n).unwrap_or(&[]), CHROME, w);
 		let mut t = [0u8; 16];
-		let m = time_text(app, e.time(), &mut t);
+		let m = time_text(app.fd.h24, e.time(), &mut t);
 		put(
 			g,
 			x + n as u16 + 2,
@@ -630,54 +535,6 @@ fn preview<const R: usize, M: Measure + Clone, S: ReadStore + ?Sized>(
 	for xx in 0..body.w {
 		g.put(usize::from(x + xx), usize::from(y) + 5, 0xC4, CHROME);
 	}
-}
-
-/// How many items and folders, in the words of the status line.
-fn counts(dlg: &FileDlg, out: &mut [u8; 40]) -> usize {
-	fn push(out: &mut [u8; 40], n: &mut usize, b: &[u8]) {
-		for c in b {
-			if let Some(slot) = out.get_mut(*n) {
-				*slot = *c;
-				*n += 1;
-			}
-		}
-	}
-	fn num(out: &mut [u8; 40], n: &mut usize, mut v: usize) {
-		let mut d = [0u8; 8];
-		let mut i = d.len();
-		loop {
-			i -= 1;
-			if let Some(x) = d.get_mut(i) {
-				*x = b'0' + (v % 10) as u8;
-			}
-			v /= 10;
-			if v == 0 {
-				break;
-			}
-		}
-		push(out, n, d.get(i..).unwrap_or(&[]));
-	}
-	let folders = dlg.folder_count();
-	let up = usize::from(dlg.folder().len() > 3);
-	let items = dlg.len().saturating_sub(up);
-	let mut n = 0;
-	num(out, &mut n, items);
-	push(
-		out,
-		&mut n,
-		if items == 1 { b" item, " } else { b" items, " },
-	);
-	num(out, &mut n, folders);
-	push(
-		out,
-		&mut n,
-		if folders == 1 {
-			b" folder"
-		} else {
-			b" folders"
-		},
-	);
-	n
 }
 
 fn bottom<const R: usize, S: ReadStore + ?Sized>(

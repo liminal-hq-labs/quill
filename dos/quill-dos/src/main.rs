@@ -263,8 +263,8 @@ fn clock_for(app: &mut App<ScreenMeasure>, ev: Ev) {
 	}
 }
 
-/// Open, Save As and Insert Picture show the file dialog on the text screens: the folders it offers after the drives, and the date
-/// and time as the country writes them. The graphics screen keeps the name prompt until it has a painter for the dialog.
+/// Open, Save As and Insert Picture show the file dialog, on the text screens and on the graphics screen: the folders it offers after
+/// the drives, and the date and time as the country writes them.
 fn file_dialog(app: &mut App<ScreenMeasure>) {
 	app.set_file_dialog(true);
 	let places = files::places();
@@ -402,6 +402,11 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 		return Err("there is not enough memory");
 	}
 	shell::sync_view(&mut app, &store);
+	// QUILL_PROMPT keeps the one-line name prompt, for the scenarios that show the prompt's own frames.
+	if env::var("QUILL_PROMPT").is_none() {
+		app.set_file_dialog_graphics(true);
+		file_dialog(&mut app);
+	}
 	open_arguments(&mut app, &mut store, &mut files);
 	clock::set(&mut app);
 	let mut window = Box::new([0u8; WINDOW]);

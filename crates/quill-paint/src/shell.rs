@@ -24,7 +24,7 @@ use crate::page::{paint_page, PageInfo, PageView};
 use crate::pointer::{View, KIND_W};
 use crate::scroll;
 use crate::ui::{bevel, Ui, FACE, INK, LIGHT, SHADOW};
-use crate::{dialog, drop, menu, tip, toolbar};
+use crate::{dialog, drop, filedlg, menu, tip, toolbar};
 use crate::{Rect, Surface};
 
 /// The screen's width.
@@ -376,7 +376,15 @@ fn over<F: Copy, M: Measure + Clone, St: Store + ?Sized>(
 		tip::draw(sf, ui, lay, t);
 	}
 	let mut ov = Overlay::default();
-	if app.overlay(s, &mut ov) {
+	if let Some(v) = app.file_view() {
+		// The file dialog is its window and parts; a box over it (a question, a notice, the new folder's name) is the app's overlay.
+		let win = filedlg::window(v.dlg.kind());
+		dialog::draw_dialog(sf, ui, &win);
+		filedlg::draw(sf, ui, &win, &v, s);
+		if v.covered() && app.overlay(s, &mut ov) {
+			dialog::draw_dialog_held(sf, ui, &ov, view.widget);
+		}
+	} else if app.overlay(s, &mut ov) {
 		dialog::draw_dialog_held(sf, ui, &ov, view.widget);
 	}
 }

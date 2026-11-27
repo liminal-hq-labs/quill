@@ -1,6 +1,7 @@
 # G8 (graphics): the caret in a dialog's text field. A click puts the caret between two characters and the keys edit there (Delete,
 # Backspace, Left, Right, Home, End), a drag selects and typing replaces the selection, a double click selects a word; the same in
 # the file name prompt. Every frame's CRC-32 must equal the host's.
+@prompt
 @copy letter.rtf
 @open LETTER.RTF
 @click 145 9            # Find menu

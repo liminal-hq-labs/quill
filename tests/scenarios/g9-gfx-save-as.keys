@@ -1,0 +1,30 @@
+# G9 (graphics): Save As in the file dialog. It starts with the document's name selected and the folder it is in; changing the type
+# swaps the extension; New folder opens its box and Esc closes it; a read-only file is refused; a name that is there asks before it is
+# replaced (No is the default); a new name saves, and the scenario ends there, because DOS dates what a run writes with the real clock.
+# Every frame's CRC-32 must equal the host's in both graphics modes.
+@dialog
+@dir QUILL
+@place Quill C:\QUILL
+@cwd C:\DOCS
+@dir DOCS\LETTERS
+@copy letter.qld DOCS\
+@copy letter.rtf DOCS\
+@copy plain.qld DOCS\
+@stamp DOCS\LETTER.QLD 2026-11-24 18:45
+@stamp DOCS\LETTER.RTF 2026-11-02 09:05
+@stamp DOCS\PLAIN.QLD 2026-03-14 12:00
+@readonly DOCS\PLAIN.QLD
+@open C:\DOCS\LETTER.QLD
+f10 down down down enter      # File > Save As...: LETTER.QLD, selected
+altf                          # New folder: its box
+esc                           # closed
+altn p l a i n period q l d enter   # PLAIN.QLD is read-only
+enter                         # OK
+altn end bspace bspace bspace bspace bspace bspace bspace bspace bspace   # the name emptied
+l e t t e r period r t f enter   # LETTER.RTF is there: Do you want to replace it?
+tab                           # the other button
+tab                           # and back
+enter                         # No is the default: back to the dialog
+altt down                     # Save as type: Rich Text Format
+altn end bspace bspace bspace bspace bspace bspace bspace bspace bspace bspace   # the name emptied
+n e w enter                   # NEW.RTF: saved

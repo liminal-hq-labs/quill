@@ -10,7 +10,7 @@ use std::fmt::Write as _;
 use common::*;
 use quill_app::picture::WINDOW;
 use quill_host::png::encode_indexed;
-use quill_host::script::{parse_script, MemFiles};
+use quill_host::script::{parse_script, stage, MemFiles};
 use quill_paint::damage::{self, RowSet, PLANAR_ROW};
 use quill_paint::layout::Layout;
 use quill_paint::pointer::{Gfx, View};
@@ -63,18 +63,23 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 		std::fs::read_to_string(root().join(format!("tests/scenarios/{name}.keys"))).unwrap();
 	let sc = parse_script(&text);
 	let mut files = MemFiles::default();
-	for name in &sc.copy {
-		files.files.insert(
-			name.to_ascii_uppercase(),
-			std::fs::read(root().join("tests/docs").join(name)).unwrap(),
-		);
-	}
+	stage(&mut files, &sc, &root().join("tests/docs"));
 	let (mut app, mut s, _) = new_app();
 	app.load_settings(&mut files);
 	app.set_about("Host test run");
+	// The shell shows the file dialog as the DOS graphics shell does, unless the scenario brings the name prompt back (`@prompt`).
+	app.set_file_dialog(sc.dialog);
+	app.set_file_dialog_graphics(true);
+	let places: Vec<(&[u8], &[u8])> = sc
+		.places
+		.iter()
+		.map(|(l, p)| (l.as_bytes(), p.as_bytes()))
+		.collect();
+	app.set_file_places(&places);
 	shell::sync_view(&mut app, &s);
-	app.open(&mut s, &mut files, sc.open.as_deref().unwrap().as_bytes())
-		.unwrap();
+	if let Some(open) = sc.open.as_deref() {
+		app.open(&mut s, &mut files, open.as_bytes()).unwrap();
+	}
 	let mut frames = vec![frame(
 		mode,
 		&mut ScreenJob {
@@ -129,7 +134,39 @@ fn golden_of(mode: Mode, name: &str) -> Vec<Frame> {
 		&format!("tests/golden/gfx/{name}.{}.sums", mode.name()),
 		sums.as_bytes(),
 	);
-	if !name.starts_with("g7-") {
+	if name == "g9-gfx-save-as" {
+		// The same document saved as RTF into the same folder as the text screen's `m16-save-as`: the same bytes.
+		let want = std::fs::read(root().join("tests/golden/files/m16-new.rtf")).unwrap();
+		assert!(
+			files.files["C:\\DOCS\\NEW.RTF"] == want,
+			"the saved NEW.RTF differs from the text screen's"
+		);
+	}
+	// The file dialog's scenarios keep the frames that show its parts as pictures, by frame number.
+	let shots: &[(&str, usize)] = match name {
+		"g9-gfx-open" => &[("dialog", 4), ("types", 6), ("sorted", 14)],
+		"g9-gfx-save-as" => &[
+			("dialog", 6),
+			("new-folder", 7),
+			("read-only", 19),
+			("replace", 42),
+		],
+		_ => &[],
+	};
+	for (label, n) in shots {
+		let png = encode_indexed(
+			640,
+			480,
+			mode.depth(),
+			&mode.palette(),
+			&frames[n - 1].pixels,
+		);
+		compare_bytes(
+			&format!("tests/golden/gfx/{name}.{}.{label}.png", mode.name()),
+			&png,
+		);
+	}
+	if !name.starts_with("g7-") && !name.starts_with("g9-") {
 		let text =
 			std::fs::read_to_string(root().join(format!("tests/scenarios/{name}.keys"))).unwrap();
 		let opened = parse_script(&text).open.unwrap().to_ascii_uppercase();
@@ -497,4 +534,24 @@ fn the_rulers_tab_kind_button_at_16_colours() {
 #[test]
 fn the_rulers_tab_kind_button_at_256_colours() {
 	golden_of(Mode::C256, "g8-gfx-ruler");
+}
+
+#[test]
+fn the_file_dialog_at_16_colours() {
+	golden_of(Mode::C16, "g9-gfx-open");
+}
+
+#[test]
+fn the_file_dialog_at_256_colours() {
+	golden_of(Mode::C256, "g9-gfx-open");
+}
+
+#[test]
+fn the_file_dialog_save_as_at_16_colours() {
+	golden_of(Mode::C16, "g9-gfx-save-as");
+}
+
+#[test]
+fn the_file_dialog_save_as_at_256_colours() {
+	golden_of(Mode::C256, "g9-gfx-save-as");
 }

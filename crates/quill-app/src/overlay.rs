@@ -169,17 +169,38 @@ impl Overlay {
 		self.add(Wk::Label, col, row, 0, text);
 	}
 
-	fn edit(&mut self, id: u8, (col, row, w): (u8, u8, u8), text: &[u8], focus: bool, c: &Caret) {
+	fn edit(&mut self, id: u8, geom: (u8, u8, u8), text: &[u8], focus: bool, c: &Caret) {
+		self.edit_at(id, geom, text, focus, (c.at(), c.selection()));
+	}
+
+	/// An edit field with the caret at `at` and the selection `lo` to `hi` (equal when there is none).
+	fn edit_at(
+		&mut self,
+		id: u8,
+		(col, row, w): (u8, u8, u8),
+		text: &[u8],
+		focus: bool,
+		(at, (lo, hi)): (usize, (usize, usize)),
+	) {
 		if let Some(e) = self.add(Wk::Edit, col, row, w, text) {
 			e.id = id;
 			e.focus = focus;
-			let at = |v: usize| v.min(text.len()).min(WID_TEXT) as u8;
+			let clip = |v: usize| v.min(text.len()).min(WID_TEXT) as u8;
 			(e.caret, e.anchor) = if focus {
-				(at(c.at()), at(c.selection().0 + c.selection().1 - c.at()))
+				(clip(at), clip((lo + hi).saturating_sub(at)))
 			} else {
 				(255, 255)
 			};
 		}
+	}
+
+	/// A box with a titled name field and OK and Cancel: the name prompt, and the file dialog's New folder.
+	fn name_box(&mut self, title: &[u8], label: &[u8], text: &[u8], at: (usize, (usize, usize))) {
+		self.start(title, 56, 4);
+		self.label(2, 1, label);
+		self.edit_at(0, (14, 1, 40), text, true, at);
+		let w = self.button(255, 14, 3, b"OK", false, true);
+		self.button(255, 14 + w + 2, 3, b"Cancel", false, false);
 	}
 
 	fn check(&mut self, id: u8, col: u8, row: u8, text: &[u8], on: bool, focus: bool) {
@@ -228,6 +249,41 @@ pub struct Mark {
 }
 
 impl<M: Measure + Clone> crate::App<M> {
+	/// The file dialog's overlay: the box that is open over it (a question, a notice, the New folder name), or else the dialog's own
+	/// window, which has a title and a size and no widgets (its parts are `filelayout`'s).
+	#[cfg(feature = "text-file-dialog")]
+	#[inline(never)]
+	fn file_overlay(&self, o: &mut Overlay) {
+		use crate::filedialog::FileBox;
+		// A message box: two lines, and the buttons from `names` (the first `n` of them), the focused one the default.
+		let (l1, l2, names, n, focus) = match self.fd.boxed {
+			FileBox::Ask(focus, l1, l2) => (l1, l2, [&b"Yes"[..], b"No"], 2, focus),
+			FileBox::Say(Some(_), focus, l1, l2) => (l1, l2, [&b"Retry"[..], b"Cancel"], 2, focus),
+			FileBox::Say(None, _, l1, l2) => (l1, l2, [&b"OK"[..], b""], 1, 0),
+			FileBox::None => {
+				if let Some(f) = self.fd.dlg.as_ref().and_then(|d| d.new_folder()) {
+					let name = (f.cursor(), f.selection());
+					o.name_box(b"New Folder", b"Folder name:", f.as_bytes(), name);
+				} else {
+					let kind = self.fd.kind;
+					let screen = quill_dlg::filelayout::Screen::Graphics;
+					let d = quill_dlg::filelayout::Layout::new(screen, kind)
+						.map_or_else(Default::default, |l| l.dialog);
+					o.start(quill_dlg::filelayout::title(kind), d.w as u8, d.h as u8);
+				}
+				return;
+			}
+		};
+		o.start(b"Quill", 56, 5);
+		o.label(2, 1, l1.bytes());
+		o.label(2, 2, l2.bytes());
+		let mut x = 8;
+		for (i, label) in names.iter().take(n).enumerate() {
+			let on = usize::from(focus) == i;
+			x += o.button(i as u8, x, 4, label, on, on) + 3;
+		}
+	}
+
 	/// The check mark and the greyed state of the menu item that runs `c`.
 	pub fn menu_mark<S: ReadStore + ?Sized>(&self, s: &S, c: Command) -> Mark {
 		let cs = || self.char_state(s);
@@ -272,9 +328,14 @@ impl<M: Measure + Clone> crate::App<M> {
 	pub fn overlay<S: ReadStore + ?Sized>(&self, s: &S, o: &mut Overlay) -> bool {
 		match &self.mode {
 			Mode::Edit | Mode::Menu { .. } => false,
-			// The file dialog is drawn by the text painter; the graphics screen gets its own painter with the pointer.
+			// The file dialog has no widgets: its parts are `filelayout`'s, which the painters and (later) the pointer share. The
+			// overlay gives the graphics shell the window, the title bar and the size of the dialog's cells, and a press on it
+			// finds no widget.
 			#[cfg(feature = "text-file-dialog")]
-			Mode::File => false,
+			Mode::File => {
+				self.file_overlay(o);
+				true
+			}
 			Mode::Prompt {
 				kind,
 				buf,
@@ -287,11 +348,8 @@ impl<M: Measure + Clone> crate::App<M> {
 					Prompt::Print => b"Print to file or device",
 					Prompt::Picture => b"Insert Picture",
 				};
-				o.start(title, 56, 4);
-				o.label(2, 1, b"File name:");
-				o.edit(0, (14, 1, 40), buf.get(..*len).unwrap_or(&[]), true, caret);
-				let w = o.button(255, 14, 3, b"OK", false, true);
-				o.button(255, 14 + w + 2, 3, b"Cancel", false, false);
+				let text = buf.get(..*len).unwrap_or(&[]);
+				o.name_box(title, b"File name:", text, (caret.at(), caret.selection()));
 				true
 			}
 			Mode::Confirm(_, focus) => {
