@@ -321,7 +321,7 @@ struct Shell {
 	/// The status bar control, its height (0 when hidden), the text now in each pane, and how many pages the preview shows.
 	sb: Handle,
 	status_h: i32,
-	sb_text: [Vec<u8>; 6],
+	sb_text: [Vec<u8>; 9],
 	/// The status bar's own window procedure, which the shell's replaces to hear a click on the zoom box (0 until it does).
 	sb_proc: isize,
 	pv_pages: u32,
@@ -614,6 +614,17 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 		0x020A => {
 			if let Some(sh) = shell() {
 				ui::wheel(hwnd, sh, ((wparam >> 16) & 0xFFFF) as u16 as i16 as i32);
+			}
+			0
+		}
+		// WM_DRAWITEM: the status bar asks for the zoom buttons' insides.
+		0x002B => {
+			let item = &*(lparam as *const DrawItem);
+			if let Some(sh) = shell() {
+				if item.window == sh.sb {
+					ui::draw_zoom_button(item);
+					return 1;
+				}
 			}
 			0
 		}
