@@ -176,9 +176,9 @@ impl PathBuf {
 	}
 }
 
-/// The part after the last `\` or `:`.
+/// The part after the last `\`, `/` or `:` (Windows takes `/` as a separator, and the Linux client's paths use it).
 pub fn last_part(path: &[u8]) -> &[u8] {
-	match path.iter().rposition(|c| *c == b'\\' || *c == b':') {
+	match path.iter().rposition(|c| matches!(*c, b'\\' | b'/' | b':')) {
 		Some(i) => path.get(i + 1..).unwrap_or(&[]),
 		None => path,
 	}
@@ -463,6 +463,14 @@ mod tests {
 	use super::*;
 	use proptest::prelude::*;
 	use std::vec::Vec;
+
+	#[test]
+	fn the_last_part_follows_any_separator() {
+		assert_eq!(last_part(b"C:\\DOCS\\LETTER"), b"LETTER");
+		assert_eq!(last_part(b"/tmp/.tmp1x/note"), b"note");
+		assert_eq!(last_part(b"D:LETTER.TXT"), b"LETTER.TXT");
+		assert_eq!(last_part(b"LETTER"), b"LETTER");
+	}
 
 	fn ok(s: &str) -> Name83 {
 		Name83::parse(s.as_bytes()).unwrap()

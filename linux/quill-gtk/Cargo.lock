@@ -704,10 +704,12 @@ name = "quill-app"
 version = "0.0.0"
 dependencies = [
  "quill-core",
+ "quill-dlg",
  "quill-formats",
  "quill-grid",
  "quill-image",
  "quill-inflate",
+ "quill-job",
  "quill-mouse",
  "quill-spell",
 ]
@@ -715,6 +717,9 @@ dependencies = [
 [[package]]
 name = "quill-core"
 version = "0.0.0"
+dependencies = [
+ "quill-text",
+]
 
 [[package]]
 name = "quill-dialogs"
@@ -723,6 +728,13 @@ version = "0.0.0"
 [[package]]
 name = "quill-dict"
 version = "0.0.0"
+
+[[package]]
+name = "quill-dlg"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+]
 
 [[package]]
 name = "quill-fonts"
@@ -738,6 +750,7 @@ name = "quill-formats"
 version = "0.0.0"
 dependencies = [
  "quill-core",
+ "quill-text",
 ]
 
 [[package]]
@@ -778,9 +791,11 @@ dependencies = [
  "quill-app",
  "quill-core",
  "quill-dict",
+ "quill-dlg",
  "quill-formats",
  "quill-grid",
  "quill-heap",
+ "quill-job",
 ]
 
 [[package]]
@@ -796,6 +811,10 @@ name = "quill-inflate"
 version = "0.0.0"
 
 [[package]]
+name = "quill-job"
+version = "0.0.0"
+
+[[package]]
 name = "quill-mouse"
 version = "0.0.0"
 
@@ -805,6 +824,7 @@ version = "0.0.0"
 dependencies = [
  "quill-app",
  "quill-core",
+ "quill-dlg",
  "quill-image",
  "quill-strike",
 ]
@@ -823,6 +843,10 @@ version = "0.0.0"
 dependencies = [
  "quill-core",
 ]
+
+[[package]]
+name = "quill-text"
+version = "0.0.0"
 
 [[package]]
 name = "quill-tty"

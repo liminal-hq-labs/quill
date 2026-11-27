@@ -188,7 +188,8 @@ pub fn events_for(k: Key) -> Option<(K, M)> {
 		Key::Insert => (K::Insert, n),
 		Key::F(i) => (K::from_name(format!("F{i}"))?, n),
 		Key::Ctrl(c) => (char_keyval(char::from(c)), M::CONTROL_MASK),
-		Key::Alt(_) => return None,
+		// Shift+Tab (the previous picture) has no press in this client yet: `ISO_Left_Tab` is ignored above.
+		Key::Alt(_) | Key::BackTab => return None,
 	})
 }
 
