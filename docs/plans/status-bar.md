@@ -187,7 +187,7 @@ The zoom parts get a tooltip (the short name) and a hint (the sentence in the le
 Reveal Codes ([reveal-codes.md](reveal-codes.md)) puts a separator and a pane between the page and the status bar. The status bar does not change with it:
 
 - **DOS text and graphics**: the separator row names the code after the caret at its right end (DOS-90, CORE-193). The status row stays the last row and is not repeated: the code's name is not put in the lead (`after-dos-text-50-codes.png`).
-- **Windows, GTK and WinUI**: the code's long name goes to the lead at precedence 3, below a hint and a message (CORE-202). W9X-100's "first pane" is the lead.
+- **Windows, GTK and WinUI**: the code's long name goes to the lead at precedence 3, below a hint and a message (CORE-202). W9X-95's "first pane" is the lead.
 - **The page's rows**: the pane and its separator come out of the page area, never out of the status bar.
 
 ## View > Status Bar and the Options window
@@ -795,4 +795,4 @@ Each has a default the packages take if nobody answers, recorded as an Assumed d
 - **INT 16h's Alt+digit codes.** Alt+1 to Alt+9 are AH 78h to 80h and Alt+0 is 81h, with AL 0; 82h and 83h are Alt+minus and Alt+equals, so "78h to 82h for Alt+1 to Alt+0" is one too many. `bios.rs` already decodes 78h to 81h; DOSBox's agreement is shown for 78h to 7Ah by the `m16` file-dialog scenarios, and WP-BAR-1's `alt0` shows it for 81h.
 - **The terminal client is the DOS painter.** `quill-tty` draws through `quill_app::paint::draw`, so it changes with WP-BAR-3 and needs no package of its own.
 - **GTK's LNX-3 is amended**, not replaced: the zoom levels and the setting stay; only Ctrl+0's meaning moves (LNX-91).
-- **Reveal Codes plan.** W9X-100 puts the code's long name "in the status bar's first pane"; with this plan that pane is the lead and the name sits at precedence 3, below a hint and a message. WP-CODES-5 and WP-CODES-6 should read CORE-202.
+- **Reveal Codes plan.** W9X-95 puts the code's long name "in the status bar's first pane"; with this plan that pane is the lead and the name sits at precedence 3, below a hint and a message. WP-CODES-5 and WP-CODES-6 should read CORE-202.

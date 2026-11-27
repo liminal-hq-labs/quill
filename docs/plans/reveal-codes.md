@@ -52,7 +52,7 @@ The highlighted token (here `[Bold On]`, drawn in reverse) is the one after the 
 
 ## Decisions
 
-Proposed here; each package copies its rows into `docs/decisions.md` (Status **Assumed** unless the owner has answered) and the SPEC in the same change. The ids are reserved in [work-packages.md](../work-packages.md#decision-ids): **CORE-180 to CORE-199**, **ARCH-35**, **DOS-90 to DOS-99**, **W16-100 to W16-104**, **W9X-100 to W9X-104**, **LNX-70 to LNX-74**, **WUI-70 to WUI-74**.
+Proposed here; each package copies its rows into `docs/decisions.md` (Status **Assumed** unless the owner has answered) and the SPEC in the same change. The ids are reserved in [work-packages.md](../work-packages.md#decision-ids): **CORE-180 to CORE-199**, **ARCH-35**, **DOS-90 to DOS-99**, **W16-100 to W16-104**, **W9X-95 to W9X-99**, **LNX-70 to LNX-74**, **WUI-70 to WUI-74**.
 
 | Id | Decision | Choice | Alternatives | Why |
 |---|---|---|---|---|
@@ -78,8 +78,8 @@ Proposed here; each package copies its rows into `docs/decisions.md` (Status **A
 | W16-100 | The Windows 3.x pane | The DOS graphics geometry and look in GDI: the pane and the splitter are parts of the main window's client area, drawn by the shell from the flow model in `ANSI_VAR_FONT`, with `IDC_SIZENS` over the splitter and `SetCapture` while it is dragged; the page's scroll bar controls are moved to span the page only; the pane's caret is drawn, steady, because the system caret is the page's | A child window with its own class | A child window costs a class, a window procedure and data; the page is already drawn this way |
 | W16-101 | Labels on Windows 3.x | The label and long-name texts come from `RT_STRING` resources (`quill-app`'s feature `codes-text` is off in the Win16 build), loaded into a stack buffer when a token is drawn | Labels in the data segment | About 1.2 KB of text and pointers would come out of the data segment that must keep 1,024 bytes free (W16-60) |
 | W16-102 | Where the code sits on Windows 3.x | `quill_core::codes` and `quill_app::codes` go in the EDIT segment, or in a segment of their own if EDIT would pass its budget in `segments.json` | Leave them to the packer's default | A segment overflow is a build error found late; naming the segment keeps `check_segments.py` meaningful |
-| W9X-100 | The Windows 95 pane | As W16-100 in the system colours (`COLOR_WINDOW`, `COLOR_BTNFACE` chips, `COLOR_HIGHLIGHT`), `DEFAULT_GUI_FONT`, drawn into the off-screen buffer with the page; the long name in the status bar's first pane | A list view or a RichEdit control | The same model and look as the other retro builds, with no new control and no new import if it can be helped |
-| W9X-101 | Keys on the Windows builds | Alt+F3 through `accel::from_vk` (`WM_SYSKEYDOWN` with `VK_F3`) and F11 through the shells' key maps, on Windows 95 and Windows 3.x alike; no new accelerator table | An `ACCELERATORS` resource | Both shells already take their shortcuts from `from_vk`, so one row serves both |
+| W9X-95 | The Windows 95 pane | As W16-100 in the system colours (`COLOR_WINDOW`, `COLOR_BTNFACE` chips, `COLOR_HIGHLIGHT`), `DEFAULT_GUI_FONT`, drawn into the off-screen buffer with the page; the long name in the status bar's first pane | A list view or a RichEdit control | The same model and look as the other retro builds, with no new control and no new import if it can be helped |
+| W9X-96 | Keys on the Windows builds | Alt+F3 through `accel::from_vk` (`WM_SYSKEYDOWN` with `VK_F3`) and F11 through the shells' key maps, on Windows 95 and Windows 3.x alike; no new accelerator table | An `ACCELERATORS` resource | Both shells already take their shortcuts from `from_vk`, so one row serves both |
 | LNX-70 | The GTK pane | A vertical `gtk::Paned` round the page area and a `gtk::DrawingArea` drawn with Cairo and Pango from the flow model, with codes as Adwaita pills that follow the dark style and the accent colour; the paned's position is `CodesSize`; F6 takes the pane into WP-GTK-4's focus cycle; Alt+F3 toggles (F11 stays Full Screen) | A `GtkTextView` with tags | The pane's editing rules are the core's, not a text view's; drawing it keeps one model on every build |
 | LNX-71 | GTK accessibility | The drawing area implements `GtkAccessibleText` over the pane's text (labels as words) with the caret and selection in it, from the `quill-a11y` snapshot shape, and announces the long name of a deleted code | No accessible pane | Orca must be able to read the codes |
 | LNX-72 | GTK keys | Alt+F3 is an application accelerator for `win.reveal-codes`; F11 stays `win.fullscreen`; Left, Right, Delete and Backspace reach the editor as now, which applies CORE-185 | Take F11 for Reveal Codes and move Full Screen | Full Screen on F11 is the GNOME convention |
@@ -355,14 +355,14 @@ With the cap of three builders, waves 9 to 12 each use the slot the editor track
 
 ### WP-CODES-5 — The Windows 95 pane
 
-- **Finish line:** `QUILL32.EXE` draws the pane (W9X-100) with the splitter and its cursor, clicks and drags as DOS-93, Alt+F3 and F11, the long name in the status bar's first pane, in the system colours and following a scheme change; `set_codes_pane(true)`.
-- **Owns:** `win9x/quill-win9x/src/codes.rs` (new); in `ui.rs` and `view.rs` the page and pane geometry and the scroll bar controls' placement; the pane arms of `main.rs` (paint, `WM_SETCURSOR`, the mouse messages, the key arms); `win9x/tools/wine-codes.sh` (new), the codes states of `wine-pixels.sh`, `tests/golden/win9x/paint-calls.txt`; `imports.allow` if an import is new; SPEC build differences row; W9X-100, W9X-101.
+- **Finish line:** `QUILL32.EXE` draws the pane (W9X-95) with the splitter and its cursor, clicks and drags as DOS-93, Alt+F3 and F11, the long name in the status bar's first pane, in the system colours and following a scheme change; `set_codes_pane(true)`.
+- **Owns:** `win9x/quill-win9x/src/codes.rs` (new); in `ui.rs` and `view.rs` the page and pane geometry and the scroll bar controls' placement; the pane arms of `main.rs` (paint, `WM_SETCURSOR`, the mouse messages, the key arms); `win9x/tools/wine-codes.sh` (new), the codes states of `wine-pixels.sh`, `tests/golden/win9x/paint-calls.txt`; `imports.allow` if an import is new; SPEC build differences row; W9X-95, W9X-96.
 - **Must not touch:** `crates/**`; `dialogs.rs`.
 - **Depends on:** WP-CODES-3.
 - **Budget:** `QUILL32.EXE` +2 to +4 KB **[E]**; imports named.
 - **Tests:** G-W32 with `wine-codes.sh`, `wine-pixels.sh` (old against new equal outside the codes states), `wine-layout.sh`; G-DISK; G-MD.
 - **Evidence:** `win32-wine` in every state; `win95` in `shown` and `deleted`.
-- **Decisions:** W9X-100, W9X-101.
+- **Decisions:** W9X-95, W9X-96.
 
 ### WP-CODES-6 — The Windows 3.x pane
 
@@ -556,7 +556,7 @@ screen, with the mouse on both".
 
 ```text
 Package WP-CODES-5 (Windows 95 only): the Reveal Codes pane in QUILL32.EXE. Branch feat/codes-win32 after
-WP-CODES-3. Read the plan's W9X-100 and the pane table. New win9x/quill-win9x/src/codes.rs draws from
+WP-CODES-3. Read the plan's W9X-95 and the pane table. New win9x/quill-win9x/src/codes.rs draws from
 App::codes_pane into the off-screen buffer with DEFAULT_GUI_FONT (measure with GetTextExtentPoint32A), chips in
 COLOR_BTNFACE with COLOR_BTNSHADOW frames, COLOR_HIGHLIGHT selection, a drawn steady caret. ui.rs and view.rs:
 the page, splitter and pane from App::codes_split; the SB_CTL bars span the page; set_view_height. main.rs:
@@ -564,7 +564,7 @@ WM_SETCURSOR (IDC_SIZENS over the splitter), SetCapture drag, clicks through cod
 name in the status bar's first pane, set_codes_pane(true), a scheme change repaints. Prefer imports already in
 win9x/tools/imports.allow; name any new one. New win9x/tools/wine-codes.sh; add the codes states to
 wine-pixels.sh and update tests/golden/win9x/paint-calls.txt in the same commit. Do not touch crates/. Gates:
-G-W32 with wine-codes.sh, wine-pixels.sh, wine-layout.sh; G-DISK; G-MD. Decisions W9X-100, W9X-101. Evidence in
+G-W32 with wine-codes.sh, wine-pixels.sh, wine-layout.sh; G-DISK; G-MD. Decisions W9X-95, W9X-96. Evidence in
 Reveal Codes/WP-CODES-5 (win32-wine every state, win95 shown and deleted). PR: "Reveal codes in Quill for
 Windows 95".
 ```
