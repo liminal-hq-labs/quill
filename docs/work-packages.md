@@ -1,6 +1,6 @@
 # Work packages: the architecture follow-ups and the editor features
 
-The build order for two tracks that share `crates/quill-app`: the architecture follow-ups (`WP-ARCH-*`: `quill-chrome`, `quill-picture`, `quill-session`, `quill-input`, `quill-menu`, `quill-settings`, `quill-flow`, `quill-a11y`) and the editor features on every build (`WP-ED-*`: Unicode U1 and U2, the editing review's PRs 2 to 4, Page Break and word keys, Edit menu state, the rich clipboard, preferences, and the Page Layout, Numbering and Header and Footer dialogs). Each package is one pull request for one Sonnet builder. The rules that keep builders out of each other's files are [ARCH-6](decisions.md); the layer order is ARCH-7. Packages are ticked off in [progress.md](progress.md) as they merge; this page changes only when the order does.
+The build order for two tracks that share `crates/quill-app`: the architecture follow-ups (`WP-ARCH-*`: `quill-chrome`, `quill-picture`, `quill-session`, `quill-input`, `quill-menu`, `quill-settings`, `quill-flow`, `quill-a11y`) and the editor features on every build (`WP-ED-*`: Unicode U1 and U2, the editing review's PRs 2 to 4, Page Break and word keys, Edit menu state, the rich clipboard, preferences, and the Page Layout, Numbering and Header and Footer dialogs). A third set, Reveal Codes (`WP-CODES-1` to `WP-CODES-10`), is planned in [plans/reveal-codes.md](plans/reveal-codes.md) and placed in the waves below from wave 9. Each package is one pull request for one Sonnet builder. The rules that keep builders out of each other's files are [ARCH-6](decisions.md); the layer order is ARCH-7. Packages are ticked off in [progress.md](progress.md) as they merge; this page changes only when the order does.
 
 Written against `origin/main` at `535470a`, with the DOS autosave branch (`feat/autosave-dos`, DOS-47, DOS-48, CORE-69) in flight. Sizes marked **[E]** are estimates for the package to measure; everything else was read in the code.
 
@@ -31,10 +31,14 @@ Two lanes edit `crates/quill-app/src`, each with at most one open branch there: 
 | 6 | WP-ARCH-6 `quill-settings` | WP-ED-8 Page Break, WP-ED-9 Edit menu state | WP-ARCH-9 Win16 strings from resources | — |
 | 7 | WP-ARCH-7 `quill-flow` | (WP-ED-8 or WP-ED-9 finishing) | — | — |
 | 8 (freeze) | WP-ED-10 Unicode U1b, then WP-ED-11 Unicode U2 | — (nothing else open in `quill-app`, `quill-paint` or the shells' key maps and painters) | Windows-shell-only work: WP-ED-6 if late | every earlier package merged |
-| 9 | WP-ARCH-8 `quill-a11y` (after WP-GTK-5) | WP-ED-12 default tab stops, WP-PREF-2 settings by id (was WP-ED-13) | — | the freeze ended |
-| 10 | — | WP-PREF-5 Tools > Options on DOS (was WP-ED-15) | WP-PREF-3 Win16 profile functions (was WP-ED-14) | — |
-| 11 | — | WP-PREF-6 Options on the DOS graphics screen; then WP-PREF-7 and WP-PREF-8 on Windows (were WP-ED-16) | WP-ED-17 Page Layout | — |
-| 12 | — | WP-ED-18 Numbering | WP-ED-19 Header and Footer | — |
+| 9 | WP-ARCH-8 `quill-a11y` (after WP-GTK-5) | WP-ED-12 default tab stops, WP-PREF-2 settings by id (was WP-ED-13) | WP-CODES-1 Reveal Codes core (`quill-core` and `quill-cli` only) | the freeze ended |
+| 10 | WP-CODES-2 Reveal Codes on the DOS text screen | WP-PREF-5 Tools > Options on DOS (was WP-ED-15) | WP-PREF-3 Win16 profile functions (was WP-ED-14) | WP-CODES-1, WP-ARCH-8 and WP-PREF-2, for WP-CODES-2 |
+| 11 | WP-CODES-3 deleting a code | WP-PREF-6 Options on the DOS graphics screen; then WP-PREF-7 and WP-PREF-8 on Windows (were WP-ED-16) | WP-ED-17 Page Layout | — |
+| 12 | WP-CODES-4 Reveal Codes on DOS graphics, the pointer on both DOS screens | WP-ED-18 Numbering | WP-ED-19 Header and Footer | — |
+| 13 | WP-CODES-7 editing a code, pending codes | — | WP-CODES-5 Reveal Codes on Windows 95 | WP-ED-19, for WP-CODES-7 |
+| 14 | WP-CODES-8 dragging codes | — | WP-CODES-6 Reveal Codes on Windows 3.x | WP-CODES-5 and WP-ARCH-9, for WP-CODES-6 |
+
+From wave 10 the ARCH lane's slot in `crates/quill-app/src` carries the Reveal Codes packages, one at a time, since the ARCH packages end with WP-ARCH-8; the GTK and WinUI panes (WP-CODES-9 and WP-CODES-10) run in the UI track's lane once WP-GTK-5 and WP-WINUI-9 have merged. WP-CODES-5 and WP-CODES-9 touch no shared crate and can be pulled forward to any wave after WP-CODES-3.
 
 Why this order and not the list's: `quill-session` owns the idle cadence the DOS autosave builder is writing into `dos/quill-dos/src/main.rs` and `idle.rs` right now, so it waits for that merge; `quill-chrome` touches no file the autosave branch changes except one `use` line, so it goes first. `quill-a11y` is built from the snapshot GTK's WP-GTK-5 makes (LNX-24), once the text is UTF-8 (WP-ED-11), so it is written once. Unicode U1b and U2 run in a freeze after every move, because they touch about 70 call sites across `quill-app`, `quill-paint` and the shells; a move landing under them would mean rebasing the widest change in the track.
 
@@ -82,7 +86,7 @@ Measured at the branch point and again before the pull request; the pull request
 | DOS, Windows 3.x and Windows 95 floppies | DOS 437,248 bytes free before autosave, about 427,000 after (DOS-48) | Each feature package reports `installer/tools/verify-disks.sh` for the disks it grows |
 | `QUILL32.EXE` imports | `win9x/tools/imports.allow` | A new import is named in the brief and added to the list in the same change |
 
-The DOS ledger the track expects, all **[E]**: moves 0; WP-ED-1 to WP-ED-4 about +1 KB; WP-ED-5 +2 to +4; WP-ED-7 +1 to +1.5; WP-ED-8 +0.5; WP-ED-9 +1; WP-ED-10 +0 to +1.5; WP-ED-11 +5 to +8; WP-ED-12 +0.3; WP-ED-13 +2 to +4; WP-ED-15 +6 to +10; WP-ED-17 to WP-ED-19 +3 to +5 each. That is +31 to +48 KB, about 467 to 484 KB, so the stop at 480 KB is likely to be reached near the dialogs, and the DOS floppy (which packs the executable to about 58 %) still has room.
+The DOS ledger the track expects, all **[E]**: moves 0; WP-ED-1 to WP-ED-4 about +1 KB; WP-ED-5 +2 to +4; WP-ED-7 +1 to +1.5; WP-ED-8 +0.5; WP-ED-9 +1; WP-ED-10 +0 to +1.5; WP-ED-11 +5 to +8; WP-ED-12 +0.3; WP-ED-13 +2 to +4; WP-ED-15 +6 to +10; WP-ED-17 to WP-ED-19 +3 to +5 each. That is +31 to +48 KB, about 467 to 484 KB, so the stop at 480 KB is likely to be reached near the dialogs, and the DOS floppy (which packs the executable to about 58 %) still has room. Reveal Codes adds +11 to +16.5 KB more after WP-ED-19 ([plans/reveal-codes.md](plans/reveal-codes.md#budgets)), so it is the package set most likely to meet that stop.
 
 ## Decision ids
 
@@ -101,6 +105,7 @@ Ranges reserved for this track, above every id on `main`, in the autosave branch
 | WUI | WUI-60 to WUI-69 | The same, for WinUI (the UI track's own start at WUI-3) |
 | CORE, ARCH, DOS, W16, W9X, LNX, WUI, INS | CORE-150 to CORE-169, ARCH-30 to ARCH-34, DOS-80 to DOS-89 (carved out of the range above, which keeps DOS-70 to DOS-79), W16-90 to W16-99, W9X-90 to W9X-99, LNX-60 to LNX-64, WUI-60 to WUI-64, INS-8 and INS-9 | The preferences series, [plans/preferences.md](plans/preferences.md) (ARCH-30). The ids WP-ED-13 to WP-ED-16 named stay spare |
 | LNX | LNX-80 to LNX-89 | GTK printing, help and dark paper, [plans/gtk-print-help.md](plans/gtk-print-help.md) |
+| CORE, ARCH, DOS, W16, W9X, LNX, WUI | CORE-180 to CORE-199, ARCH-35, DOS-90 to DOS-99, W16-100 to W16-104, W9X-100 to W9X-104, LNX-70 to LNX-74, WUI-70 to WUI-74 | Reveal Codes, [plans/reveal-codes.md](plans/reveal-codes.md) |
 
 ## Gates and evidence
 
