@@ -275,6 +275,39 @@ if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = m17-autosave ]; then
 	[ ! -e "${leftover[0]}" ] || fail "m17-autosave: Exit with No left a recovery copy behind"
 	echo "e2e: m17-autosave: a copy was written after the pause, offered at the next start, recovered, and gone after Exit"
 fi
+# Autosave as you work, in real time (CORE-161): `AutosaveMode=work` with `AutosavePause=2` writes a copy at the first pause of two
+# seconds once ten seconds have passed since the first change, and the keys come four seconds apart so the keyboard is quiet at each
+# pause. The first run is cut off (a power cut) and leaves a copy in `RECOVER\`; the second start offers it, Recover brings back the
+# typed letters, and Exit with No leaves no copy behind.
+if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = m17-autosave-work ]; then
+	disk="$WORK/disk-m17-autosave-work"
+	rm -rf "$disk" "$WORK/keep"
+	mkdir -p "$disk"
+	cp "$HERE/dist/QUILLDOS.EXE" "$disk/"
+	printf '[Quill]\r\nAutosaveMode=work\r\nAutosavePause=2\r\n' > "$disk/QUILL.INI"
+	export DOS_ENV='QUILL_DUMP=D:\DUMP.TXT'
+	export DOS_KEEP="$WORK/keep"
+	export DOS_AUTOTYPE="-w 2 -p 4 h e l l o"
+	export DOS_TIMEOUT=24
+	rc=0
+	"$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE" > "$WORK/m17-autosave-work.out" || rc=$?
+	[ "$rc" = 124 ] || fail "m17-autosave-work: the first run was to be cut off, and exited with $rc"
+	copies=("$disk"/RECOVER/~Q*.RCV)
+	[ -f "${copies[0]}" ] || fail "m17-autosave-work: no recovery copy in RECOVER\\ after a pause in typing"
+	[ "$(head -c 4 "${copies[0]}")" = RIFF ] || fail "m17-autosave-work: the recovery copy is not a .QLD"
+	rm -rf "$WORK/keep"
+	export DOS_AUTOTYPE="-w 2 -p 1 r f10 end enter right enter"
+	export DOS_TIMEOUT=60
+	rc=0
+	"$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE" > "$WORK/m17-autosave-work.out" || rc=$?
+	[ "$rc" = 0 ] || fail "m17-autosave-work: the second run exited with $rc"
+	tr -d '\r' < "$WORK/keep/DUMP.TXT" > "$WORK/m17-autosave-work-frames.txt"
+	grep -q 'Quill found an untitled document that was not saved' "$WORK/m17-autosave-work-frames.txt" || fail "m17-autosave-work: the second start did not offer the copy"
+	grep -q '^ \{10\}h[a-z]*  *$' "$WORK/m17-autosave-work-frames.txt" || fail "m17-autosave-work: Recover did not bring back the typed letters"
+	leftover=("$disk"/RECOVER/~Q*.RCV)
+	[ ! -e "${leftover[0]}" ] || fail "m17-autosave-work: Exit with No left a recovery copy behind"
+	echo "e2e: m17-autosave-work: a copy was written at a pause as the person worked, offered at the next start, recovered, and gone after Exit"
+fi
 if [ -z "${E2E_ONLY:-}" ] || [ "$E2E_ONLY" = m16-save-as ]; then
 	cmp "$WORK/disk-m16-save-as/DOCS/NEW.RTF" "$ROOT/tests/golden/files/m16-new.rtf" || fail "m16-save-as: the saved NEW.RTF differs from the host's"
 	cmp "$WORK/disk-m16-save-as/DOCS/LETTER.RTF" "$ROOT/tests/golden/files/m16-letter.rtf" || fail "m16-save-as: the saved LETTER.RTF differs from the host's"

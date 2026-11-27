@@ -16,7 +16,7 @@
 // when an autosave is due and one unit is left; the owner then writes the recovery copy, because writing changes the app's own state
 // and a task only reads. The write is the one piece of work that cannot be cut into units, so it polls for input every
 // `qld::PROGRESS_STEP` bytes and gives up the moment a key waits: a key is held up by at most one poll, and what is on the disk is
-// untouched. After `ABANDONS` abandoned writes the next one is announced on the status line and runs to the end.
+// untouched. After `ABANDONS` abandoned writes the next one is announced on the status line and runs to the end; in As you work that waits for the backstop's minutes (CORE-161).
 use quill_core::layout::Measure;
 use quill_core::store::Store;
 use quill_job::{Budget, Inline, Poll, Task};
@@ -311,7 +311,12 @@ impl<M: Measure + Clone> App<M> {
 		rev: u32,
 		out: &mut Idled,
 	) {
-		let forced = self.idle.cut >= ABANDONS;
+		// In As you work a write that keeps being cut short is retried at the next pause and runs to the end only once the backstop's
+		// minutes have passed since the first change: forcing every third attempt would stop a slow machine at most pauses.
+		let forced = self.idle.cut >= ABANDONS
+			&& self.autosave_backstop().is_none_or(|backstop| {
+				dos_seconds(f.now()).saturating_sub(dos_seconds(self.idle.since)) >= backstop
+			});
 		if forced && self.idle.flags & ANNOUNCED == 0 {
 			// The person sees what the pause is for before it starts; the next pass writes.
 			self.idle.flags |= ANNOUNCED;

@@ -32,6 +32,7 @@ use measure::ScreenMeasure;
 use quill_app::idle::Idle;
 use quill_app::mouse::{Ctx, Pointer, TextCells};
 use quill_app::picture::WINDOW;
+use quill_app::recovery::AutosaveMode;
 use quill_app::script::Step;
 use quill_app::{App, Key, Scheme};
 use quill_grid::{Grid, GridMeasure};
@@ -198,6 +199,10 @@ impl Spell {
 	}
 }
 
+/// Minutes between recovery copies by default (CORE-150): at ten, a power cut cost a long stretch of typing, and at two a write on a 386
+/// would stop most pauses. `Autosave=` under `[Quill]` overrides it.
+const AUTOSAVE_MINUTES: u8 = 5;
+
 /// Ticks between two looks at the autosave timer: about half a second, so the clock is asked twice a second and not at every turn of
 /// the wait.
 const AUTOSAVE_LOOK: u32 = 9;
@@ -350,9 +355,10 @@ fn start(app: &mut App<ScreenMeasure>, store: &mut HeapStore, files: &mut files:
 	if script_text().is_some_and(|t| t.split_whitespace().any(|w| w == "@spell" || w == "@live")) {
 		app.set_spell_live_default(true);
 	}
-	// A recovery copy is written every ten minutes unless `Autosave=` under `[Quill]` says otherwise, and the questions are asked in the
-	// app's own box. The list of documents with a copy is read from `QUILL.INI` with the other settings.
-	app.configure_recovery(10, writer, false);
+	// A recovery copy is written every five minutes (CORE-150) unless `Autosave=` under `[Quill]` says otherwise, or a few seconds after
+	// each pause in typing with `AutosaveMode=work` (CORE-161); the questions are asked in the app's own box. The list of documents with a copy is read from `QUILL.INI` with the other settings.
+	app.configure_recovery(AUTOSAVE_MINUTES, writer, false);
+	app.configure_autosave(AutosaveMode::Minutes, AUTOSAVE_MINUTES, 3);
 	app.set_recovery(true);
 	app.load_settings_with(store, files);
 	// The test runs (`QUILL_DUMP`) keep one fixed line so the DOS screens match the host's; otherwise About says what it runs on.

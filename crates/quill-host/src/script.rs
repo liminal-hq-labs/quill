@@ -8,6 +8,7 @@ use std::fmt::Write as _;
 
 use quill_app::idle::Idle;
 use quill_app::mouse::{Pointer, TextCells};
+use quill_app::recovery::AutosaveMode;
 use quill_app::script::{parse_pointer, Step};
 use quill_app::{App, Drive, Files, Key, LockMade, Owner, Stamp};
 use quill_dlg::fake::FakeFs;
@@ -621,7 +622,8 @@ fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &
 	app.reset(&mut s).unwrap();
 	app.set_spell_live_default(script.live);
 	if script.recovery {
-		app.configure_recovery(10, 0, false);
+		app.configure_recovery(5, 0, false);
+		app.configure_autosave(AutosaveMode::Minutes, 5, 3);
 		app.set_recovery(true);
 		app.load_settings_with(&mut s, files);
 	} else {
