@@ -4,9 +4,12 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# Usage: build-with-rl.sh [--work DIR] [--quill-dir DIR] [--out DIR] [--dry-run] [--check-trim]
+# Usage: build-with-rl.sh [--work DIR] [--quill-dir DIR | --build-quill] [--allow-stale-quill] [--out DIR] [--dry-run] [--check-trim]
 #   --work DIR       where rl keeps downloads, disks and scratch (default ~/.cache/reactos-liminal); never inside the repository
 #   --quill-dir DIR  folder with QUILL.EXE and QUILL32.EXE (the Quill builds); needed unless --dry-run
+#   --build-quill    build QUILL.EXE (win16/build.sh) and QUILL32.EXE (win9x/build.sh) from this checkout into WORK/quill-dir and use them, so the disk never
+#                    carries a program older than the source (needs the Rust toolchain the repository pins; CARGO_BUILD_JOBS applies)
+#   --allow-stale-quill  accept a --quill-dir whose programs are older than the last commit that touched the Win16, Win32, core or asset sources
 #   --out DIR        the outputs: parts/ and build-manifest.json (default WORK/dist)
 #   --dry-run        explain the recipe and print the plans for install and image; run nothing
 #   --check-trim     prove that rl's base trim profile plus trim-extra.txt removes what guest/trim-list-1..3.txt remove, less the Applications Manager and browser stub entries rl keeps
@@ -27,10 +30,14 @@ quill_dir=
 out=
 dry_run=0
 check_trim=0
+build_quill=0
+allow_stale=0
 while [ $# -gt 0 ]; do
 	case $1 in
 		--work) work=$2; shift 2 ;;
 		--quill-dir) quill_dir=$2; shift 2 ;;
+		--build-quill) build_quill=1; shift ;;
+		--allow-stale-quill) allow_stale=1; shift ;;
 		--out) out=$2; shift 2 ;;
 		--dry-run) dry_run=1; shift ;;
 		--check-trim) check_trim=1; shift ;;
@@ -90,6 +97,29 @@ if [ "$dry_run" = 1 ]; then
 	echo "== rl image --dry-run"
 	rl image "$recipe" --dry-run --work "$work"
 	exit 0
+fi
+
+if [ "$build_quill" = 1 ]; then
+	[ -z "$quill_dir" ] || { echo "--build-quill and --quill-dir exclude each other" >&2; exit 2; }
+	quill_dir=$work/quill-dir
+	echo "== build QUILL.EXE and QUILL32.EXE into $quill_dir"
+	mkdir -p "$quill_dir"
+	OUT_DIR="$quill_dir" bash "$repo/win16/build.sh"
+	# win9x/build.sh writes win9x/dist/QUILL32.EXE; the Win16 build's other programs and map files stay out of the payload.
+	bash "$repo/win9x/build.sh"
+	cp "$repo/win9x/dist/QUILL32.EXE" "$quill_dir/QUILL32.EXE"
+fi
+
+# A program older than its sources is the mistake this guards against: a folder cached from an earlier build made a disk whose Windows 3.x
+# Quill crashed on a bug that main had since fixed.
+if [ "$allow_stale" = 0 ] && [ -f "$quill_dir/QUILL.EXE" ] && [ -f "$quill_dir/QUILL32.EXE" ]; then
+	newest=$(git -C "$repo" log -1 --format=%ct -- win16 win9x crates assets Cargo.lock 2>/dev/null || echo 0)
+	for name in QUILL.EXE QUILL32.EXE; do
+		if [ "$(stat -c %Y "$quill_dir/$name")" -lt "${newest:-0}" ]; then
+			echo "$quill_dir/$name is older than the last commit that touched the sources; rebuild it (--build-quill) or pass --allow-stale-quill" >&2
+			exit 1
+		fi
+	done
 fi
 
 # The payload the recipe's [[files]] name: the programs, the desktop icon and the wallpaper.

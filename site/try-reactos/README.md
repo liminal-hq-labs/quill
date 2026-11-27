@@ -68,7 +68,11 @@ What the page does now (`try-reactos.js`, behind the switches in the table above
 
 ## The Windows 3.x icon
 
-The desktop shortcut is `Quill (Windows 3.x, slow)`: `C:\Quill\QUILL.EXE C:\Quill\DEMO16.QLD`, start folder `C:\Quill`, a description that says it is slow, "Normal window". Both builds centre their window on the screen at the same size (neither stores a position in `QUILL.INI`), and WineVDM passes Win16 coordinates through, so the two windows open on top of each other; a shortcut cannot change that. Cascading needs a change in Quill (the Win16 build offering a small offset when another Quill window exists).
+The desktop shortcut is `Quill (Windows 3.x, slow)`: `C:\Program Files\otvdm\otvdmw.exe C:\Quill\QUILL.EXE C:\Quill\DEMO16.QLD`, start folder `C:\Quill`, a description that says it is slow, "Normal window". Both builds centre their window on the screen at the same size (neither stores a position in `QUILL.INI`), and WineVDM passes Win16 coordinates through, so the two windows open on top of each other; a shortcut cannot change that. Cascading needs a change in Quill (the Win16 build offering a small offset when another Quill window exists).
+
+WineVDM's launcher is named in the shortcut on purpose. Run through ReactOS's own 16-bit hand-off (`C:\Quill\QUILL.EXE C:\Quill\DEMO16.QLD` in a shortcut or the Run box), the task's command line arrives empty (the PSP length byte is 0 and the tail is a lone carriage return), so Quill opens Untitled. Run through `otvdm.exe` or `otvdmw.exe` it arrives whole (length 0x13, `C:\Quill\DEMO16.QLD`, at `ES:BX` = PSP:0081), and `otvdmw.exe` has no console window. Measured in the guest with a build that dumped the PSP.
+
+A disk must carry the Win16 program of the same source as the rest. A `QUILL.EXE` kept from a day earlier showed a `SEGV` box from WineVDM at startup (`access address=000009f2`): a build from before `fix(win16): pass GetProfileString's key as a far pointer`, which gave `GetProfileString` a near offset where a far pointer is wanted, so the host read selector 0 at that offset. Windows 3.11 reads selector 0 as NULL and goes on; WineVDM's host faults. `build-with-rl.sh --build-quill` builds both programs from the checkout, and the script refuses a `--quill-dir` older than the last commit to the sources (`--allow-stale-quill` overrides). `qagrr/check-win16.sh IMAGE` boots a copy of the disk headless in QEMU, double-clicks the shortcut and checks from the screendump that the Win16 window is open; run it after each image build (it needs QEMU, ImageMagick and a few minutes; KVM when present).
 
 ## The desktop icon
 
@@ -103,6 +107,8 @@ The ReactOS pipeline now lives in [reactos-liminal](https://github.com/liminal-h
 site/try-reactos/qagrr/build-with-rl.sh --check-trim                 # base profile + trim-extra.txt = the old trim lists
 site/try-reactos/qagrr/build-with-rl.sh --dry-run                    # rl explain, then the plans for install and image
 site/try-reactos/qagrr/build-with-rl.sh --quill-dir DIR --work DIR   # install, image, parts, manifest
+site/try-reactos/qagrr/build-with-rl.sh --build-quill --work DIR     # the same, with both programs built from this checkout first
+site/try-reactos/qagrr/check-win16.sh WORK/images/qagrr.img SHOTS    # boot a copy, open the Windows 3.x shortcut, check the window
 ```
 
 `build-with-rl.sh` fetches the commit in `qagrr/reactos-liminal.pin` into `~/.cache/quill-reactos-liminal` (outside the repository), then runs `rl explain`, `fetch`, `install`, `image`, `parts` and `manifest`. Before the image it renders the wallpaper with `guest/quillify.py` (the base recipe's pinned Afterglow scene with the Quill emblem on its sun), which the recipe lists in `[[files]]`; rl then skips its own scene. rl's `base` trim keeps the Applications Manager and the browser stub, which the old lists removed, so `--check-trim` expects those three entries to differ. `--work` is rl's work directory. Set `RL_QEMU_LOCK` to a lock file to run the two QEMU steps under `flock`. The `reactos-qagrr.yml` workflow does the same on a runner, by hand only.
