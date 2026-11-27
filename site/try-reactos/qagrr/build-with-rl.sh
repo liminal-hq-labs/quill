@@ -127,6 +127,7 @@ if [ ! -f "$quill_dir/QUILL.EXE" ] || [ ! -f "$quill_dir/QUILL32.EXE" ]; then ec
 mkdir -p "$payload"
 cp "$quill_dir/QUILL.EXE" "$quill_dir/QUILL32.EXE" "$payload/"
 python3 -I "$here/../guest/make_desk_icon.py" "$payload/QUILLDESK.ICO"
+python3 -I "$here/../guest/make_desk_icon.py" --win31 "$payload/QUILL31DESK.ICO"
 
 # The wallpaper: the Afterglow scene the recipe pins, with the Quill emblem on its sun, cut to 1024 x 768 with Afterglow's own seeded dither.
 # `rl fetch` puts the pinned source in WORK/afterglow/COMMIT; Quill renders its overlay itself and the recipe lists the BMP in [[files]].

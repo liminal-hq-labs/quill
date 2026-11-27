@@ -157,6 +157,24 @@ class DeskIconTest(unittest.TestCase):
 		self.assertEqual(sizes[-1][0], 256)
 		self.assertNotIn((32, 4), sizes)   # no flat 16-colour frame at 32 or 48 px: the detailed art has no flat version
 
+	@unittest.skipUnless(shutil.which('rsvg-convert'), 'needs rsvg-convert')
+	def test_windows_3_1_icon_frames(self):
+		try:
+			import PIL  # noqa: F401
+		except ImportError:
+			self.skipTest('needs Pillow')
+		import struct
+		import make_desk_icon
+		data = make_desk_icon.build_win31()
+		self.assertEqual(data, make_desk_icon.build_win31())
+		count = struct.unpack('<H', data[4:6])[0]
+		sizes = [(data[6 + 16 * i], struct.unpack('<H', data[12 + 16 * i:14 + 16 * i])[0]) for i in range(count)]
+		self.assertEqual(sizes, [(16, 4), (32, 4), (48, 4)])   # every frame is a 16-colour image
+		# The 32 px frame is the one QUILL31.ICO ships, byte for byte.
+		shipped = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'assets', 'icon', 'QUILL31.ICO'), 'rb').read()
+		size, offset = struct.unpack('<II', data[6 + 16 + 8:6 + 16 + 16])
+		self.assertEqual(data[offset:offset + size], shipped[22:])
+
 
 class LnkTest(unittest.TestCase):
 	def test_icon_location_and_index(self):
