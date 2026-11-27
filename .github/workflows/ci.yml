@@ -29,9 +29,9 @@ defaults:
 
 # Jobs run in the shared Liminal HQ images (liminal-hq/.github, docker/ci/Dockerfile), pinned by digest; a pin update is a pull request and
 # its checks run in the new image. `ci-rust` is the leanest tier (Rust 1.98.0, rustfmt, clippy, nextest, git). `ci-dos` is `ci-rust` plus
-# python3, mtools, DJGPP, DOSBox Staging and CWSDPMI under $DOS_TOOLCHAIN (/opt/dos-toolchain), so no job downloads the DOS tools. Three
-# jobs stay on the host runner (markdown: a Docker action; site: stdlib python3 only; banner and reactos-guest: apt packages and Chrome
-# that no image carries). See CI-1 in docs/decisions.md.
+# python3, mtools, DJGPP, DOSBox Staging and CWSDPMI under $DOS_TOOLCHAIN (/opt/dos-toolchain), so no job downloads the DOS tools. `ci-art` carries the SVG and render tools
+# (librsvg, ImageMagick 6, shellcheck, numpy, Pillow). Two jobs stay on the host runner (markdown: a Docker action; site: stdlib python3
+# only); banner stays too, because its text-fit pass drives the runner's Chrome. See CI-1 in docs/decisions.md.
 jobs:
   markdown:
     name: Markdown lint
@@ -100,21 +100,14 @@ jobs:
     name: ReactOS demo scripts
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    # librsvg, ImageMagick 6, shellcheck, numpy and Pillow come with the image, so no apt step runs.
+    container:
+      image: ghcr.io/liminal-hq/ci-art@sha256:fffbd2c6a87556c4a19626f95732ef54cfbb8d8fea8c532d30ebb497cfe25800
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           persist-credentials: false
-
-      # The runner image's Microsoft apt source (packages-microsoft-prod) sometimes serves an unsigned InRelease, which fails
-      # `apt-get update` with a 403. Nothing here installs from it, so drop it first.
-      - name: Drop the Microsoft apt source
-        run: sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
-
-      - name: Install the render tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends librsvg2-bin imagemagick shellcheck python3-numpy python3-pil
 
       # The Afterglow pin, the fetch script (on a local tarball, no network) and the Quillify overlay (a synthetic wallpaper).
       - name: Test the Afterglow pin, fetch and Quillify
