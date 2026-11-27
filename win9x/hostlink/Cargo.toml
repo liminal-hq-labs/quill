@@ -1,0 +1,30 @@
+# HOSTLINK.EXE: the ReactOS demo's guest helper (clipboard now; files, time and screen size later). Built with the Win32 workspace's target.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-hostlink-exe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "The host link's guest helper for ReactOS and Windows: the clipboard bridge"
+license = "Apache-2.0 OR MIT"
+
+[[bin]]
+name = "hostlink"
+path = "src/main.rs"
+
+# Test only (the end-to-end check's copy source); never on the product disk.
+[[bin]]
+name = "hlclip"
+path = "src/hlclip.rs"
+
+[dependencies]
+quill-hostlink-guest = { path = "../../crates/quill-hostlink-guest" }
+
+[package.metadata.quill]
+layer = "shell"
+no_std = true
+alloc = false
+float = false

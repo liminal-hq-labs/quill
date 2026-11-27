@@ -61,6 +61,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-hostlink"
+version = "0.0.0"
+
+[[package]]
+name = "quill-hostlink-exe"
+version = "0.0.0"
+dependencies = [
+ "quill-hostlink-guest",
+]
+
+[[package]]
+name = "quill-hostlink-guest"
+version = "0.0.0"
+dependencies = [
+ "quill-hostlink",
+]
+
+[[package]]
 name = "quill-image"
 version = "0.0.0"
 dependencies = [
