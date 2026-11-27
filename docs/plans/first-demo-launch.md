@@ -1,6 +1,6 @@
 # The first demo: launch checklist
 
-One checklist for the first public demo: Quill on the Afterglow ReactOS remix (QAGRR) at `https://labs.liminalhq.ca/quill/try-reactos/`, its saved v86 desktop, and the reactos-liminal v0.1.0 release that it stands on. The owner's wish, 2026-11-27: the first demo carries the PDF printer, sound and the shared clipboard, with downloads, file drop, time sync, the shut-down and turn-on states, the pointer fix, the Afterglow savers, the new icons and the Afterglow wallpaper naming, since "there may be no later demos". Written on 2026-11-27 against Quill `main` at `a004a70`, reactos-liminal `main` at `ac2af05`, afterglow-savers `main` at `74147cf`, v86 0.5.473, the [web demo plan](web-demo.md), the [host integration plan](host-integration.md), the [pointer plan](pointer.md), afterglow-savers' `docs/packing.md`, reactos-liminal's `docs/release.md` and `docs/plans/icon-round-4.md`, the owner's decision log and the Quill board's Go-live frame. Where this plan and [decisions.md](../decisions.md) disagree later, the decisions win.
+One checklist for the first public demo: Quill on the Afterglow ReactOS remix (QAGRR) at `https://labs.liminalhq.ca/quill/try-reactos/`, its saved v86 desktop, and the reactos-liminal v0.1.0 release that it stands on. The owner's wish, 2026-11-27: the first demo carries the PDF printer, sound and the shared clipboard, with downloads, file drop, time sync, the shut-down and turn-on states, the pointer fix, the Afterglow savers, the new icons and the Afterglow wallpaper naming, since "there may be no later demos". Written on 2026-11-27 against Quill `main` at `a004a70` and refreshed against `15218cb` (after #187 to #190 merged), reactos-liminal `main` at `ac2af05`, afterglow-savers `main` at `74147cf`, v86 0.5.473, the [web demo plan](web-demo.md), the [host integration plan](host-integration.md), the [pointer plan](pointer.md), afterglow-savers' `docs/packing.md`, reactos-liminal's `docs/release.md` and `docs/plans/icon-round-4.md`, the owner's decision log and the Quill board's Go-live frame. Where this plan and [decisions.md](../decisions.md) disagree later, the decisions win.
 
 Nothing here publishes anything. Every act that publishes (a tag, a release, an upload, a Pages deployment that carries the data, a post) is the owner's, and each is named below where it falls.
 
@@ -31,10 +31,10 @@ Nothing here publishes anything. Every act that publishes (a tag, a release, an 
 ## In one page
 
 - **Built and merged today:** the clean address (WP-WEB-1, #164), Print to PDF with a text layer (WP-WEB-3, #167), the sound spike that said go (WP-WEB-4, #171), the wallpaper named *Quill Afterglow* (WP-WEB-6, #175 and #180), 32 px icons in the remix (#179), the power state with **Turn on** (SITE-40, #183), the host link's specification and codecs (WP-HOST-2, #181), the pointer module (WP-PTR-1, #177), paste undo and the cut guard (WP-ED-2, #185), the zoom fixes checked on ReactOS (#156, #163, #178), the Windows 3.x shortcut through otvdmw with its start check (#136), icon round 3 in reactos-liminal (#36) and icon round 4's art in Afterglow (afterglow-themes #64).
-- **Running now:** the host link spike (WP-HOST-1, uncommitted in `~/source/worktrees/quill/host-1`), icon round 4's first patch package (WP-ICON4-1, local branch `feat/icon-round-4` in reactos-liminal) and a remix rebuild with the round 3 pin (local commit `06e9124` on `remix/rebuild3-pin`, not pushed).
-- **Not started, and needed:** about 20 packages across four repositories (the checklist lists every one). The longest chain is the shared clipboard with Quill's own rich copy and paste, then the savers, which cross three repositories and two image builds.
+- **Running now:** the host link spike (WP-HOST-1), sound as a TypeScript package (WP-WEB-5), the rich clipboard in the editor (WP-ED-5), the Cracktro's words and the savers' guest check (WP-SCROLL, then WP-PACK-2), the status bar's first package (WP-BAR-1, not on this list) and a pointer fix for the DOS Try Quill page. In review: icon round 4's first patch package (WP-ICON4-1, reactos-liminal #38), reactos-liminal's pinned savers build (WP-PACK-3, reactos-liminal #39) and the remix pinned at icon round 3 (#193, rebuild 3 built).
+- **Not started, and needed:** about 15 packages across four repositories (the checklist lists every one). The longest chain is the shared clipboard with Quill's own rich copy and paste, then the savers, which cross three repositories and two image builds.
 - **Then:** one final build (WP-WEB-8), the owner's look in real browsers, the reactos-liminal `v0.1.0` tag, a Quill release holding the demo's data, and one merge that points Pages at it. That merge is the moment the demo goes live.
-- **Blocked on the owner today:** disk space (20 GB free on `/home`, the builders' floor), the Afterglow icon round 4 look in the image, and eleven decisions below, each with a default already taken.
+- **Blocked on the owner today:** disk space (20 to 27 GB free on `/home`, at the builders' floor), the Afterglow icon round 4 look in the image, and eleven decisions below, each with a default already taken.
 
 ## What is in the first demo, and what waits
 
@@ -42,7 +42,7 @@ Nothing here publishes anything. Every act that publishes (a tag, a release, an 
 |---|---|---|---|
 | PDF printer (File > Print to PDF, text layer) | Yes | **In** | WP-WEB-3 merged (#167); the hand-off to the page's list is WP-HOST-5 (not started) |
 | Downloads from the guest (*From the PC* list) | Yes | **In** | WP-HOST-5 (takes over WP-WEB-2), not started |
-| Sound (AC'97 from the page, on at 70 %) | Yes | **In** | WP-WEB-4 go (#171); WP-WEB-5 the typed package, not started |
+| Sound (AC'97 from the page, on at 70 %) | Yes | **In** | WP-WEB-4 go (#171); WP-WEB-5 the typed package, in progress |
 | Shared clipboard: text both ways | Yes | **In** | WP-HOST-1 running; WP-HOST-3, WP-HOST-4 not started |
 | Shared clipboard: rich text and pictures | Yes | **In** (plain text through the W9X-101 stopgap if WP-ED-6 is late) | WP-ED-5, WP-ED-6 (Win32 half), WP-HOST-7, not started |
 | File drop or pick into the guest | Yes | **In** | WP-HOST-5, not started |
@@ -51,10 +51,10 @@ Nothing here publishes anything. Every act that publishes (a tag, a release, an 
 | Shut-down and turn-on states | Yes | **In, done** | SITE-40, #183 merged |
 | Pointer fix (Follow, Capture, touch trackpad) | Yes | **In** | WP-PTR-1 merged (#177); WP-PTR-4 (ReactOS page on the module) not started; WP-PTR-5 tuning may follow launch |
 | The Try Quill DOS page on the pointer module | — | Waits (may land any time) | WP-PTR-2, WP-PTR-3 |
-| Afterglow savers (Collection, Cracktro, Ink, Maze, Twilight) and Quill Ghostwriter, none selected | Yes | **In** | WP-PACK-1 merged (savers #3); WP-PACK-2 to WP-PACK-6 not started |
-| The Cracktro's scroller words off by default | Yes (owner, 2026-11-27) | **In**, before the savers commit S | WP-SCROLL, not started |
-| New icons, round 3 | Yes | **In** | reactos-liminal #36 merged; the remix's pin moves in WP-PACK-6 (the local `remix/rebuild3-pin` commit is folded in) |
-| New icons, round 4 (Folder Options first) | Yes | **In**: WP-ICON4-1; WP-ICON4-2 if merged before the image freeze | WP-ICON4-1 running; WP-ICON4-2 not started |
+| Afterglow savers (Collection, Cracktro, Ink, Maze, Twilight) and Quill Ghostwriter, none selected | Yes | **In** | WP-PACK-1 merged (savers #3); WP-PACK-2 in progress, WP-PACK-3 in review (reactos-liminal #39), WP-PACK-4 to WP-PACK-6 not started |
+| The Cracktro's scroller words off by default | Yes (owner, 2026-11-27) | **In**, before the savers commit S | WP-SCROLL, in progress |
+| New icons, round 3 | Yes | **In** | reactos-liminal #36 merged; the remix pinned at round 3 in #193 (open; rebuild 3 built), and moved again in WP-PACK-6 |
+| New icons, round 4 (Folder Options first) | Yes | **In**: WP-ICON4-1; WP-ICON4-2 if merged before the image freeze | WP-ICON4-1 in review (reactos-liminal #38); WP-ICON4-2 not started |
 | Afterglow wallpaper naming (*Quill Afterglow* in the remix) | Yes | **In, done** | #180 merged |
 | Zoom fixes, Win16 print preview, style box | — | **In, done** | #156, #163, #165, #170, #178 |
 | Quill for Windows 3.x under WineVDM | — | **In** (slow, said on the page) | #136, `qagrr/check-win16.sh` |
@@ -71,7 +71,7 @@ Nothing here publishes anything. Every act that publishes (a tag, a release, an 
 
 ## The checklist
 
-Every package and pull request that must merge before the demo goes live, in build order within each lane. *Status* is as of 2026-11-27 at 15:40, from `gh pr list`, `git log origin/main` and the worktrees.
+Every package and pull request that must merge before the demo goes live, in build order within each lane. *Status* is as of 2026-11-27, refreshed in the evening, from `gh pr list`, `git log origin/main` and the worktrees.
 
 ### Lane A: the page and the emulator (Quill)
 
@@ -80,7 +80,7 @@ Every package and pull request that must merge before the demo goes live, in bui
 | A1 | WP-WEB-1 | Boot the saved desktop from a manifest at the plain address | Quill | **Merged** (#164) | — |
 | A2 | SITE-40 fix | Follow the guest's power: *ReactOS has shut down*, **Turn on** | Quill | **Merged** (#183) | — |
 | A3 | WP-WEB-4 | Spike: an AC'97 sound card added to v86 from the page | Quill | **Merged** (#171), verdict go | — |
-| A4 | WP-WEB-5 | Sound: the AC'97 device as a typed TypeScript package, the Sound button and slider, the state's audio registers | Quill | **Not started, unowned** (full brief below) | A1, A3 |
+| A4 | WP-WEB-5 | Sound: the AC'97 device as a typed TypeScript package, the Sound button and slider, the state's audio registers | Quill | **In progress** (a builder has it; the full brief below is what it was given) | A1, A3 |
 | A5 | WP-PTR-1 | The shared pointer module, its lab page and its measure | Quill | **Merged** (#177) | — |
 | A6 | WP-PTR-4 | Put the ReactOS page on the pointer module: Follow by default, Capture where raw counts exist, touch as a trackpad | Quill | **Not started, unowned** | A5 |
 | A7 | WP-WEB-7 | Hosting: the pin file, the Pages steps that fetch v86 and the data, the licences page | Quill | **Not started, unowned** | A1 |
@@ -92,13 +92,13 @@ Every package and pull request that must merge before the demo goes live, in bui
 | # | Package | Plain description | Repo | Status today | Needs |
 |---|---|---|---|---|---|
 | B1 | WP-HOST-2 | The link's specification, test vectors, the Rust codec and the TypeScript package's core | Quill | **Merged** (#181) | — |
-| B2 | WP-HOST-1 | Spike: the clipboard viewer chain, COM1 rates, `SetLocalTime` and display modes in the real guest, and the browsers' paste and write rules | Quill | **In progress** (worktree `host-1`, branch `spike/host-link`, uncommitted spike folder `site/try-reactos/spikes/host-link/`) | — |
+| B2 | WP-HOST-1 | Spike: the clipboard viewer chain, COM1 rates, `SetLocalTime` and display modes in the real guest, and the browsers' paste and write rules | Quill | **In progress** (worktree `host-1`, branch `spike/host-link`) | — |
 | B3 | WP-HOST-3 | The guest helper `HOSTLINK.EXE` on the disk, started at logon, owning COM1 | Quill | **Not started** (brief in host-integration.md) | B1, B2 |
 | B4 | WP-HOST-4 | The page's clipboard: the flows, the converters, the chip, the privacy rules as tests | Quill | **Not started** (can start now against a fake helper) | B1; its browser runs need B3 |
 | B5 | WP-HOST-5 | Files both ways and Print to PDF to the list (`HostPort=LINK`, W9X-100) | Quill | **Not started** | B3 |
 | B6 | WP-HOST-6 | Time sync, and Fit to window if ready | Quill | **Not started** | B3 |
 | B7 | WP-ED-2 | One Undo takes back a paste; the cut guard | Quill | **Merged** (#185) | — |
-| B8 | WP-ED-5 | The rich clipboard in the editor: the clipboard request, the 2,048-byte buffer gone | Quill | **Not started, unowned** (brief in work-packages.md) | B7 |
+| B8 | WP-ED-5 | The rich clipboard in the editor: the clipboard request, the 2,048-byte buffer gone | Quill | **In progress** (brief in work-packages.md) | B7 |
 | B9 | WP-ED-6 (Win32 half first) | The rich clipboard on Windows 95: RTF, `CF_TEXT`, `CF_DIB` | Quill | **Not started** | B8 |
 | B10 | WP-HOST-7 | Quill's rich copy and paste carried to the host, and the owner's clipboard check | Quill | **Not started** | B4, B9 (or the W9X-101 stopgap) |
 
@@ -107,14 +107,14 @@ Every package and pull request that must merge before the demo goes live, in bui
 | # | Package | Plain description | Repo | Status today | Needs |
 |---|---|---|---|---|---|
 | C1 | WP-PACK-1 | The savers' image build contract and CI | afterglow-savers | **Merged** (#3) | — |
-| C2 | WP-SCROLL | The Cracktro's scroller words off by default, with a setting | afterglow-savers | **Not started** (planned in `docs/linux-packages.md`) | — |
-| C3 | WP-PACK-2 | The savers checked in a ReactOS guest, settings dialog and sound included; its merge is the savers commit **S** | afterglow-savers | **Not started** (brief in `docs/packing.md`) | C1, C2 (so S has the words off) |
-| C4 | WP-PACK-3 | reactos-liminal builds a pinned outside Rust project with several outputs | reactos-liminal | **Not started** (brief in packing.md) | — |
+| C2 | WP-SCROLL | The Cracktro's scroller words off by default, with a setting | afterglow-savers | **In progress** (planned in `docs/linux-packages.md`) | — |
+| C3 | WP-PACK-2 | The savers checked in a ReactOS guest, settings dialog and sound included; its merge is the savers commit **S** | afterglow-savers | **In progress**, after WP-SCROLL in the same slot (brief in `docs/packing.md`) | C1, C2 (so S has the words off) |
+| C4 | WP-PACK-3 | reactos-liminal builds a pinned outside Rust project with several outputs | reactos-liminal | **In review** (reactos-liminal #39) | — |
 | C5 | WP-PACK-4 and WP-PACK-5 | The savers wired into the full and compact recipes at S, the images booted, the sizes | reactos-liminal | **Not started** (one pull request) | C3, C4 |
 | C6 | Icon round 3 | Round 3's art, the Go button and the NT namespace icons in the image | reactos-liminal | **Merged** (#36) | — |
-| C7 | WP-ICON4-1 | Icon round 4: Folder Options first, then everything today's patchers write | reactos-liminal | **In progress** (worktree `icons4`, branch `feat/icon-round-4`, local) | afterglow-themes #64 (merged) |
+| C7 | WP-ICON4-1 | Icon round 4: Folder Options first, then everything today's patchers write | reactos-liminal | **In review** (reactos-liminal #38) | afterglow-themes #64 (merged) |
 | C8 | WP-ICON4-2 | Icon round 4: patcher changes for 22 and 256 px frames, 24 px groups, the newer strip header | reactos-liminal | **Not started** | C7 |
-| C9 | WP-PACK-6 | The remix pins reactos-liminal after C5 and C7, adds Ghostwriter, rebuilds and checks its parts and state | Quill | **Not started** (brief in packing.md); folds in `remix/rebuild3-pin` | C5, C7 (C8 if the owner waits for it) |
+| C9 | WP-PACK-6 | The remix pins reactos-liminal after C5 and C7, adds Ghostwriter, rebuilds and checks its parts and state | Quill | **Not started** (brief in packing.md); the round 3 pin and rebuild 3 are #193, open | C5, C7 (C8 if the owner waits for it) |
 
 ### Lane D: the release and going live
 
@@ -129,7 +129,7 @@ Every package and pull request that must merge before the demo goes live, in bui
 | D7 | Owner | **Merge the pin pull request**: Pages deploys with the data, and the demo is live | Quill | Waiting | D6 |
 | D8 | Agent, then owner | Run the live smoke check; the owner posts the courtesy note and the announcements | — | Waiting | D7 |
 
-Open pull requests today that are **not** on this list: Quill #187 (WinUI real window plan), #188 (Unicode plan), #189 (module interface), #190 (print set). None blocks the demo. #188's freeze (WP-ED-10 and WP-ED-11) must not start in `quill-app` before WP-ED-5 has merged, or the clipboard lane waits behind it.
+Merged since the first draft and **not** on this list: Quill #187 (WinUI real window plan), #188 (Unicode plan), #189 (the module interface, WP-MOD-1), #190 (the print set). Open or running and not on this list: #191 (the packed-size gate, WP-MOD-8), the status bar's first package (WP-BAR-1) and the DOS Try Quill page's pointer fix. None blocks the demo. The Unicode plan's freeze (WP-ED-10 and WP-ED-11) must not start in `quill-app` before WP-ED-5 has merged, or the clipboard lane waits behind it.
 
 ## Critical path
 
@@ -140,7 +140,7 @@ WP-HOST-4 (starts now) ───────────────────
                                                            │              │
 WP-SCROLL ──► WP-PACK-2 = S ─┐                             │              │
 WP-PACK-3 ───────────────────┴─► WP-PACK-4/5 ─┐            │              │
-WP-ICON4-1 (running) ──► (WP-ICON4-2) ────────┴─► WP-PACK-6 ──────────────┼─► WP-WEB-8 ─► owner's look ─► v0.1.0 tag ─► Quill release ─► pin merge = live
+WP-ICON4-1 (#38) ──► (WP-ICON4-2) ────────────┴─► WP-PACK-6 ──────────────┼─► WP-WEB-8 ─► owner's look ─► v0.1.0 tag ─► Quill release ─► pin merge = live
                                               └─► WP-LAUNCH-3 ─► build.yml rehearsal ─► v0.1.0 tag     │
 WP-WEB-5 ─────────────────────────────────────────────────────────────────┤
 WP-PTR-4 ─────────────────────────────────────────────────────────────────┤
@@ -155,7 +155,7 @@ WP-WEB-7 ──► WP-LAUNCH-1, WP-LAUNCH-2 ────────────
 
 ## Order for the builder slots
 
-Three builders and one floater at once, Opus plans and Sonnet builds. Running now: WP-HOST-1, WP-ICON4-1, and a remix rebuild. As slots free, in this order:
+Three builders and one floater at once, Opus plans and Sonnet builds. Running now: WP-HOST-1, WP-WEB-5, WP-ED-5, WP-SCROLL then WP-PACK-2, WP-BAR-1 and the DOS page's pointer fix; in review: WP-ICON4-1 (reactos-liminal #38), WP-PACK-3 (reactos-liminal #39) and the round 3 remix (#193). As slots free, in this order (items already running are skipped):
 
 1. **WP-ED-5** (critical path).
 2. **WP-WEB-5** (sound; touches only its own package and blocks of the page).
@@ -175,7 +175,7 @@ Image builds (WP-HOST-3, WP-PACK-5, WP-PACK-6, WP-WEB-8) are one at a time: each
 
 **Today.**
 
-- **1. Disk space.** `df -h /home` shows 20 GB free, the floor every builder stops at. Candidates the owner can remove (each a 4 GiB sparse image): `~/.cache/quill-reactos-liminal-work/images/qagrr.before2.img`, `~/.cache/quill-reactos-liminal-work/images/qagrr.img.prev`, the older of `~/.cache/quill-reactos-liminal-work/golden/qagrr-ad090a87cc03ff4e.img` and `qagrr-d622f74f529937e2.img`, and `~/.cache/quill-reactos-liminal-work/dist.prev`. No agent removes them.
+- **1. Disk space.** `df -h /home` showed 20 to 27 GB free on 2026-11-27, just above the 20 GB floor every builder stops at, with four image builds still to come. Candidates the owner can remove (each a 4 GiB sparse image): `~/.cache/quill-reactos-liminal-work/images/qagrr.before2.img`, `~/.cache/quill-reactos-liminal-work/images/qagrr.img.prev`, the older of `~/.cache/quill-reactos-liminal-work/golden/qagrr-ad090a87cc03ff4e.img` and `qagrr-d622f74f529937e2.img`, and `~/.cache/quill-reactos-liminal-work/dist.prev`. No agent removes them.
 - **2. The eleven decisions** in [Owner decisions](#owner-decisions); each has a default so no builder waits.
 
 **Looks, as they come.**
@@ -450,7 +450,7 @@ Two rules make every row cheap: published assets are never edited (a fix is a ne
 - **v86 internals.** The sound device, the power hook and the key catching use v86 0.5.473's internal API (`emulator.v86.init`, `cpu.devices.pci`, `cpu.io.ports`, the keyboard's listener phase); they hold only for that pinned build, and `PROVENANCE.md` says so. A v86 update is a planned change, never a drift.
 - **The clipboard lane's length.** Seven packages, two in `quill-app` and the Win32 shell; the stopgap (W9X-101) is the fallback, and the Unicode freeze must not start ahead of WP-ED-5.
 - **The image freeze slipping.** A late icon round or trim change after WP-PACK-6 costs a remix build and a new state; WP-ICON4-2 is the likely one (owner decision 3).
-- **Disk space.** At the 20 GB floor today; four image builds remain.
+- **Disk space.** Near the 20 GB floor (20 to 27 GB free on 2026-11-27); four image builds remain.
 - **Browsers change their rules.** The 5 s write window, the promised write and the Paste prompts differ by browser and version; the page decides by feature and keeps the buttons.
 - **Licences and trademarks.** No ReactOS trademark policy covers remasters; the courtesy note asks. The WineVDM release ReactOS 0.4.16 installs is not yet named. A complaint is handled by the rollback's third row.
 - **Untested Safari.** Safari has not been run on any device; the pages' Safari paths are the documented ones only.
@@ -666,8 +666,8 @@ actionlint). PR title: "Get the v0.1.0 release ready".
 
 ## What was not verified
 
-- That WP-HOST-1's spike is still running (its folder was last written at 14:48; no pull request exists) and what it has found.
-- WP-ICON4-1's progress beyond its local branch, and whether the remix rebuild writing `qagrr.img` at 15:37 is the round 3 pin's.
+- What WP-HOST-1's spike has found (no pull request yet), and how far WP-WEB-5, WP-ED-5, WP-SCROLL and WP-PACK-2 have got.
+- Reactos-liminal #38 and #39 and Quill #193 were read by title and state only, not reviewed.
 - Any number for the final build: sizes, first-start bytes and time with sound, the helper and the savers included.
 - Any browser other than headless Chromium and Firefox on this machine; any phone; Safari anywhere.
 - Pages' behaviour under real load, and whether GitHub's soft bandwidth limit is enforced by throttling or by mail.
