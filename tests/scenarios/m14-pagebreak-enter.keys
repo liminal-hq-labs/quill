@@ -1,0 +1,15 @@
+# M14: the paragraph Enter creates never carries "page break before" (CORE-41). "Chapter two." starts page 2; the status line shows the
+# caret's page, which stays 2 after Enter at the end and in the middle, and Enter at the start leaves an empty paragraph above that
+# is not a break of its own: the text keeps the one break, and the empty paragraph sits at the foot of page 1.
+@copy pgbreak.rtf
+@open PGBREAK.RTF
+down end                        # the end of "Chapter two.", page 2
+enter                           # the new paragraph is on page 2, not page 3
+x enter                         # and one more
+up up home right right right    # into "Chapter two."
+enter                           # split: both halves on page 2
+bspace                          # joined again
+home enter                      # at the start: an empty paragraph above, the text still on page 2
+bspace                          # the empty paragraph goes
+f10 end enter                   # File > Exit
+n                               # without saving

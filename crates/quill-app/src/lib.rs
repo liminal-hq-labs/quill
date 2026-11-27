@@ -1387,6 +1387,8 @@ impl<M: Measure + Clone> App<M> {
 			self.doc.body.begin_group(label::TYPING);
 			self.typing = true;
 		}
+		let caret_before = self.caret;
+		let para_start = self.para_start(s, caret_before);
 		self.want_x = -1;
 		// Overtype replaces the character after the caret, except a paragraph mark.
 		if self.overtype
@@ -1417,12 +1419,48 @@ impl<M: Measure + Clone> App<M> {
 			Err(_) => self.msg.set("The document is too large for Quill."),
 		}
 		if c == 0x0D {
+			self.clear_start_flags(s, para_start, caret_before);
 			if let Some(n) = next {
 				let at = self.caret;
 				self.apply_preset(s, n, at, at);
 			}
 			self.end_typing();
 			self.typing_fmt = None;
+		}
+	}
+
+	/// After Enter split the paragraph that began at `para_start` at `split` (CORE-41): "page break before" and "restart numbering"
+	/// belong to where a paragraph starts, so they stay with the first paragraph that holds text and the new one never carries them.
+	/// Enter at the start leaves an empty paragraph above, which takes none; otherwise the second half takes none. Runs inside the
+	/// Enter's undo group.
+	fn clear_start_flags<S: Store + ?Sized>(&mut self, s: &mut S, para_start: u32, split: u32) {
+		const START_ONLY: u16 = 0b1010;
+		// The paragraph that must not carry them: the empty one above, or the half after the new mark.
+		let (from, mark_at) = if split == para_start {
+			(split, split)
+		} else {
+			let Some(m) = self.para_mark(s, split + 1) else {
+				return;
+			};
+			(split + 1, m)
+		};
+		let Some(mut pf) = self
+			.doc
+			.body
+			.pfmt_at(s, mark_at)
+			.and_then(|i| self.doc.pfmts.get(s, i))
+		else {
+			return;
+		};
+		if pf.flags & START_ONLY == 0 {
+			return;
+		}
+		pf.flags &= !START_ONLY;
+		if let Ok(idx) = self.doc.pfmts.intern(s, pf) {
+			let _ = self
+				.doc
+				.body
+				.set_pfmt(s, from, mark_at + 1 - from, idx, label::PARA_FORMAT);
 		}
 	}
 
