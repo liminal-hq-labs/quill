@@ -1,0 +1,7 @@
+# G17: the recovery question on the graphics screen: the same words in a dialog of bevelled buttons, the focus moved with Tab, and a
+# click on Recover. The copy is the old QUILL.RCV in `RECOVER\`.
+@recovery
+@copy quill.rcv RECOVER\
+@stamp RECOVER\QUILL.RCV 2025-01-01 00:00
+tab
+@click 130 280        # Recover

@@ -1,0 +1,6 @@
+# M17: Esc is Later: the copy stays where it is and the editor opens empty. Typing then works.
+@recovery
+@copy quill.rcv RECOVER\
+@stamp RECOVER\QUILL.RCV 2025-01-01 00:00
+esc
+h i

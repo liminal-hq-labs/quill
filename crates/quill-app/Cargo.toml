@@ -27,6 +27,10 @@ dot-files = []
 # client, off for the Windows builds, whose `QUILL.EXE` and `QUILL32.EXE` use the system's dialogs and must not link it.
 text-file-dialog = []
 
+# The recovery question in a box of the app's own cells (`Mode::Recover`), for the DOS screens and the host that plays them; the Windows
+# builds ask it in a message box and must not link it.
+text-recovery = []
+
 [package.metadata.quill]
 layer = "editor"
 no_std = true

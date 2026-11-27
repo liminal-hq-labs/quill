@@ -297,11 +297,16 @@ impl Files for MemFiles {
 	}
 
 	fn stamp(&mut self, name: &[u8]) -> Option<Stamp> {
-		let n = key_name(name);
+		let n = self.find(name)?;
 		let size = self.files.get(&n)?.len() as u32;
+		let time = self.times.get(&n).copied().or_else(|| {
+			self.stamps
+				.get(&n)
+				.map(|(date, time)| u32::from(*date) << 16 | u32::from(*time))
+		});
 		Some(Stamp {
 			size,
-			time: self.times.get(&n).copied().unwrap_or(0),
+			time: time.unwrap_or(0),
 		})
 	}
 
@@ -421,6 +426,8 @@ pub struct Script {
 	/// The seed of a random idle schedule (`@sched seed=N`): idle passes of random sizes run after each step, and the frames and files
 	/// must not change.
 	pub sched: Option<u32>,
+	/// `@recovery`: the recovery protocol is on, as the DOS screens run it, and the launch check has run before the first frame.
+	pub recovery: bool,
 }
 
 /// Reads a script: tokens separated by white space, `#` starting a comment to the end of the line.
@@ -456,6 +463,7 @@ pub fn parse_script(text: &str) -> Script {
 					}
 				}
 				"@open" => sc.open = it.next().map(str::to_string),
+				"@recovery" => sc.recovery = true,
 				"@dialog" => sc.dialog = true,
 				"@prompt" => sc.dialog = false,
 				"@copy" => {
@@ -612,7 +620,13 @@ fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &
 	let mut app = App::new();
 	app.reset(&mut s).unwrap();
 	app.set_spell_live_default(script.live);
-	app.load_settings(files);
+	if script.recovery {
+		app.configure_recovery(10, 0, false);
+		app.set_recovery(true);
+		app.load_settings_with(&mut s, files);
+	} else {
+		app.load_settings(files);
+	}
 	app.set_about("Host test run");
 	app.set_file_dialog(script.dialog);
 	let places: Vec<(&[u8], &[u8])> = script
@@ -624,6 +638,10 @@ fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &
 	app.set_rows(ROWS - 2);
 	if script.mono {
 		app.set_scheme(quill_app::Scheme::Mono);
+	}
+	if script.recovery {
+		app.recovery_check_launch(&mut s, files);
+		app.recovery_prompt(&mut s, files);
 	}
 	if let Some(name) = &script.open {
 		app.open(&mut s, files, name.as_bytes()).unwrap();
@@ -690,6 +708,10 @@ fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &
 			break;
 		}
 	}
-	app.save_settings(files);
+	if script.recovery {
+		app.save_settings_with(&s, files);
+	} else {
+		app.save_settings(files);
+	}
 	let _ = writeln!(frames, "=== end ===");
 }

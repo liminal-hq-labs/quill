@@ -66,7 +66,13 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 	stage(&mut files, &sc, &root().join("tests/docs"));
 	let (mut app, mut s, _) = new_app();
 	app.set_spell_live_default(sc.live);
-	app.load_settings(&mut files);
+	if sc.recovery {
+		app.configure_recovery(10, 1, false);
+		app.set_recovery(true);
+		app.load_settings_with(&mut s, &mut files);
+	} else {
+		app.load_settings(&mut files);
+	}
 	app.set_about("Host test run");
 	// The shell shows the file dialog as the DOS graphics shell does, unless the scenario brings the name prompt back (`@prompt`).
 	app.set_file_dialog(sc.dialog);
@@ -78,6 +84,10 @@ fn play_file(mode: Mode, name: &str) -> (Vec<Frame>, MemFiles) {
 		.collect();
 	app.set_file_places(&places);
 	shell::sync_view(&mut app, &s);
+	if sc.recovery {
+		app.recovery_check_launch(&mut s, &mut files);
+		app.recovery_prompt(&mut s, &mut files);
+	}
 	if let Some(open) = sc.open.as_deref() {
 		app.open(&mut s, &mut files, open.as_bytes()).unwrap();
 	}
@@ -164,6 +174,7 @@ fn golden_of(mode: Mode, name: &str) -> Vec<Frame> {
 		"g9-gfx-open" => &[("dialog", 4), ("types", 6), ("sorted", 14)],
 		"g9-gfx-open-mouse" => &[("picked", 5), ("scrolled", 20), ("types", 31)],
 		"g9-gfx-save-as-mouse" => &[("new-folder", 7), ("read-only", 14), ("replace", 19)],
+		"g17-gfx-recover" => &[("question", 1), ("focus", 2), ("recovered", 3)],
 		"g9-gfx-save-as" => &[
 			("dialog", 6),
 			("new-folder", 7),
@@ -199,7 +210,11 @@ fn golden_of(mode: Mode, name: &str) -> Vec<Frame> {
 			&png,
 		);
 	}
-	if !name.starts_with("g7-") && !name.starts_with("g9-") && name != "g10-gfx-spell" {
+	if !name.starts_with("g7-")
+		&& !name.starts_with("g9-")
+		&& !name.starts_with("g17-")
+		&& name != "g10-gfx-spell"
+	{
 		let text =
 			std::fs::read_to_string(root().join(format!("tests/scenarios/{name}.keys"))).unwrap();
 		let opened = parse_script(&text).open.unwrap().to_ascii_uppercase();
@@ -587,6 +602,16 @@ fn the_rulers_tab_kind_button_at_16_colours() {
 #[test]
 fn the_rulers_tab_kind_button_at_256_colours() {
 	golden_of(Mode::C256, "g8-gfx-ruler");
+}
+
+#[test]
+fn the_recovery_question_at_16_colours() {
+	golden_of(Mode::C16, "g17-gfx-recover");
+}
+
+#[test]
+fn the_recovery_question_at_256_colours() {
+	golden_of(Mode::C256, "g17-gfx-recover");
 }
 
 #[test]

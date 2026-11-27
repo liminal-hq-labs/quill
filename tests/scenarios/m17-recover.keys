@@ -1,0 +1,9 @@
+# M17: the copy of a document that was open when the last session stopped is offered back at launch. The old QUILL.RCV in the central
+# folder is the copy; the question has Recover, Discard and Later, Tab and the arrow keys move between them and a letter presses one.
+# Recover opens the copy as the untitled document with its text.
+@recovery
+@copy quill.rcv RECOVER\
+@stamp RECOVER\QUILL.RCV 2025-01-01 00:00
+tab right left        # Discard, Later, Discard
+left                  # Recover
+r                     # Recover: the text of the copy is on the screen
