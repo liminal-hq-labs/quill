@@ -30,6 +30,7 @@ Quill saves its own [.QLD files](!qld) and reads and writes Rich Text Format (.R
 # Keyboard shortcuts
 - Ctrl+N new, Ctrl+O open, Ctrl+S save
 - Ctrl+X cut, Ctrl+C copy, Ctrl+V paste
+- Ctrl+0 Page Width (Alt+0 on DOS)
 - F7 checks the spelling
 - F1 opens this help
 [Back to the contents](start).

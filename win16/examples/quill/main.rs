@@ -29,7 +29,7 @@ use quill_app::cmdline;
 use quill_app::recovery::Why;
 use quill_app::{Command, Dir, Files, Key, SaveMode, Scheme};
 use quill_chrome::view::{self, Act, Hit};
-use quill_chrome::zoom_field::{ZoomPart, zoom_step};
+use quill_chrome::zoom_field::{ZoomPart, reset_live, zoom_step};
 use quill_formats::io::{Sink, Source};
 use quill_grid::Grid;
 use store::FarStore;
@@ -634,14 +634,11 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 			#[cfg(feature = "bench")]
 			bench::add(bench::STATUS, 1);
 			let mut t = [0u8; 96];
-			let hint = tips::hint();
-			let n = if hint.is_empty() {
+			let hint = tips::hint(&mut t);
+			let n = if hint == 0 {
 				quill_app::status_text(app, s, &mut t)
 			} else {
-				let n = hint.len().min(t.len());
-				t.get_mut(..n)
-					.map(|d| d.copy_from_slice(hint.as_bytes().get(..n).unwrap_or(&[])));
-				n
+				hint
 			};
 			let mut zoom = [0u8; quill_chrome::zoom_field::ZOOM_TEXT_MAX];
 			let zn = app.zoom_field_text(&mut zoom);
@@ -652,6 +649,7 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 				t.get(..n).unwrap_or(&[]),
 				zoom.get(..zn).unwrap_or(&[]),
 				zoom_now(lay.page_w),
+				app.zoom(),
 			);
 		}
 		RestoreDC(dc, saved);
@@ -1448,7 +1446,7 @@ fn mouse_move(hwnd: u32, x: i32, y: i32) {
 }
 
 /// Which part of the zoom control, if any, the point (`x`, `y`) in the client area is on.
-fn zoom_part_at(hwnd: u32, x: i32, y: i32) -> Option<ZoomPart> {
+pub(crate) fn zoom_part_at(hwnd: u32, x: i32, y: i32) -> Option<ZoomPart> {
 	if !app().show_status() || sh().grid {
 		return None;
 	}
@@ -1484,6 +1482,12 @@ fn mouse_up(hwnd: u32, x: i32, y: i32) {
 					let shown = zoom_now(page_w(hwnd));
 					if let Some(c) = zoom_step(shown, down == ZoomPart::Plus) {
 						run_command(hwnd, c);
+					}
+				}
+				// Page Width, unless it is already (the button is greyed).
+				ZoomPart::Reset => {
+					if reset_live(app.zoom()) {
+						run_command(hwnd, Command::Zoom(0));
 					}
 				}
 			}

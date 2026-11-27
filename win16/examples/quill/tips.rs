@@ -11,6 +11,7 @@
 //! The popup's colours come from the parent's `WM_CTLCOLOR`, answered in `main.rs` with `tip_brush`.
 
 use quill_chrome::view::{self, Act};
+use quill_chrome::zoom_field::ZoomPart;
 use w16::*;
 
 use crate::chrome;
@@ -38,6 +39,8 @@ enum Target {
 	Button(u8, i32),
 	/// One of the drop-down boxes: 0 style, 1 face, 2 size.
 	Combo(u8),
+	/// A part of the zoom control on the status bar.
+	Zoom(ZoomPart),
 }
 
 struct Tip {
@@ -100,6 +103,9 @@ fn target_at(hwnd: u32, app: &QApp) -> Target {
 		ScreenToClient(hwnd, np(pt.as_mut_ptr()));
 	}
 	let (x, y) = (i32::from(pt[0] as i16), i32::from(pt[1] as i16));
+	if let Some(part) = crate::zoom_part_at(hwnd, x, y) {
+		return Target::Zoom(part);
+	}
 	match view::button_at(app, x, y) {
 		Some((b, _)) => Target::Button(b.row, b.x),
 		None => Target::None,
@@ -115,21 +121,62 @@ fn button(row: u8, x: i32) -> Option<view::Button> {
 		.copied()
 }
 
-/// The tooltip's text, and the sentence for the status bar.
-fn words(t: Target) -> (&'static str, &'static str) {
+/// The string resources of the zoom parts' words: the tooltips are 31 to 34 and the status sentences 35 to 38, each in the order
+/// Page Width, minus, box, plus (`resources.json`; the data segment has no room for them as strings in the program).
+fn zoom_string(part: ZoomPart, sentence: bool) -> u32 {
+	let place = match part {
+		ZoomPart::Reset => 0,
+		ZoomPart::Minus => 1,
+		ZoomPart::Field => 2,
+		ZoomPart::Plus => 3,
+	};
+	31 + place + if sentence { 4 } else { 0 }
+}
+
+/// Loads a string resource into the start of `out` and returns its length.
+fn load(id: u32, out: &mut [u8]) -> usize {
+	let n = unsafe { LoadString(w16::HINST, id, np(out.as_mut_ptr()), out.len() as u32) } as usize;
+	n.min(out.len())
+}
+
+/// Copies `text` to the start of `out` and returns the length.
+fn copy(text: &str, out: &mut [u8]) -> usize {
+	let n = text.len().min(out.len());
+	if let (Some(d), Some(s)) = (out.get_mut(..n), text.as_bytes().get(..n)) {
+		d.copy_from_slice(s);
+	}
+	n
+}
+
+/// The tooltip's text, put at the start of `out`: its length.
+fn tip_text(t: Target, out: &mut [u8]) -> usize {
 	match t {
-		Target::None => ("", ""),
-		Target::Combo(i) => (quill_app::combo_tip(i), quill_app::combo_hint(i)),
+		Target::None => 0,
+		Target::Combo(i) => copy(quill_app::combo_tip(i), out),
 		Target::Button(row, x) => match button(row, x).map(|b| b.act) {
-			Some(Act::Cmd(c)) => (quill_app::command_tip(c), quill_app::command_hint(c)),
-			_ => (quill_app::COLOUR_TIP, quill_app::COLOUR_HINT),
+			Some(Act::Cmd(c)) => copy(quill_app::command_tip(c), out),
+			_ => copy(quill_app::COLOUR_TIP, out),
 		},
+		Target::Zoom(part) => load(zoom_string(part, false), out),
 	}
 }
 
-/// The status-bar sentence for what the pointer rests on, or an empty string.
-pub fn hint() -> &'static str {
-	words(tip().target).1
+/// The sentence for the status bar, put at the start of `out`: its length, 0 when the pointer rests on nothing.
+fn hint_text(t: Target, out: &mut [u8]) -> usize {
+	match t {
+		Target::None => 0,
+		Target::Combo(i) => copy(quill_app::combo_hint(i), out),
+		Target::Button(row, x) => match button(row, x).map(|b| b.act) {
+			Some(Act::Cmd(c)) => copy(quill_app::command_hint(c), out),
+			_ => copy(quill_app::COLOUR_HINT, out),
+		},
+		Target::Zoom(part) => load(zoom_string(part, true), out),
+	}
+}
+
+/// The status-bar sentence for what the pointer rests on, at the start of `out`: its length, or 0.
+pub fn hint(out: &mut [u8]) -> usize {
+	hint_text(tip().target, out)
 }
 
 /// Takes the tip away.
@@ -149,12 +196,23 @@ pub fn dismiss() {
 	t.ticks = 0;
 }
 
+/// Where part `part` of the zoom control sits in a bar `width` wide: its `left..right`.
+fn zoom_range(width: i32, part: ZoomPart) -> (i32, i32) {
+	chrome::zoom_layout(width).map_or((0, 0), |l| match part {
+		ZoomPart::Minus => l.minus,
+		ZoomPart::Field => l.field,
+		ZoomPart::Plus => l.plus,
+		ZoomPart::Reset => l.reset,
+	})
+}
+
 /// Pops the tip up under the button or box.
-fn show(hwnd: u32, app: &QApp, t: Target, text: &str) {
+fn show(hwnd: u32, app: &QApp, t: Target) {
 	let c = chrome::chrome();
 	let mut at = [0u16; 2];
-	// Under the toolbar button, or under the box.
+	// Under the toolbar button, or under the box; a part of the zoom control is on the bottom line, so its tip goes above it.
 	let (x, y) = match t {
+		Target::Zoom(_) => (0, 0),
 		Target::Button(row, bx) => {
 			let (h0, _) = view::rows(app);
 			let top = if row == 0 { 0 } else { h0 };
@@ -172,10 +230,8 @@ fn show(hwnd: u32, app: &QApp, t: Target, text: &str) {
 	at[0] = x as u16;
 	at[1] = y as u16;
 	let mut buf = [0u8; 40];
-	let n = text.len().min(36);
+	let n = tip_text(t, buf.get_mut(1..37).unwrap_or(&mut []));
 	buf[0] = b' ';
-	buf.get_mut(1..=n)
-		.map(|d| d.copy_from_slice(text.as_bytes().get(..n).unwrap_or(&[])));
 	buf[n + 1] = b' ';
 	let len = n + 2;
 	unsafe {
@@ -187,6 +243,13 @@ fn show(hwnd: u32, app: &QApp, t: Target, text: &str) {
 		ReleaseDC(hwnd, dc);
 		let w = i32::from(ext as u16) + 6;
 		let h = i32::from((ext >> 16) as u16) + 4;
+		if let Target::Zoom(part) = t {
+			let (cw, ch) = crate::client_size(hwnd);
+			let (left, _) = zoom_range(cw, part);
+			at[0] = left.min(cw - w).max(0) as u16;
+			at[1] = (ch - chrome::status_h() - h - 2).max(0) as u16;
+			ClientToScreen(hwnd, np(at.as_mut_ptr()));
+		}
 		let tw = CreateWindow(
 			cs!("STATIC"),
 			np(buf.as_ptr()),
@@ -234,8 +297,7 @@ pub fn tick(hwnd: u32, app: &QApp) -> bool {
 	if now != Target::None && !t.quiet && t.wnd == 0 {
 		t.ticks += 1;
 		if t.ticks >= DELAY {
-			let (text, _) = words(now);
-			show(hwnd, app, now, text);
+			show(hwnd, app, now);
 		}
 	}
 	false

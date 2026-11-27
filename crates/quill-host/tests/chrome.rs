@@ -173,3 +173,23 @@ fn the_demo_documents_read_heading_1_and_normal() {
 		assert!(normal >= 3, "{name}: only {normal} Normal readings");
 	}
 }
+
+#[test]
+fn the_win16_string_resources_hold_the_zoom_tables_words() {
+	use quill_chrome::zoom_field::{zoom_hint, zoom_tip, ZoomPart};
+	// Windows 3.x loads the zoom parts' tooltips (31 to 34) and sentences (35 to 38) from its string table, in the order Page Width,
+	// minus, box, plus, because its data segment has no room for a second copy; the table in `zoom_field` is the one source.
+	let resources = include_str!("../../../win16/examples/quill/resources.json");
+	let order = [
+		ZoomPart::Reset,
+		ZoomPart::Minus,
+		ZoomPart::Field,
+		ZoomPart::Plus,
+	];
+	for (place, part) in order.into_iter().enumerate() {
+		let tip = format!("\"{}\": \"{}\"", 31 + place, zoom_tip(part));
+		let hint = format!("\"{}\": \"{}\"", 35 + place, zoom_hint(part));
+		assert!(resources.contains(&tip), "{tip}");
+		assert!(resources.contains(&hint), "{hint}");
+	}
+}

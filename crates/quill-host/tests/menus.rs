@@ -171,6 +171,12 @@ fn the_windows_key_table_covers_the_shortcuts_the_menus_list() {
 		from_vk(0x08, false, false, true),
 		Some(Accel::Command(Command::Undo))
 	);
+	// Ctrl+0 is Page Width, the key the View > Zoom item shows (CORE-206).
+	assert_eq!(
+		from_vk(0x30, true, false, false),
+		Some(Accel::Command(Command::Zoom(0)))
+	);
+	assert_eq!(from_vk(0x30, false, false, false), None);
 	assert_eq!(
 		from_vk(0x31, true, false, false),
 		Some(Accel::Command(Command::Spacing(0)))
@@ -205,6 +211,25 @@ fn the_windows_key_table_covers_the_shortcuts_the_menus_list() {
 	);
 	// A plain letter is text.
 	assert_eq!(from_vk(0x49, false, false, false), None);
+}
+
+#[test]
+fn alt_0_from_the_bios_is_page_width_and_opens_no_menu() {
+	// INT 16h gives AL 0, AH 81h for Alt+0 on the DOS screens (DOS-105).
+	assert_eq!(bios::decode(0, 0x81), Some(Key::Alt(b'0')));
+	let (mut app, mut s, mut f) = setup();
+	app.set_zoom(150);
+	app.key(&mut s, &mut f, bios::decode(0, 0x81).unwrap());
+	assert_eq!(app.zoom(), 0);
+	assert!(app.menu_open().is_none(), "no menu opened");
+	assert!(app.file_view().is_none(), "no dialog opened");
+	// The View > Zoom > Page Width item shows the key on the Windows builds.
+	let key = (0..quill_app::MENU_COUNT)
+		.flat_map(|m| quill_app::menu_items_for(m, true).iter())
+		.flat_map(|it| it.sub.iter())
+		.find(|it| it.command == quill_app::Command::Zoom(0))
+		.map(|it| it.accel);
+	assert_eq!(key, Some("Ctrl+0"));
 }
 
 #[test]

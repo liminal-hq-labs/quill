@@ -8,8 +8,9 @@
 #
 # Checks that the minus and plus buttons step the levels and grey at the ends; that the box shows the zoom the view starts with; that a click on it opens the list of levels and Escape closes it without a
 # change; that choosing 75% from the list (by the keys) changes the page, the box and `[Quill] Zoom` in `QUILL.INI`; that choosing
-# Page Width puts the first back; that a click on the status bar anywhere else opens nothing; and that a screen too narrow for the
-# box leaves it out, so a click at the right end opens nothing. Needs wine, Xvfb, xdotool and ImageMagick; exits 0 with a note when
+# Page Width puts the first back; that the Page Width button and Ctrl+0 set Page Width and the button greys there; that each part shows
+# its tooltip and its hint and loses both when the pointer leaves; that a click on the status bar anywhere else opens nothing; and
+# that a screen too narrow for the control (under 622 pixels) leaves it out, so a click at the right end opens nothing. Needs wine, Xvfb, xdotool and ImageMagick; exits 0 with a note when
 # they are missing. Uses its own display (QUILL_ZOOM_DISPLAY, default :181) and a WINEPREFIX of its own under the cache directory.
 # Local only: Wine paces it.
 set -euo pipefail
@@ -51,6 +52,11 @@ differ_box() {
 	$IM "$WORK/$2.png" -crop "$3x$4+$5+$6" +repage "$WORK/cb.png"
 	compare -metric AE "$WORK/ca.png" "$WORK/cb.png" null: 2>&1 | cut -d' ' -f1 | cut -d. -f1 || true
 }
+# Takes the pointer off the status bar, so no tooltip or hint is showing when a screenshot is taken.
+park() {
+	xdotool mousemove 300 200
+	sleep 1.5
+}
 # The Zoom value in QUILL.INI, or "none".
 ini_zoom() {
 	[ -f "$INI" ] || return 0
@@ -74,11 +80,13 @@ done
 [ -n "$id" ] || fail "no Quill window"
 sleep 5
 xdotool windowfocus "$id" 2> /dev/null || true
-# The control is the last 128 pixels of the status bar, the bottom 18 pixels of the 640 by 480 screen: a minus button (512 to 532),
-# the box (532 to 604), a plus button (604 to 624) and the margin with the size grip (624 to 640).
-MINUS_X=522
-BOX_X=568
-PLUS_X=614
+# The control is the last 150 pixels or so of the status bar, the bottom 18 pixels of the 640 by 480 screen: a minus button, the box
+# (as wide as `Page Width` in the system font needs, about 70 pixels), a plus button (570 to 590 less the box's slack), the Page Width
+# button (602 to 624) and the margin with the size grip (624 to 640). The centres below sit inside their parts for a box 64 to 76 wide.
+MINUS_X=501
+BOX_X=545
+PLUS_X=589
+RESET_X=610
 MARGIN_X=634
 BOX_Y=466
 # The list opens above the box, over the page's right edge.
@@ -95,6 +103,7 @@ read -r lw lh lx ly <<< "$LIST"
 [ "$(differ_box start open "$lw" "$lh" "$lx" "$ly")" -gt 500 ] || fail "a click on the zoom box opened no list"
 xdotool key Escape
 sleep 1
+park
 shot escaped
 [ "$(differ start escaped)" -eq 0 ] || fail "Escape left the window changed ($(differ start escaped) pixels)"
 [ "$(ini_zoom)" = "" ] || fail "Escape changed the zoom"
@@ -108,10 +117,11 @@ sleep 1
 shot highlighted
 xdotool key Return
 sleep 2
+park
 shot z75
 [ "$(ini_zoom)" = "75" ] || fail "choosing 75% left Zoom=$(ini_zoom) in QUILL.INI"
 [ "$(differ_box start z75 600 300 10 130)" -gt 500 ] || fail "the page did not change at 75%"
-[ "$(differ_box start z75 72 14 532 458)" -gt 50 ] || fail "the box's text did not change"
+[ "$(differ_box start z75 60 14 518 458)" -gt 50 ] || fail "the box's text did not change"
 echo "wine-zoom: choosing 75% sets Zoom=75, redraws the page and the box"
 
 # 3. The list ticks the current level: Down once and Return on the first entry goes back to Page Width.
@@ -121,6 +131,7 @@ shot open75
 xdotool key Down
 xdotool key Return
 sleep 2
+park
 shot width
 [ "$(ini_zoom)" = "Width" ] || fail "choosing Page Width left Zoom=$(ini_zoom)"
 [ "$(differ start width)" -eq 0 ] || fail "Page Width does not look like the start ($(differ start width) pixels)"
@@ -131,6 +142,7 @@ echo "wine-zoom: Page Width brings the first window back"
 step() {
 	xdotool mousemove "$1" "$BOX_Y" click 1
 	sleep 1
+	park
 }
 step "$PLUS_X"
 shot plus100
@@ -154,7 +166,7 @@ shot minus-bottom-click
 [ "$(differ minus-bottom minus-bottom-click)" -eq 0 ] || fail "minus at 50% changed the window"
 [ "$(ini_zoom)" = "50" ] || fail "minus at 50% left Zoom=$(ini_zoom)"
 # The greyed button looks different from the live one, and a click on the margin does nothing.
-[ "$(differ_box plus-top minus-bottom 20 14 512 458)" -gt 5 ] || fail "the minus button is not greyed at 50%"
+[ "$(differ_box plus-top minus-bottom 20 14 492 458)" -gt 5 ] || fail "the minus button is not greyed at 50%"
 step "$MARGIN_X"
 [ "$(ini_zoom)" = "50" ] || fail "a click on the margin changed the zoom"
 echo "wine-zoom: plus and minus step through the levels and grey at the ends"
@@ -163,16 +175,58 @@ sleep 1
 xdotool key Down
 xdotool key Return
 sleep 2
+park
 shot back-to-width
 [ "$(ini_zoom)" = "Width" ] || fail "Page Width from the list left Zoom=$(ini_zoom)"
 # The page's scroll position may differ after a trip through 200 percent, so only the status bar is compared.
 [ "$(differ_box start back-to-width 640 18 0 462)" -eq 0 ] || fail "the status bar does not look like the start's again"
 
+# 4b. The Page Width button: from 100 percent it sets Page Width (the first window's status bar again) and is greyed there, so a
+# second click does nothing; Ctrl+0 does the same from the keyboard.
+step "$PLUS_X"
+[ "$(ini_zoom)" = "100" ] || fail "plus from Page Width left Zoom=$(ini_zoom), not 100"
+shot live-reset
+step "$RESET_X"
+shot reset
+[ "$(ini_zoom)" = "Width" ] || fail "the Page Width button left Zoom=$(ini_zoom)"
+[ "$(differ_box start reset 640 18 0 462)" -eq 0 ] || fail "the status bar does not look like the start's after the Page Width button"
+[ "$(differ_box live-reset reset 22 14 $((RESET_X - 11)) 458)" -gt 5 ] || fail "the Page Width button is not greyed at Page Width"
+step "$RESET_X"
+shot reset-click
+[ "$(differ reset reset-click)" -eq 0 ] || fail "the greyed Page Width button changed the window"
+step "$PLUS_X"
+xdotool key ctrl+0
+sleep 2
+[ "$(ini_zoom)" = "Width" ] || fail "Ctrl+0 left Zoom=$(ini_zoom), not Width"
+echo "wine-zoom: the Page Width button and Ctrl+0 set Page Width, and the button greys there"
+
+# 4c. Tooltips and hints: the pointer resting on a part shows its tooltip above the status bar and its sentence in the first pane;
+# moving off takes both away.
+for part in MINUS BOX PLUS RESET; do
+	eval "px=\$${part}_X"
+	xdotool mousemove 300 200
+	sleep 1
+	shot "tip-before-$part"
+	xdotool mousemove "$((px - 2))" "$BOX_Y" mousemove "$px" "$BOX_Y"
+	sleep 3
+	shot "tip-$part"
+	[ "$(differ_box "tip-before-$part" "tip-$part" 200 18 0 462)" -gt 50 ] || fail "no hint in the first pane over the $part part"
+	[ "$(differ_box "tip-before-$part" "tip-$part" 160 22 $((px - 130)) 436)" -gt 50 ] || fail "no tooltip above the $part part"
+	xdotool mousemove 300 200
+	sleep 2
+	shot "tip-gone-$part"
+	[ "$(differ_box "tip-before-$part" "tip-gone-$part" 640 36 0 444)" -eq 0 ] || fail "the $part part's tooltip or hint stayed after the pointer left"
+done
+echo "wine-zoom: each part shows its tooltip and its hint, and both go when the pointer leaves"
+
 # 5. A click elsewhere on the status bar opens nothing.
+xdotool mousemove 300 200
+sleep 1
+shot before-elsewhere
 xdotool mousemove 60 466 click 1
 sleep 1
 shot elsewhere
-[ "$(differ back-to-width elsewhere)" -eq 0 ] || fail "a click on the status bar's message pane changed the window"
+[ "$(differ before-elsewhere elsewhere)" -eq 0 ] || fail "a click on the status bar's message pane changed the window"
 
 # 6. A screen too narrow for the box leaves it out: the window is as wide as the screen, 520 pixels, and a click at its right end opens
 # no list.

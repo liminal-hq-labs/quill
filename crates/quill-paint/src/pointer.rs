@@ -25,7 +25,7 @@ use quill_app::{menu_items_for, menu_title, App, Files, Key, Overlay, Slot, Wk, 
 use quill_chrome::view::{
 	self, log, snap, text_extent_at, Drag, Hit, RulerState, RULER_H, TOOLBAR, TWIPS_PX,
 };
-use quill_chrome::zoom_field::{zoom_step, ZoomPart};
+use quill_chrome::zoom_field::{reset_live, zoom_step, ZoomPart};
 use quill_core::layout::Measure;
 use quill_core::store::{ReadStore, Store};
 use quill_dlg::filedlg::Point;
@@ -75,7 +75,7 @@ enum Cap {
 	Button { i: usize, over: bool },
 	/// A dialog's button, check box or radio button is held.
 	Widget { idx: usize, over: bool },
-	/// The minus or plus button of the zoom control is held; it steps when let go over it.
+	/// The minus, plus or Page Width button of the zoom control is held; it acts when let go over it.
 	Zoom { part: ZoomPart, over: bool },
 	/// A drop-down list is being tracked.
 	Pop { opened: bool },
@@ -230,6 +230,7 @@ impl Gfx {
 		button_at(&lay, x, y)
 			.map(Target::Button)
 			.or_else(|| box_at(&lay, x, y).map(Target::Box))
+			.or_else(|| zoombox::part_at(&lay, x, y).map(Target::Zoom))
 	}
 
 	/// Takes one event. True when the screen has to be drawn again: the event was a press, a release or the wheel, or it moved
@@ -996,7 +997,11 @@ impl Gfx {
 			Cap::Zoom { part, .. } => {
 				let lay = Layout::of(app);
 				if zoombox::part_at(&lay, x, y) == Some(part) {
-					if let Some(Command::Zoom(z)) =
+					if part == ZoomPart::Reset {
+						if reset_live(app.zoom()) {
+							app.set_zoom(0);
+						}
+					} else if let Some(Command::Zoom(z)) =
 						zoom_step(shell::pct(app), part == ZoomPart::Plus)
 					{
 						app.set_zoom(z);

@@ -20,6 +20,14 @@ pub fn map_key(ev: &KeyEvent) -> Option<Key> {
 		return None;
 	}
 	let m = ev.modifiers;
+	// Page Width: Ctrl+0 where the terminal reports it (the kitty protocol does) and Alt+0 where it cannot, which the editor reads as
+	// the DOS screens' Alt+0 (DOS-105).
+	if ev.code == KeyCode::Char('0')
+		&& (m.contains(KeyModifiers::CONTROL) || m.contains(KeyModifiers::ALT))
+		&& !m.contains(KeyModifiers::SUPER)
+	{
+		return Some(Key::Alt(b'0'));
+	}
 	if m.contains(KeyModifiers::ALT) || m.contains(KeyModifiers::SUPER) {
 		return None;
 	}
@@ -93,6 +101,18 @@ mod tests {
 
 	fn ev(code: KeyCode, m: KeyModifiers) -> KeyEvent {
 		KeyEvent::new(code, m)
+	}
+
+	#[test]
+	fn ctrl_0_and_alt_0_are_page_width() {
+		for m in [KeyModifiers::CONTROL, KeyModifiers::ALT] {
+			assert_eq!(map_key(&ev(KeyCode::Char('0'), m)), Some(Key::Alt(b'0')));
+		}
+		assert_eq!(
+			map_key(&ev(KeyCode::Char('0'), KeyModifiers::NONE)),
+			Some(Key::Char(b'0'))
+		);
+		assert_eq!(map_key(&ev(KeyCode::Char('1'), KeyModifiers::ALT)), None);
 	}
 
 	#[test]
