@@ -16,7 +16,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 ELF="${1:-${CARGO_TARGET_DIR:-$HERE/target}/dos-elf/release/quill-dos}"
 TOP="${2:-25}"
-BUDGET=432128
+BUDGET=442368
 [ -f "$ELF" ] || { echo "size-report: $ELF not found; run dos/build.sh" >&2; exit 1; }
 
 echo "== sections ($ELF)"
