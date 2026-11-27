@@ -1,0 +1,21 @@
+# quill-pdf: a PDF writer with a text layer, for Quill's Print to PDF.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-pdf"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "A no_std PDF 1.4 writer: standard 14 text fonts positioned from a layout, images, and its own deflate encoder"
+
+[dev-dependencies]
+quill-inflate = { path = "../quill-inflate" }
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = true
+float = false

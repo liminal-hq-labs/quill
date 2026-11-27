@@ -238,6 +238,7 @@ extern "system" {
 	pub fn CloseHandle(h: Handle) -> i32;
 	pub fn FlushFileBuffers(file: Handle) -> i32;
 	pub fn DeleteFileA(name: *const u8) -> i32;
+	pub fn CreateDirectoryA(path: *const u8, security: *const c_void) -> i32;
 	pub fn MoveFileA(from: *const u8, to: *const u8) -> i32;
 	pub fn GetFileSize(file: Handle, high: *mut u32) -> u32;
 	pub fn GetTickCount() -> u32;

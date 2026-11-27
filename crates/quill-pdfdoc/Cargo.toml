@@ -1,0 +1,27 @@
+# quill-pdfdoc: a laid-out Quill document as a PDF, for every shell that prints to PDF.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quill-pdfdoc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Lays a document out for a device and writes it with quill-pdf: text in the standard 14 fonts, pictures, headers, footers and fields"
+
+[dependencies]
+quill-app = { path = "../quill-app" }
+quill-core = { path = "../quill-core" }
+quill-image = { path = "../quill-image" }
+quill-pdf = { path = "../quill-pdf" }
+
+[dev-dependencies]
+quill-host = { path = "../quill-host" }
+
+[package.metadata.quill]
+layer = "kit"
+no_std = true
+alloc = true
+float = false

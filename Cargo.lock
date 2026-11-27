@@ -597,6 +597,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-pdf"
+version = "0.0.0"
+dependencies = [
+ "quill-inflate",
+]
+
+[[package]]
+name = "quill-pdfdoc"
+version = "0.0.0"
+dependencies = [
+ "quill-app",
+ "quill-core",
+ "quill-host",
+ "quill-image",
+ "quill-pdf",
+]
+
+[[package]]
 name = "quill-spell"
 version = "0.0.0"
 dependencies = [

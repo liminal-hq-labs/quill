@@ -82,6 +82,20 @@ name = "quill-mouse"
 version = "0.0.0"
 
 [[package]]
+name = "quill-pdf"
+version = "0.0.0"
+
+[[package]]
+name = "quill-pdfdoc"
+version = "0.0.0"
+dependencies = [
+ "quill-app",
+ "quill-core",
+ "quill-image",
+ "quill-pdf",
+]
+
+[[package]]
 name = "quill-spell"
 version = "0.0.0"
 dependencies = [
@@ -104,4 +118,5 @@ dependencies = [
  "quill-grid",
  "quill-heap",
  "quill-image",
+ "quill-pdfdoc",
 ]

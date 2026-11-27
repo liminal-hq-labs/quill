@@ -41,6 +41,7 @@ gdi32.dll!StartPage
 gdi32.dll!StretchDIBits
 gdi32.dll!TextOutA
 kernel32.dll!CloseHandle
+kernel32.dll!CreateDirectoryA
 kernel32.dll!CreateFileA
 kernel32.dll!DeleteFileA
 kernel32.dll!ExitProcess
