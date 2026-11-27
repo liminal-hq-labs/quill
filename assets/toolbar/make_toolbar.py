@@ -68,16 +68,31 @@ def glyph_new(c):
     c.rect(10, 2, 11, 3, WHITE)
 
 
+# The open folder, hinted by hand from its master, open-folder.svg (drawn on this grid): the back sheet with a rounded tab sloping
+# down to its top edge, a lit yellow rim round the olive inside, a sheet of paper standing in it, and the front flap leaning
+# forward as a parallelogram, its top edge lower and further right than the back's and its bottom edge on the back's, with a
+# white lit edge on the top and left. Nothing crosses the front of the folder but the flap itself.
+OPEN_FOLDER = [
+    "................",
+    "................",
+    "..KKKK..........",
+    ".KYYYYKKKKKK....",
+    ".KYOOOYYYYYYK...",
+    ".KYOWWWWWWWOK...",
+    ".KYOWGGGGGWOK...",
+    ".KYOKKKKKKKKKKKK",
+    ".KYOKWWWWWWWWWWK",
+    ".KYKWYYYYYYYYYK.",
+    ".KYKWYYYYYYYYYK.",
+    ".KKWYYYYYYYYYK..",
+    ".KKWYYYYYYYYYK..",
+    ".KKKKKKKKKKKK...",
+    "................",
+]
+
+
 def glyph_open(c):
-    c.rect(1, 4, 6, 5, OLIVE)
-    c.rect(1, 6, 13, 12, YELLOW)
-    c.frame(1, 6, 13, 12, BLACK)
-    c.line(1, 4, 6, 4, BLACK)
-    c.line(1, 4, 1, 6, BLACK)
-    c.line(6, 4, 7, 6, BLACK)
-    c.line(3, 10, 6, 8, OLIVE)
-    c.rect(3, 9, 15, 13, YELLOW)
-    c.frame(3, 9, 15, 13, BLACK)
+    c.art(0, 0, OPEN_FOLDER, {"K": BLACK, "Y": YELLOW, "O": OLIVE, "W": WHITE, "G": GREY})
 
 
 def glyph_save(c):
