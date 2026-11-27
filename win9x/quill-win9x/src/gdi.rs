@@ -466,6 +466,17 @@ enum Pics<'a> {
 	Banded(&'a mut PicCache),
 }
 
+/// Asks the device context about the font selected in it, once. ReactOS 0.4.16 draws the first words after `SelectObject` of a font made at
+/// a zoom in a smaller font of another face, and the words overlap, until something has asked the context about its font: a text-metrics
+/// query makes it realise the font that is selected. Wine and Windows do not need the question, and it costs one call a run.
+///
+/// # Safety
+/// `dc` must be a valid device context.
+unsafe fn settle_font(dc: Handle) {
+	let mut tm = MaybeUninit::<TextMetricA>::zeroed();
+	GetTextMetricsA(dc, tm.as_mut_ptr());
+}
+
 /// Draws one run of one format on a zoomed page, in device pixels: a word at a time, each word starting where the layout starts it and
 /// ending where the layout ends it, with the gaps inside it taken from the zoomed font's own widths and the difference spread over
 /// them (`quill_core::fit`). A space is never sent, so a justified line's spaces are the layout's, unless the run is underlined or
@@ -491,6 +502,7 @@ unsafe fn draw_zoomed_run(
 	let (x_page, y_top, base_page) = at;
 	let z = cx.zoom;
 	let widths = zoomed_widths(cx.mdc, fr, z);
+	settle_font(dc);
 	let total: i32 = adv.iter().take(text.len()).sum();
 	if selected {
 		let r = Rect {
