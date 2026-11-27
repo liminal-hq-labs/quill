@@ -14,8 +14,8 @@
 #      holds only what the manifest names.
 #   2. DIR/try-manifest.json is written: {"bundle", "sha256", "built", "size", "assets"}. "assets" maps the vendored player's files to
 #      a short hash that the page appends as ?v= (the player, its style sheet, and its emulator folder as one).
-#   3. In SITE_DIR/try/index.html, every href or src written as `name?v=XXXXXXXX` gets XXXXXXXX set to the first 8 hex of the SHA-256
-#      of the file it names, so a changed try.js, try.css or site.css is fetched again on the next visit. The page is committed with the
+#   3. In SITE_DIR/try/index.html, every href, src or data-module (the bridge module that bridge.js imports) written as `name?v=XXXXXXXX`
+#      gets XXXXXXXX set to the first 8 hex of the SHA-256 of the file it names, so a changed try.js, try.css or site.css is fetched again on the next visit. The page is committed with the
 #      current values; --check (run in CI) fails if they are stale, and a build writes them.
 #
 # "built" is the time of the build (SOURCE_DATE_EPOCH if set). It is the only part of the manifest that changes when the bundle does not.
@@ -29,7 +29,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", "site"))
-REF = re.compile(r'((?:href|src)=")([^"?#]+)\?v=([0-9a-f]*)(")')
+REF = re.compile(r'((?:href|src|data-module)=")([^"?#]+)\?v=([0-9a-f]*)(")')
 
 
 def sha256_file(path):

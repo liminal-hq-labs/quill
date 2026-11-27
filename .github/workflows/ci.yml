@@ -278,6 +278,44 @@ jobs:
         working-directory: site/try-reactos/packages/ac97
         run: bun run check:built
 
+  dos-bridge:
+    name: DOS bridge tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      # The tests check every volume the package builds with fsck.fat and mtools, and make the real C: and D: images with
+      # scripts/make-bridge-disks.py; the reactos workflows install mtools the same way.
+      - name: Install the disk tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mtools dosfstools
+
+      - name: Install the package's tools
+        working-directory: site/try/packages/dos-bridge
+        run: bun install --frozen-lockfile
+
+      # fat.ts against the images tests/dos-bridge/make-goldens.py made with mtools, names.ts against a table, the bridge on a fake player.
+      - name: Test the package
+        working-directory: site/try/packages/dos-bridge
+        run: bun test
+
+      - name: Check the types
+        working-directory: site/try/packages/dos-bridge
+        run: bun run typecheck
+
+      # site/try/lib/dos-bridge.js is what the page loads: it must be what the package builds, within its 16 KB budget.
+      - name: Check the built module is current
+        working-directory: site/try/packages/dos-bridge
+        run: bun run check:built
+
   layers:
     name: Layers
     runs-on: ubuntu-24.04

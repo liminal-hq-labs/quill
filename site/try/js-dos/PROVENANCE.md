@@ -26,6 +26,10 @@ The player's own code names a few outside addresses: the js-dos CDN (the default
 
 js-dos 8.5.3 keeps each bundle it fetches in the browser's origin-private file system (not IndexedDB), in the folder named by its `opfsRoot` option (default `jsdos`), under `caches/bundles/` and a name made from the bundle's URL; saved changes go under `saves/`. It fetches the bundle itself with `cache: 'no-store'`, and appends the `pathSuffix` option to the emulator files. `try.js` sets `opfsRoot` to `quill-try-<hash of the bundle>`, turns `fsChanges.local` off, passes the manifest's versions as `?v=` on the player files and as `pathSuffix`, and deletes other builds' folders (SITE-4). After an update of the player, check that the option names above still exist in `js-dos.js` (search for `opfsRoot`, `fsChanges` and `pathSuffix`) and that `scripts/check-try.sh` passes; the update changes the manifest's `assets` versions, which is what makes visitors fetch the new player.
 
+## What the page uses beyond the options above
+
+The page's bridge (`try/bridge.js` and `try/lib/dos-bridge.js`, SITE-60 to SITE-62) calls the command interface's `fsReadFile` and `fsWriteFile` on `c.img` and `d.img`, the two hard disk images in the bundle, and `try.js` hands it the interface on `ci-ready`. After an update of the player, check that `fsReadFile` and `fsWriteFile` still exist in `js-dos.js` and still read and replace a file of the bundle (`harness/check-dos-bridge.ts` in `site/try-reactos/harness` does, in Chromium and Firefox, and also fails if the guest does not see the date the page wrote). Nothing under `js-dos/` is changed for this, and the bridge makes no network request.
+
 ## Updating
 
 Pick a version at least two weeks old, run `npm pack js-dos@VERSION`, copy the same files, update the version in this file, `try/index.html` and `try/licences.html`, and run the page in a browser, with the network panel open, before publishing.
