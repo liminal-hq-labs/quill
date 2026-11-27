@@ -978,11 +978,13 @@ pub fn paint_page(
 		IntersectClipRect(dc, left as u32, top as u32, right as u32, bottom as u32);
 		let d = &damage;
 		fill_in(dc, d, left, top, right - left, bottom - top, SHADOW);
+		// Only the document's own sheets: a zoomed-out window has desk below the last one, not another sheet.
+		let pages = app.page_total(s).max(1) as i32;
 		let mut p = 0;
-		loop {
+		while p < pages {
 			let y = top + z.d(g.page_y(p, 0));
 			let page_h = top + z.d(g.page_y(p, 0) + g.page_h) - y;
-			if y > bottom || p > 400 {
+			if y > bottom {
 				break;
 			}
 			if y + page_h > top {
@@ -995,7 +997,7 @@ pub fn paint_page(
 		}
 		let tx = x0 + margin_l;
 		let first = app.top_line();
-		let pages = app.page_total(s).max(1);
+		let pages = pages as u32;
 		let mut line_h = 16;
 		let mut fitted = 0usize;
 		// The lines that show are drawn a screenful of records at a time, each collected before any is drawn so the layout's font cache

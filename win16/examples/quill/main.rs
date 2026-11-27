@@ -999,6 +999,35 @@ pub fn set_clock() {
 	}
 }
 
+/// After a zoom change (W16-80, CORE-141): brings the scroll position back inside the range the new zoom has, and when the whole of
+/// the caret's sheet fits in the page area shows that sheet from its first line (the top of its page) instead of wherever the old
+/// zoom left it. A sheet that does not fit keeps its place, held between 0 and the new range.
+#[inline(never)]
+fn fit_view_to_page(hwnd: u32) {
+	if sh().grid {
+		return;
+	}
+	// The view's height is the new zoom's only once the bars have been laid out for it.
+	update_scroll(hwnd);
+	let (app, s) = (app(), store());
+	let keep = app.vscroll_pos(s);
+	let mut want = keep;
+	if let Some((_, line, _)) = app.caret_xy(s) {
+		let g = view::PageGeom::of(app, s);
+		// What shows of a sheet when its page's first line is at the top: the sheet less its top margin, and its shadow.
+		let shows = g.page_h - g.margin_t + view::SHEET_SHADOW;
+		if shows <= app.vscroll_view() {
+			// The first line of the document is at `g.top - keep` in the pages' coordinates (the scroll position's zero).
+			let first = g.top - keep;
+			let page_top =
+				(i32::from(line.page as i16) - 1) * (g.page_h + view::PAGE_GAP) + g.margin_t;
+			want = page_top - first;
+		}
+	}
+	app.set_vscroll_pos(s, want);
+	update_scroll(hwnd);
+}
+
 fn run_command(hwnd: u32, c: Command) {
 	blink_restart(hwnd);
 	if matches!(c, Command::Field(3 | 5)) {
@@ -1015,6 +1044,9 @@ fn run_command(hwnd: u32, c: Command) {
 		c,
 		Command::Chrome(_) | Command::Zoom(_) | Command::SpellAsYouType
 	) {
+		if matches!(c, Command::Zoom(_)) {
+			fit_view_to_page(hwnd);
+		}
 		sync_chrome(hwnd);
 		invalidate_all(hwnd);
 	}

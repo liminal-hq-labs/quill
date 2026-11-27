@@ -9,6 +9,11 @@
 #        check_zoom.py picture-at FRAME BX BY0      prints the middle of the first grey picture box
 #        check_zoom.py handle FRAME BX BY0          prints the middle of the selected picture's bottom right handle
 #        check_zoom.py pictures WORKDIR BX BY0      the picture session's comparisons
+#        check_zoom.py crop FRAME BX BY0 BY1 OUT    writes the page area of a frame (what the goldens hold)
+#        check_zoom.py sheets FRAME BX BY0 BY1 N    exits 0 when the page area shows N sheets, or fewer where the window ends first, and
+#                                                   the desk (and nothing else) below the last one
+#        check_zoom.py pagetop FRAME BX BY0         exits 0 when the first ink of the sheet is in the page area's first rows (a page's
+#                                                   first line is at the top)
 #
 # BX is the x of the vertical scroll bar and BY0 the y of the top of the page area (find_vbar.py). Everything is measured from what the
 # layout fixes and Windows' fonts cannot change: the sheet's edges, and the caret, which is a two-pixel bar as tall as its line. The
@@ -334,8 +339,64 @@ def click_f_target(work: str, bx: int, by0: int) -> tuple[int, int]:
 	return x + 300, y + 4 * (h + 2) + h // 2
 
 
+def crop(argv: list[str]) -> int:
+	bx, by0, by1 = int(argv[1]), int(argv[2]), int(argv[3])
+	img = load(argv[0])
+	left = area_left(img, by0)
+	img.crop((left, by0, bx, by1)).save(argv[4])
+	return 0
+
+
+def sheets(argv: list[str]) -> int:
+	"""The sheets the page area shows, from the white of a column just inside the sheet's left edge: at most `n` of them, and below the
+	last one's shadow only the desk."""
+	f = Frame(argv[0], int(argv[1]), int(argv[2]))
+	by1, n = int(argv[3]), int(argv[4])
+	if f.page_left is None:
+		print("sheets: no sheet in the frame", file=sys.stderr)
+		return 1
+	x = f.page_left + 4
+	# Runs of white down the column: a sheet each. A sheet may start above the area (scrolled) or run past its bottom.
+	runs: list[list[int]] = []
+	for y in range(f.top, by1):
+		if white(f.img.getpixel((x, y))):
+			if runs and runs[-1][1] == y:
+				runs[-1][1] = y + 1
+			else:
+				runs.append([y, y + 1])
+	if not runs or len(runs) > n:
+		print(f"sheets: {len(runs)} sheets in the frame, the document has {n}", file=sys.stderr)
+		return 1
+	last = runs[-1][1]
+	if last >= by1 - 1:
+		# The last sheet runs past the window's bottom, so no desk shows under it.
+		print(f"sheets: ok ({len(runs)} of {n}; the window ends inside the last)")
+		return 0
+	# The shadow below the sheet is two rows and the right one runs three rows lower: the desk is everything after.
+	stray = [(xx, yy) for yy in range(last + 4, by1) for xx in range(f.left, f.right) if f.img.getpixel((xx, yy)) != DESK]
+	if stray:
+		print(f"sheets: {len(stray)} pixels under the last sheet are not the desk, the first at {stray[0]}", file=sys.stderr)
+		return 1
+	print(f"sheets: ok ({len(runs)} of {n}, the desk below)")
+	return 0
+
+
+def pagetop(argv: list[str]) -> int:
+	f = Frame(argv[0], int(argv[1]), int(argv[2]))
+	if f.page_left is None or f.page_width is None:
+		print("pagetop: no sheet in the frame", file=sys.stderr)
+		return 1
+	xs = range(f.page_left + 10, f.page_left + f.page_width - 10)
+	first = next((y for y in range(f.top, f.top + ROWS) if any(dark(f.px[x, y]) for x in xs)), None)
+	if first is None or first - f.top > 12:
+		print(f"pagetop: the first ink is {None if first is None else first - f.top} rows down the page area, not in the first 12", file=sys.stderr)
+		return 1
+	print(f"pagetop: ok (first ink {first - f.top} rows down)")
+	return 0
+
+
 def main() -> int:
-	modes = {"click": click, "foot": foot, "check": check, "picture-at": picture_at, "handle": handle, "pictures": pictures}
+	modes = {"pagetop": pagetop, "crop": crop, "sheets": sheets, "click": click, "foot": foot, "check": check, "picture-at": picture_at, "handle": handle, "pictures": pictures}
 	if len(sys.argv) < 5 or sys.argv[1] not in modes:
 		print(__doc__, file=sys.stderr)
 		return 2
