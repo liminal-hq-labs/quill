@@ -12,6 +12,8 @@ The product page published at <http://labs.liminalhq.ca/quill/>. The organizatio
 | `try/` | The Try Quill page (`index.html`, `try.js`, `licences.html`), the vendored js-dos player in `try/js-dos/` (see its `PROVENANCE.md`) and, built and not committed, `quill.<hash>.jsdos` and `try-manifest.json` |
 | `css/try.css` | The Try Quill page's styles |
 | `js/site.js` | The theme toggle and the screenshot lightbox; the page works without it |
+| `js/pointer.js`, `js/pointer-metric.js` | The pointer module for the demo pages and its direction-error measure (see *The pointer*); no page loads them yet |
+| `pointer-lab/` | The pointer lab: an unlinked test bench (published at `/quill/pointer-lab/`) that runs the module against a stand-in guest |
 | `img/` | The icon (from `assets/icon/`), the link preview `social-card.png` (written by `tools/make_social_card.py`), and `shots/` |
 | `favicon.ico` | The favicon: 16, 32 and 48 px from `assets/icon/` |
 
@@ -22,6 +24,23 @@ Every URL in `index.html` is relative, so the page works from `http://labs.limin
 `try/` runs `QUILLDOS.EXE` on FreeDOS 1.3 in the visitor's browser with js-dos (SITE-1). The disk bundle `try/quill.<hash>.jsdos` and the manifest `try/try-manifest.json` that names it are build outputs, ignored by git (SITE-4: the bundle is named by its content, and the page asks the manifest for the current name): `bash scripts/build-try.sh --build` makes it (the Pages workflow runs the same command), and without `--build` it packs the programs named by `QUILLDOS_EXE`, `QUILL_FNT` and `QUILL_DICT`. It needs mtools and, with `--build`, the pinned Rust toolchain. `bash scripts/stamp-try.py` writes the `?v=` versions of the page's own files into `try/index.html` (a build does too), which is committed; `bash scripts/check-try.sh` tests the scheme. Without the bundle the page loads and Start reports that the disk could not be fetched.
 
 The player is loaded only when Start is selected, and makes no request outside the site. After updating `try/js-dos/`, open the page with the network panel open and start it. `scripts/check-site.py` does not scan the vendored player.
+
+## The pointer
+
+`js/pointer.js` is one pointer module for both demo pages (SITE-20): a classic script that sets `QuillPointer`, with the logic in `QuillPointer.core` (no DOM, tested in Node) and `QuillPointer.attach` binding it to a stage element and an emulator adapter (`send.move`, `send.buttons`, `send.wheel`). **Follow** is the default: the guest pointer is moved once an animation frame to the guest pixel under the visitor's pointer, worked out from the event's fractional `clientX` and `clientY`, so nothing is lost to the whole-number `movementX` that Firefox on Wayland reports from a locked pointer. **Capture** (the pointer lock, `movementX` summed per frame) is an option, and the default only where `requestPointerLock({ unadjustedMovement: true })` succeeds. A finger is a trackpad, a pen follows, and wheel deltas are accumulated into notches. `docs/plans/pointer.md` has the design; no page loads the module yet.
+
+`js/pointer-metric.js` is the measure (SITE-21): the direction error of the guest pointer's path against the visitor's over windows of 8 guest pixels, the share of windows that moved on one axis only, and the end point. `scripts/pointer/score-trace.mjs FILE...` scores a trace saved by the lab or by a page with the trace button.
+
+`pointer-lab/` is not linked from the site's pages. It draws the module's stand-in guest (640 by 480) on a canvas, switches Follow and Capture and the guest's units, reads out the mode, the raw-capture answer and the share of fractional positions, scores the last stroke and saves a pointer trace. `?mouse=follow|capture`, `?speed=N` and `?lockless=1` (Capture without a lock, for tests that dispatch movement) change its start.
+
+```sh
+node --test scripts/pointer/*.test.mjs                         # the model, the matrix and the stage binding on a stand-in browser
+node scripts/pointer/serve.mjs                                 # site/ on a free port of 127.0.0.1 (PORT, PIDFILE)
+cd site/try-reactos/harness && bun install --frozen-lockfile   # once
+env -u WAYLAND_DISPLAY DISPLAY=:99 node pointer-lab.ts         # the lab in headless Chromium and Firefox, exits 1 on a miss
+```
+
+The browser run needs Playwright's Firefox (`PLAYWRIGHT_SKIP_BROWSER_GC=1 node node_modules/playwright-core/cli.js install firefox`, so the installer keeps the other cached builds) and Chromium at `/usr/bin/chromium`. Capture under the Firefox-on-Wayland model is expected to fail the pass lines; the run fails if it does not.
 
 ## Screenshots
 
