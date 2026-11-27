@@ -1,8 +1,8 @@
 # The reactos-liminal commit that builds QAGRR. Read by build-with-rl.sh: the first line that is not a comment is the full commit hash.
-# The head of reactos-liminal main (its whole pipeline, patchers, `rl pin`, `rl lock`, recipe-relative `.reg` files and merged `[[files]]`). To move: set a newer commit, then run
+# The head of reactos-liminal main (the full-ReactOS base recipe, the compact recipe QAGRR extends, Canadian regional and pointer defaults, and the pipeline: patchers, `rl pin`, `rl lock`, recipe-relative `.reg` files and merged `[[files]]`). To move: set a newer commit, then run
 # `build-with-rl.sh --check-trim` and a dry run.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-108a26f167d807b166bc1c20f9e29e9b478ef4c6
+3a964acfedbf6aa1fc4415f0b7d6df8cf02f2c01
