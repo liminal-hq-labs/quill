@@ -7,6 +7,7 @@ A plan for the shared clipboard of the ReactOS web demo (`site/try-reactos/`), c
 - [Recommendation](#recommendation)
 - [What was measured](#what-was-measured)
 - [WP-HOST-1 report](#wp-host-1-report)
+- [WP-HOST-3 report](#wp-host-3-report)
 - [The link](#the-link)
 - [The guest helper](#the-guest-helper)
 - [The page](#the-page)
@@ -85,7 +86,7 @@ From `src/uart.js`, `src/browser/keyboard.js` and `src/browser/starter.js` at v8
 
 ## WP-HOST-1 report
 
-Run on 2026-11-27 for the questions of [WP-HOST-1](#wp-host-1-spike-the-guest-end-and-the-browsers), on ReactOS 0.4.16 from the QAGRR image (build 20260829-0.4.16-release-0-g822e864, the user is the autologon Administrator), in a private headless QEMU 11.1.3 (KVM, `-display none`, input only through QMP, pixels only from `screendump`, COM1 and COM2 on Unix sockets) and in v86 0.5.473 in headless Chromium 156 (the page's own emulator options, plus `uart1: true` so the probe can log on COM2 as it runs; the product page has COM1 only). The guest end is `H.EXE`, a throwaway `no_std` Rust Win32 program of 18,944 bytes built like `QUILL32.EXE`, with one mode per question (`w` watch the clipboard, `r`, `t`, `u`, `b`, `d` set one format, `c` the COM1 tests, `s` and `S` the clock, `z` the time zone, `m` and `x` the display); its source, the QEMU and v86 drivers and the browser probes are in `site/try-reactos/spikes/host-link/` (WP-HOST-3 removes it), and every log, shot and result file is in `~/Documents/Liminal HQ/Quill/Web demo/host-integration/WP-HOST-1/`. QEMU answers the Win32 questions; **v86 answers every question about the serial port and the clock**, because its UART and RTC are what the demo runs on (QEMU's 16550 stalled on receive in most runs for reasons of its own, and QEMU paces transmit at the baud rate, so no QEMU serial rate is quoted).
+Run on 2026-11-27 for the questions of [WP-HOST-1](#wp-host-1-spike-the-guest-end-and-the-browsers), on ReactOS 0.4.16 from the QAGRR image (build 20260829-0.4.16-release-0-g822e864, the user is the autologon Administrator), in a private headless QEMU 11.1.3 (KVM, `-display none`, input only through QMP, pixels only from `screendump`, COM1 and COM2 on Unix sockets) and in v86 0.5.473 in headless Chromium 156 (the page's own emulator options, plus `uart1: true` so the probe can log on COM2 as it runs; the product page has COM1 only). The guest end is `H.EXE`, a throwaway `no_std` Rust Win32 program of 18,944 bytes built like `QUILL32.EXE`, with one mode per question (`w` watch the clipboard, `r`, `t`, `u`, `b`, `d` set one format, `c` the COM1 tests, `s` and `S` the clock, `z` the time zone, `m` and `x` the display); its source, the QEMU and v86 drivers and the browser probes were in `site/try-reactos/spikes/host-link/` (WP-HOST-3 removed it; the source is kept with the evidence), and every log, shot and result file is in `~/Documents/Liminal HQ/Quill/Web demo/host-integration/WP-HOST-1/`. QEMU answers the Win32 questions; **v86 answers every question about the serial port and the clock**, because its UART and RTC are what the demo runs on (QEMU's 16550 stalled on receive in most runs for reasons of its own, and QEMU paces transmit at the baud rate, so no QEMU serial rate is quoted).
 
 | # | Question | Answer | Verdict |
 |---|---|---|---|
@@ -122,6 +123,41 @@ Run on 2026-11-27 for the questions of [WP-HOST-1](#wp-host-1-spike-the-guest-en
 - **Time sync in the first demo.** Default: dropped unless WP-HOST-6 finds a working call; the restored desktop then shows the clock of the state's build, as before. The guest clock was also seen 4 minutes behind the host's after a long run, which no setting here explains.
 - **A second UART for page-to-guest data (COM2) was tried once and did not work**: with `uart1: true` the guest received nothing on COM2 in 25 s. Not investigated; the single-port, one-packet design above does not need it, and it would change the saved state's machine.
 - **Raising v86's UART handling** (an upstream change so that a receive interrupt is raised again while data is waiting) would remove the one-packet limit; the plan does not take it on.
+
+## WP-HOST-3 report
+
+Run on 2026-11-27 against the same QAGRR image and v86 0.5.473 as the WP-HOST-1 report, in headless Chromium 156 (`harness/host-link-boot.ts` and `harness/check-host-link.ts`; the helper in the Startup folder of a private copy of the image, the page's own `host-link` package on the other end). Evidence is in `~/Documents/Liminal HQ/Quill/Web demo/host-integration/WP-HOST-3/`.
+
+| Question | Answer |
+|---|---|
+| Size and imports | `HOSTLINK.EXE` is **22,016 bytes** (budget 24 KiB, guarded in `win9x/build.sh`), 46 ANSI imports on `win9x/tools/hostlink-imports.allow`, Pentium scan clean; `HLCLIP.EXE` (test only) is 3,072 bytes |
+| The deciding code | `crates/quill-hostlink-guest`, `no_std`, no allocation, no unsafe: 29 host tests (handshake, a credit after each packet, one offer per change, the doubled message, the helper's own write not offered back, `set` parts, refusals, 1 MiB each way, a hello mid-transfer, a torn frame, a failed port, 20,000 bytes of noise) |
+| Copy in Notepad, received by the page | Exactly, once: `Hello from Notepad\r\nSecond line 123 !?`, one `offer` and one `data`, **36 to 47 ms** from the key to the data |
+| Page text pasted into Notepad, copied back | Equal byte for byte: Latin-1 accents, an em dash, a euro sign, `☺`, CRLF (`Zoë café — naïve façade, À la carte: 5 €`) |
+| 1 MiB text | Page to guest in **1.3 to 2.3 s** (0.44 to 0.76 MB/s) with no error; Notepad copies it back and the page's `get` returns the same 1,048,576 bytes (SHA-256 equal) in **3.3 s** (0.31 MB/s) |
+| RTF and DIB offers | `HLCLIP.EXE rtf` gives an offer with `text=17 rtf=74` and both bodies at once, exact; Print Screen gives `dib=3145780` (1,024 by 768, 32 bits) in 69 ms and no data until the page's `get`, which returns it in 9.7 s (0.31 MB/s), header correct |
+| No duplicate sends, no echo | One offer per Notepad copy (the viewer's doubled message produces nothing more); the helper's own `set` produces no offer |
+| The page restarts mid-transfer | A hello 234 packets into a 1 MiB push is answered in 53 ms, nothing is committed and no `ok` is sent; the next `set` is acknowledged in 4 ms. A torn frame (half a packet, then a hello) recovers in 6.0 s: 1.5 s for the helper to give up the half frame, and the page's 5 s hello retry |
+| The saved state | A state saved with the helper running restores with the helper answering a hello in **12 to 14 ms**; the first hello after a restore waits 5 to 6 s, because v86 drops what the page sends before its serial device exists and the page's retry is 5 s |
+| Link errors | None in either direction over the whole run (4.2 MB in, 1.1 MB out) |
+
+### What the run found that the plan did not know
+
+- **The page must not speak first on a cold boot.** The page's `hello`, queued in v86's serial port before ReactOS's `serial.sys` enabled its interrupts, left the guest deaf for good, in a cold boot and in a state saved afterwards. The cause is in the port and the driver (SITE-91 and the link specification's *Before the helper is up*); the helper cannot repair it from the guest. With the link started on the helper's first byte, the helper answered in 103 ms and the port was idle at the save.
+- **ReactOS's `serial.sys`** (source read at the 0.4.16 tag) is an interrupt handler that reads the identification register once and queues a DPC, and `SetCommState` reads one 'junk' byte from the receive register; that is where the one byte the driver took in the stuck runs came from.
+- **One thread is enough.** The plan's I/O thread and window thread became one loop (`MsgWaitForMultipleObjects` over the overlapped read), which removes the two queues and the event; each loop writes at most one packet, so the port is read between packets and a copy by another program is never held up by a big write.
+- **Echo suppression** is by sequence number (the number after the helper's own commit is remembered and its change is not offered), not by `source=self` offers, so the page never sees its own paste come back.
+- **One text format is enough to set.** `CF_UNICODETEXT` alone gives Notepad its text; ReactOS makes the rest.
+
+### What WP-HOST-4 and WP-WEB-8 do differently
+
+- **WP-HOST-4:** the page holds its first `hello` until the guest has sent a byte (the helper's own `hello`), or the machine was restored from a state the builder saved idle; the first `hello` after a restore is sent once the serial device exists, so the answer does not wait for the 5 s retry. The paste flow follows the credit per packet (`window=4352`).
+- **WP-WEB-8:** the state is built with `harness/host-link-boot.ts`'s rule (link started on the helper's first byte, port idle at the save, which the script checks). `build-state.ts` needs the same hold.
+
+### Not done in this package
+
+- The Wine harness (level 2) and the QEMU harness (level 3): the end-to-end run in v86 is the real port, and Wine has no `serial.sys`; a QEMU run would repeat what v86 answered.
+- `check-state.sh` on a state built from the recipe, and a state built with the helper started from the Run key: that needs a local recipe build (`build-with-rl.sh`, the reactos-liminal build VM and a second 4 GB image), which was not set up here; the test disk starts the helper from the Startup folder instead.
 
 ## The link
 
@@ -184,10 +220,10 @@ Text on the link is UTF-8. A `dib` body is a packed DIB (a `BITMAPINFOHEADER`, i
 
 ## The guest helper
 
-- **What it is.** `HOSTLINK.EXE`, a `no_std` Rust Win32 program in the `win9x/` workspace (`win9x/hostlink`), built with the same Pentium target, no C runtime, ANSI imports only, from `win9x/build.sh`. It uses `crates/quill-hostlink`, the link's portable codec (no allocation, no panics), which the root workspace tests on the host.
+- **What it is.** `HOSTLINK.EXE`, a `no_std` Rust Win32 program in the `win9x/` workspace (`win9x/hostlink`), built with the same Pentium target, no C runtime, ANSI imports only, from `win9x/build.sh`. It uses `crates/quill-hostlink`, the link's portable codec (no allocation, no panics), and `crates/quill-hostlink-guest`, the state machine over it (the handshake, credits, offers, `set` parts), which the root workspace tests on the host; the Win32 file holds only the calls ([WP-HOST-3 report](#wp-host-3-report)).
 - **Where and when.** `C:\Quill\HOSTLINK.EXE`, started by a second Run value in `qagrr/quill-run.reg` (`"HostLink"="C:\\Quill\\HOSTLINK.EXE"`), so it is running when the state is saved. One instance only (a named mutex, then `FindWindowA` on its window class `LHQHostLink`); `HOSTLINK.EXE /quit` ends the running one; `HOSTLINK.EXE /send <file>` hands a file to it and exits with 0, or with 3 when no helper is running.
 - **No window shown.** A hidden top-level window owns the clipboard chain and gets `WM_COPYDATA`. No tray icon in the first version (owner decision below).
-- **The port.** Opened with `CreateFileA("\\\\.\\COM1")`, no sharing, 115,200 8N1 with no hardware or software flow control (`SetCommState`), a 64 KiB input buffer (`SetupComm`), `PurgeComm` on open. One I/O thread does all reading and writing, with reads that time out (an overlapped `ReadFile` with a 250 ms total time-out, or a synchronous 50 ms one) and writes between reads; never `WaitCommEvent`, which `serial.sys` cannot cancel (WP-HOST-1). The window thread and the I/O thread meet through two queues and an event; the clipboard is only ever touched on the window thread.
+- **The port.** Opened with `CreateFileA("\\\\.\\COM1")`, no sharing, 115,200 8N1 with no hardware or software flow control (`SetCommState`), a 64 KiB input buffer (`SetupComm`), `PurgeComm` on open. One thread does everything (WP-HOST-3): a message loop with `MsgWaitForMultipleObjects` over an overlapped `ReadFile` with a 250 ms total time-out, and at most one packet written per turn; never `WaitCommEvent`, which `serial.sys` cannot cancel (WP-HOST-1). The window procedure only passes messages on and sets a flag.
 - **Watching the clipboard.** `SetClipboardViewer` at start; `WM_DRAWCLIPBOARD`: pass it on with `SendMessageA` to the next viewer, then (after a 30 ms debounce, so an application's several `SetClipboardData` calls make one offer) read the formats; `WM_CHANGECBCHAIN`: repair the chain as the documentation says; `ChangeClipboardChain` on exit. A change made by the helper itself (`GetClipboardOwner` is its window) is reported as `source=self` and the page ignores it. `GetClipboardSequenceNumber` (present on ReactOS) numbers the offers; on Windows 95, where it is missing, a counter does.
 - **Reading.** `CF_UNICODETEXT` (or `CF_TEXT` through the ANSI code page when only that is there) as UTF-8; `Rich Text Format` as bytes up to its terminating NUL; `CF_DIB` (ReactOS makes it from a `CF_BITMAP`, which is what Print Screen puts there, as Windows does). Text up to 256 KiB and RTF up to 1 MiB go to the page right after the offer, so a copy reaches the host inside the gesture window; a picture is sent only when the page asks (`clip get`).
 - **Setting.** On `clip set` the helper gathers the parts, then `OpenClipboard`, `EmptyClipboard` and `SetClipboardData` for `CF_UNICODETEXT`, `CF_TEXT` (Windows-1252 best fit, `?` otherwise), `Rich Text Format` and `CF_DIB` as sent, `CloseClipboard`, and answers `ok`. Memory is `GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE)`, as the clipboard requires.
