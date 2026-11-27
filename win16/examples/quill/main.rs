@@ -142,6 +142,8 @@ struct Shell {
 	pic_drag: Option<quill_app::picture_geom::HandleDrag>,
 	/// The left button went down in the text and is still down.
 	selecting: bool,
+	/// The left button went down on the zoom box.
+	zoom_down: bool,
 	/// The page's scroll bars, child windows in the page area, and whether the horizontal one shows.
 	vbar: u32,
 	hbar: u32,
@@ -176,6 +178,7 @@ static mut SH: Shell = Shell {
 	drag: None,
 	pic_drag: None,
 	selecting: false,
+	zoom_down: false,
 	vbar: 0,
 	hbar: 0,
 	hbar_on: false,
@@ -607,7 +610,15 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 					.map(|d| d.copy_from_slice(hint.as_bytes().get(..n).unwrap_or(&[])));
 				n
 			};
-			chrome::paint_status(dc, h - status, w, t.get(..n).unwrap_or(&[]));
+			let mut zoom = [0u8; quill_app::zoom_field::ZOOM_TEXT_MAX];
+			let zn = app.zoom_field_text(&mut zoom);
+			chrome::paint_status(
+				dc,
+				h - status,
+				w,
+				t.get(..n).unwrap_or(&[]),
+				zoom.get(..zn).unwrap_or(&[]),
+			);
 		}
 		RestoreDC(dc, saved);
 	}
@@ -1079,6 +1090,11 @@ fn mouse_down(hwnd: u32, x: i32, y: i32, shift: bool) {
 	}
 	blink_restart(hwnd);
 	let (app, s) = (app(), store());
+	if on_zoom_box(hwnd, x, y) {
+		sh().zoom_down = true;
+		unsafe { SetCapture(hwnd) };
+		return;
+	}
 	let (h0, h1) = view::rows(app);
 	if y < h0 + h1 {
 		if let Some((b, top)) = view::button_at(app, x, y) {
@@ -1223,8 +1239,28 @@ fn mouse_move(hwnd: u32, x: i32, y: i32) {
 	}
 }
 
-fn mouse_up(hwnd: u32, x: i32) {
+/// Whether the point (`x`, `y`) in the client area is on the zoom box at the right end of the status bar.
+fn on_zoom_box(hwnd: u32, x: i32, y: i32) -> bool {
+	if !app().show_status() || sh().grid {
+		return false;
+	}
+	let (w, h) = client_size(hwnd);
+	chrome::zoom_box_left(w)
+		.is_some_and(|left| x >= left && x < w && y >= h - chrome::status_h() && y < h)
+}
+
+/// The left button went up: when it went down on the zoom box and is still over it, the list of levels opens above the box.
+fn mouse_up(hwnd: u32, x: i32, y: i32) {
 	let (app, s) = (app(), store());
+	if sh().zoom_down {
+		sh().zoom_down = false;
+		unsafe { ReleaseCapture() };
+		if on_zoom_box(hwnd, x, y) {
+			let (w, h) = client_size(hwnd);
+			chrome::zoom_menu(hwnd, w, h - chrome::status_h(), app.zoom_field_current());
+		}
+		return;
+	}
 	sh().selecting = false;
 	unsafe { ReleaseCapture() };
 	// A handle let go: whatever the drag changed is one undo step.
@@ -1774,7 +1810,7 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				0
 			}
 			WM_LBUTTONUP => {
-				mouse_up(hwnd, lo16(lparam));
+				mouse_up(hwnd, lo16(lparam), hi16(lparam));
 				0
 			}
 			WM_COMMAND => {
@@ -1795,6 +1831,11 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 						.flatten();
 					app().set_colour(store(), rgb);
 					invalidate_all(hwnd);
+				} else if let Some(c) = id
+					.checked_sub(chrome::ID_ZOOM)
+					.and_then(|i| quill_app::zoom_field::zoom_command(i as usize))
+				{
+					run_command(hwnd, c);
 				} else if id >= 100 && ((id - 100) as usize) < NCMDS {
 					let c = (*core::ptr::addr_of!(CMDS))[(id - 100) as usize];
 					if sh().grid {
