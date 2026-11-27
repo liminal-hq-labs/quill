@@ -4,6 +4,7 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 """usage: python3 -I tools/zoom_text.py frames DIR
+       python3 -I tools/zoom_text.py sizes FRAME [Z [L,T,R,B]]
        python3 -I tools/zoom_text.py crop FRAME OUT [--scale N]
        python3 -I tools/zoom_text.py preview DIR
        python3 -I tools/zoom_text.py crop-preview FRAME OUT [--scale N]
@@ -12,6 +13,11 @@
 tests/docs/zoomtext.rtf at those zooms), finds the words of each line by the columns with no ink, and checks each word's ink width
 against the same word at 100 % times the zoom, within the larger of 2 pixels and 4 %, and that no two words have touched. It exits 1
 and names the line, the word and the widths that fail. The same check serves the Win16 and Win32 painters: only CLIENT changes.
+
+Every frame is also checked for the size of its glyphs: lines 1, 6 and 7 are Times New Roman 12, so their ink is as tall (within 10 %,
+at least a pixel). A system that draws one line's words in another font, as ReactOS did the first line of the justified paragraph until
+the painter asked the context about its font (W9X-82), passes the width check, because each word is fitted to its place, and fails this.
+`sizes` runs only that check on one frame of the page view (Z the zoom, default 100; L,T,R,B the page area, default the Wine window's).
 
 `crop` writes the text block of one frame (its ink with a margin of four pixels), at SCALE times (default 1, nearest neighbour).
 `preview` reads DIR/ref.png (a frame of the page view at 100 %, its window at the screen's top left corner, 860 by 631) and the
@@ -138,6 +144,24 @@ def words_near(im, band, centres, ref_left, z):
 	return [(edges[i], edges[i + 1]) for i in range(0, len(edges), 2)], found
 
 
+def same_size(label, bands):
+	"""Lines 1, 6 and 7 of the document are the same font at the same size, so their ink is as tall: within 10 % of the first line's
+	height and at least a pixel. Prints each failure and returns how many there were."""
+	if len(bands) < len(WORDS):
+		print(f"{label}: {len(bands)} lines found, wanted {len(WORDS)} (words overlap so that lines merge)")
+		return 1
+	height = lambda band: band[1] - band[0]
+	want = height(bands[0])
+	allow = max(1, round(want * 0.1))
+	bad = 0
+	for k in (5, 6):
+		got = height(bands[k])
+		if abs(got - want) > allow:
+			print(f"{label}: line {k + 1}: ink {got} pixels tall, as line 1's {want} should be (the words are in another font)")
+			bad += 1
+	return bad
+
+
 def compare(label, im, bands, z, ref):
 	"""Checks the lines `bands` of frame `im`, shown at `z` percent, against the reference lines `ref` (the 100 % bands, and for each the
 	words and the centres of its gaps). Prints each failure and returns how many there were."""
@@ -181,6 +205,7 @@ def check(folder):
 			continue
 		_, bands = lines_of(frames[z])
 		bad += compare(f"zoom {z}%", frames[z], bands, z, ref)
+		bad += same_size(f"zoom {z}%", bands)
 	if bad:
 		print(f"zoom_text: {bad} failures")
 		return 1
@@ -308,9 +333,22 @@ def crop(frame, out, scale):
 	return 0
 
 
+def sizes(frame, zoom, client):
+	im = load(frame)
+	_, bands = lines_of(im, client)
+	print(f"zoom_text: {len(bands)} lines, ink heights {[b - t for t, b, _, _ in bands]} at {zoom} %")
+	bad = same_size(f"zoom {zoom}%", bands)
+	print("zoom_text: ok" if not bad else f"zoom_text: {bad} failures")
+	return 1 if bad else 0
+
+
 def main(argv):
 	if len(argv) == 3 and argv[1] == "frames":
 		return check(argv[2])
+	if 3 <= len(argv) <= 5 and argv[1] == "sizes":
+		zoom = int(argv[3]) if len(argv) > 3 else 100
+		client = tuple(int(v) for v in argv[4].split(",")) if len(argv) > 4 else CLIENT
+		return sizes(argv[2], zoom, client)
 	if len(argv) == 3 and argv[1] == "preview":
 		return preview(argv[2])
 	if len(argv) >= 4 and argv[1] in ("crop", "crop-preview"):
