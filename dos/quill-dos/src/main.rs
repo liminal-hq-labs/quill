@@ -286,9 +286,13 @@ fn main() -> i32 {
 }
 
 /// Everything the two screens share: an empty document, the settings, and the command line (`/MONO`, a file to open).
-fn start(app: &mut App<ScreenMeasure>, store: &mut HeapStore, files: &mut files::DosFiles) -> bool {
+fn start(app: &mut App<ScreenMeasure>, store: &mut HeapStore, files: &mut files::DosFiles, zoom: Option<u16>) -> bool {
 	if app.reset(store).is_err() {
 		return false;
+	}
+	// The graphics screen starts at a zoom of its own; `QUILL.INI` still overrides it.
+	if let Some(z) = zoom {
+		app.set_zoom(z);
 	}
 	// A test script that says `@live` or `@spell` runs with Check Spelling as You Type on, as the host's does; otherwise it is off
 	// until the Find menu or `AsYouType=1` turns it on (D201).
@@ -349,7 +353,7 @@ fn run(rows: usize, kept: &Kept) -> i32 {
 	let mut store = HeapStore::new();
 	let mut app = Box::new(App::with_measure(ScreenMeasure::Grid(GridMeasure)));
 	let mut files = files::DosFiles;
-	if !start(&mut app, &mut store, &mut files) {
+	if !start(&mut app, &mut store, &mut files, None) {
 		video::leave();
 		rt::io::write_str("Quill: there is not enough memory.\r\n");
 		return 1;
@@ -480,7 +484,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 	let mut store = HeapStore::new();
 	let mut app = Box::new(App::with_measure(ScreenMeasure::Strikes(StrikeMeasure::new(strikes))));
 	let mut files = files::DosFiles;
-	if !start(&mut app, &mut store, &mut files) {
+	if !start(&mut app, &mut store, &mut files, Some(shell::START_ZOOM)) {
 		gfx::leave();
 		return Err("there is not enough memory");
 	}

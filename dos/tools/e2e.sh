@@ -334,6 +334,11 @@ for scen in menus dialogs toolbar scroll hscroll fields ruler; do
 	run_mouse_gfx "g8-gfx-$scen-12h" svga_s3 /G16 16 "g8-gfx-$scen"
 	run_mouse_gfx "g8-gfx-$scen-vbe" svga_s3 /G 256 "g8-gfx-$scen"
 done
+# G11 (graphics): the zoom (tests/scenarios/g11-gfx-zoom.keys): the control at the right end of the status line, the list of levels, the buttons and
+# View > Zoom, the page drawn at 150, 125, 100, 75, Page Width, 50 and 200 percent, and the pointer's clicks in the page, the scroll bar and the
+# margin at those zooms. The same frames as the host's in both modes, and the saved file.
+run_mouse_gfx g11-gfx-zoom-12h svga_s3 /G16 16 g11-gfx-zoom
+run_mouse_gfx g11-gfx-zoom-vbe svga_s3 /G 256 g11-gfx-zoom
 # Check Spelling as You Type in graphics (tests/scenarios/g10-gfx-spell.keys): `@spell` runs the whole scan after each frame, as the host's
 # does, and the waves are in the frames' CRCs.
 run_mouse_gfx g10-gfx-spell-12h svga_s3 /G16 16 g10-gfx-spell

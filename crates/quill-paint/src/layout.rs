@@ -6,7 +6,7 @@
 //! Pure arithmetic over `quill_app::view`'s sizes. A pointer asks the same [`Layout`] the painter draws with, so a click lands on
 //! what is on the screen.
 
-use quill_app::view::{hscroll_max, rows, scroll_layout, RULER_H};
+use quill_app::view::{hscroll_max_at, rows, scroll_layout, RULER_H};
 use quill_app::App;
 use quill_core::layout::Measure;
 
@@ -59,7 +59,7 @@ impl Layout {
 			y += RULER_H;
 		}
 		let status_h = if app.show_status() { STATUS_H } else { 0 };
-		let show_h = hscroll_max(app, SCREEN_W - BAR) > 0;
+		let show_h = hscroll_max_at(app, SCREEN_W - BAR, crate::shell::pct(app)) > 0;
 		let sl = scroll_layout(SCREEN_W, SCREEN_H, y, status_h, BAR, BAR, show_h);
 		Layout {
 			menu: Rect::new(0, 0, SCREEN_W, MENU_H),

@@ -55,6 +55,11 @@ pub const MAX_GLYPH_BYTES: usize = MAX_GLYPH_SIDE * (MAX_GLYPH_SIDE * 2 / 8);
 /// The scales a strike is drawn at.
 pub const MAX_SCALE: u8 = 3;
 
+/// The em height in pixels a font asks for at 96 dots to the inch: the formula the Windows build gives `CreateFontA`.
+pub fn wanted_px(f: &FontRef) -> u32 {
+	(u32::from(f.size) * 96 + 72) / 144
+}
+
 /// CRC-32 (the zlib polynomial) of `data`, continuing from `crc` (start with 0).
 pub fn crc32_update(crc: u32, data: &[u8]) -> u32 {
 	let mut c = !crc;
@@ -372,7 +377,11 @@ impl<'a> Strikes<'a> {
 	/// wrong; then the strike and scale whose pixel size is nearest the one the font's size asks for at 96 dpi. A tie goes to the
 	/// smaller scale and then the smaller strike. The measure and the painter both call this, so they cannot disagree.
 	pub fn strike_for(&self, f: &FontRef) -> (StrikeId, u8) {
-		let want_px = (u32::from(f.size) * 96 + 72) / 144;
+		self.strike_for_px(f, wanted_px(f))
+	}
+
+	/// [`Strikes::strike_for`] for a size given in pixels, which a zoomed page asks for (the font's size at the zoom).
+	pub fn strike_for_px(&self, f: &FontRef, want_px: u32) -> (StrikeId, u8) {
 		let want_style =
 			(u8::from(f.flags & cflag::BOLD != 0)) | (u8::from(f.flags & cflag::ITALIC != 0) << 1);
 		let mut face = match f.family {

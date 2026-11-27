@@ -19,8 +19,12 @@
 //! What the painter needs to show a gesture in progress is [`View`], read with [`Gfx::view`]; the rest is the app's.
 
 use quill_app::mouse::{Ctx, Ev, Pointer, DOUBLE_TICKS};
-use quill_app::view::{self, snap, text_extent, Drag, Hit, RulerState, RULER_H, TOOLBAR, TWIPS_PX};
+use quill_app::view::{
+	self, log, snap, text_extent_at, Drag, Hit, RulerState, RULER_H, TOOLBAR, TWIPS_PX,
+};
 use quill_app::widgets::Place;
+use quill_app::zoom_field::{zoom_step, ZoomPart};
+use quill_app::Command;
 use quill_app::{menu_items_for, menu_title, App, Files, Key, Overlay, Slot, Wk, MENU_COUNT};
 use quill_core::layout::Measure;
 use quill_core::store::{ReadStore, Store};
@@ -34,7 +38,7 @@ use crate::shell::{self, Pixels};
 use crate::tip::{Target, TIP_TICKS};
 use crate::toolbar::{box_at, button_at};
 use crate::ui::ui_font;
-use crate::{dialog, filedlg, Rect};
+use crate::{dialog, filedlg, zoombox, Rect};
 use quill_core::layout::GLYPHS;
 
 /// What the painter shows of a gesture in progress.
@@ -52,6 +56,8 @@ pub struct View {
 	pub ruler: Option<RulerState>,
 	/// The kind of tab the ruler's button shows and a click on the scale sets: 0 left, 1 centre, 2 right, 3 decimal.
 	pub kind: u8,
+	/// The zoom button held down, while the pointer is over it.
+	pub zoom: Option<ZoomPart>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -69,6 +75,8 @@ enum Cap {
 	Button { i: usize, over: bool },
 	/// A dialog's button, check box or radio button is held.
 	Widget { idx: usize, over: bool },
+	/// The minus or plus button of the zoom control is held; it steps when let go over it.
+	Zoom { part: ZoomPart, over: bool },
 	/// A drop-down list is being tracked.
 	Pop { opened: bool },
 	/// An arrow or the track of a scroll bar is held: it repeats every `REPEAT_STEP` ticks from tick `next`.
@@ -198,6 +206,10 @@ impl Gfx {
 				_ => None,
 			},
 			kind: self.kind,
+			zoom: match self.cap {
+				Cap::Zoom { part, over: true } => Some(part),
+				_ => None,
+			},
 		}
 	}
 
@@ -283,6 +295,12 @@ impl Gfx {
 	) -> bool {
 		self.tip = None;
 		self.rest = self.rest.map(|(t, at, _)| (t, at, true));
+		if self.drop.is_none() && zoom_entry(app, k) {
+			// View > Zoom, which has no submenu here, opens the list of levels over the status line's box.
+			app.menu_shut();
+			self.drop = Some((Pop::Zoom, drop::current(app, s, Pop::Zoom)));
+			return true;
+		}
 		let Some((pop, hot)) = self.drop else {
 			return false;
 		};
@@ -353,6 +371,10 @@ impl Gfx {
 				let over = Self::widget_at(app, s, x, y) == Some(idx);
 				self.cap = Cap::Widget { idx, over };
 			}
+			Cap::Zoom { part, .. } => {
+				let over = zoombox::part_at(&Layout::of(app), x, y) == Some(part);
+				self.cap = Cap::Zoom { part, over };
+			}
 			Cap::Pop { .. } => self.drop_over(app, x, y),
 			Cap::Field { idx, skip } => {
 				let mut o = Overlay::default();
@@ -377,7 +399,7 @@ impl Gfx {
 			Cap::Ruler { mut drag, at } => {
 				let lay = Layout::of(app);
 				let (left, w) = ruler_extent(app, &lay);
-				drag_to(&mut drag, at, x, left, w);
+				drag_to(&mut drag, at, x, (left, w), shell::pct(app));
 				self.cap = Cap::Ruler { drag, at };
 			}
 			Cap::None => {
@@ -697,6 +719,18 @@ impl Gfx {
 			self.cap = Cap::Pop { opened: true };
 			return;
 		}
+		match zoombox::part_at(&lay, x, y) {
+			Some(ZoomPart::Field) => {
+				self.drop = Some((Pop::Zoom, drop::current(app, s, Pop::Zoom)));
+				self.cap = Cap::Pop { opened: true };
+				return;
+			}
+			Some(part) => {
+				self.cap = Cap::Zoom { part, over: true };
+				return;
+			}
+			None => {}
+		}
 		if lay.ruler.is_some_and(|r| inside(r, x, y)) {
 			self.ruler_down(app, s, &lay, x, y);
 			return;
@@ -741,12 +775,14 @@ impl Gfx {
 			let view = app.vscroll_view();
 			let range = app.vscroll_max(s);
 			let pos = app.vscroll_pos(s).min(range);
+			// An arrow moves 16 screen pixels, which is more page units when the page is drawn smaller.
+			let line = log(view::SCROLL_LINE, shell::pct(app)).max(1);
 			Some(Bar {
 				parts: scroll::parts(lay.vbar, true, pos, range + view, view),
 				pos,
 				range,
-				line: view::SCROLL_LINE,
-				page: (view - 2 * view::SCROLL_LINE).max(view::SCROLL_LINE),
+				line,
+				page: (view - 2 * line).max(line),
 			})
 		} else {
 			let w = lay.page.width();
@@ -895,7 +931,8 @@ impl Gfx {
 		let st = RulerState::of(app, s);
 		// The button at the left end of the ruler goes round the kinds of tab, as the Windows builds' does; the scale sets a tab of
 		// the kind it shows.
-		let mut hit = quill_app::view::ruler_hit_with(x, y, r.top, left, w, &st, 0);
+		let mut hit =
+			quill_app::view::ruler_hit_at(x, y, r.top, (left, w), &st, 0, shell::pct(app));
 		// The button is under the markers and the stops, which come first where they overlap it.
 		if x < KIND_W && matches!(hit, None | Some(Hit::Scale(_))) && inside(r, x, y) {
 			hit = Some(Hit::Kind);
@@ -956,10 +993,20 @@ impl Gfx {
 				}
 			}
 			Cap::Pop { opened } => self.pop_up(app, s, opened, x, y),
+			Cap::Zoom { part, .. } => {
+				let lay = Layout::of(app);
+				if zoombox::part_at(&lay, x, y) == Some(part) {
+					if let Some(Command::Zoom(z)) =
+						zoom_step(shell::pct(app), part == ZoomPart::Plus)
+					{
+						app.set_zoom(z);
+					}
+				}
+			}
 			Cap::Ruler { mut drag, at } => {
 				let lay = Layout::of(app);
 				let (left, w) = ruler_extent(app, &lay);
-				drag_to(&mut drag, at, x, left, w);
+				drag_to(&mut drag, at, x, (left, w), shell::pct(app));
 				self.ruler_up(app, s, &lay, drag, at, y);
 			}
 		}
@@ -986,7 +1033,12 @@ impl Gfx {
 				let off = g.rows().get(i).is_some_and(|r| greyed(app, s, menu, r));
 				if !off {
 					app.menu_light(i as u8);
-					app.key(s, f, Key::Enter);
+					if zoom_entry(app, Key::Enter) {
+						app.menu_shut();
+						self.drop = Some((Pop::Zoom, drop::current(app, s, Pop::Zoom)));
+					} else {
+						app.key(s, f, Key::Enter);
+					}
 				}
 				return;
 			}
@@ -1117,21 +1169,43 @@ impl Gfx {
 	}
 }
 
+/// True when `k` chooses the Zoom entry of the open menu: Enter with it lit, or its mnemonic. The entry has a submenu in the
+/// Windows builds; here it opens the list of levels.
+fn zoom_entry<M: Measure + Clone>(app: &App<M>, k: Key) -> bool {
+	let Some((menu, lit)) = app.menu_open().filter(|(m, _)| *m != 0) else {
+		return false;
+	};
+	let is_zoom = |it: &quill_app::Item| !it.sub.is_empty() && it.command == Command::Zoom(0);
+	let items = menu_items_for(menu, true);
+	match k {
+		Key::Enter => items.get(usize::from(lit)).is_some_and(is_zoom),
+		Key::Char(c) => items.iter().any(|it| {
+			is_zoom(it)
+				&& it
+					.label
+					.split_once('&')
+					.and_then(|(_, rest)| rest.bytes().next())
+					.is_some_and(|m| m.eq_ignore_ascii_case(&c))
+		}),
+		_ => false,
+	}
+}
+
 /// The text column's left edge and width in the ruler, as the painter draws them.
 fn ruler_extent<M: Measure + Clone>(app: &App<M>, lay: &Layout) -> (i32, i32) {
 	let w = lay.page.width();
-	text_extent(app, w, shell::hscroll(app, w))
+	text_extent_at(app, w, shell::hscroll(app, w), shell::pct(app))
 }
 
 /// Applies the pointer position `x` to a drag: the indent markers as the shared logic moves them, and a tab stop (entry `at` of the
 /// ruler's stops) to where the pointer is, snapped to a sixteenth of an inch.
-fn drag_to(d: &mut Drag, at: usize, x: i32, left: i32, w: i32) {
+fn drag_to(d: &mut Drag, at: usize, x: i32, (left, w): (i32, i32), pct: i32) {
 	if let Hit::Tab(_) = d.hit {
-		let to = snap((x - left) * TWIPS_PX).clamp(0, w * TWIPS_PX);
+		let to = snap(log(x - left, pct) * TWIPS_PX).clamp(0, log(w, pct) * TWIPS_PX);
 		if let Some(slot) = d.state.tabs.get_mut(at) {
 			slot.0 = to;
 		}
 	} else {
-		quill_app::view::drag_to(d, x, left, w);
+		quill_app::view::drag_to_at(d, x, left, w, pct);
 	}
 }

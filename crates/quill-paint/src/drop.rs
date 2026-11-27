@@ -10,6 +10,7 @@
 use quill_app::view::{Act, GLYPH_COLOUR};
 use quill_app::view::{COLOURS, SIZES, TOOLBAR};
 use quill_app::widgets::{face_choice, face_choices};
+use quill_app::zoom_field::{zoom_command, zoom_text, ZOOM_LEVELS, ZOOM_TEXT_MAX};
 use quill_app::{App, STYLE_NAMES};
 use quill_core::layout::Measure;
 use quill_core::store::{ReadStore, Store};
@@ -17,6 +18,7 @@ use quill_core::store::{ReadStore, Store};
 use crate::layout::Layout;
 use crate::toolbar::{box_rect, button_rect, Box3};
 use crate::ui::{bevel, outline, Ui, FACE, INK, LIGHT, SELECT};
+use crate::zoombox;
 use crate::{Rect, Rgb, Surface};
 
 /// The height of one entry.
@@ -37,6 +39,8 @@ pub enum Pop {
 	Size,
 	/// Automatic and the sixteen colours.
 	Colour,
+	/// The levels of the zoom, which drops up from the status line's box.
+	Zoom,
 }
 
 impl Pop {
@@ -65,6 +69,7 @@ impl Pop {
 			Pop::Face => face_choices(),
 			Pop::Size => SIZES.len(),
 			Pop::Colour => COLOURS.len() + 1,
+			Pop::Zoom => ZOOM_LEVELS.len(),
 		}
 	}
 }
@@ -82,12 +87,19 @@ pub fn anchor(lay: &Layout, pop: Pop) -> Option<Rect> {
 				.position(|b| b.glyph == GLYPH_COLOUR && b.act == Act::Colour)?;
 			button_rect(lay, i)
 		}
+		Pop::Zoom => zoombox::field_rect(lay),
 	}
 }
 
 /// The list's rectangle, border included, under its anchor.
 pub fn list_rect(lay: &Layout, pop: Pop) -> Option<Rect> {
 	let a = anchor(lay, pop)?;
+	if pop == Pop::Zoom {
+		// The status line is at the foot of the screen: the list rises from the box, 8 pixels wider than it to the left, so
+		// `Page Width` has room beside its lit bar.
+		let top = lay.status?.top - pop.count() as i32 * ROW - 4;
+		return Some(Rect::new(a.left - 8, top, a.right, lay.status?.top));
+	}
 	let w = if pop == Pop::Colour {
 		COLOUR_W
 	} else {
@@ -152,6 +164,11 @@ pub fn item_text(pop: Pop, i: usize, out: &mut [u8; 24]) -> usize {
 				COLOURS.get(k - 1).map_or(&[][..], |(n, _)| n.as_bytes()),
 			),
 		},
+		Pop::Zoom => {
+			let mut text = [0u8; ZOOM_TEXT_MAX];
+			let n = zoom_text(ZOOM_LEVELS.get(i).copied().unwrap_or(0), &mut text);
+			put(out, text.get(..n).unwrap_or(&[]))
+		}
 	}
 }
 
@@ -177,6 +194,8 @@ pub fn current<M: Measure + Clone, S: ReadStore + ?Sized>(app: &App<M>, s: &S, p
 				.position(|(_, c)| *c == (r, g, b))
 				.map_or(0, |k| k + 1),
 		},
+		// A zoom the list lacks lights nothing.
+		Pop::Zoom => app.zoom_field_current().unwrap_or(Pop::Zoom.count()),
 	}
 }
 
@@ -203,6 +222,11 @@ pub fn choose<M: Measure + Clone, S: Store + ?Sized>(
 			s,
 			i.checked_sub(1).and_then(|k| COLOURS.get(k)).map(|c| c.1),
 		),
+		Pop::Zoom => {
+			if let Some(quill_app::Command::Zoom(z)) = zoom_command(i) {
+				app.set_zoom(z);
+			}
+		}
 	}
 }
 

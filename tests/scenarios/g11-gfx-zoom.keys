@@ -1,0 +1,36 @@
+# G11 (graphics): the zoom. The control at the right end of the status line (a minus button, the box, a plus button and a margin) and
+# the page drawn at each level: the list of levels from the box, 150 percent with a click in the text and typing, the buttons stepping down
+# through 125, 100 and 75, Page Width and 50 from the list, the minus button greyed at 50, the plus button held, a click in the margin that
+# does nothing, the scroll bar's arrow at 50, and View > Zoom from the keyboard. Every frame's CRC-32 must equal the host's.
+@copy letter.rtf
+@open LETTER.RTF
+@click 574 470          # the box: the list of levels opens above it, 100 lit
+@click 574 377          # 150
+@click 300 200          # a click in the text at 150: the caret goes where the page was clicked
+z o o m space t e s t   # typed at the caret
+@click 526 470          # minus: 125
+@click 526 470          # 100
+@click 526 470          # 75
+@click 574 470          # the list again, 75 lit
+@click 574 341          # Page Width
+@click 622 470          # plus from Page Width: the next level up from the 74 percent shown, 75
+@click 574 470
+@click 574 449          # 50
+@click 526 470          # minus at 50 does nothing: it is drawn greyed
+@down 622 470           # the plus button held: it shows sunk
+@move 300 300           # raised again while the pointer is off it
+@up 300 300             # nothing runs
+@click 636 470          # the margin at the right edge is not part of the control
+@click 632 440          # the scroll bar's down arrow at 50 percent
+@click 200 200          # a click in the text at 50
+@wheel 2
+f10 right right right right right right right down down down down enter   # View > Zoom: the list of levels opens, 50 lit
+up up enter             # 100 percent
+f10 right right right right right right right z     # the mnemonic opens the list too
+esc
+@click 622 470          # plus: 125
+@click 622 470          # 150
+@click 622 470          # 200
+@click 622 470          # plus at 200 does nothing: it is drawn greyed
+f10 down down enter     # File > Save
+f10 end enter           # File > Exit

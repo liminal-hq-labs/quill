@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use quill_core::layout::FontRef;
-use quill_strike::{StrikeId, StrikeSource, Strikes, MAX_GLYPH_BYTES, MAX_GLYPH_SIDE};
+use quill_strike::{wanted_px, StrikeId, StrikeSource, Strikes, MAX_GLYPH_BYTES, MAX_GLYPH_SIDE};
 
 use crate::palette::{dither16, dither256, index256, nearest16, rgb256};
 use crate::{Rect, Rgb, Surface};
@@ -193,6 +193,9 @@ pub struct StrikeFont {
 	pub id: StrikeId,
 	/// 1 to 3.
 	pub scale: u8,
+	/// The em height in pixels a zoomed page wants when no strike is near enough, so each glyph is resampled to it (see
+	/// [`resample_row`]); 0 for the strike as it is.
+	pub want: u8,
 }
 
 /// A surface over a [`Device`], drawing text from strikes read through a [`StrikeSource`].
@@ -203,7 +206,7 @@ pub struct Raster<'a, D: Device, S: StrikeSource> {
 	clip: Rect,
 	/// The last font asked for and the strike it came to: a line asks for the same one for every character, and choosing a strike
 	/// looks at every strike in the file.
-	last_font: Option<(FontRef, StrikeFont)>,
+	last_font: Option<(FontRef, i32, StrikeFont)>,
 }
 
 /// A 640 × 480 mode 12h surface.
@@ -310,6 +313,71 @@ impl<'a, D: Device, S: StrikeSource> Raster<'a, D, S> {
 	}
 }
 
+/// How the pixels of a glyph's levels are inked.
+struct Inks {
+	ink: u8,
+	greys: [u8; 4],
+	grey: bool,
+}
+
+/// Unpacks one row of a glyph's bitmap (1 or 2 bits a pixel) into levels 0 to 3. False when the row is blank.
+fn unpack(packed: &[u8], bpp: u8, width: usize, lv: &mut [u8; MAX_GLYPH_SIDE]) -> bool {
+	if packed.iter().all(|b| *b == 0) {
+		return false;
+	}
+	if bpp == 1 {
+		for (col, l) in lv.iter_mut().enumerate().take(width) {
+			let b = packed.get(col >> 3).copied().unwrap_or(0);
+			*l = if (b >> (7 - (col & 7))) & 1 != 0 {
+				3
+			} else {
+				0
+			};
+		}
+	} else {
+		for (col, l) in lv.iter_mut().enumerate().take(width) {
+			let b = packed.get(col >> 2).copied().unwrap_or(0);
+			*l = (b >> (6 - 2 * (col & 3))) & 3;
+		}
+	}
+	true
+}
+
+impl<D: Device, S: StrikeSource> Raster<'_, D, S> {
+	/// Draws one row of glyph levels from (`x`, `y`), each pixel `k` by `k`: a run of equal levels is one span.
+	fn levels(
+		&mut self,
+		lv: &[u8; MAX_GLYPH_SIDE],
+		width: usize,
+		(x, y): (i32, i32),
+		k: i32,
+		inks: &Inks,
+	) {
+		let mut col = 0;
+		while col < width {
+			let level = lv.get(col).copied().unwrap_or(0);
+			let paint = if inks.grey { level > 0 } else { level >= 2 };
+			if !paint {
+				col += 1;
+				continue;
+			}
+			let colour = if inks.grey {
+				inks.greys.get(usize::from(level)).copied().unwrap_or(0)
+			} else {
+				inks.ink
+			};
+			let mut end = col + 1;
+			while end < width && lv.get(end).copied() == Some(level) {
+				end += 1;
+			}
+			let x0 = x.saturating_add(col as i32 * k);
+			let x1 = x.saturating_add(end as i32 * k);
+			self.fill_i(Rect::new(x0, y, x1, y.saturating_add(k)), colour);
+			col = end;
+		}
+	}
+}
+
 impl<D: Device, S: StrikeSource> Surface for Raster<'_, D, S> {
 	type Font = StrikeFont;
 
@@ -323,19 +391,41 @@ impl<D: Device, S: StrikeSource> Surface for Raster<'_, D, S> {
 	}
 
 	fn font(&mut self, f: &FontRef) -> StrikeFont {
-		if let Some((key, font)) = &self.last_font {
-			if key == f {
+		self.font_at(f, 100)
+	}
+
+	fn font_at(&mut self, f: &FontRef, pct: i32) -> StrikeFont {
+		if let Some((key, at, font)) = &self.last_font {
+			if key == f && *at == pct {
 				return *font;
 			}
 		}
-		let (id, scale) = self.strikes.strike_for(f);
-		let font = StrikeFont { id, scale };
-		self.last_font = Some((*f, font));
+		let font = if pct == 100 {
+			let (id, scale) = self.strikes.strike_for(f);
+			StrikeFont { id, scale, want: 0 }
+		} else {
+			let want_px = ((wanted_px(f) as i32 * pct + 50) / 100).clamp(1, 255) as u32;
+			let (id, scale) = self.strikes.strike_for_px(f, want_px);
+			let have = u32::from(self.strikes.strike(id).pixels) * u32::from(scale);
+			// A strike within an eighth of the size wanted is drawn as it is; further off, its glyphs are resampled.
+			let near = want_px.abs_diff(have) * 8 <= want_px;
+			StrikeFont {
+				id,
+				scale,
+				want: if near { 0 } else { want_px as u8 },
+			}
+		};
+		self.last_font = Some((*f, pct, font));
 		font
 	}
 
 	fn advance(&mut self, f: StrikeFont, ch: u8) -> i32 {
-		i32::from(self.strikes.advance(f.id, ch)) * i32::from(f.scale)
+		let full = i32::from(self.strikes.advance(f.id, ch)) * i32::from(f.scale);
+		if f.want == 0 {
+			return full;
+		}
+		let have = i32::from(self.strikes.strike(f.id).pixels) * i32::from(f.scale);
+		(full * i32::from(f.want) + have / 2) / have.max(1)
 	}
 
 	fn fill_rect(&mut self, r: Rect, c: Rgb) {
@@ -359,70 +449,87 @@ impl<D: Device, S: StrikeSource> Surface for Raster<'_, D, S> {
 		fg: Rgb,
 		smooth: bool,
 	) {
-		let ink = self.dev.index(fg);
-		let greys = [
-			0,
-			self.dev.index(Rgb::SILVER),
-			self.dev.index(Rgb::GREY),
-			self.dev.index(Rgb::BLACK),
-		];
-		let grey = smooth && fg == Rgb::BLACK;
+		let ink = Inks {
+			ink: self.dev.index(fg),
+			greys: [
+				0,
+				self.dev.index(Rgb::SILVER),
+				self.dev.index(Rgb::GREY),
+				self.dev.index(Rgb::BLACK),
+			],
+			grey: smooth && fg == Rgb::BLACK,
+		};
 		let k = i32::from(f.scale);
+		let have = i32::from(self.strikes.strike(f.id).pixels) * k;
 		let mut bits = [0u8; MAX_GLYPH_BYTES];
 		for &(ch, x) in glyphs {
 			let Some(g) = self.strikes.glyph(self.src, f.id, ch, &mut bits) else {
 				continue;
 			};
-			let gx = x.saturating_add(g.left * k);
-			let gy = base_y.saturating_sub(g.top * k);
-			for row in 0..g.height {
-				let y0 = gy.saturating_add(row as i32 * k);
-				// The row's ink levels, unpacked once: asking the glyph for each pixel costs several times what drawing it does.
-				let Some(packed) = bits.get(row * g.stride..(row + 1) * g.stride) else {
-					continue;
-				};
-				if packed.iter().all(|b| *b == 0) {
-					continue;
-				}
-				let mut lv = [0u8; MAX_GLYPH_SIDE];
-				if g.bpp == 1 {
-					for (col, l) in lv.iter_mut().enumerate().take(g.width) {
-						let b = packed.get(col >> 3).copied().unwrap_or(0);
-						*l = if (b >> (7 - (col & 7))) & 1 != 0 {
-							3
-						} else {
-							0
-						};
-					}
-				} else {
-					for (col, l) in lv.iter_mut().enumerate().take(g.width) {
-						let b = packed.get(col >> 2).copied().unwrap_or(0);
-						*l = (b >> (6 - 2 * (col & 3))) & 3;
+			let mut lv = [0u8; MAX_GLYPH_SIDE];
+			if f.want == 0 {
+				let gx = x.saturating_add(g.left * k);
+				let gy = base_y.saturating_sub(g.top * k);
+				for row in 0..g.height {
+					let y0 = gy.saturating_add(row as i32 * k);
+					let Some(packed) = bits.get(row * g.stride..(row + 1) * g.stride) else {
+						continue;
+					};
+					if unpack(packed, g.bpp, g.width, &mut lv) {
+						self.levels(&lv, g.width, (gx, y0), k, &ink);
 					}
 				}
-				let mut col = 0;
-				while col < g.width {
-					let level = lv.get(col).copied().unwrap_or(0);
-					let paint = if grey { level > 0 } else { level >= 2 };
-					if !paint {
-						col += 1;
+				continue;
+			}
+			// Resampled: the glyph is mapped onto the grid of the size wanted, anchored at the pen and the baseline, so every glyph of
+			// a line shares one baseline whatever its bitmap's height. A source pixel is `k * want` wide and a pixel wanted `have`, in
+			// one unit, so the overlap of the two is an integer and the levels average by area.
+			let ks = k * i32::from(f.want);
+			let (left, top) = (g.left, g.top);
+			let (width, height) = (g.width as i32, g.height as i32);
+			let col0 = (left * ks).div_euclid(have);
+			let col1 = ((left + width) * ks + have - 1).div_euclid(have);
+			let row0 = (-top * ks).div_euclid(have);
+			let row1 = ((height - top) * ks + have - 1).div_euclid(have);
+			let cols = (col1 - col0).max(0) as usize;
+			if cols > MAX_GLYPH_SIDE || cols == 0 {
+				continue;
+			}
+			let area = have * have;
+			for j in row0..row1 {
+				let mut acc = [0i32; MAX_GLYPH_SIDE];
+				let lo = (j * have).div_euclid(ks) + top;
+				let hi = ((j + 1) * have + ks - 1).div_euclid(ks) + top;
+				for sy in lo.max(0)..hi.min(height) {
+					let (s0, s1) = ((sy - top) * ks, (sy - top + 1) * ks);
+					let oy = s1.min((j + 1) * have) - s0.max(j * have);
+					let Some(packed) =
+						bits.get(sy as usize * g.stride..(sy as usize + 1) * g.stride)
+					else {
+						continue;
+					};
+					let mut src = [0u8; MAX_GLYPH_SIDE];
+					if !unpack(packed, g.bpp, g.width, &mut src) {
 						continue;
 					}
-					let colour = if grey {
-						greys.get(usize::from(level)).copied().unwrap_or(0)
-					} else {
-						ink
-					};
-					// A run of equal pixels is one span.
-					let mut end = col + 1;
-					while end < g.width && lv.get(end).copied() == Some(level) {
-						end += 1;
+					for (sx, level) in src.iter().enumerate().take(g.width) {
+						if *level == 0 {
+							continue;
+						}
+						let a0 = (left + sx as i32) * ks;
+						let a1 = a0 + ks;
+						for c in a0.div_euclid(have)..=(a1 - 1).div_euclid(have) {
+							let ox = a1.min((c + 1) * have) - a0.max(c * have);
+							if let Some(slot) = acc.get_mut((c - col0) as usize) {
+								*slot += i32::from(*level) * ox * oy;
+							}
+						}
 					}
-					let x0 = gx.saturating_add(col as i32 * k);
-					let x1 = gx.saturating_add(end as i32 * k);
-					self.fill_i(Rect::new(x0, y0, x1, y0.saturating_add(k)), colour);
-					col = end;
 				}
+				for (out, sum) in lv.iter_mut().zip(acc.iter()).take(cols) {
+					*out = ((sum + area / 2) / area).min(3) as u8;
+				}
+				self.levels(&lv, cols, (x + col0, base_y + j), 1, &ink);
 			}
 		}
 	}
