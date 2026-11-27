@@ -593,6 +593,23 @@ impl Combo {
 		}
 	}
 
+	/// Lights row `i` of the open list, as the pointer passing over it does.
+	pub fn light(&mut self, i: usize) {
+		if self.open {
+			self.list.select(i);
+		}
+	}
+
+	/// Chooses row `i` of the open list and closes it, as a click on it does.
+	pub fn pick(&mut self, i: usize) -> ComboEvent {
+		self.light(i);
+		if self.open {
+			self.commit()
+		} else {
+			ComboEvent::None
+		}
+	}
+
 	/// Handles a key. Closed, Up, Down, Home and End change the choice in place, and F4 or Alt+Down opens the list. Open, those keys
 	/// move the highlight, Enter (or F4, Alt+Down) chooses it and Esc closes the list without changing the choice. Anything else
 	/// gives `None` and is the caller's.

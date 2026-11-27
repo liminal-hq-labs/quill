@@ -11,7 +11,7 @@
 
 use quill_core::layout::Measure;
 use quill_core::store::Store;
-use quill_dlg::filedlg::{DlgError, FileDlg, Outcome, PlaceSpec, Question, Start};
+use quill_dlg::filedlg::{DlgError, FileDlg, Outcome, PlaceSpec, Point, Question, Start};
 use quill_dlg::filelayout::{Layout, Screen};
 use quill_dlg::key::DlgKey;
 use quill_dlg::name83::NameError;
@@ -444,6 +444,50 @@ impl<M: Measure + Clone> App<M> {
 			},
 		};
 		self.file_outcome(s, f, dlg, out);
+	}
+
+	/// A pointer press on part `p` of the file dialog, as the painter's hit test names it. It does nothing while a box is open over
+	/// the dialog (the box's own buttons are the overlay's widgets).
+	#[inline(never)]
+	pub fn file_point<S: Store + ?Sized, F: Files>(&mut self, s: &mut S, f: &mut F, p: Point) {
+		if self.fd.boxed != FileBox::None {
+			return;
+		}
+		let Some(mut dlg) = self.fd.dlg.take() else {
+			return;
+		};
+		let out = match f.fs() {
+			Some(fs) => dlg.point(p, fs, s),
+			None => Outcome::Cancel,
+		};
+		self.file_outcome(s, f, dlg, out);
+	}
+
+	/// Scrolls the file dialog's list so entry `top` is the first shown, as its scroll bar and the wheel do.
+	pub fn file_scroll(&mut self, top: i32) {
+		if let (Some(d), FileBox::None) = (&mut self.fd.dlg, self.fd.boxed) {
+			d.scroll_to(top.max(0) as usize);
+		}
+	}
+
+	/// Presses button `id` of the box over the file dialog: Yes or No, Retry or Cancel, OK, or the New folder box's OK and Cancel.
+	pub(crate) fn press_file_box<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		id: u8,
+		ok: bool,
+	) {
+		let k = match &mut self.fd.boxed {
+			FileBox::Ask(focus, ..) | FileBox::Say(Some(_), focus, ..) => {
+				*focus = id;
+				Key::Enter
+			}
+			FileBox::Say(None, ..) => Key::Enter,
+			FileBox::None if ok => Key::Enter,
+			FileBox::None => Key::Esc,
+		};
+		self.key_file(s, f, k);
 	}
 
 	/// Keys of a Yes or No box: `Some(true)` for Yes, `Some(false)` for No, `None` to stay.

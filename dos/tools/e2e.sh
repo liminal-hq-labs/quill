@@ -333,9 +333,13 @@ run_dialog_gfx() { # <label> <machine> <arguments> <16|256> <scenario>
 		cmp "$disk/DOCS/NEW.RTF" "$ROOT/tests/golden/files/m16-new.rtf" || fail "$label: the saved NEW.RTF differs from the host's"
 		echo "e2e: $label: the saved NEW.RTF is byte-identical to the host's"
 	fi
+	if [ "$scen" = g9-gfx-save-as-mouse ]; then
+		cmp "$disk/DOCS/LETTER.RTF" "$ROOT/tests/golden/files/g9-gfx-save-as-mouse.rtf" || fail "$label: the saved LETTER.RTF differs from the host's"
+		echo "e2e: $label: the saved LETTER.RTF is byte-identical to the host's"
+	fi
 }
-# G9: the file dialog (Open and Save As), drawn by the same painter, in both graphics modes.
-for scen in open save-as; do
+# G9: the file dialog (Open and Save As), drawn by the same painter, in both graphics modes, with the keyboard and with the pointer.
+for scen in open save-as open-mouse save-as-mouse; do
 	run_dialog_gfx "g9-gfx-$scen-12h" svga_s3 /G16 16 "g9-gfx-$scen"
 	run_dialog_gfx "g9-gfx-$scen-vbe" svga_s3 /G 256 "g9-gfx-$scen"
 done

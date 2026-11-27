@@ -1604,3 +1604,223 @@ proptest! {
 		}
 	}
 }
+
+// ---- the file dialog -----------------------------------------------------------------------------------------------------------
+
+use quill_dlg::filedlg::{Point, CANCEL, LOOK_IN, NEW_FOLDER, OK, TYPES, UP};
+use quill_host::script::{parse_script, stage};
+use quill_paint::filedlg;
+
+impl Rig {
+	/// A graphics screen with the file dialog open over a folder of 30 files, a folder and Up.
+	fn file_dialog(save_as: bool) -> Rig {
+		let sc =
+			parse_script("@dialog\n@dir QUILL\n@cwd C:\\DOCS\n@dir DOCS\\SUB\n@many DOCS 30 QLD\n");
+		let (mut app, s, mut f) = new_app();
+		stage(&mut f, &sc, &root().join("tests/docs"));
+		app.set_file_dialog(true);
+		app.set_file_dialog_graphics(true);
+		let mut r = Rig::of(app, s, f);
+		let keys: &[Key] = if save_as {
+			&[Key::F(10), Key::Down, Key::Down, Key::Down, Key::Enter]
+		} else {
+			&[Key::F(10), Key::Down, Key::Enter]
+		};
+		for k in keys {
+			r.key(*k);
+		}
+		assert!(r.app.file_dialog_open());
+		r
+	}
+
+	fn hit(&self, x: i32, y: i32) -> Point {
+		let o = self.overlay();
+		filedlg::hit(&o, self.app.file_view().unwrap().dlg, x, y)
+	}
+
+	/// The pixels of a part's centre, found by asking `hit` where each kind of press lands.
+	fn find(&self, want: Point) -> (i32, i32) {
+		for y in (0..480).step_by(2) {
+			for x in (0..640).step_by(2) {
+				if self.hit(x, y) == want {
+					return (x, y);
+				}
+			}
+		}
+		panic!("nothing on the screen is {want:?}");
+	}
+
+	fn top(&self) -> usize {
+		self.app.file_view().unwrap().dlg.list().top()
+	}
+
+	fn selected(&self) -> Option<usize> {
+		self.app.file_view().unwrap().dlg.list().selected()
+	}
+}
+
+#[test]
+fn every_part_of_the_file_dialog_is_found_under_the_pixels_it_is_drawn_on() {
+	for save_as in [false, true] {
+		let r = Rig::file_dialog(save_as);
+		let mut buttons = vec![UP, OK, CANCEL];
+		if save_as {
+			buttons.push(NEW_FOLDER);
+		}
+		for id in buttons {
+			r.find(Point::Button(id));
+		}
+		assert_eq!(r.find(Point::Button(OK)).1, r.find(Point::Button(CANCEL)).1);
+		r.find(Point::Drop(LOOK_IN));
+		r.find(Point::Drop(TYPES));
+		r.find(Point::Name(0));
+		r.find(Point::Bar);
+		// 15 rows of the list and of the places, each 16 pixels, from the first to the last.
+		let rows = r.app.file_view().unwrap().dlg.list().rows();
+		let (x, y) = r.find(Point::Item(0));
+		assert_eq!(rows, 15);
+		for i in 0..rows {
+			assert_eq!(r.hit(x, y + 16 * i as i32), Point::Item(i));
+		}
+		let (x, y) = r.find(Point::Place(0));
+		assert_eq!(r.hit(x, y + 16), Point::Place(1));
+		// The title bar, the frame and the desk beyond it are nothing.
+		assert_eq!(r.hit(0, 0), Point::Away);
+		assert_eq!(r.hit(320, 56), Point::Away);
+		assert_eq!(r.hit(639, 479), Point::Away);
+	}
+}
+
+#[test]
+fn a_press_selects_a_second_press_opens_and_the_pointer_follows_the_keys() {
+	let mut r = Rig::file_dialog(false);
+	let (x, y) = r.find(Point::Item(0));
+	// `..`, SUB, then the files.
+	r.click((x, y + 16 * 4));
+	assert_eq!(r.selected(), Some(4));
+	assert!(r.app.file_dialog_open());
+	r.down(x, y + 16);
+	r.up(x, y + 16);
+	r.down(x, y + 16);
+	r.up(x, y + 16);
+	assert!(r.app.file_dialog_open());
+	let folder = r.app.file_view().unwrap().dlg.folder().to_vec();
+	assert!(
+		folder.ends_with(b"SUB"),
+		"{}",
+		String::from_utf8_lossy(&folder)
+	);
+	// Up is a button: it acts on release over it, and not when let go elsewhere.
+	let up = r.find(Point::Button(UP));
+	r.down(up.0, up.1);
+	assert_eq!(r.g.view().widget, Some(usize::from(UP)));
+	r.mv(300, 300);
+	assert_eq!(r.g.view().widget, None);
+	r.up(300, 300);
+	assert!(r.app.file_view().unwrap().dlg.folder().ends_with(b"SUB"));
+	r.click(up);
+	assert!(r.app.file_view().unwrap().dlg.folder().ends_with(b"DOCS"));
+	// Cancel ends the dialog.
+	let cancel = r.find(Point::Button(CANCEL));
+	r.click(cancel);
+	assert!(!r.app.file_dialog_open());
+}
+
+#[test]
+fn the_list_scrolls_by_its_bar_its_thumb_and_the_wheel() {
+	let mut r = Rig::file_dialog(false);
+	let bar = quill_paint::filedlg::list_bar(&r.overlay(), r.app.file_view().unwrap().dlg).unwrap();
+	let x = (bar.up.left + bar.up.right) / 2;
+	r.click((x, (bar.down.top + bar.down.bottom) / 2));
+	assert_eq!(r.top(), 1);
+	r.click((x, (bar.up.top + bar.up.bottom) / 2));
+	assert_eq!(r.top(), 0);
+	// The track below the thumb: a page (15 rows, less one).
+	r.click((x, bar.thumb.bottom + 4));
+	assert_eq!(r.top(), 14);
+	// The thumb dragged to the end of its track and back.
+	let bar = quill_paint::filedlg::list_bar(&r.overlay(), r.app.file_view().unwrap().dlg).unwrap();
+	let mid = (bar.thumb.top + bar.thumb.bottom) / 2;
+	r.drag((x, mid), (x, bar.track.bottom + 40));
+	let last = r.app.file_view().unwrap().dlg.list().count() - 15;
+	assert_eq!(r.top(), last);
+	r.drag((x, mid), (x, 0));
+	assert_eq!(r.top(), 0);
+	r.ev(Ev::Wheel(2));
+	assert_eq!(r.top(), 6);
+	r.ev(Ev::Wheel(-1));
+	assert_eq!(r.top(), 3);
+	r.ev(Ev::Wheel(-9));
+	assert_eq!(r.top(), 0);
+	// An arrow held repeats.
+	let down = (x, (bar.down.top + bar.down.bottom) / 2);
+	r.down(down.0, down.1);
+	r.wait(REPEAT_DELAY);
+	r.wait(5 * REPEAT_STEP);
+	r.up(down.0, down.1);
+	assert!(r.top() >= 5, "{}", r.top());
+}
+
+#[test]
+fn a_press_on_a_drop_down_opens_it_and_a_press_away_shuts_it_and_does_nothing_else() {
+	let mut r = Rig::file_dialog(true);
+	let types = r.find(Point::Drop(TYPES));
+	r.click(types);
+	assert!(r.app.file_view().unwrap().dlg.type_box().is_open());
+	let before = r.selected();
+	let away = r.find(Point::Place(0));
+	r.click(away);
+	assert!(!r.app.file_view().unwrap().dlg.type_box().is_open());
+	assert_eq!(r.selected(), before);
+	assert!(r.app.file_dialog_open());
+	r.click(types);
+	let pick = r.find(Point::Pick(1));
+	r.mv(pick.0, pick.1);
+	assert_eq!(
+		r.app.file_view().unwrap().dlg.type_box().list().selected(),
+		Some(1)
+	);
+	r.click(pick);
+	assert_eq!(r.app.file_view().unwrap().dlg.type_index(), 1);
+	// The New folder box is the app's overlay: its buttons are widgets, and the dialog under it takes no press.
+	let nf = r.find(Point::Button(NEW_FOLDER));
+	let item = r.find(Point::Item(1));
+	r.click(nf);
+	assert!(r.app.file_view().unwrap().covered());
+	r.click(item);
+	assert!(r.app.file_view().unwrap().covered());
+	let (_, cancel) = r.widget(b"Cancel");
+	r.click(cancel);
+	assert!(r.app.file_dialog_open() && !r.app.file_view().unwrap().covered());
+}
+
+proptest! {
+	#![proptest_config(ProptestConfig::with_cases(24))]
+
+	#[test]
+	fn no_run_of_presses_breaks_the_file_dialog_or_leaves_the_pointer_stuck(
+		save_as in any::<bool>(),
+		evs in proptest::collection::vec(arb_event(), 1..60),
+	) {
+		let mut r = Rig::file_dialog(save_as);
+		for (k, x, y) in evs {
+			match k {
+				0 | 1 => { r.mv(x, y); }
+				2 | 3 => { r.ev(Ev::Down { x, y }); }
+				4 | 5 => { r.ev(Ev::Up { x, y }); }
+				6 => { r.ev(Ev::Wheel((x % 5) - 2)); }
+				_ => { r.wait((y % 20) as u32); }
+			}
+			r.tick += 1;
+			if let Some(v) = r.app.file_view() {
+				let list = v.dlg.list();
+				prop_assert!(list.top() <= list.count().saturating_sub(list.rows()));
+				if let Some(i) = list.selected() {
+					prop_assert!(i < list.count());
+				}
+			}
+		}
+		r.ev(Ev::Up { x: 5, y: 300 });
+		prop_assert!(!r.g.holding());
+	}
+}

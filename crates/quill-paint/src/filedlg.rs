@@ -11,15 +11,16 @@
 //! icon strip of the file dialog plan replaces them.
 //!
 //! The boxes that open over the dialog (a question, a notice, the name of a new folder) are not drawn here: they are the app's
-//! [`quill_app::Overlay`], drawn by [`crate::dialog`] on top of what this module drew. The keyboard is the app's; the pointer does not
-//! reach the dialog yet, so a press on it does nothing.
+//! [`quill_app::Overlay`], drawn by [`crate::dialog`] on top of what this module drew. The keyboard is the app's, and so is what a
+//! pointer does: [`hit`] names the part of the dialog under a pixel from the same rectangles [`draw`] fills, as the
+//! [`quill_dlg::filedlg::Point`] the dialog takes, and [`list_bar`] gives the list's scroll bar.
 
 use quill_app::filetext::{counts, date_text, icon_of, size_text, time_text, type_name};
 use quill_app::{recent, FileView, Overlay};
 use quill_core::store::ReadStore;
 use quill_dlg::filedlg::{
-	EntryKind, FileDlg, PlaceKind, SortBy, CANCEL, LIST, LOOK_IN, NAME, NEW_FOLDER, OK, PLACES,
-	TYPES, UP,
+	EntryKind, FileDlg, PlaceKind, Point, SortBy, CANCEL, LIST, LOOK_IN, NAME, NEW_FOLDER, OK,
+	PLACES, TYPES, UP,
 };
 use quill_dlg::filelayout::{
 	self as layout, default_button, text, title, type_label, Icon, Layout, Part, Screen, GFX_ITEM_H,
@@ -92,6 +93,17 @@ impl Geo {
 	}
 }
 
+/// Where the dialog's cells are when its window is `win`.
+fn geo_of(win: &Overlay, l: &Layout) -> Geo {
+	let w = window_rect(win);
+	Geo {
+		left: w.left + BORDER,
+		top: w.top + BORDER + TITLE_H + 8,
+		cell_x: l.dialog.x,
+		cell_y: l.dialog.y,
+	}
+}
+
 #[inline(never)]
 fn rect_of(l: &Layout, p: Part) -> layout::Rect {
 	l.rect(p).unwrap_or_default()
@@ -111,29 +123,25 @@ pub fn draw<Sf: Surface + ?Sized, S: ReadStore + ?Sized>(
 	win: &Overlay,
 	v: &FileView<'_>,
 	s: &S,
+	held: Option<usize>,
 ) {
 	let dlg = v.dlg;
 	let Some(l) = Layout::new(Screen::Graphics, dlg.kind()) else {
 		return;
 	};
-	let w = window_rect(win);
-	let geo = Geo {
-		left: w.left + BORDER,
-		top: w.top + BORDER + TITLE_H + 8,
-		cell_x: l.dialog.x,
-		cell_y: l.dialog.y,
-	};
+	let geo = geo_of(win, &l);
+	let held = held.map_or(255, |h| h.min(255) as u8);
 	// While a box is open over the dialog the dialog shows no focus.
 	let focus = if v.covered() {
 		255
 	} else {
 		dlg.focus().focused()
 	};
-	look_in(sf, ui, &geo, &l, dlg, focus);
+	look_in(sf, ui, &geo, &l, dlg, (focus, held));
 	places(sf, ui, &geo, &l, dlg, s, focus);
 	list(sf, ui, &geo, &l, v, s, focus);
 	preview(sf, ui, &geo, &l, v, s);
-	bottom(sf, ui, &geo, &l, dlg, focus);
+	bottom(sf, ui, &geo, &l, dlg, (focus, held));
 	drops(sf, ui, &geo, &l, dlg);
 	sf.clip(None);
 }
@@ -192,7 +200,7 @@ fn look_in<Sf: Surface + ?Sized>(
 	geo: &Geo,
 	l: &Layout,
 	dlg: &FileDlg,
-	focus: u8,
+	(focus, held): (u8, u8),
 ) {
 	label(
 		sf,
@@ -219,7 +227,7 @@ fn look_in<Sf: Surface + ?Sized>(
 			ui,
 			r,
 			text::UP,
-			(false, focus == UP),
+			(false, focus == UP, held == UP),
 			dlg.folder().len() > 3,
 		);
 	}
@@ -230,7 +238,7 @@ fn look_in<Sf: Surface + ?Sized>(
 			ui,
 			r,
 			text::NEW_FOLDER,
-			(false, focus == NEW_FOLDER),
+			(false, focus == NEW_FOLDER, held == NEW_FOLDER),
 			true,
 		);
 	}
@@ -243,11 +251,11 @@ fn push<Sf: Surface + ?Sized>(
 	ui: &Ui<Sf::Font>,
 	r: Rect,
 	t: &[u8],
-	(default, focus): (bool, bool),
+	(default, focus, down): (bool, bool, bool),
 	enabled: bool,
 ) {
 	if enabled {
-		button_face(sf, ui, r, t, (default, focus), false);
+		button_face(sf, ui, r, t, (default, focus), down);
 	} else {
 		button_face(sf, ui, r, b"", (false, false), false);
 		let x = r.left + (r.width() - ui.label_width(sf, t)) / 2;
@@ -380,15 +388,18 @@ fn list<Sf: Surface + ?Sized, S: ReadStore + ?Sized>(
 		}
 	}
 	sf.clip(None);
-	let bar = geo.cells(rect_of(l, Part::ListScroll));
-	let parts = scroll::parts(
-		bar,
+	scroll::draw(sf, &list_parts(geo, l, dlg), lst.overflows());
+}
+
+fn list_parts(geo: &Geo, l: &Layout, dlg: &FileDlg) -> scroll::Parts {
+	let lst = dlg.list();
+	scroll::parts(
+		geo.cells(rect_of(l, Part::ListScroll)),
 		true,
 		lst.top() as i32,
 		lst.count() as i32,
 		lst.rows() as i32,
-	);
-	scroll::draw(sf, &parts, lst.overflows());
+	)
 }
 
 #[inline(never)]
@@ -453,7 +464,7 @@ fn bottom<Sf: Surface + ?Sized>(
 	geo: &Geo,
 	l: &Layout,
 	dlg: &FileDlg,
-	focus: u8,
+	(focus, held): (u8, u8),
 ) {
 	let kind = dlg.kind();
 	label(sf, ui, geo.control(rect_of(l, Part::NameLabel)), text::NAME);
@@ -500,7 +511,7 @@ fn bottom<Sf: Surface + ?Sized>(
 		geo.control(rect_of(l, Part::Open)),
 		default_button(kind),
 		(focus != CANCEL, focus == OK),
-		false,
+		held == OK,
 	);
 	button_face(
 		sf,
@@ -508,7 +519,7 @@ fn bottom<Sf: Surface + ?Sized>(
 		geo.control(rect_of(l, Part::Cancel)),
 		text::CANCEL,
 		(false, focus == CANCEL),
-		false,
+		held == CANCEL,
 	);
 }
 
@@ -517,6 +528,21 @@ fn bottom<Sf: Surface + ?Sized>(
 fn pop<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect) {
 	sf.fill_rect(r, LIGHT);
 	outline(sf, r, INK);
+}
+
+/// The list of the drop-down `which` (`TYPES` or `LOOK_IN`) when it is open: above its field for the types, below it for Look in.
+fn drop_rect(geo: &Geo, l: &Layout, dlg: &FileDlg, which: u8) -> Rect {
+	if which == TYPES {
+		let tb = geo.control(rect_of(l, Part::TypeBox));
+		let td = geo.control(rect_of(l, Part::TypeDrop));
+		let n = dlg.type_box().count().min(6) as i32;
+		Rect::new(tb.left, tb.top - (n * ITEM + 2), td.right, tb.top)
+	} else {
+		let f = geo.control(rect_of(l, Part::LookIn));
+		let d = geo.control(rect_of(l, Part::LookInDrop));
+		let n = dlg.look_box().count().min(6) as i32;
+		Rect::new(f.left, f.bottom, d.right, f.bottom + n * ITEM + 2)
+	}
 }
 
 #[inline(never)]
@@ -528,10 +554,8 @@ fn drops<Sf: Surface + ?Sized>(
 	dlg: &FileDlg,
 ) {
 	if dlg.type_box().is_open() {
-		let tb = geo.control(rect_of(l, Part::TypeBox));
-		let td = geo.control(rect_of(l, Part::TypeDrop));
+		let r = drop_rect(geo, l, dlg, TYPES);
 		let n = dlg.type_box().count().min(6) as i32;
-		let r = Rect::new(tb.left, tb.top - (n * ITEM + 2), td.right, tb.top);
 		pop(sf, r);
 		let lst = dlg.type_box().list();
 		for i in 0..n {
@@ -546,10 +570,8 @@ fn drops<Sf: Surface + ?Sized>(
 		}
 	}
 	if dlg.look_box().is_open() {
-		let f = geo.control(rect_of(l, Part::LookIn));
-		let d = geo.control(rect_of(l, Part::LookInDrop));
+		let r = drop_rect(geo, l, dlg, LOOK_IN);
 		let n = dlg.look_box().count().min(6) as i32;
-		let r = Rect::new(f.left, f.bottom, d.right, f.bottom + n * ITEM + 2);
 		pop(sf, r);
 		let lst = dlg.look_box().list();
 		for i in 0..n {
@@ -613,4 +635,75 @@ fn picture<Sf: Surface + ?Sized>(sf: &mut Sf, x: i32, y: i32, icon: Icon) {
 			}
 		}
 	}
+}
+
+/// The part of the open dialog `dlg` (in the window `win`) under pixel (`x`, `y`), as the press it is: an entry or place by its
+/// index, a header, a button, a drop-down's field or row, the name field, the scroll bar. Everything else is `Away`. While a
+/// drop-down is open its list comes first, as it is drawn over the dialog.
+#[inline(never)]
+pub fn hit(win: &Overlay, dlg: &FileDlg, x: i32, y: i32) -> Point {
+	let Some(l) = Layout::new(Screen::Graphics, dlg.kind()) else {
+		return Point::Away;
+	};
+	let geo = geo_of(win, &l);
+	let inside = |r: Rect| x >= r.left && x < r.right && y >= r.top && y < r.bottom;
+	let row_in = |top: i32| ((y - top).max(0) / ITEM) as usize;
+	for (which, combo) in [(TYPES, dlg.type_box()), (LOOK_IN, dlg.look_box())] {
+		let r = drop_rect(&geo, &l, dlg, which);
+		if combo.is_open() && inside(r) {
+			let i = combo.list().top() + row_in(r.top + 1);
+			return if i < combo.count() && y > r.top {
+				Point::Pick(i)
+			} else {
+				Point::Away
+			};
+		}
+	}
+	for (part, cells) in l.parts() {
+		let px = match part {
+			Part::Places | Part::List | Part::ListScroll => geo.cells(cells),
+			_ => geo.control(cells),
+		};
+		if !inside(px) {
+			continue;
+		}
+		let (lst, from) = match part {
+			Part::Places => (dlg.places(), px.top + 2),
+			Part::List => (dlg.list(), px.top + 2),
+			_ => (dlg.list(), 0),
+		};
+		let i = lst.top() + row_in(from);
+		return match part {
+			Part::LookIn | Part::LookInDrop => Point::Drop(LOOK_IN),
+			Part::TypeBox | Part::TypeDrop => Point::Drop(TYPES),
+			Part::Up => Point::Button(UP),
+			Part::NewFolder => Point::Button(NEW_FOLDER),
+			Part::Open => Point::Button(OK),
+			Part::Cancel => Point::Button(CANCEL),
+			Part::Header(by) => Point::Header(by),
+			Part::Name => Point::Name(0),
+			Part::ListScroll => Point::Bar,
+			Part::Places if y >= from && i < lst.count() && i - lst.top() < lst.rows() => {
+				Point::Place(i)
+			}
+			Part::List if y >= from && i < lst.count() && i - lst.top() < lst.rows() => {
+				Point::Item(i)
+			}
+			_ => Point::Away,
+		};
+	}
+	Point::Away
+}
+
+/// The list's scroll bar as it is drawn.
+pub fn list_bar(win: &Overlay, dlg: &FileDlg) -> Option<scroll::Parts> {
+	let l = Layout::new(Screen::Graphics, dlg.kind())?;
+	Some(list_parts(&geo_of(win, &l), &l, dlg))
+}
+
+/// The file name field's rectangle, for a press to find the character under it.
+pub fn name_rect(win: &Overlay, dlg: &FileDlg) -> Rect {
+	Layout::new(Screen::Graphics, dlg.kind()).map_or(Rect::new(0, 0, 0, 0), |l| {
+		geo_of(win, &l).control(rect_of(&l, Part::Name))
+	})
 }

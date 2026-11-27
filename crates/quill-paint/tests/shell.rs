@@ -142,9 +142,18 @@ fn golden_of(mode: Mode, name: &str) -> Vec<Frame> {
 			"the saved NEW.RTF differs from the text screen's"
 		);
 	}
+	if name == "g9-gfx-save-as-mouse" {
+		// Yes on the replace question saves LETTER.RTF over the one that was there.
+		compare_bytes(
+			"tests/golden/files/g9-gfx-save-as-mouse.rtf",
+			&files.files["C:\\DOCS\\LETTER.RTF"],
+		);
+	}
 	// The file dialog's scenarios keep the frames that show its parts as pictures, by frame number.
 	let shots: &[(&str, usize)] = match name {
 		"g9-gfx-open" => &[("dialog", 4), ("types", 6), ("sorted", 14)],
+		"g9-gfx-open-mouse" => &[("picked", 5), ("scrolled", 20), ("types", 31)],
+		"g9-gfx-save-as-mouse" => &[("new-folder", 7), ("read-only", 14), ("replace", 19)],
 		"g9-gfx-save-as" => &[
 			("dialog", 6),
 			("new-folder", 7),
@@ -554,4 +563,24 @@ fn the_file_dialog_save_as_at_16_colours() {
 #[test]
 fn the_file_dialog_save_as_at_256_colours() {
 	golden_of(Mode::C256, "g9-gfx-save-as");
+}
+
+#[test]
+fn the_pointer_in_the_file_dialog_at_16_colours() {
+	golden_of(Mode::C16, "g9-gfx-open-mouse");
+}
+
+#[test]
+fn the_pointer_in_the_file_dialog_at_256_colours() {
+	golden_of(Mode::C256, "g9-gfx-open-mouse");
+}
+
+#[test]
+fn the_pointer_in_save_as_at_16_colours() {
+	golden_of(Mode::C16, "g9-gfx-save-as-mouse");
+}
+
+#[test]
+fn the_pointer_in_save_as_at_256_colours() {
+	golden_of(Mode::C256, "g9-gfx-save-as-mouse");
 }
