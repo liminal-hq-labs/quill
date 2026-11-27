@@ -98,3 +98,78 @@ fn a_style_preset_is_one_undo_step_and_the_box_reads_it_back() {
 		assert_eq!(app.style_of(&s), Some(n), "{}", quill_app::STYLE_NAMES[n]);
 	}
 }
+
+fn open_rtf(rtf: &str) -> (App, HostStore, MemFiles) {
+	let mut s = HostStore::new();
+	let mut f = MemFiles::default();
+	let mut app = App::new();
+	app.reset(&mut s).unwrap();
+	f.files.insert("D.RTF".into(), rtf.as_bytes().to_vec());
+	app.open(&mut s, &mut f, b"D.RTF").unwrap();
+	app.key(&mut s, &mut f, Key::CtrlHome);
+	(app, s, f)
+}
+
+/// The style box's reading of the one paragraph an RTF body holds.
+fn box_of(body: &str) -> Option<usize> {
+	let (app, s, _) = open_rtf(&format!("{{\\rtf1\\ansi {body}\\par}}"));
+	app.style_of(&s)
+}
+
+#[test]
+fn a_normal_paragraph_with_spacing_or_alignment_still_reads_normal() {
+	assert_eq!(box_of("\\pard\\fs24 Body"), Some(0));
+	assert_eq!(box_of("\\pard\\sa120\\fs24 Body"), Some(0));
+	assert_eq!(box_of("\\pard\\sa120\\sl360\\slmult1\\fs24 Body"), Some(0));
+	assert_eq!(box_of("\\pard\\qc\\fs24 Body"), Some(0));
+	assert_eq!(box_of("\\pard\\qj\\sb200\\sa40\\fs24 Body"), Some(0));
+	// A heading's own spacing is not what makes it one: its size and bold do.
+	assert_eq!(box_of("\\pard\\sb240\\sa120\\fs32\\b Head"), Some(1));
+	assert_eq!(box_of("\\pard\\sa0\\fs32\\b Head"), Some(1));
+	assert_eq!(box_of("\\pard\\sa0\\fs28\\b Head"), Some(2));
+}
+
+#[test]
+fn indents_size_and_character_bits_still_blank_the_box() {
+	assert_eq!(box_of("\\pard\\li720\\fs24 Body"), Some(6));
+	assert_eq!(box_of("\\pard\\li360\\fs24 Body"), None);
+	assert_eq!(box_of("\\pard\\sa120\\fs26 Body"), None);
+	assert_eq!(box_of("\\pard\\sa120\\fs24\\b Body"), None);
+	assert_eq!(box_of("\\pard\\sa120\\fs24\\i Body"), None);
+	assert_eq!(box_of("\\pard\\sa120\\fs24\\ul Body"), None);
+}
+
+#[test]
+fn the_demo_documents_read_heading_1_and_normal() {
+	for name in [
+		"demo.rtf",
+		"demo-reactos.rtf",
+		"demo-reactos16.qld",
+		"demo.qld",
+	] {
+		let path = format!("{}/../../samples/{name}", env!("CARGO_MANIFEST_DIR"));
+		let mut s = HostStore::new();
+		let mut f = MemFiles::default();
+		f.files.insert("D".into(), std::fs::read(path).unwrap());
+		let mut app = App::new();
+		app.reset(&mut s).unwrap();
+		app.open(&mut s, &mut f, b"D").unwrap();
+		app.key(&mut s, &mut f, Key::CtrlHome);
+		assert_eq!(app.style_of(&s), Some(1), "{name}: the opening heading");
+		let mut normal = 0;
+		for _ in 0..400 {
+			match app.style_of(&s) {
+				Some(0) => normal += 1,
+				Some(1) => {}
+				None => {}
+				Some(n) => panic!("{name}: a paragraph reads {}", quill_app::STYLE_NAMES[n]),
+			}
+			let at = app.caret();
+			app.key(&mut s, &mut f, Key::Down);
+			if app.caret() == at {
+				break;
+			}
+		}
+		assert!(normal >= 3, "{name}: only {normal} Normal readings");
+	}
+}

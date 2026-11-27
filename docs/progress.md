@@ -92,6 +92,10 @@ One line per package of [work-packages.md](work-packages.md), in its order; a pa
 
 ## Evidence
 
+### The style box reads Normal (Z6, CORE-142)
+
+A body paragraph with space after, a line spacing or an alignment now reads as its preset when no preset matches exactly, so the demo documents show Normal in the style box on every build; before, `\sa120` made every body paragraph read as no preset and the box was blank. Host tests in `crates/quill-host/tests/chrome.rs` cover the three demo documents, the spacing cases and the cases that still blank the box. Screenshots are in `~/Documents/Liminal HQ/Quill/Zoom review/Z6/`.
+
 ### Caret blink on Win16 and DOS
 
 Win16 is built (W16-17); the DOS entry is an estimate from reading the code, not built.
