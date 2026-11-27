@@ -107,6 +107,7 @@ Ranges reserved for this track, above every id on `main`, in the autosave branch
 | LNX | LNX-80 to LNX-89 | GTK printing, help and dark paper, [plans/gtk-print-help.md](plans/gtk-print-help.md) |
 | CORE, ARCH, DOS, W16, W9X, LNX, WUI | CORE-180 to CORE-199, ARCH-35, DOS-90 to DOS-99, W16-100 to W16-104, W9X-100 to W9X-104, LNX-70 to LNX-74, WUI-70 to WUI-74 | Reveal Codes, [plans/reveal-codes.md](plans/reveal-codes.md) |
 | CORE, DOS, W16, W9X, INS, ARCH | CORE-90 to CORE-99, DOS-50 to DOS-59, W16-40 to W16-49, W9X-40 and W9X-41, INS-20 to INS-22, ARCH-40 to ARCH-42 | Optional modules, [plans/modules.md](plans/modules.md) (WP-MOD-1 to WP-MOD-8). DOS-52 revises DOS-70's budget rule once a module exists |
+| CORE, DOS, W16, W9X, LNX, WUI | CORE-200 to CORE-209, DOS-100 to DOS-109, W16-110 to W16-114, W9X-120 to W9X-124, LNX-90 to LNX-94, WUI-80 to WUI-84 | The status bar, [plans/status-bar.md](plans/status-bar.md) |
 
 ## Gates and evidence
 

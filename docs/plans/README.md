@@ -16,6 +16,7 @@ Planner write-ups kept for reference. Each was accurate when it was written, and
 | [threading-plan.md](threading-plan.md) | One job model for single-core and threaded builds | Later, not scheduled |
 | [zoom-review.md](zoom-review.md) | Root causes of the zoom, preview, paging, style box and toolbar items of the 2026-11-27 QA, and one builder brief per fix | Reference |
 | [reveal-codes.md](reveal-codes.md) | Reveal Codes, a nod to WordPerfect: the code vocabulary, one view model, a pane on every build, and WP-CODES-1 to WP-CODES-10 | Planned |
+| [status-bar.md](status-bar.md) | One status bar layout for every build: the review of today's bars, the fields, their order, forms and narrowing, the look per build, the zoom reset button and tooltips, accessibility and budgets, as WP-BAR-1 to WP-BAR-9 | Planned |
 | [web-demo.md](web-demo.md) | The ReactOS web demo: a clean address, Print to PDF with downloads, sound and hosting, as WP-WEB-1 to WP-WEB-8 | Planned |
 | [preferences.md](preferences.md) | One settings model (`quill-settings`) and an Options window on every build, autosave first, as WP-PREF-0 to WP-PREF-13 | Planned |
 | [modules.md](modules.md) | Optional modules: one shared interface, `.DMD` files on DOS and NE DLLs on Windows 3.x for cold features (pictures, then the DOS dialogs), and the DOS budget rule they change, as WP-MOD-1 to WP-MOD-8 | Planned |
