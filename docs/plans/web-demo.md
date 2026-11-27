@@ -564,6 +564,23 @@ Finish line, tests, evidence and decision numbers: the plan's package section. P
 
 **Not verified:** real speakers, Safari, mobile browsers, a hidden tab's timers, a machine without `AudioWorklet` (the fallback is tested on a fake context), Quill's own sounds and the Afterglow savers' scores (the Sounds tab's WAV was the test), CPU on a slow machine. Firefox with a real audio output (Playwright's headless Firefox 159, with a null output, passes the same 58 browser checks).
 
+## WP-WEB-5b report
+
+**Built** (stacked on WP-WEB-5; SITE-54 to SITE-57). The card records and the resampler is band-limited. **Recording:** the PCM-in and mic-in channels fill the guest's buffers (status bits, interrupts and resume as in playback), with the record select (0x1A) and record gain (0x1C) registers and a validated record rate (any whole rate from 8,000 to 48,000 Hz; the standard ones have exact tables). The microphone comes from `getUserMedia` through an `AudioWorklet` only when the visitor presses the Microphone button (off by default, a visible *Microphone on* indicator, every track ended on Stop, Reset, Shut Down, a page hide and a second press, never remembered, nothing uploaded, stored or sent: the page says so), and is resampled to the guest's record rate; with it off the guest records silence. **Resampler:** `packages/ac97/src/resample.ts`, a Kaiser-windowed sinc polyphase filter with exact phase tables, replaces the linear interpolation for playback and capture. The built module is 30 KB (the budget rises from 24 KB to 36 KB; SITE-56 says why).
+
+| Question | Answer | Numbers |
+|---|---|---|
+| Resampler quality (all standard rates to and from 48,000 Hz; `test/quality-report.ts`) | Meets the brief | Passband flat within 0.002 dB to 0.45 of the lower Nyquist frequency (the limit was 0.1 dB); at least 90 dB of aliasing and image rejection (80); THD+N of a 1 kHz tone from -90 to -132 dB; a split stream equals the one-shot result to 1e-6 |
+| Resampler cost in Chromium | Well under the limit | 2.5 to 2.9 ms for a second of 48 kHz stereo playback (the limit was about 10 ms), 1.1 to 1.4 ms for a second of capture |
+| *Critical Stop* through the new resampler | Same sound | The card took 39,059 frames (39,045 before: the filter reads 16 frames ahead), the probe heard 1.61 s at a peak of 0.372 (0.370 with linear interpolation), all 58 `check-sound.ts` checks pass |
+| A guest records the fake microphone's tone at 8,000, 11,025, 16,000, 22,050, 32,000, 44,100 and 48,000 Hz | Yes | Every frame accounted for (16,000 of 16,000 at 8,000 Hz up to 96,000 of 96,000 at 48,000 Hz, 0 dropped, 0 silence), the tone at 1,000.00 Hz and a level of 0.500 (0.5 in), the phase steady to 0.0025 rad (a lost or repeated frame would be at least 0.13), THD+N from -75.8 to -84.4 dB |
+| Privacy | Holds | Not asked before the button (0 calls through Start and a guest recording), asked once by the press; every track ended after a second press, Stop, Reset, Shut Down and a page hide; a reload starts off and stores nothing; 41 requests, none but a GET, none to another origin, none with a body, no web sockets; a source scan finds no way to send audio |
+| A refusal, no microphone, an insecure page | Each says why; the guest records silence | *The microphone is blocked...*, *No microphone was found.*, *Browsers give a microphone only to pages served over HTTPS (or from this computer).* |
+| Firefox 159 (headless, fake device) | The same flow | 44 of the checks that apply (every rate's frames, none dropped, silence with the microphone off, every track ended, nothing sent); its fake device's tone is 1 kHz at 0.1 and was not held to Chromium's level; it leaves its permission question open instead of refusing, which the page reports as waiting |
+| The saved desktop | Restores with the microphone off | `build-state.sh` and `check-state` unchanged; the new state's registers have the same shape |
+
+**Not verified:** a real microphone and real speakers (the fake devices make a tone and the output is counted at a probe), Safari, mobile browsers, a hidden tab's timers, ReactOS's own recording program and the rates its driver programs when recording (the trimmed disk has none; the Audio tab lists the card as the recording device), and CPU on a slow machine.
+
 ## Owner decisions
 
 Each is taken with the default so no package waits; the last column is where to change it.
