@@ -418,7 +418,7 @@ Each brief takes the default and keeps the swap small.
 | Win32 zoomed page: device pixels throughout, or device pixels for text only under the old mapping | Device pixels throughout, as Win16 | Z1 step 2, W9X-80 |
 | A zoomed word: fit its inner gaps to the layout's end, or let it drift inside the word as Win16 does now | Fit (`quill_core::fit::fit_advances`) | Z1 step 1 and Z8, CORE-140 |
 | Style box: a loose second match ignoring spacing and alignment, or a stored style index | Loose second match | Z6 step 1, CORE-142 |
-| Win16 preview: keys and the status line, or a button bar like Win32's | Keys and the status line | Z5, W16-81 |
+| Win16 preview: keys and the status line, or a button bar like Win32's | Decided by the owner: a bar of push buttons, with the keys and the status line as well | Z5, W16-81 |
 | A zoom change: snap to the caret's page top when it fits, or clamp only | Snap | Z4 `App::fit_view_to_page`, CORE-141 |
 | Win32 scroll range when the whole stack fits: none, or half a view of overscroll | None | Z4, `win9x/quill-win9x/src/view.rs` `vscroll_max`, W9X-82 |
 

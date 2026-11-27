@@ -4,7 +4,18 @@
 	"strings": {
 		"1": "Quill found a damaged recovery file and set it aside.",
 		"2": "Quill cannot autosave: the disk is full.",
-		"3": "Another Quill window has this document. Changes made here are not autosaved."
+		"3": "Another Quill window has this document. Changes made here are not autosaved.",
+		"20": "Print",
+		"21": "Next Page",
+		"22": "Previous Page",
+		"23": "Two Pages",
+		"24": "Zoom",
+		"25": "Close",
+		"26": "One Page",
+		"27": "Whole Page",
+		"28": "Page ",
+		"29": " of ",
+		"30": "   PgUp PgDn: pages   T: two pages   Z: size   P: print   Esc: close"
 	},
 	"rcdata": [{ "id": 100, "file": "../../../assets/codepages/CPAGES.BIN" }],
 	"dialog_files": ["../../../assets/dialogs/dialogs.json"]

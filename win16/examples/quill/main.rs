@@ -18,6 +18,7 @@ mod dialogs;
 mod far;
 mod gdi;
 mod picture;
+mod preview;
 mod store;
 mod tips;
 
@@ -169,6 +170,12 @@ struct Shell {
 	/// before its next tick.
 	spell_at: u32,
 	spell_fresh: bool,
+	/// The print preview (`preview.rs`): its flags (open, two sheets, actual size), the first sheet shown and, at actual size, how far
+	/// the sheets are scrolled sideways and down.
+	pv_flags: u8,
+	pv_page: u16,
+	pv_hs: i16,
+	pv_vs: i16,
 }
 
 static mut SH: Shell = Shell {
@@ -203,6 +210,10 @@ static mut SH: Shell = Shell {
 	blink_ms: 0,
 	spell_at: 0,
 	spell_fresh: true,
+	pv_flags: 0,
+	pv_page: 1,
+	pv_hs: 0,
+	pv_vs: 0,
 };
 
 fn app() -> &'static mut QApp {
@@ -587,6 +598,11 @@ fn paint_into(dc: u32, damage: Rect16, w: i32, h: i32) {
 			damage.right as u32,
 			damage.bottom as u32,
 		);
+		if preview::is_open() {
+			preview::paint(dc, damage, w, h);
+			RestoreDC(dc, saved);
+			return;
+		}
 		if tb > 0 && dt < tb {
 			#[cfg(feature = "bench")]
 			bench::add(bench::TOOLBAR, 1);
@@ -652,7 +668,7 @@ fn blink_shows() -> bool {
 
 /// Asks for the caret's own rectangle to be painted again, and nothing else.
 fn invalidate_caret(hwnd: u32) {
-	if sh().grid {
+	if sh().grid || preview::is_open() {
 		return;
 	}
 	let (w, h) = client_size(hwnd);
@@ -789,7 +805,7 @@ fn update_scroll(hwnd: u32) {
 
 /// `update_scroll` for a window whose client area is already known to be `cw` by `ch`.
 fn update_scroll_in(hwnd: u32, cw: i32, ch: i32) {
-	if sh().grid {
+	if sh().grid || preview::is_open() {
 		return;
 	}
 	let (app, s) = (app(), store());
@@ -1030,6 +1046,14 @@ fn fit_view_to_page(hwnd: u32) {
 
 fn run_command(hwnd: u32, c: Command) {
 	blink_restart(hwnd);
+	if c == Command::Preview {
+		preview::open(hwnd);
+		return;
+	}
+	// Printing is asked about over the preview; anything else leaves it first.
+	if !matches!(c, Command::Print | Command::PrintSetup) {
+		preview::close(hwnd);
+	}
 	if matches!(c, Command::Field(3 | 5)) {
 		set_clock();
 	}
@@ -1060,7 +1084,7 @@ fn run_command(hwnd: u32, c: Command) {
 /// is off, so a build that never turns it on pays one comparison.
 #[inline(never)]
 fn spell_arm(hwnd: u32) {
-	if !app().spell_live() || sh().grid || !app().editing() {
+	if !app().spell_live() || sh().grid || preview::is_open() || !app().editing() {
 		return;
 	}
 	sh().spell_fresh = true;
@@ -1105,7 +1129,7 @@ fn spell_tick(hwnd: u32) {
 /// `WM_CONTEXTMENU`, so the choice comes back as a `WM_COMMAND` with an id from `ID_SPELL`, and `spell_choose` carries it out.
 #[inline(never)]
 fn spell_menu(hwnd: u32, at: Option<(i32, i32)>) {
-	if sh().grid || !app().spell_live() || !app().editing() {
+	if sh().grid || preview::is_open() || !app().spell_live() || !app().editing() {
 		return;
 	}
 	let (app, s) = (app(), store());
@@ -1265,7 +1289,7 @@ fn map_vk(vk: u32, shift: bool, ctrl: bool) -> Option<Key> {
 // ---- the mouse and the scroll bars ---------------------------------------------------------------------------------------------
 
 fn mouse_down(hwnd: u32, x: i32, y: i32, shift: bool) {
-	if sh().grid {
+	if sh().grid || preview::is_open() {
 		return;
 	}
 	blink_restart(hwnd);
@@ -1386,6 +1410,9 @@ fn picture_drag(hwnd: u32, mut d: quill_app::picture_geom::HandleDrag, x: i32, y
 }
 
 fn mouse_move(hwnd: u32, x: i32, y: i32) {
+	if preview::is_open() {
+		return;
+	}
 	let (app, s) = (app(), store());
 	if let Some(d) = sh().pic_drag {
 		picture_drag(hwnd, d, x, y);
@@ -1435,6 +1462,9 @@ fn zoom_part_at(hwnd: u32, x: i32, y: i32) -> Option<ZoomPart> {
 /// The left button went up: when it went down on a part of the zoom control and is still over it, the box opens the list of levels
 /// above it and a button steps to the next level down or up.
 fn mouse_up(hwnd: u32, x: i32, y: i32) {
+	if preview::is_open() {
+		return;
+	}
 	let (app, s) = (app(), store());
 	if let Some(down) = sh().zoom_down.take() {
 		unsafe { ReleaseCapture() };
@@ -1892,6 +1922,10 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 			WM_ERASEBKGND => 1,
 			WM_KEYDOWN => {
 				tips::dismiss();
+				if preview::is_open() {
+					preview::key(hwnd, wparam);
+					return 0;
+				}
 				let ctrl = GetKeyState(0x11) & 0x8000 != 0;
 				// Shift changes what only Ctrl shortcuts, the cursor keys (Home to Down), Insert and Delete mean, so a character
 				// key does not ask for it.
@@ -1929,6 +1963,9 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 			}
 			WM_CHAR => {
 				tips::dismiss();
+				if preview::is_open() {
+					return 0;
+				}
 				let c = wparam as u8;
 				// The shortcuts were taken from the key-down message; the control characters Ctrl makes are not text.
 				let ctrl = GetKeyState(0x11) & 0x8000 != 0;
@@ -1959,7 +1996,7 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				} else if wparam == SPELL_TIMER {
 					spell_tick(hwnd);
 				} else if wparam == tips::TIMER {
-					if tips::tick(hwnd, app()) {
+					if !preview::is_open() && tips::tick(hwnd, app()) {
 						invalidate_status(hwnd);
 					}
 				} else {
@@ -2029,9 +2066,11 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				// Windows 3.1: wParam is the item or control id; a control puts its notification in the high word of lParam.
 				let id = wparam & 0xFFFF;
 				if lparam != 0 {
-					// CBN_SELCHANGE
+					// CBN_SELCHANGE, or a push button's BN_CLICKED (the print preview's)
 					if lparam >> 16 == 1 {
 						combo_changed(hwnd, id);
+					} else if lparam >> 16 == 0 {
+						preview::button(hwnd, id);
 					}
 				} else if (chrome::ID_COLOUR..=chrome::ID_COLOUR + 16).contains(&id) {
 					let rgb = (id > chrome::ID_COLOUR)

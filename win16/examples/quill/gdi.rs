@@ -529,6 +529,9 @@ struct At {
 	tx: i32,
 	top: i32,
 	y_rel: i32,
+	/// The story the line is of, and whether it is drawn plain: no selection, no misspelling marks (the print preview's).
+	kind: StoryKind,
+	plain: bool,
 }
 
 impl At {
@@ -580,8 +583,8 @@ fn draw_line(
 	ts: &mut TextState,
 ) {
 	let doc = app.doc();
-	let text = doc.story(StoryKind::Body);
-	let sel = app.selection();
+	let text = doc.story(at.kind);
+	let sel = if at.plain { None } else { app.selection() };
 	let line_h = l.ascent + l.descent;
 	let base = at.y(z, l.ascent);
 	let (box_top, box_h) = (at.y(z, 0), (at.y(z, line_h) - at.y(z, 0)).max(1));
@@ -658,7 +661,7 @@ fn draw_line(
 	// The misspelt words of this line (Check Spelling as You Type) and where the layout put the first and last of their characters.
 	let mut marks = [(0u32, 0u32, i32::MAX, i32::MIN); 4];
 	let mut marked = 0;
-	if app.spell_live() {
+	if app.spell_live() && !at.plain {
 		for (st, en) in app
 			.spell_marks(s, l.start, l.start + l.len)
 			.take(marks.len())
@@ -669,161 +672,154 @@ fn draw_line(
 			}
 		}
 	}
-	quill_core::layout::walk_line(
-		doc,
-		s,
-		&mut m,
-		StoryKind::Body,
-		l,
-		|p, c, x, w, leader, cf| {
-			for m in marks.iter_mut().take(marked) {
-				if p >= m.0 && p < m.1 {
-					m.2 = m.2.min(x);
-					m.3 = m.3.max(x + w);
-				}
+	quill_core::layout::walk_line(doc, s, &mut m, at.kind, l, |p, c, x, w, leader, cf| {
+		for m in marks.iter_mut().take(marked) {
+			if p >= m.0 && p < m.1 {
+				m.2 = m.2.min(x);
+				m.3 = m.3.max(x + w);
 			}
-			let selected = sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
-			if c == 0x01 {
-				flush(&mut n, &run, run_x, run_cf, run_sel, ts);
-				if let Some((pw, ph)) = quill_core::layout::picture_size(doc, s, text, p, 96, 96) {
-					let idx = text.object_at(s, p).map_or(0, |v| v & 0xFFFF) as u16;
-					// The picture, or a grey box with a dark edge the size it prints when it is not drawn (see `picture.rs`).
-					let (px0, py0) = (at.x(z, x), at.y(z, l.ascent - ph));
-					let (pw, ph) = (at.x(z, x + pw) - px0, base - py0);
-					if !crate::picture::draw(dc, doc, s, idx, px0, py0, pw, ph) {
-						fill(dc, px0, py0, pw, ph, SHADOW);
-						fill(dc, px0 + 1, py0 + 1, pw - 2, ph - 2, FACE);
-					}
+		}
+		let selected = sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
+		if c == 0x01 {
+			flush(&mut n, &run, run_x, run_cf, run_sel, ts);
+			if let Some((pw, ph)) = quill_core::layout::picture_size(doc, s, text, p, 96, 96) {
+				let idx = text.object_at(s, p).map_or(0, |v| v & 0xFFFF) as u16;
+				// The picture, or a grey box with a dark edge the size it prints when it is not drawn (see `picture.rs`).
+				let (px0, py0) = (at.x(z, x), at.y(z, l.ascent - ph));
+				let (pw, ph) = (at.x(z, x + pw) - px0, base - py0);
+				if !crate::picture::draw(dc, doc, s, idx, px0, py0, pw, ph) {
+					fill(dc, px0, py0, pw, ph, SHADOW);
+					fill(dc, px0 + 1, py0 + 1, pw - 2, ph - 2, FACE);
+				}
+				if selected {
+					let r = Frame {
+						left: px0,
+						top: py0,
+						right: px0 + pw,
+						bottom: py0 + ph,
+					};
+					picture_marks(dc, &r, sel.is_some_and(|(lo, hi)| hi == lo + 1));
+				}
+			} else if let Some(v) = text.object_at(s, p) {
+				// A field shows its value: the page it is on, the page count, the date or the file name.
+				let mut buf = [0u8; 32];
+				// The date and the time are read as they are now, for this paint and no other.
+				let n = match v >> 16 {
+					k @ (3 | 5) => crate::clock_text(k, &mut buf),
+					k => app.field_text(k, l.page, pages, &mut buf),
+				};
+				let (fr, _, cfmt) = font_ref(doc, s, cf);
+				ts.font(dc, &fr, 0);
+				ts.mode(dc, TRANSPARENT);
+				ts.colour(dc, colour_of(app, s, &cfmt));
+				unsafe {
+					TextOut(
+						dc,
+						at.x(z, x) as u32,
+						base as u32,
+						np(buf.as_ptr()),
+						n as u32,
+					)
+				};
+			}
+			return;
+		}
+		if c == 0x09 {
+			flush(&mut n, &run, run_x, run_cf, run_sel, ts);
+			if w > 0 {
+				let (fr, _, cfmt) = font_ref(doc, s, cf);
+				ts.font(dc, &fr, 0);
+				unsafe {
 					if selected {
-						let r = Frame {
-							left: px0,
-							top: py0,
-							right: px0 + pw,
-							bottom: py0 + ph,
-						};
-						picture_marks(dc, &r, sel.is_some_and(|(lo, hi)| hi == lo + 1));
-					}
-				} else if let Some(v) = text.object_at(s, p) {
-					// A field shows its value: the page it is on, the page count, the date or the file name.
-					let mut buf = [0u8; 32];
-					// The date and the time are read as they are now, for this paint and no other.
-					let n = match v >> 16 {
-						k @ (3 | 5) => crate::clock_text(k, &mut buf),
-						k => app.field_text(k, l.page, pages, &mut buf),
-					};
-					let (fr, _, cfmt) = font_ref(doc, s, cf);
-					ts.font(dc, &fr, 0);
-					ts.mode(dc, TRANSPARENT);
-					ts.colour(dc, colour_of(app, s, &cfmt));
-					unsafe {
-						TextOut(
+						fill(
 							dc,
-							at.x(z, x) as u32,
-							base as u32,
-							np(buf.as_ptr()),
-							n as u32,
-						)
-					};
-				}
-				return;
-			}
-			if c == 0x09 {
-				flush(&mut n, &run, run_x, run_cf, run_sel, ts);
-				if w > 0 {
-					let (fr, _, cfmt) = font_ref(doc, s, cf);
-					ts.font(dc, &fr, 0);
-					unsafe {
-						if selected {
-							fill(
-								dc,
-								at.x(z, x),
-								box_top,
-								at.x(z, x + w) - at.x(z, x),
-								box_h,
-								SELECTED_BG,
-							);
-						}
-						if leader != 0 {
-							let ch = [match leader {
-								1 => b'.',
-								2 => b'-',
-								_ => b'_',
-							}];
-							let step = leader_width(&fr, dc, ch[0]);
-							ts.mode(dc, TRANSPARENT);
-							ts.colour(
-								dc,
-								if selected {
-									WHITE
-								} else {
-									colour_of(app, s, &cfmt)
-								},
-							);
-							if z.one() {
-								// The leader's characters go out in strings of up to 64, each as far from the last as the characters
-								// advance, where each one used to be a `TextOut` of its own.
-								let mut dots = [ch[0]; 64];
-								let mut dx = 0;
-								while dx + step <= w {
-									let k = (((w - dx) / step) as usize).min(dots.len());
-									TextOut(
-										dc,
-										at.x(z, x + dx) as u32,
-										base as u32,
-										np(dots.as_mut_ptr()),
-										k as u32,
-									);
-									dx += step * k as i32;
-								}
+							at.x(z, x),
+							box_top,
+							at.x(z, x + w) - at.x(z, x),
+							box_h,
+							SELECTED_BG,
+						);
+					}
+					if leader != 0 {
+						let ch = [match leader {
+							1 => b'.',
+							2 => b'-',
+							_ => b'_',
+						}];
+						let step = leader_width(&fr, dc, ch[0]);
+						ts.mode(dc, TRANSPARENT);
+						ts.colour(
+							dc,
+							if selected {
+								WHITE
 							} else {
-								// A zoomed leader goes out eight dots at a time, each group where the layout puts its first dot.
-								let mut dots = [ch[0]; 8];
-								let mut dx = 0;
-								while dx + step <= w {
-									let k = (((w - dx) / step) as usize).min(dots.len());
-									TextOut(
-										dc,
-										at.x(z, x + dx) as u32,
-										base as u32,
-										np(dots.as_mut_ptr()),
-										k as u32,
-									);
-									dx += step * k as i32;
-								}
+								colour_of(app, s, &cfmt)
+							},
+						);
+						if z.one() {
+							// The leader's characters go out in strings of up to 64, each as far from the last as the characters
+							// advance, where each one used to be a `TextOut` of its own.
+							let mut dots = [ch[0]; 64];
+							let mut dx = 0;
+							while dx + step <= w {
+								let k = (((w - dx) / step) as usize).min(dots.len());
+								TextOut(
+									dc,
+									at.x(z, x + dx) as u32,
+									base as u32,
+									np(dots.as_mut_ptr()),
+									k as u32,
+								);
+								dx += step * k as i32;
+							}
+						} else {
+							// A zoomed leader goes out eight dots at a time, each group where the layout puts its first dot.
+							let mut dots = [ch[0]; 8];
+							let mut dx = 0;
+							while dx + step <= w {
+								let k = (((w - dx) / step) as usize).min(dots.len());
+								TextOut(
+									dc,
+									at.x(z, x + dx) as u32,
+									base as u32,
+									np(dots.as_mut_ptr()),
+									k as u32,
+								);
+								dx += step * k as i32;
 							}
 						}
 					}
 				}
-				return;
 			}
-			if !z.one() && selected {
-				// A zoomed selection fills each cell, so the cells touch whatever the scaled font's advances round to.
-				fill(
-					dc,
-					at.x(z, x),
-					box_top,
-					at.x(z, x + w) - at.x(z, x),
-					box_h,
-					SELECTED_BG,
-				);
-			}
-			// A zoomed word is a run of its own, placed where the layout puts its first character, so the scaled font's rounding of
-			// each advance never carries further than the end of the word.
-			let word_ends = !z.one() && n > 0 && run.get(n - 1) == Some(&b' ');
-			if n > 0 && (cf != run_cf || selected != run_sel || n == run.len() || word_ends) {
-				flush(&mut n, &run, run_x, run_cf, run_sel, ts);
-			}
-			if n == 0 {
-				run_x = x;
-				run_cf = cf;
-				run_sel = selected;
-			}
-			if let Some(slot) = run.get_mut(n) {
-				*slot = c;
-				n += 1;
-			}
-		},
-	);
+			return;
+		}
+		if !z.one() && selected {
+			// A zoomed selection fills each cell, so the cells touch whatever the scaled font's advances round to.
+			fill(
+				dc,
+				at.x(z, x),
+				box_top,
+				at.x(z, x + w) - at.x(z, x),
+				box_h,
+				SELECTED_BG,
+			);
+		}
+		// A zoomed word is a run of its own, placed where the layout puts its first character, so the scaled font's rounding of
+		// each advance never carries further than the end of the word.
+		let word_ends = !z.one() && n > 0 && run.get(n - 1) == Some(&b' ');
+		if n > 0 && (cf != run_cf || selected != run_sel || n == run.len() || word_ends) {
+			flush(&mut n, &run, run_x, run_cf, run_sel, ts);
+		}
+		if n == 0 {
+			run_x = x;
+			run_cf = cf;
+			run_sel = selected;
+		}
+		if let Some(slot) = run.get_mut(n) {
+			*slot = c;
+			n += 1;
+		}
+	});
 	flush(&mut n, &run, run_x, run_cf, run_sel, ts);
 	// The wave goes in after the text, from the layout's own positions, under the glyphs the caret and the clicks agree with.
 	let room = (at.y(z, line_h) - base - 1).clamp(1, 3);
@@ -1052,7 +1048,13 @@ pub fn paint_page(
 				{
 					continue;
 				}
-				let at = At { tx, top, y_rel };
+				let at = At {
+					tx,
+					top,
+					y_rel,
+					kind: StoryKind::Body,
+					plain: false,
+				};
 				draw_line(dc, app, s, &sh.line, sh.label, at, z, pages, &mut ts);
 			}
 			// The text alignment goes back with the `RestoreDC` below.
@@ -1069,6 +1071,165 @@ pub fn paint_page(
 		(((bottom - top) / line_h.max(1)) as usize)
 			.max(fitted.min(1))
 			.max(1)
+	}
+}
+
+/// The most lines of a header or a footer the preview draws.
+const STORY_LINES: usize = 6;
+
+/// Draws the header or the footer `kind` of sheet `p` (of `pages`), the sheet's top left corner at (`x0`, `y0`) in device pixels and
+/// drawn at `z`: the story is laid out on its own and its lines are placed `dist` from the paper's top (a header) or bottom (a footer),
+/// every line given the sheet's page number for its fields.
+#[inline(never)]
+fn sheet_story(
+	dc: u32,
+	app: &QApp,
+	s: &FarStore,
+	kind: StoryKind,
+	(y0, tx): (i32, i32),
+	z: Zoom,
+	(p, pages): (u32, u32),
+	ts: &mut TextState,
+) {
+	let doc = app.doc();
+	if doc.story(kind).is_empty() {
+		return;
+	}
+	let page = &doc.page;
+	let footer = matches!(kind, StoryKind::Footer | StoryKind::FirstFooter);
+	let dist = if footer {
+		page.footer_dist
+	} else {
+		page.header_dist
+	};
+	let mut lines = [NO_LINE; STORY_LINES];
+	let mut n = 0usize;
+	let mut m = Gdi16 {
+		dc: app_measure_dc(),
+		grid: false,
+	};
+	quill_core::layout::layout_story(doc, s, &mut m, kind, |l| {
+		if l.page == 1 {
+			if let Some(slot) = lines.get_mut(n) {
+				*slot = *l;
+				n += 1;
+			}
+		}
+	});
+	let height = lines
+		.get(..n)
+		.and_then(<[Line]>::last)
+		.map_or(0, |l| l.y + l.ascent + l.descent);
+	let from = quill_core::layout::to_units(dist, view::DPI);
+	let top = if footer {
+		quill_core::layout::to_units(page.paper_h, view::DPI) - from - height
+	} else {
+		from
+	};
+	for l in lines.iter_mut().take(n) {
+		l.page = p;
+		let at = At {
+			tx,
+			top: y0,
+			y_rel: top + l.y,
+			kind,
+			plain: true,
+		};
+		draw_line(dc, app, s, l, None, at, z, pages, ts);
+	}
+}
+
+/// Paints sheet `p` (from 1, of `pages`) of the print preview with its top left corner at (`x0`, `y0`) in device pixels, drawn at `pct`
+/// percent: the header, the footer and the body, as they print, with the white sheet and its shadow under them. Text goes out a word at
+/// a time through `draw_line`, in fonts made at the zoomed size (W16-15), and no selection, caret or misspelling mark is drawn. Only
+/// `damage` is painted.
+pub fn paint_sheet(
+	dc: u32,
+	(x0, y0): (i32, i32),
+	damage: Rect16,
+	pct: i32,
+	app: &QApp,
+	s: &FarStore,
+	p: u32,
+	pages: u32,
+) {
+	let z = Zoom(pct);
+	let page = &app.doc().page;
+	let (pw, ph) = (
+		z.d(view::page_width(app)),
+		z.d(quill_core::layout::to_units(page.paper_h, view::DPI)),
+	);
+	let tx = x0 + z.d(quill_core::layout::to_units(page.margin_l, view::DPI));
+	let margin_t = quill_core::layout::to_units(page.margin_t, view::DPI);
+	let first = p == 1 && page.flags & 1 != 0;
+	fill_in(dc, &damage, x0, y0, pw, ph, WHITE);
+	fill_in(dc, &damage, x0 + pw, y0 + 3, 2, ph, BLACK);
+	fill_in(dc, &damage, x0 + 3, y0 + ph, pw, 2, BLACK);
+	unsafe {
+		let saved = SaveDC(dc);
+		IntersectClipRect(
+			dc,
+			x0.max(0) as u32,
+			y0.max(0) as u32,
+			(x0 + pw).max(0) as u32,
+			(y0 + ph).max(0) as u32,
+		);
+		SetTextAlign(dc, TA_BASELINE);
+		let mut ts = TextState::new(pct as u8);
+		for (kind, alt) in [
+			(StoryKind::Header, StoryKind::FirstHeader),
+			(StoryKind::Footer, StoryKind::FirstFooter),
+		] {
+			let kind = if first { alt } else { kind };
+			sheet_story(dc, app, s, kind, (y0, tx), z, (p, pages), &mut ts);
+		}
+		ts.done(dc);
+		// The body's lines of this sheet, a screenful of records at a time as in `paint_page`.
+		let mut from = 0u32;
+		let mut more = true;
+		while more {
+			let mut shown = [Shown {
+				line: NO_LINE,
+				label: None,
+			}; MAX_SHOWN];
+			let mut count = 0usize;
+			let mut next = from;
+			let mut counters: ListCounters = [[0; 9]; 4];
+			more = false;
+			app.for_each_line_from(s, from, |i, l| {
+				let label = line_label(app, s, l, &mut counters, view::DPI);
+				if i < from || l.page < p {
+					return true;
+				}
+				if l.page > p {
+					return false;
+				}
+				if count == MAX_SHOWN {
+					more = true;
+					return false;
+				}
+				if let Some(slot) = shown.get_mut(count) {
+					*slot = Shown { line: *l, label };
+					count += 1;
+					next = i + 1;
+				}
+				true
+			});
+			from = next;
+			let mut ts = TextState::new(pct as u8);
+			for sh in shown.iter().take(count) {
+				let at = At {
+					tx,
+					top: y0,
+					y_rel: margin_t + sh.line.y,
+					kind: StoryKind::Body,
+					plain: true,
+				};
+				draw_line(dc, app, s, &sh.line, sh.label, at, z, pages, &mut ts);
+			}
+			ts.done(dc);
+		}
+		RestoreDC(dc, saved);
 	}
 }
 
