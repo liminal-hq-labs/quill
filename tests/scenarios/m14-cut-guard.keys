@@ -1,11 +1,11 @@
-# M14: a Cut or Copy of more than the clipboard holds (2,048 bytes) is refused and changes nothing (CORE-44). The paragraph is 2,400 bytes:
-# Select All and Cut leave it whole with "The document is too large for Quill." on the status line; Copy says the same; Undo has nothing
-# of the Cut to undo.
+# M14: a Cut of more than the old 2,048-byte clipboard now works (CORE-44, CORE-230). The paragraph is 2,400 bytes: Select All and Cut take it
+# whole onto the clipboard, Paste brings it back and one Edit > Undo takes the paste away again. (A copy too large for the 1 MB clipboard is
+# still refused with "The document is too large for Quill." and changes nothing; the host test `clipboard.rs` covers that size.)
 @copy bigsel.rtf
 @open BIGSEL.RTF
 f10 right l                     # Edit > Select All
-f10 right t                     # Edit > Cut: refused, the text stays selected
-f10 right c                     # Edit > Copy: refused as well
-f10 right u                     # Edit > Undo: nothing was cut, so it undoes nothing the Cut did
+f10 right t                     # Edit > Cut: the paragraph is on the clipboard and gone from the page
+f10 right p                     # Edit > Paste: all 2,400 bytes are back
+f10 right u                     # Edit > Undo: the paste goes, one step
 f10 end enter                   # File > Exit
 n                               # without saving

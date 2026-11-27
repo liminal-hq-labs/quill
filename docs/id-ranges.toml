@@ -547,3 +547,19 @@ last = 123
 owner = "DOS page bridge (WP-DOSWEB)"
 status = "reserved"
 source = "docs/plans/dos-page-bridge.md"
+
+[[block]]
+prefix = "CORE"
+first = 230
+last = 231
+owner = "WP-ED-5 rich clipboard"
+status = "in use"
+source = "docs/decisions.md"
+
+[[block]]
+prefix = "DOS"
+first = 115
+last = 115
+owner = "WP-ED-5 rich clipboard"
+status = "in use"
+source = "docs/decisions.md"

@@ -416,6 +416,7 @@ dependencies = [
 name = "quill-app"
 version = "0.0.0"
 dependencies = [
+ "quill-clip",
  "quill-core",
  "quill-dlg",
  "quill-formats",
@@ -452,6 +453,7 @@ dependencies = [
  "quill-formats",
  "quill-heap",
  "quill-image",
+ "quill-text",
 ]
 
 [[package]]
@@ -544,6 +546,7 @@ dependencies = [
  "proptest",
  "quill-app",
  "quill-chrome",
+ "quill-clip",
  "quill-core",
  "quill-dict",
  "quill-dlg",

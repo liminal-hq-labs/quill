@@ -925,8 +925,6 @@ fn body_bytes(app: &App, s: &HostStore) -> Vec<u8> {
 	bytes
 }
 
-const TOO_LARGE: &[u8] = b"The document is too large for Quill.";
-
 #[test]
 fn one_undo_removes_a_paste_of_three_paragraphs() {
 	let (mut app, mut s, mut f) = setup();
@@ -955,26 +953,6 @@ fn undo_after_a_paste_over_a_selection_gives_the_selection_back() {
 	assert_eq!(body_bytes(&app, &s), before);
 }
 
-#[test]
-fn a_cut_over_the_clipboard_capacity_changes_nothing() {
-	let (mut app, mut s, mut f) = setup();
-	type_text(&mut app, &mut s, &mut f, &"x".repeat(3001));
-	app.command(&mut s, &mut f, Command::SelectAll);
-	let before = body_bytes(&app, &s);
-	app.command(&mut s, &mut f, Command::Cut);
-	assert_eq!(body_bytes(&app, &s), before);
-	assert_eq!(app.message(), TOO_LARGE);
-	app.command(&mut s, &mut f, Command::Copy);
-	assert_eq!(app.message(), TOO_LARGE);
-	app.key(&mut s, &mut f, Key::Right);
-	app.command(&mut s, &mut f, Command::Paste);
-	assert_eq!(
-		body_bytes(&app, &s),
-		before,
-		"a refused copy leaves the clipboard empty"
-	);
-}
-
 proptest! {
 	#[test]
 	fn paste_then_undo_gives_the_document_back(paras in proptest::collection::vec("[a-z ]{0,12}", 1..6), at in 0u32..40) {
@@ -999,7 +977,7 @@ proptest! {
 	#![proptest_config(ProptestConfig::with_cases(10))]
 
 	#[test]
-	fn a_cut_within_the_capacity_survives_cut_then_paste(len in 1usize..2040) {
+	fn a_cut_survives_cut_then_paste(len in 1usize..4200) {
 		let (mut app, mut s, mut f) = setup();
 		type_text(&mut app, &mut s, &mut f, &"y".repeat(len));
 		app.command(&mut s, &mut f, Command::SelectAll);
@@ -1008,15 +986,5 @@ proptest! {
 		prop_assert_eq!(body_bytes(&app, &s).len(), 1);
 		app.command(&mut s, &mut f, Command::Paste);
 		prop_assert_eq!(body_bytes(&app, &s).len(), before.len());
-	}
-
-	#[test]
-	fn a_cut_over_the_capacity_changes_nothing(len in 2049usize..2300) {
-		let (mut app, mut s, mut f) = setup();
-		type_text(&mut app, &mut s, &mut f, &"y".repeat(len));
-		app.command(&mut s, &mut f, Command::SelectAll);
-		let before = body_bytes(&app, &s);
-		app.command(&mut s, &mut f, Command::Cut);
-		prop_assert_eq!(body_bytes(&app, &s), before);
 	}
 }

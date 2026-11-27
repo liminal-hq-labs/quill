@@ -50,4 +50,14 @@ if let Some(req) = app.take_clip_request() {
 }
 ```
 
-`copy_to` takes the selection and calls `quill_clip::copy` with `Flavours::ALL`; on a cut it then deletes the selection as part of the same undo step. `paste_from` calls `paste_fragment` with the SPEC order, merges the fragment's tables into the document, and replaces the selection with it as one undo step. `App` keeps undo grouping and selection replacement, and the fixed 2,048-byte text buffer it holds today goes away, which is 2,050 bytes of the Win16 data segment. None of this is in `quill-app` yet.
+`copy_to` takes the selection and calls `quill_clip::copy` with `Flavours::ALL`; on a cut it then deletes the selection as part of the same undo step. `paste_from` calls `paste_fragment` with the SPEC order, merges the fragment's tables into the document, and replaces the selection with it as one undo step. `App` keeps undo grouping and selection replacement, and the fixed 2,048-byte text buffer it held is gone, which freed 2,050 bytes of the Win16 data segment (CORE-230).
+
+### The default transport
+
+A shell that has not called `serve_clipboard(true)` is not asked to do anything: Copy, Cut and Paste act at once on `quill_clip::Held<128, 0>`, which keeps RTF and text (no DIB: a lone picture travels inside the RTF) in 128 chunks of 8,192 bytes of the document's own store, 1 MB of each. A chunk is allocated as data arrives, so an empty clipboard holds none and costs the app 280 bytes of its own. `Held::copy_from` and `Held::paste_to` run `copy` and `paste_fragment` with the clipboard and the document in the one store: two handles on one `RefCell` that each borrow the store for one call, so no reference into the store is held across a call and no `unsafe` is needed.
+
+A copy whose RTF does not fit is refused, whatever the text flavour could hold: text alone would lose the formatting that a Cut deletes. The served path asks nothing of this limit; the system clipboard decides.
+
+### Pasting a fragment
+
+`quill_clip::insert_fragment(doc, s, frag, at, style, label, &mut done)` inserts the fragment's body in pieces of up to 256 characters, each with its own undo record in the group the caller opened, so the paste is one step whatever its size. A fragment's fonts, colours, character formats, tab sets, list definitions and paragraph formats are merged into the document's tables (a full table gives the default entry), and its pictures are copied into the document's picture pool. `PasteStyle::Rich { first_pfmt }` keeps the fragment's formats, except that the first paragraph end of a paste that starts inside a paragraph takes `first_pfmt`, the format of the paragraph it was pasted into; `PasteStyle::Plain { cfmt, pfmt }` gives everything the format typing there would give, which is what plain text takes. On an error `done` says how many characters went in before it, and they stay in the document (and in the one undo step).

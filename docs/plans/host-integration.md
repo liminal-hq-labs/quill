@@ -80,7 +80,7 @@ From `src/uart.js`, `src/browser/keyboard.js` and `src/browser/starter.js` at v8
 
 ### Quill on the guest today
 
-`QUILL32.EXE` does not use the Windows clipboard yet: Copy and Paste go through `App.clip`, a 2,048-byte text buffer inside `quill-app`. The system clipboard arrives with WP-ED-5 (the clipboard request in `quill-app`) and WP-ED-6 (serving it on Windows 3.x and Windows 95 with `CF_TEXT`, `Rich Text Format` and `CF_DIB`). Until WP-ED-6's Win32 half merges, nothing Quill copies can leave the guest, and nothing pasted from the host reaches Quill, whatever the link does.
+`QUILL32.EXE` does not use the Windows clipboard yet: Copy and Paste go through the app's own clipboard (RTF and text in the document's store, since WP-ED-5; the `ClipRequest` that a shell serves with `copy_to` and `paste_from` exists and no shell serves it yet). The system clipboard arrives with WP-ED-6 (serving it on Windows 3.x and Windows 95 with `CF_TEXT`, `Rich Text Format` and `CF_DIB`). Until WP-ED-6's Win32 half merges, nothing Quill copies can leave the guest, and nothing pasted from the host reaches Quill, whatever the link does.
 
 ## The link
 
