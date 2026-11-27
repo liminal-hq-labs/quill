@@ -627,3 +627,35 @@ last = 31
 owner = "Host Link Kit (WP-KIT)"
 status = "in use"
 source = "docs/plans/host-link-kit.md"
+
+[[block]]
+prefix = "CORE"
+first = 234
+last = 234
+owner = "Zoom keys (WP-BAR-1K)"
+status = "in use"
+source = "docs/decisions.md"
+
+[[block]]
+prefix = "W16"
+first = 121
+last = 121
+owner = "Zoom keys (WP-BAR-1K)"
+status = "in use"
+source = "docs/decisions.md"
+
+[[block]]
+prefix = "W9X"
+first = 140
+last = 141
+owner = "Zoom keys (WP-BAR-1K)"
+status = "in use"
+source = "docs/decisions.md"
+
+[[block]]
+prefix = "DOS"
+first = 116
+last = 116
+owner = "Zoom keys (WP-BAR-1K)"
+status = "in use"
+source = "docs/decisions.md"
