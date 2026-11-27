@@ -7,6 +7,9 @@ ReactOS 0.4.16 with Quill, running in [v86](https://copy.sh/v86/) (an x86 emulat
 | Path | What |
 |---|---|
 | `index.html`, `try-reactos.js`, `try-reactos.css` | The page: Start, Stop, Full screen, a status line and a builder and diagnostics panel (RAM, VGA memory, ACPI, JIT, boot order, disk, disk chunk size, CD and state URLs, a live read-out of IDE reads, video mode and MIPS, Save state) |
+| `manifest.js`, `host-files.js`, `sound.js` | The page's modules: `manifest.js` reads `web-manifest.json` and checks the emulator build (SITE-14); the other two are empty seams (`attach`, `detach`) that the file channel and sound fill in |
+| `tools/stage-web.py`, `tools/stamp-web.py` | Stage a build as `data/parts-<hash>/`, `data/state-<hash>.l22.bin.zst` and `web-manifest.json`; keep the `?v=` stamps on the page's files current |
+| `harness/check-clean.ts` | Checks the clean address: the plain `/try-reactos/` restores the desktop and the address stays |
 | `v86/` | v86 0.5.473 and its BIOS files, fetched by `tools/fetch-v86.sh` (not committed). `v86/PROVENANCE.md` lists versions, hashes and licences (v86 is BSD-2-Clause; SeaBIOS and SeaVGABIOS are LGPL-3.0) |
 | `harness/serve.ts` | The local server: static files, HTTP range requests, per-client byte counters, a JSON request log |
 | `harness/measure.ts`, `lib.ts`, `inpage.js` | The measurement run, on `playwright-core` driving the installed Chromium |
@@ -31,7 +34,7 @@ bun install                      # playwright-core only
 bun serve.ts                     # http://127.0.0.1:8086/try-reactos/  (PORT, HOST, IMAGES_DIR, COI=1, LOG_FILE)
 ```
 
-The server stops with a message naming `tools/fetch-v86.sh` when the emulator files are missing. `HOST=0.0.0.0` serves the LAN, read-only (the write endpoints answer this machine only). Then open `http://127.0.0.1:8086/try-reactos/?disk=/images/reactos16-spike-a.img&cdrom=/images/quill-demo.iso&boot=hd&ram=256` and select Start. Every field in the panel can be set from the address bar by its name (`ram`, `vga`, `acpi=0`, `jit=0`, `cpuid`, `boot=auto|cd|hd`, `disk`, `chunk`, `cdrom`, `state`, `run`, `speed`, `lock=os|raw`, `cursor=guest|local`). Also `scale=int|crisp|smooth` (how the screen is scaled) and `mouse=lock|follow|v86` (how the pointer reaches the guest; `v86` is v86's own mouse adapter, for comparing).
+The server stops with a message naming `tools/fetch-v86.sh` when the emulator files are missing. `HOST=0.0.0.0` serves the LAN, read-only (the write endpoints answer this machine only). With a staged build (next section) the plain address is enough. Otherwise open `http://127.0.0.1:8086/try-reactos/?manifest=none&disk=/images/reactos16-spike-a.img&cdrom=/images/quill-demo.iso&boot=hd&ram=256` and select Start. Every field in the panel can be set from the address bar by its name (`ram`, `vga`, `acpi=0`, `jit=0`, `cpuid`, `boot=auto|cd|hd`, `disk`, `chunk`, `cdrom`, `state`, `run`, `speed`, `lock=os|raw`, `cursor=guest|local`, `manifest=URL|none`). Also `scale=int|crisp|smooth` (how the screen is scaled) and `mouse=lock|follow|v86` (how the pointer reaches the guest; `v86` is v86's own mouse adapter, for comparing).
 
 1. **Smoke test, the live CD:** `?cdrom=/images/livecd.iso&boot=cd` boots the ReactOS 0.4.16 installer. Or `node watch.ts --name livecd --seconds 90 --param cdrom=/images/livecd.iso --param boot=cd`; frames go to `out/livecd/`.
 2. **A copied disk:** `node measure.ts --name spike-a --app quill32` (or `--app quill16` for the Win16 build, `--profile 50mbit|10mbit`).
@@ -44,6 +47,22 @@ The server stops with a message naming `tools/fetch-v86.sh` when the emulator fi
 Server endpoints: `GET /__stats` (bytes and requests per client, split into page, engine, bios, disk, cdrom, state; distinct disk bytes), `POST /__stats/reset`, `POST /__stats/flush` (writes `out/requests.json`), `POST /__put/NAME?offset=N` (stores a body in the images folder). A client is the `run` id in the page's address.
 
 Input reaches the guest only through the page's own emulator API (`keyboard_send_scancodes`, `keyboard_send_text`, the mouse bus); the headless browser never touches the host desktop.
+
+## The address and the manifest
+
+The published address is the plain `/try-reactos/`: no query string. The page reads `web-manifest.json` (fetched with `cache: "no-store"` and a `?t=` stamp), which names the disk parts and the saved desktop by their content, so the state and the parts it was taken from always arrive together and nothing named by a hash ever changes (SITE-14, the scheme SITE-4 uses for the DOS page). The page adds nothing to the address; the measuring server's run id is only in the address when a script passes `?run=`.
+
+```sh
+python3 -I site/try-reactos/tools/stage-web.py ~/.cache/quill-reactos-liminal-work/dist   # data/ and web-manifest.json, both ignored by git
+python3 -I site/try-reactos/tools/stage-web.py --check                                    # the staged files are the ones the manifest names
+python3 -I site/try-reactos/tools/stamp-web.py                                            # after editing the page's files (--check in tests)
+cd site/try-reactos/harness && bun serve.ts && bun check-clean.ts OUTDIR                  # http://127.0.0.1:8086/try-reactos/ boots the saved desktop
+```
+
+- **The manifest.** `version`, `built`, `parts` (`data/parts-<12 hex of the image's SHA-256>/`, which keeps its own `manifest.json`), `partsSha256`, `partsDigest` (the SHA-256 of every part's name and SHA-256, which `--check` uses to notice a changed byte), `imageSize`, `chunk`, `state` (`data/state-<12 hex of its SHA-256>.l22.bin.zst`), `stateSha256`, `stateBytes`, `v86` (`version`, and the first 8 hex of the SHA-256 of `libv86.mjs` and `v86.wasm`), `quill` and `reactosLiminal` (commits). Paths are relative to the manifest. Staging is repeatable: names follow content, `built` comes from the build's own `build-manifest.json`, and any other `parts-*` or `state-*` in `data/` is removed.
+- **Overrides.** A field named in the address bar wins over the manifest's value for it, even when empty: `?state=` (nothing) starts a cold boot over the manifest's disk, and `?disk=` and `?state=` name another machine. `?manifest=URL` names another manifest and `?manifest=none` ignores it (the measuring scripts pass this, through `pageUrl`, because they name their machine in full). Without a manifest (a folder with no `data/`) the page says so in the status line and opens the diagnostics.
+- **The emulator.** A saved state belongs to one v86 build. The page loads `libv86.mjs`, `v86.wasm` and the BIOS files with `?v=` from the manifest, hashes the first two, and stops with a plain message when they differ from the manifest's hashes (the check is skipped where `crypto.subtle` does not exist, as on a plain-HTTP LAN address). The page's own script and style sheet, and the script's modules, carry `?v=` from `tools/stamp-web.py`.
+- **Diagnostics.** The panel shows the manifest's build line and **Force fresh copy**, which replaces the browser's copies of the manifest and the emulator files and reloads at the same address.
 
 ## The mouse
 

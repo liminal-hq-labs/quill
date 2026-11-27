@@ -111,9 +111,15 @@ export function save(dir: string, name: string, data: Buffer | string) {
 	fs.writeFileSync(path.join(dir, name), data);
 }
 
-export function pageUrl(run: string, params: Record<string, string>) {
-	const q = new URLSearchParams({ run, ...params });
-	return `${BASE}/try-reactos/?${q}`;
+// The page's address. The measuring scripts name their machine in full, so they switch the manifest off (manifest=none) unless a
+// run names one itself; an empty run id leaves `run` out. With no run and no params the address is the plain /try-reactos/ that
+// visitors use (harness/check-clean.ts), and the page boots from web-manifest.json.
+export function pageUrl(run: string, params: Record<string, string>, opts: { plain?: boolean } = {}) {
+	const q = new URLSearchParams(run ? { run } : {});
+	if (!opts.plain && !("manifest" in params)) q.set("manifest", "none");
+	for (const [key, value] of Object.entries(params)) q.set(key, value);
+	const text = q.toString();
+	return `${BASE}/try-reactos/${text ? "?" + text : ""}`;
 }
 
 // Memory of the browser's processes, from /proc, by the process ids the DevTools protocol reports.

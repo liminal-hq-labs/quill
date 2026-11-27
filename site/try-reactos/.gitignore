@@ -9,3 +9,7 @@ node_modules/
 /v86/v86-fallback.wasm
 /v86/bios/seabios.bin
 /v86/bios/vgabios.bin
+
+# Staged by tools/stage-web.py: the disk parts and state, named by content, and the manifest that names them.
+/data/
+/web-manifest.json

@@ -15,10 +15,10 @@
 		<meta name="robots" content="noindex">
 		<meta name="color-scheme" content="light dark">
 		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
-		<link rel="stylesheet" href="../css/site.css">
-		<link rel="stylesheet" href="../css/try.css">
-		<link rel="stylesheet" href="try-reactos.css">
-		<script src="try-reactos.js" type="module"></script>
+		<link rel="stylesheet" href="../css/site.css?v=a4d3a119">
+		<link rel="stylesheet" href="../css/try.css?v=fc9dccd7">
+		<link rel="stylesheet" href="try-reactos.css?v=97da23ab">
+		<script src="try-reactos.js?v=96a6dc5c" type="module"></script>
 	</head>
 	<body>
 		<main id="main">
@@ -54,6 +54,7 @@
 
 					<details class="diag" data-diag>
 						<summary>Builder and diagnostics</summary>
+						<p class="build"><span data-build>Build: loading</span> · <a href="./" data-fresh>Force fresh copy</a></p>
 						<form class="diag-form" data-config autocomplete="off">
 							<label>RAM (MB) <input name="ram" type="number" min="32" max="2048" step="32" value="256"></label>
 							<label>VGA memory (MB) <input name="vga" type="number" min="2" max="64" value="8"></label>
@@ -84,7 +85,7 @@
 									<option value="local">local overlay (predicted)</option>
 								</select>
 							</label>
-							<label>Run id <input name="run" type="text" size="14"></label>
+							<label>Run id (only for the measuring server) <input name="run" type="text" size="14"></label>
 						</form>
 						<dl class="diag-readout" data-readout aria-live="off"></dl>
 						<p class="diag-buttons">
