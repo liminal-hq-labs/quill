@@ -48,6 +48,11 @@ destination = "Quill/QUILL32.EXE"
 source = "payload/QUILL.EXE"
 destination = "Quill/QUILL.EXE"
 
+# The host link's guest helper (SITE-32): the clipboard now, files, the clock and the screen's size later. quill-run.reg starts it at logon.
+[[files]]
+source = "payload/HOSTLINK.EXE"
+destination = "Quill/HOSTLINK.EXE"
+
 [[files]]
 source = "payload/QUILLDESK.ICO"
 destination = "Quill/QUILLDESK.ICO"

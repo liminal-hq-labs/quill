@@ -42,14 +42,14 @@ jobs:
       - name: Install the pinned Rust toolchain
         run: rustup toolchain install --profile minimal
 
-      - name: Build QUILL32.EXE and QUILL.EXE
+      - name: Build QUILL32.EXE, QUILL.EXE and HOSTLINK.EXE
         env:
           CARGO_TARGET_DIR: ${{ runner.temp }}/target
         run: |
           bash win9x/build.sh
           bash win16/build.sh
           mkdir -p "$RUNNER_TEMP/quill"
-          cp win9x/dist/QUILL32.EXE win16/out/QUILL.EXE "$RUNNER_TEMP/quill/"
+          cp win9x/dist/QUILL32.EXE win9x/dist/HOSTLINK.EXE win16/out/QUILL.EXE "$RUNNER_TEMP/quill/"
 
       - name: Upload the programs
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
