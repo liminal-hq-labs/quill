@@ -90,6 +90,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | WUI-65 to WUI-69 | Editor track (WP-ED) | reserved | [work-packages.md](work-packages.md#decision-ids) |
 | WUI-70 to WUI-74 | Reveal Codes (WP-CODES) | reserved | [plans/reveal-codes.md](plans/reveal-codes.md) |
 | WUI-80 to WUI-84 | Status bar (WP-BAR) | reserved | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
+| WUI-85 to WUI-94 | WinUI real window (WP-WINUI) | in use | [plans/winui-real-window.md](plans/winui-real-window.md) |
 | WUI-95 to WUI-97 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
 
 ## INS
