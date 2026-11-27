@@ -321,6 +321,19 @@ fn text_attr(scheme: Scheme, flags: u16, vpos: u8, selected: bool) -> u8 {
 	}
 }
 
+/// The attribute of a misspelt word (SPEC, DOS text mode): a red background in colour, keeping the text's own colour unless that
+/// would vanish into the red; reverse video in mono, keeping bright.
+fn misspelt_attr(scheme: Scheme, a: u8) -> u8 {
+	match scheme {
+		Scheme::Colour => {
+			let fore = a & 0x0F;
+			let fore = if fore & 7 == 4 { 0x0F } else { fore };
+			0x40 | fore
+		}
+		Scheme::Mono => 0x70 | (a & 0x08),
+	}
+}
+
 /// A separator rule across a menu box that starts at column `col`, row `y`: the box's own edges joined to a line.
 fn menu_rule<const ROWS: usize>(g: &mut Grid<ROWS>, col: usize, y: usize, w: usize) {
 	g.put(col, y, 0xC3, attr::CHROME);
@@ -576,6 +589,18 @@ pub fn draw_rows<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 			return true;
 		}
 		let row = row_i as usize;
+		// The misspelt words of this line (as you type), a few at most: a word past the sixth shows plain until the next scan.
+		let mut marks = [(0u32, 0u32); 6];
+		let mut marked = 0;
+		for mark in app
+			.spell_marks(s, l.start, l.start + l.len)
+			.take(marks.len())
+		{
+			if let Some(slot) = marks.get_mut(marked) {
+				*slot = mark;
+				marked += 1;
+			}
+		}
 		app.walk(s, l, |p, c, x, w, leader| {
 			let col = margin + x as usize;
 			let cf = app
@@ -585,7 +610,10 @@ pub fn draw_rows<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 				.and_then(|i| app.doc.cfmts.get(s, i));
 			let (flags, vpos) = cf.map_or((0, 0), |c| (c.flags, c.vpos));
 			let selected = sel.is_some_and(|(lo, hi)| p >= lo && p < hi);
-			let a = text_attr(app.scheme, flags, vpos, selected);
+			let mut a = text_attr(app.scheme, flags, vpos, selected);
+			if !selected && marks.iter().take(marked).any(|m| p >= m.0 && p < m.1) {
+				a = misspelt_attr(app.scheme, a);
+			}
 			if c == 0x09 {
 				let fill = match leader {
 					1 => b'.',

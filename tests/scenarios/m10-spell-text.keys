@@ -1,0 +1,11 @@
+@spell
+@copy en_ca.dic
+# M10: Check Spelling as You Type on the text screens. The words that are not in the dictionary have a red background (reverse in
+# mono). The keyboard goes quiet after each key; the frames show the marks in their attributes, so a DOS run matches the host's.
+T e h space q u i c k space b r o w n space f o x      # "Teh" is marked at its space; "quick" is fine; "fox" is being typed
+space j u m p d space o v e r space                    # "jumpd" is marked at its space
+home right right right bspace bspace bspace            # the word is taken out: its mark goes with it
+T h e                                                  # typed again, the caret on it: nothing to mark, and nothing is
+space                                                  # the boundary: checked, and correct
+# A selection over a marked word shows the selection, not the mark.
+home f8 end

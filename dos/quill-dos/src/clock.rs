@@ -27,9 +27,10 @@ fn time() -> (u32, u32) {
 /// The country information (AX=3800h): the date order (0 month first, 1 day first, 2 year first), the date and time separators and
 /// whether the clock has 24 hours. A DOS that does not answer gives the United States' settings.
 fn country() -> (u16, u8, u8, bool) {
-	let mut buf = [0u8; 34];
+	// The DPMI host copies the answer back; a buffer of exactly 34 bytes has been overrun here, so it has room to spare.
+	let mut buf = [0u8; 64];
 	let (ax, cf): (u32, u32);
-	// SAFETY: AX=3800h fills the 34-byte buffer DS:EDX names (a DPMI host copies it back); the carry flag says whether it worked.
+	// SAFETY: AX=3800h fills the buffer DS:EDX names (34 bytes at most) (a DPMI host copies it back); the carry flag says whether it worked.
 	unsafe {
 		asm!(
 			"int 0x21",

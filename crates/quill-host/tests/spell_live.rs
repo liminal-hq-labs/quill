@@ -383,3 +383,27 @@ fn idle_cost() {
 		total.as_nanos() / (rounds as u128 * words as u128)
 	);
 }
+
+/// The text screen's view is the lines on its rows: a word far below the screen is not checked until the screen scrolls to it.
+#[test]
+fn the_text_screens_view_is_the_lines_on_its_rows() {
+	let (mut app, mut s, mut f) = setup(true);
+	let mut text = String::from("fine fox\nquikc fox\n");
+	for _ in 0..40 {
+		text.push_str("fine fox\n");
+	}
+	text.push_str("wrod fox\n");
+	type_text(&mut app, &mut s, &mut f, &text);
+	app.key(&mut s, &mut f, Key::CtrlHome);
+	assert!(app.spell_live_ready(&mut s, &mut f));
+	let view = app.spell_view_rows(&s, 23);
+	assert_eq!(view.0, 0, "{view:?}");
+	assert!(view.1 > 150 && view.1 < 250, "{view:?}");
+	while app.spell_idle(&mut s, 3) {}
+	assert_eq!(words_of(&app, &s), ["quikc"]);
+	// The page's end brings the last words onto the screen.
+	app.key(&mut s, &mut f, Key::CtrlEnd);
+	app.spell_view_rows(&s, 23);
+	while app.spell_idle(&mut s, 3) {}
+	assert_eq!(words_of(&app, &s), ["quikc", "wrod"]);
+}

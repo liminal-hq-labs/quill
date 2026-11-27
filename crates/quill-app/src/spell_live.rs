@@ -195,6 +195,37 @@ impl<M: Measure + Clone> App<M> {
 		}
 	}
 
+	/// `spell_set_view` for the text screen: the lines that show from `top` in `text_rows` rows of 1/6 inch, the same rows `draw_rows`
+	/// paints, and returns the span. A screen of rows is a few dozen lines, so the shell calls this once when the keyboard goes quiet.
+	pub fn spell_view_rows<S: ReadStore + ?Sized>(
+		&mut self,
+		s: &S,
+		text_rows: usize,
+	) -> (u32, u32) {
+		let page_rows = quill_core::layout::to_units(self.doc.page.text_h(), 6);
+		let cum = |l: &quill_core::layout::Line| (l.page as i32 - 1) * page_rows + l.y;
+		let top = self.top;
+		let top_cum = self.line_at(s, top).map_or(0, |l| cum(&l));
+		let (mut lo, mut hi) = (u32::MAX, 0);
+		self.lines_from(s, top, |i, l| {
+			if i < top {
+				return true;
+			}
+			if cum(l) - top_cum >= text_rows as i32 {
+				return false;
+			}
+			lo = lo.min(l.start);
+			hi = hi.max(l.start + l.len);
+			true
+		});
+		if lo < hi {
+			self.spell_set_view(lo, hi);
+			(lo, hi)
+		} else {
+			(0, 0)
+		}
+	}
+
 	/// Forgets every mark and what was checked, and says the screen needs painting again.
 	fn live_forget(&mut self) {
 		let body_len = self.doc.body.len();

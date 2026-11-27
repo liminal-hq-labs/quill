@@ -377,7 +377,7 @@ pub fn parse_token(t: &str) -> Option<Key> {
 	quill_app::script::parse_token(t)
 }
 
-/// A key script: directives (`@mono`, `@rows N`, `@open NAME`, `@copy NAME`, `@live`), key tokens and pointer directives
+/// A key script: directives (`@mono`, `@rows N`, `@open NAME`, `@copy NAME`, `@live`, `@spell`), key tokens and pointer directives
 /// (`@click x y`, `@shiftclick x y`, `@dclick x y`, `@tclick x y`, `@drag x1 y1 x2 y2`, `@wheel n`, in text cells), with `#` starting
 /// a comment.
 #[derive(Default)]
@@ -415,6 +415,9 @@ pub struct Script {
 	pub places: Vec<(String, String)>,
 	/// Check Spelling as You Type is on, and the keyboard goes quiet after each key: the marks follow each frame.
 	pub live: bool,
+	/// `@spell`: the same, without the `marks:` lines under the frames, so a DOS run can match the golden screens (the marks are in
+	/// the screens' attributes).
+	pub marks_hidden: bool,
 	/// The seed of a random idle schedule (`@sched seed=N`): idle passes of random sizes run after each step, and the frames and files
 	/// must not change.
 	pub sched: Option<u32>,
@@ -434,6 +437,10 @@ pub fn parse_script(text: &str) -> Script {
 			match t {
 				"@mono" => sc.mono = true,
 				"@live" => sc.live = true,
+				"@spell" => {
+					sc.live = true;
+					sc.marks_hidden = true;
+				}
 				"@sched" => {
 					sc.sched = it
 						.next()
@@ -655,7 +662,7 @@ fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &
 		n += 1;
 		g.dump(n, frames).unwrap();
 		if script.live {
-			app.spell_set_view(0, app.doc().body.len());
+			app.spell_view_rows(&s, ROWS - 2);
 		}
 		if let Some(sim) = sim.as_mut() {
 			// A schedule slices idle time between the steps; the drain below reaches the same state.
@@ -671,11 +678,13 @@ fn play_rows<const ROWS: usize>(files: &mut MemFiles, script: &Script, frames: &
 		if script.live {
 			// The keyboard goes quiet: the whole document is on the screen and the scanner runs out of work.
 			app.drain(&mut s, files, quiet);
-			let marks: Vec<String> = app
-				.spell_marks(&s, 0, u32::MAX)
-				.map(|(a, b)| format!("{a}-{b}"))
-				.collect();
-			let _ = writeln!(frames, "marks: {}", marks.join(" "));
+			if !script.marks_hidden {
+				let marks: Vec<String> = app
+					.spell_marks(&s, 0, u32::MAX)
+					.map(|(a, b)| format!("{a}-{b}"))
+					.collect();
+				let _ = writeln!(frames, "marks: {}", marks.join(" "));
+			}
 		}
 		if app.quit() {
 			break;

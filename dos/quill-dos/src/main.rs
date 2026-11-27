@@ -127,6 +127,68 @@ fn script_text() -> Option<String> {
 	String::from_utf8(bytes).ok()
 }
 
+/// BIOS clock ticks (18.2 a second) the keyboard and the mouse buttons stay quiet before the spelling scan starts: about 0.3 s.
+const SPELL_QUIET: u32 = 6;
+/// Words the scan checks each time round the idle loop.
+const SPELL_WORDS: u32 = 4;
+
+/// What the idle loop knows about Check Spelling as You Type: when the person last did something, and whether a scan is running.
+struct Spell {
+	last_input: u32,
+	scanning: bool,
+	done: bool,
+}
+
+impl Spell {
+	fn new() -> Self {
+		Spell {
+			last_input: mouse::ticks(),
+			scanning: false,
+			done: false,
+		}
+	}
+
+	/// A key or a button: the scan starts again from the quiet.
+	fn input(&mut self) {
+		self.last_input = mouse::ticks();
+		self.scanning = false;
+		self.done = false;
+	}
+
+	/// Called each time round the wait for a key. Once the person has been quiet for `SPELL_QUIET` ticks it tells the app which
+	/// lines are showing and checks a few words a call, until nothing is left. True when a mark came or went, so the screen is drawn
+	/// again. No new scanner: this is the shared `App::spell_idle` (D201), as on Windows 95.
+	#[inline(never)]
+	fn step(
+		&mut self,
+		app: &mut App<ScreenMeasure>,
+		store: &mut HeapStore,
+		files: &mut files::DosFiles,
+		text_rows: usize,
+	) -> bool {
+		if self.done || !app.spell_live() || !app.editing() {
+			return false;
+		}
+		if !self.scanning {
+			if mouse::ticks().wrapping_sub(self.last_input) < SPELL_QUIET {
+				return false;
+			}
+			app.spell_view_rows(store, text_rows);
+			self.scanning = true;
+		}
+		if !app.spell_live_ready(store, files) {
+			self.scanning = false;
+			return false;
+		}
+		if !app.spell_idle(store, SPELL_WORDS) {
+			// Nothing is left; the view is looked at again after the next key.
+			self.scanning = false;
+			self.done = true;
+		}
+		app.spell_take_changed().is_some()
+	}
+}
+
 /// The rows `QUILL.INI` asks for (`Rows=` under `[Quill]`), or 25.
 fn rows_setting(ini: &[u8]) -> usize {
 	let mut rows = 25;
@@ -223,6 +285,11 @@ fn start(app: &mut App<ScreenMeasure>, store: &mut HeapStore, files: &mut files:
 	if app.reset(store).is_err() {
 		return false;
 	}
+	// A test script that says `@live` or `@spell` runs with Check Spelling as You Type on, as the host's does; otherwise it is off
+	// until the Find menu or `AsYouType=1` turns it on (D201).
+	if script_text().is_some_and(|t| t.split_whitespace().any(|w| w == "@spell" || w == "@live")) {
+		app.set_spell_live_default(true);
+	}
 	app.load_settings(files);
 	// The test runs (`QUILL_DUMP`) keep one fixed line so the DOS screens match the host's; otherwise About says what it runs on.
 	if env::var("QUILL_DUMP").is_some() {
@@ -291,6 +358,7 @@ fn run(rows: usize, kept: &Kept) -> i32 {
 	let target = TextCells { rows: (rows - 2) as i32 };
 	let mut ptr = Pointer::default();
 	let mut mouse = mouse::open(80, rows as i32, (8, 8));
+	let mut spell = Spell::new();
 	let script = script_text();
 	let mut at = None;
 	show(rows, &app, &store, &mut dump, &mut n, at, true);
@@ -309,6 +377,12 @@ fn run(rows: usize, kept: &Kept) -> i32 {
 				}),
 			}
 			show(rows, &app, &store, &mut dump, &mut n, at, true);
+			// The keyboard goes quiet after each step: the whole scan runs, as the host's `drain` does, and the marks show from the
+			// next screen on.
+			if app.spell_live() && app.spell_live_ready(&mut store, &mut files) {
+				app.spell_view_rows(&store, rows - 2);
+				while app.spell_idle(&mut store, SPELL_WORDS) {}
+			}
 			if app.quit() {
 				break;
 			}
@@ -324,25 +398,33 @@ fn run(rows: usize, kept: &Kept) -> i32 {
 				app.file_tick();
 			}
 			last_tick = now;
-			let Some(m) = mouse.as_mut() else {
-				return false;
-			};
 			let mut any = false;
-			m.poll(|ev| {
+			if let Some(m) = mouse.as_mut() {
+				m.poll(|ev| {
+					any = true;
+					clicked |= !matches!(ev, Ev::Move { .. });
+					if !matches!(ev, Ev::Move { .. }) {
+						spell.input();
+					}
+					let ctx = Ctx {
+						shift: keys::shift_down(),
+						tick: mouse::ticks(),
+					};
+					clock_for(&mut app, ev);
+					ptr.handle(&mut app, &mut store, &mut files, &target, ev, ctx);
+				});
+			}
+			// Nothing happened and the keyboard is quiet: a few words of spelling, and the screen again when a mark came or went.
+			if !any && spell.step(&mut app, &mut store, &mut files, rows - 2) {
 				any = true;
-				clicked |= !matches!(ev, Ev::Move { .. });
-				let ctx = Ctx {
-					shift: keys::shift_down(),
-					tick: mouse::ticks(),
-				};
-				clock_for(&mut app, ev);
-				ptr.handle(&mut app, &mut store, &mut files, &target, ev, ctx);
-			});
+				clicked = true;
+			}
 			any
 		});
 		at = mouse.as_ref().map(|m| m.at()).or(at);
 		match waited {
 			keys::Wait::Key(Some(k)) => {
+				spell.input();
 				clock::set(&mut app);
 				app.key(&mut store, &mut files, k);
 				show(rows, &app, &store, &mut dump, &mut n, at, true);
