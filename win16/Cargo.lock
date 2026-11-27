@@ -18,6 +18,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-chrome"
+version = "0.0.0"
+dependencies = [
+ "quill-app",
+ "quill-core",
+]
+
+[[package]]
 name = "quill-core"
 version = "0.0.0"
 dependencies = [
@@ -83,6 +91,7 @@ name = "quill-win16-rt"
 version = "0.0.0"
 dependencies = [
  "quill-app",
+ "quill-chrome",
  "quill-core",
  "quill-formats",
  "quill-grid",

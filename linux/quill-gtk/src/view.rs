@@ -3,12 +3,12 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
-// The document is laid out at 96 pixels to the inch (`quill_app::view`), and everything here is in those *document pixels* until
+// The document is laid out at 96 pixels to the inch (`quill_chrome::view`), and everything here is in those *document pixels* until
 // the last step. A page is `Geometry::page_w` by `page_h` of them, with `PAGE_TOP` above the first, `PAGE_GAP` between sheets and
 // `PAGE_PAD` beside the page when it is wider than the window. The [`Mapping`] turns a document pixel into a device pixel: the
 // zoom, then the display's scale in 1/120 (what Wayland sends), in one fixed-point number so each edge is rounded once.
 
-use quill_app::view::{page_x0, PAGE_GAP, PAGE_PAD, PAGE_TOP};
+use quill_chrome::view::{page_x0, PAGE_GAP, PAGE_PAD, PAGE_TOP};
 use quill_paint::pixel::Scale;
 
 /// The smallest zoom, in percent.
@@ -345,7 +345,7 @@ impl View {
 		self.scroll_to(x, y)
 	}
 
-	/// The sheets that are on screen. Each sheet is placed by `quill_app::view::page_x0`, so a page narrower than the window is
+	/// The sheets that are on screen. Each sheet is placed by `quill_chrome::view::page_x0`, so a page narrower than the window is
 	/// centred and a wider one scrolls from its padding.
 	pub fn slots(&self) -> Vec<Slot> {
 		let (vw, vh) = self.visible();

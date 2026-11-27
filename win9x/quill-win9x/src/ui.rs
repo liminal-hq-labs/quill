@@ -7,8 +7,8 @@
 use alloc::vec::Vec;
 use core::ptr::{null, null_mut};
 
-use quill_app::zoom_field::{zoom_step, ZoomLayout, ZoomMetrics, ZoomPart};
 use quill_app::{Command, Grain};
+use quill_chrome::zoom_field::{zoom_step, ZoomLayout, ZoomMetrics, ZoomPart};
 
 use crate::chrome;
 use crate::gdi;
@@ -1426,7 +1426,7 @@ const SB_GETRECT: u32 = 0x040A;
 const ZOOM_PANE: usize = 5;
 const PANE_COUNT: usize = 6;
 /// How wide each part of the control is: the box fits `Page Width`, and the margin is as wide as the size grip, which the bar draws in
-/// the corner (`quill_app::zoom_field::ZOOM_MARGIN` is the least a bar without one leaves).
+/// the corner (`quill_chrome::zoom_field::ZOOM_MARGIN` is the least a bar without one leaves).
 const ZOOM_METRICS: ZoomMetrics = ZoomMetrics {
 	button: 20,
 	field: 72,
@@ -1627,8 +1627,8 @@ pub unsafe fn draw_zoom_control(item: &DrawItem) {
 		rect_fill(x, r.top + 1, x + 1, r.bottom - 1, shadow);
 		rect_fill(x + 1, r.top + 1, x + 2, r.bottom - 1, highlight);
 	}
-	let mut text = [0u8; quill_app::zoom_field::ZOOM_TEXT_MAX];
-	let n = quill_app::zoom_field::zoom_text((item.data >> 8) as u16, &mut text);
+	let mut text = [0u8; quill_chrome::zoom_field::ZOOM_TEXT_MAX];
+	let n = quill_chrome::zoom_field::zoom_text((item.data >> 8) as u16, &mut text);
 	let font = SelectObject(dc, GetStockObject(17));
 	let old_mode = SetBkMode(dc, 1);
 	let old_colour = SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
@@ -1647,9 +1647,9 @@ unsafe fn zoom_popup(hwnd: Handle, sh: &mut Shell) {
 		return;
 	}
 	let current = sh.app.zoom_field_current();
-	for (i, level) in quill_app::zoom_field::ZOOM_LEVELS.iter().enumerate() {
-		let mut text = [0u8; quill_app::zoom_field::ZOOM_TEXT_MAX];
-		let n = quill_app::zoom_field::zoom_text(*level, &mut text);
+	for (i, level) in quill_chrome::zoom_field::ZOOM_LEVELS.iter().enumerate() {
+		let mut text = [0u8; quill_chrome::zoom_field::ZOOM_TEXT_MAX];
+		let n = quill_chrome::zoom_field::zoom_text(*level, &mut text);
 		// The accelerator letters View > Zoom uses: P for Page Width, the first digit of 200, 150 and 75, the second of 100.
 		let mark = match level {
 			0 | 200 | 150 | 75 | 50 => Some(0),
@@ -1682,7 +1682,7 @@ unsafe fn zoom_popup(hwnd: Handle, sh: &mut Shell) {
 	DestroyMenu(menu);
 	sh.app.set_message("");
 	sh.hint_on = false;
-	if let Some(command) = id.checked_sub(ZOOM_MENU_ID).and_then(quill_app::zoom_field::zoom_command) {
+	if let Some(command) = id.checked_sub(ZOOM_MENU_ID).and_then(quill_chrome::zoom_field::zoom_command) {
 		crate::run_command(hwnd, command);
 	} else {
 		status_update(hwnd, sh);

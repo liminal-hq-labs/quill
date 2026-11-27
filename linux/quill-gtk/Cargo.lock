@@ -715,6 +715,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-chrome"
+version = "0.0.0"
+dependencies = [
+ "quill-app",
+ "quill-core",
+]
+
+[[package]]
 name = "quill-core"
 version = "0.0.0"
 dependencies = [
@@ -767,6 +775,7 @@ dependencies = [
  "gtk4",
  "libadwaita",
  "quill-app",
+ "quill-chrome",
  "quill-core",
  "quill-dialogs",
  "quill-fonts",
@@ -823,6 +832,7 @@ name = "quill-paint"
 version = "0.0.0"
 dependencies = [
  "quill-app",
+ "quill-chrome",
  "quill-core",
  "quill-dlg",
  "quill-image",

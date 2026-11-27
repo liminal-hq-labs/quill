@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 
 use quill_app::mouse::{Ctx, PageHit, Pointer, PointerTarget};
 use quill_app::picture::WINDOW;
-use quill_app::view::{page_width, PAGE_GAP, PAGE_PAD, PAGE_TOP};
 use quill_app::{App, Command, Dialog, Key, Mark};
+use quill_chrome::view::{page_width, PAGE_GAP, PAGE_PAD, PAGE_TOP};
 use quill_core::doc::StoryKind;
 use quill_core::layout::{dump_story, to_units};
 use quill_core::store::ReadStore;
@@ -337,13 +337,13 @@ impl Document {
 	}
 
 	/// The margin and width of the text in document pixels, and the paragraph at the caret, for the ruler.
-	pub fn ruler_info(&self) -> (i32, i32, quill_app::view::RulerState) {
+	pub fn ruler_info(&self) -> (i32, i32, quill_chrome::view::RulerState) {
 		self.read(|app, s| {
 			let page = &app.doc().page;
 			(
 				to_units(page.margin_l, 96),
 				to_units(page.text_w(), 96),
-				quill_app::view::RulerState::of(app, s),
+				quill_chrome::view::RulerState::of(app, s),
 			)
 		})
 	}

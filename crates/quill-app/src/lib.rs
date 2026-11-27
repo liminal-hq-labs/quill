@@ -45,12 +45,11 @@ mod reflow;
 pub mod safe;
 pub mod savename;
 pub mod script;
+pub mod scroll;
 pub mod session;
 mod spell_live;
 mod spelling;
-pub mod view;
 pub mod widgets;
-pub mod zoom_field;
 
 use quill_core::doc::{cflag, CFmt, Doc, ListDef, ListLevel, PFmt, StoryKind};
 use quill_core::layout::{Line, Measure};
@@ -2105,7 +2104,7 @@ impl<M: Measure + Clone> App<M> {
 					&& self.view_h > 0
 					&& self.caret_line(s).map(|(i, _)| i) == before
 				{
-					let step = (self.view_h - 2 * view::PAGE_TOP).max(1);
+					let step = (self.view_h - 2 * scroll::PAGE_TOP).max(1);
 					let by = if d == Dir::PageUp { -step } else { step };
 					self.vscroll_by(s, by);
 					self.view_hold = true;
@@ -2445,7 +2444,7 @@ impl<M: Measure + Clone> App<M> {
 			return;
 		};
 		let rows = self.rows as u32;
-		if idx < self.top || (idx == self.top && self.vsub > view::PAGE_TOP) {
+		if idx < self.top || (idx == self.top && self.vsub > scroll::PAGE_TOP) {
 			// The caret's line is above the window, or its top is: the pixel scroll gives way to it.
 			self.top = idx;
 			self.vsub = 0;

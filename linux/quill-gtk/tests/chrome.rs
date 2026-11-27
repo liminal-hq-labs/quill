@@ -5,8 +5,8 @@
 
 use std::path::{Path, PathBuf};
 
-use quill_app::view::RulerState;
 use quill_app::{Command, Dialog, Key, CHROME_RULER, CHROME_TOOLBAR};
+use quill_chrome::view::RulerState;
 use quill_fonts::FontSet;
 use quill_gtk::doc::Document;
 use quill_gtk::files::GuiFiles;

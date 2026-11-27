@@ -12,8 +12,8 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use gtk::prelude::*;
-use quill_app::view::{family_of, COLOURS, SIZES};
 use quill_app::{combo_tip, Command, COLOUR_TIP, STYLE_NAMES};
+use quill_chrome::view::{family_of, COLOURS, SIZES};
 
 use crate::actions::action_name;
 use crate::doc::Document;

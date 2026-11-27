@@ -6,8 +6,8 @@
 //! The words are `quill_app`'s tip tables ([`command_tip`], [`combo_tip`], [`COLOUR_TIP`]), shared with the Windows shells; the
 //! shortcut is the accelerator the command's menu item shows. [`text`] and [`rect`] are pure.
 
-use quill_app::view::{Act, TOOLBAR};
 use quill_app::{combo_tip, command_tip, menu_items_for, Command, COLOUR_TIP, MENU_COUNT};
+use quill_chrome::view::{Act, TOOLBAR};
 
 use crate::layout::Layout;
 use crate::shell::{SCREEN_H, SCREEN_W};

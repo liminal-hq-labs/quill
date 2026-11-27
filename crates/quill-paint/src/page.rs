@@ -12,8 +12,8 @@
 
 use quill_app::picture::{self, WINDOW};
 use quill_app::picture_geom::{self as geom, Frame};
-use quill_app::view::{dev, page_x0, PageGeom};
 use quill_app::{line_label, App, ListCounters};
+use quill_chrome::view::{dev, page_x0, PageGeom};
 use quill_core::doc::{cflag, CFmt, Doc, StoryKind};
 use quill_core::layout::{
 	font_ref, layout_story, picture_size, to_units, walk_line, Line, Measure,

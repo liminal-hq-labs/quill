@@ -11,12 +11,12 @@
 use quill_app::mouse::{PageHit, PageSpace, PointerTarget};
 use quill_app::picture::WINDOW;
 use quill_app::picture_geom::{HANDLE, SLOP};
-use quill_app::view::{
+use quill_app::{status_text, App, Overlay};
+use quill_chrome::view::{
 	dev, hscroll_max_at, log, page_width, page_x0, ruler_marks_at, ruler_ticks_at, tab_x_at,
 	text_extent_at, zoom_pct, PageGeom, RulerState, PAGE_GAP, PAGE_PAD, PAGE_TOP, RULER_H,
 };
-use quill_app::zoom_field::ZoomPart;
-use quill_app::{status_text, App, Overlay};
+use quill_chrome::zoom_field::ZoomPart;
 use quill_core::layout::{to_units, Measure};
 use quill_core::store::{ReadStore, Store};
 
@@ -63,7 +63,7 @@ pub fn sync_view<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s:
 /// end of the last that begins above the area's bottom.
 pub fn spell_view<M: Measure + Clone, S: ReadStore + ?Sized>(app: &mut App<M>, s: &S) {
 	let page = Layout::of(app).page;
-	let g = quill_app::view::PageGeom::of(app, s);
+	let g = quill_chrome::view::PageGeom::of(app, s);
 	let at = pct(app);
 	let first = app.top_line();
 	let (mut lo, mut hi) = (u32::MAX, 0);

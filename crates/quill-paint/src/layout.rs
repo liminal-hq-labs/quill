@@ -3,11 +3,11 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-//! Pure arithmetic over `quill_app::view`'s sizes. A pointer asks the same [`Layout`] the painter draws with, so a click lands on
+//! Pure arithmetic over `quill_chrome::view`'s sizes. A pointer asks the same [`Layout`] the painter draws with, so a click lands on
 //! what is on the screen.
 
-use quill_app::view::{hscroll_max_at, rows, scroll_layout, RULER_H};
 use quill_app::App;
+use quill_chrome::view::{hscroll_max_at, rows, scroll_layout, RULER_H};
 use quill_core::layout::Measure;
 
 use crate::shell::{MENU_H, SCREEN_H, SCREEN_W, STATUS_H};

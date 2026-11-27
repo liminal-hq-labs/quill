@@ -7,11 +7,11 @@
 //! width). [`list_rect`], [`item_rect`] and [`item_at`] are pure and use only the [`Layout`], so a pointer hits what the painter
 //! drew; the lists' contents come from `quill_app`'s tables, the same ones the other shells use.
 
-use quill_app::view::{Act, GLYPH_COLOUR};
-use quill_app::view::{COLOURS, SIZES, TOOLBAR};
 use quill_app::widgets::{face_choice, face_choices};
-use quill_app::zoom_field::{zoom_command, zoom_text, ZOOM_LEVELS, ZOOM_TEXT_MAX};
 use quill_app::{App, STYLE_NAMES};
+use quill_chrome::view::{Act, GLYPH_COLOUR};
+use quill_chrome::view::{COLOURS, SIZES, TOOLBAR};
+use quill_chrome::zoom_field::{zoom_command, zoom_text, ZOOM_LEVELS, ZOOM_TEXT_MAX};
 use quill_core::layout::Measure;
 use quill_core::store::{ReadStore, Store};
 

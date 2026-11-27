@@ -6,11 +6,11 @@
 //! The glyphs are `assets/toolbar/toolbar.bmp`, the strip the Windows builds use: 22 pictures of 16 by 15 pixels in 4 bits, already
 //! in the 16 Windows colours, so the surfaces draw them as they are. Palette index 0 (silver) is the background, which is left
 //! alone so a button's face shows through; a switched-on toggle has the checkered face of Windows 3.1 and the same bevel sunk. The
-//! geometry is `quill_app::view::TOOLBAR`: [`button_rect`], [`button_at`] and [`box_rect`] are pure and use only it and the
+//! geometry is `quill_chrome::view::TOOLBAR`: [`button_rect`], [`button_at`] and [`box_rect`] are pure and use only it and the
 //! [`Layout`], so a pointer hits what the painter drew.
 
-use quill_app::view::{is_on, Act, Button, BTN_H, BTN_W, TB_H, TOOLBAR};
 use quill_app::{App, STYLE_NAMES};
+use quill_chrome::view::{is_on, Act, Button, BTN_H, BTN_W, TB_H, TOOLBAR};
 use quill_core::layout::Measure;
 use quill_core::store::ReadStore;
 

@@ -5,8 +5,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use proptest::prelude::*;
-use quill_app::view::{PageGeom, PAGE_GAP, PAGE_TOP, SCROLL_LINE, SHEET_SHADOW};
 use quill_app::{App, Key};
+use quill_chrome::view::{PageGeom, PAGE_GAP, PAGE_TOP, SCROLL_LINE, SHEET_SHADOW};
 use quill_core::layout::{FontMetrics, FontRef, Measure, GLYPHS};
 use quill_host::script::MemFiles;
 use quill_host::HostStore;

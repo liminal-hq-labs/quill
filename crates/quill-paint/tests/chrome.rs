@@ -186,8 +186,8 @@ fn menu_marks_follow_the_document() {
 	assert!(!m(&app, &s, Command::Chrome(1)).checked);
 }
 
-use quill_app::view::TOOLBAR;
 use quill_app::{CHROME_FORMAT, CHROME_RULER, CHROME_STATUS, CHROME_TOOLBAR};
+use quill_chrome::view::TOOLBAR;
 use quill_paint::layout::{Layout, BAR};
 use quill_paint::scroll::{self, Part};
 use quill_paint::toolbar::{box_at, box_rect, button_at, button_rect, Box3};

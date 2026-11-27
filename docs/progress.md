@@ -55,7 +55,7 @@ One line per package of [work-packages.md](work-packages.md), in its order; a pa
 
 | Package | State |
 |---|---|
-| WP-ARCH-1 `quill-chrome` | Ready (brief written) |
+| WP-ARCH-1 `quill-chrome` | Built: the window geometry is in `quill-chrome`, the scroll state in `quill_app::scroll` (ARCH-11); pull request open |
 | WP-ARCH-2 `quill-picture` | Waits for WP-ARCH-1 |
 | WP-ARCH-3 `quill-session` | Waits for WP-ARCH-2 and the DOS autosave branch |
 | WP-ARCH-4 `quill-input` | Waits for WP-ARCH-2 |

@@ -7,8 +7,8 @@
 // 16-bit, and fonts come from `CreateFontIndirect` with a 50-byte LOGFONT. Bitmaps are drawn by `picture.rs`; a picture it does not
 // draw (PNG) shows as a grey box the size it prints.
 use quill_app::picture_geom::{Frame, HANDLE, handles};
-use quill_app::view::{self, PageGeom};
 use quill_app::{App, ListCounters, line_label};
+use quill_chrome::view::{self, PageGeom};
 use quill_core::doc::{CFmt, StoryKind, cflag};
 use quill_core::layout::{FontMetrics, FontRef, GLYPHS, Line, Measure, font_ref};
 use w16::*;
