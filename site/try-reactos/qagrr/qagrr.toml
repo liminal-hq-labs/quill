@@ -51,6 +51,10 @@ source = "payload/QUILLDESK.ICO"
 destination = "Quill/QUILLDESK.ICO"
 
 [[files]]
+source = "payload/QUILL31DESK.ICO"
+destination = "Quill/QUILL31DESK.ICO"
+
+[[files]]
 source = "../demo/demo.qld"
 destination = "Quill/DEMO.QLD"
 
@@ -87,5 +91,5 @@ target = 'C:\Program Files\otvdm\otvdmw.exe'
 arguments = 'C:\Quill\QUILL.EXE C:\Quill\DEMO16.QLD'
 working_dir = 'C:\Quill'
 description = "Quill, Windows 3.x build, opening the demo letter. Slow: WineVDM inside the emulator is emulation inside emulation"
-icon = 'C:\Quill\QUILLDESK.ICO'
+icon = 'C:\Quill\QUILL31DESK.ICO'
 show = 1
