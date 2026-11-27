@@ -312,8 +312,8 @@ pub fn paint_screen_view<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me
 }
 
 #[inline(never)]
-fn chrome<Sf: Surface, M: Measure + Clone, St: Store + ?Sized, Me: Measure>(
-	sf: &mut Sf,
+fn chrome<F: Copy, M: Measure + Clone, St: Store + ?Sized, Me: Measure>(
+	sf: &mut dyn Surface<Font = F>,
 	app: &App<M>,
 	m: &mut Me,
 	s: &St,

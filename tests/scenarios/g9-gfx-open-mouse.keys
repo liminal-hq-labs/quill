@@ -13,7 +13,6 @@
 @copy lists.rtf DOCS\LETTERS\
 @stamp DOCS\LETTER.QLD 2026-11-24 18:45
 @stamp DOCS\LETTERS\LISTS.RTF 2026-11-02 09:05
-@place Samples C:\QUILL
 f10 down enter                # File > Open...
 @click 200 191                # an entry: selected, and its name in the field
 @click 200 143                # a folder: selected, the name stays
