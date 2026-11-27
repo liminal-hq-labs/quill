@@ -1,6 +1,6 @@
 # The installer, installed
 
-What `installer/` makes and how each disk is checked in an emulator. The project is described by [INS-1 to INS-3](decisions.md); this page is the evidence and the commands. The disks are built with `installer/tools/build-disks.sh` and checked with `installer/tools/verify-disks.sh`; the tests below install from those images.
+What `installer/` makes and how each disk is checked in an emulator. The project is described by [INS-1 to INS-3](decisions.md); this page is the evidence and the commands. The disks are built with `installer/tools/build-disks.sh` and checked with `installer/tools/verify-disks.sh`, which ends with the size gate (`installer/tools/size-gate.py`): each file's packed size, the program bytes and the free bytes of each disk against the budgets in `installer/budgets.toml` (INS-22), written after the raw listing in `installer/out/SIZES.txt` and, in CI, into the job summary; the tests below install from those images.
 
 Optional components are not yet optional: RTF and TXT start ticked, because the installer has no unticked-component field yet (INS-2). The wizard shows them ticked in every screenshot below.
 

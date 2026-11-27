@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Checks the disks `build-disks.sh` made: the label, at least 64 KB free, a pack that verifies, and every file in it byte-equal to
-# the staged file it came from.
+# Checks the disks `build-disks.sh` made: the label, a pack that verifies, every file in it byte-equal to the staged file it came
+# from, and then the size gate (`size-gate.py`): the executable and module budgets, the free bytes each disk must keep and each
+# file's packed size, all from installer/budgets.toml.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -19,7 +20,6 @@ ROOT="$(dirname "$HERE")"
 OUT="$HERE/out"
 DIST="$HERE/dist"
 LIMINST="$HERE/tools/liminst.sh"
-MIN_FREE="${QUILL_MIN_FREE:-65536}"
 WORK="$(mktemp -d "${QUILL_BUILD_DIR:-$HOME/.cache/quill16-installer-build}/verify.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -52,7 +52,6 @@ for d in "${disks[@]}"; do
 	[ "$got" = "$label" ] || fail "$name: the volume label is '$got', not '$label'"
 
 	free="$(mdir -i "$img" :: | sed -n 's/^ *\([0-9 ]*[0-9]\) bytes free.*/\1/p' | tr -d ' ')"
-	[ "${free:-0}" -ge "$MIN_FREE" ] || fail "$name: ${free:-0} bytes free, under $MIN_FREE"
 
 	mcopy -i "$img" ::SETUP.LPK ::SETUP.EXE ::README.TXT "$dir/"
 	same "$dir/SETUP.EXE" "$runtime" "$name SETUP.EXE"
@@ -79,6 +78,7 @@ for d in "${disks[@]}"; do
 		QUILL.HLP) src="$DIST/help/QUILL.HLP" ;;
 		README.TXT | LICENCE.TXT) src="$DIST/common/$rel" ;;
 		*.DIC) src="$DIST/dict/$rel" ;;
+		*.DMD) src="$DIST/$stagedir/$rel" ;;
 		SAMPLES/*) src="$DIST/samples/${rel#SAMPLES/}" ;;
 		*) fail "$name: the pack holds $rel, which stage.sh did not stage" ;;
 		esac
@@ -93,4 +93,10 @@ for d in "${disks[@]}"; do
 	[ "$count" = "$want" ] || fail "$name: $count files in the pack, $want staged"
 	echo "verify-disks: $name: $count files byte-equal to the staged files, $free bytes free"
 done
+
+# The budgets: the packed sizes, the free bytes against each disk's floor, the executable and module budgets. It writes the table
+# after the raw listing in SIZES.txt and, in CI, into the job summary.
+gate=(python3 -I "$HERE/tools/size-gate.py" check)
+[ -z "${GITHUB_STEP_SUMMARY:-}" ] || gate+=(--summary "$GITHUB_STEP_SUMMARY")
+"${gate[@]}" || fail "a size budget is not met (see above)"
 echo "verify-disks: ok"

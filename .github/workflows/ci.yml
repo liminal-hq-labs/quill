@@ -95,6 +95,61 @@ jobs:
       - name: Check the decision-id registry
         run: python3 -I scripts/check-ids.py
 
+  size-gate:
+    name: Size gate tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # The budgets file and the gate's readers; the disks themselves are checked by the next job.
+      - name: Test the size gate and check the budgets file
+        run: python3 -I installer/tools/test_size_gate.py
+
+  disk-sizes:
+    name: Disk sizes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    # The shared ci-dos image (Rust 1.98.0, python3, mtools, objdump and CWSDPMI under $DOS_TOOLCHAIN): the job builds the three
+    # programs, the dictionaries and the three disks, then checks every packed size and free byte against installer/budgets.toml
+    # (INS-22). Liminal Installer's `liminst` and its three runtimes are built at the pinned commit (installer/liminst.rev).
+    container:
+      image: ghcr.io/liminal-hq/ci-dos@sha256:08ef2d984d71ed635d38e1ba8e164c0d8d1be6b34265c3b466ccf4894d934930
+    env:
+      QUILL_BUILD_DIR: /tmp/quill-build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # QUILL32.EXE links with lld-link, which the image does not carry (the ReactOS demo job installs it the same way).
+      - name: Install the Windows linker
+        run: apt-get update && apt-get install -y --no-install-recommends lld llvm
+
+      - name: Build the programs and the dictionaries
+        run: bash installer/tools/stage.sh --build
+
+      - name: Build the disks
+        run: bash installer/tools/build-disks.sh
+
+      # Checks the packs, then size-gate.py: QUILLDOS.EXE's budget, QUILL.EXE's data segment, each module's budget and each disk's
+      # free bytes, with every file's packed size in the job summary.
+      - name: Check the disks and the size budgets
+        run: bash installer/tools/verify-disks.sh
+
+      - name: Upload the size table
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: disk-sizes
+          path: installer/out/SIZES.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
   pointer:
     name: Pointer tests
     runs-on: ubuntu-24.04

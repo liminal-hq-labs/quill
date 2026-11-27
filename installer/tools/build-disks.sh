@@ -14,7 +14,8 @@
 #
 #   QUILL-DOS.IMG  QUILL-W31.IMG  QUILL-W95.IMG   the floppy images
 #   quill-*.zip                                    the same files as a zip, from liminst
-#   SIZES.txt                                      per disk: the free space, the root files and every file in the pack (raw size)
+#   SIZES.txt                                      per disk: the free space, the root files and every file in the pack (raw size);
+#                                                  verify-disks.sh adds each file's packed size and the budgets (size-gate.py)
 #   SHA256SUMS                                     the images' and zips' checksums
 #
 # There is no all-in-one disk: liminst writes one SETUP.EXE per target into the image root, so one image cannot hold three
@@ -25,7 +26,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT="$(dirname "$HERE")"
 OUT="$HERE/out"
 LIMINST="$HERE/tools/liminst.sh"
-MIN_FREE="${QUILL_MIN_FREE:-65536}"
+GATE="$HERE/tools/size-gate.py"
 
 for tool in mcopy mlabel minfo mdir; do
 	command -v "$tool" >/dev/null || { echo "build-disks: $tool not found; install mtools" >&2 && exit 1; }
@@ -48,10 +49,12 @@ mkdir -p "$OUT"
 printf 'Quill %s installer disks (1.44 MB floppy: 1457664 bytes)\n' "$VERSION" >>"$OUT/SIZES.txt"
 
 # target id, image name, volume label
-disks=("dos-x86 QUILL-DOS 'QUILL DOS'" "win16-x86 QUILL-W31 'QUILL W31'" "windows-x86 QUILL-W95 'QUILL W95'")
+# The floor of free bytes for each disk is in installer/budgets.toml (read by size-gate.py), the one file that holds the budgets.
+disks=("dos-x86 QUILL-DOS 'QUILL DOS' dos" "win16-x86 QUILL-W31 'QUILL W31' w31" "windows-x86 QUILL-W95 'QUILL W95' w95")
 for d in "${disks[@]}"; do
 	eval "set -- $d"
-	target="$1" name="$2" label="$3"
+	target="$1" name="$2" label="$3" key="$4"
+	MIN_FREE="${QUILL_MIN_FREE:-$(python3 -I "$GATE" get "disk.$key.min_free")}"
 	bash "$LIMINST" build -t "$target" --version "$VERSION" -o "$OUT/$target" >"$OUT/$target.log" 2>&1 || {
 		cat "$OUT/$target.log" >&2
 		echo "build-disks: liminst build failed for $target" >&2
