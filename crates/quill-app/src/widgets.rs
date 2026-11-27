@@ -110,7 +110,13 @@ impl<M: Measure + Clone> App<M> {
 				Pressed::Acted
 			}
 			#[cfg(feature = "text-file-dialog")]
-			Mode::File => Pressed::Nothing,
+			Mode::File => {
+				if w.kind != Wk::Button {
+					return Pressed::Nothing;
+				}
+				self.press_file_box(s, f, w.id, w.bytes() == b"OK");
+				Pressed::Acted
+			}
 			Mode::About => {
 				if w.kind != Wk::Button {
 					return Pressed::Nothing;

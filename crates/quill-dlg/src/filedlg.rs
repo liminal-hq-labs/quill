@@ -339,6 +339,34 @@ pub enum DlgError {
 	NoMemory,
 }
 
+/// What a pointer press did to the dialog, as the part it landed on says: each is an operation a key also reaches, so a click can
+/// never leave the dialog in a state the keyboard cannot.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Point {
+	/// Entry `i` of the list: selected
+	Item(usize),
+	/// Entry `i` of the list, a second press in a double click: opened or accepted
+	Open(usize),
+	/// Place `i`
+	Place(usize),
+	/// A column header: sorts by it
+	Header(SortBy),
+	/// A button (`UP`, `NEW_FOLDER`, `OK` or `CANCEL`), let go over: pressed
+	Button(u8),
+	/// The field of a drop-down (`LOOK_IN` or `TYPES`) or its arrow: the list opens, or shuts if it was open
+	Drop(u8),
+	/// Row `i` of the list a drop-down shows: chosen
+	Pick(usize),
+	/// Row `i` of the open drop-down list under the pointer: lit
+	Light(usize),
+	/// The file name field, a press at character offset `n`: the caret goes there
+	Name(usize),
+	/// The list's scroll bar, which the shell tracks itself
+	Bar,
+	/// Anywhere else: an open drop-down shuts
+	Away,
+}
+
 /// What a key did.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Outcome {
@@ -1230,6 +1258,57 @@ impl FileDlg {
 		self.places.set_rows(rows);
 	}
 
+	/// Handles a pointer press on `p`. While a drop-down is open only its own list is live: a choice picks, and anything else
+	/// shuts it. A box over the dialog, or a question, takes no pointer.
+	pub fn point<S: Store + ?Sized, F: FileSystem + ?Sized>(
+		&mut self,
+		p: Point,
+		fs: &mut F,
+		store: &mut S,
+	) -> Outcome {
+		if self.done || self.new_folder.is_some() || self.pending.is_some() {
+			return Outcome::None;
+		}
+		let open = if self.look.is_open() { LOOK_IN } else { TYPES };
+		if self.look.is_open() || self.type_box.is_open() {
+			let combo = if open == TYPES {
+				&mut self.type_box
+			} else {
+				&mut self.look
+			};
+			match p {
+				Point::Light(i) => combo.light(i),
+				Point::Pick(i) if combo.pick(i) == ComboEvent::Changed => {
+					return self.combo_changed(open, fs, store)
+				}
+				Point::Pick(_) => {}
+				_ => {
+					combo.key(DlgKey::Esc);
+				}
+			}
+			return Outcome::None;
+		}
+		match p {
+			Point::Item(i) => self.select(i, &*store),
+			Point::Open(i) => return self.activate(i, fs, store),
+			Point::Place(i) => return self.go_place(i, fs, store),
+			Point::Header(by) => self.sort_by(by, store),
+			Point::Button(id) if self.focus.set_focus(id) => {
+				return self.key(DlgKey::Enter, fs, store)
+			}
+			Point::Drop(id) => {
+				self.focus.set_focus(id);
+				return self.key(DlgKey::F4, fs, store);
+			}
+			Point::Name(at) => {
+				self.focus.set_focus(NAME);
+				self.name.place(at, false);
+			}
+			_ => {}
+		}
+		Outcome::None
+	}
+
 	// ----- keys -----
 
 	/// Handles a key. After `Accept` or `Cancel` the dialog is over and every call returns `None`.
@@ -1433,6 +1512,16 @@ impl FileDlg {
 		if ev != ComboEvent::Changed {
 			return Outcome::None;
 		}
+		self.combo_changed(which, fs, store)
+	}
+
+	/// The choice of drop-down `which` changed: apply it.
+	fn combo_changed<S: Store + ?Sized, F: FileSystem + ?Sized>(
+		&mut self,
+		which: u8,
+		fs: &mut F,
+		store: &mut S,
+	) -> Outcome {
 		if which == TYPES {
 			self.type_changed(fs, store)
 		} else {

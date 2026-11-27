@@ -1,0 +1,38 @@
+# G9 (graphics): the pointer in the file dialog's Save As and the boxes over it. New folder opens its box and Cancel closes it, OK with
+# no name says so and OK on the notice closes that, a read-only file is refused, a name that is there asks before it is replaced and
+# No keeps the dialog, Cancel ends it, and Yes saves. Every frame's CRC-32 must equal the host's in both graphics modes.
+@dialog
+@dir QUILL
+@place Quill C:\QUILL
+@cwd C:\DOCS
+@copy letter.qld DOCS\
+@copy letter.rtf DOCS\
+@copy plain.qld DOCS\
+@stamp DOCS\LETTER.QLD 2026-11-24 18:45
+@stamp DOCS\LETTER.RTF 2026-11-02 09:05
+@stamp DOCS\PLAIN.QLD 2026-03-14 12:00
+@readonly DOCS\PLAIN.QLD
+@open C:\DOCS\LETTER.QLD
+f10 down down down enter      # File > Save As...
+@click 460 83                 # New folder: its box
+@click 560 83
+@click 312 270                # Cancel: the box closes
+@click 460 83
+@click 232 270                # OK with no name: a notice
+@click 185 280                # OK
+@click 312 270                # Cancel
+@click 200 159                # PLAIN.QLD
+@click 490 391                # Save: it is read-only
+@click 185 280                # OK
+@click 500 369                # the type drop-down
+@click 500 334                # Rich Text Format: LETTER.RTF is listed
+@click 200 143                # LETTER.RTF
+@click 490 391                # Save: it is there, so it asks
+@click 262 280                # No
+@click 580 391                # Cancel: the dialog ends
+f10 down down down enter
+@click 500 369
+@click 500 334
+@click 200 143
+@click 490 391
+@click 185 280                # Yes: saved

@@ -555,3 +555,23 @@ fn the_file_dialog_save_as_at_16_colours() {
 fn the_file_dialog_save_as_at_256_colours() {
 	golden_of(Mode::C256, "g9-gfx-save-as");
 }
+
+#[test]
+fn the_pointer_in_the_file_dialog_at_16_colours() {
+	golden_of(Mode::C16, "g9-gfx-open-mouse");
+}
+
+#[test]
+fn the_pointer_in_the_file_dialog_at_256_colours() {
+	golden_of(Mode::C256, "g9-gfx-open-mouse");
+}
+
+#[test]
+fn the_pointer_in_save_as_at_16_colours() {
+	golden_of(Mode::C16, "g9-gfx-save-as-mouse");
+}
+
+#[test]
+fn the_pointer_in_save_as_at_256_colours() {
+	golden_of(Mode::C256, "g9-gfx-save-as-mouse");
+}

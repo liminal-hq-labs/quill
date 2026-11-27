@@ -24,6 +24,7 @@ use quill_app::widgets::Place;
 use quill_app::{menu_items_for, menu_title, App, Files, Key, Overlay, Slot, Wk, MENU_COUNT};
 use quill_core::layout::Measure;
 use quill_core::store::{ReadStore, Store};
+use quill_dlg::filedlg::Point;
 
 use crate::drop::{self, Pop};
 use crate::layout::Layout;
@@ -33,7 +34,7 @@ use crate::shell::{self, Pixels};
 use crate::tip::{Target, TIP_TICKS};
 use crate::toolbar::{box_at, button_at};
 use crate::ui::ui_font;
-use crate::{dialog, Rect};
+use crate::{dialog, filedlg, Rect};
 use quill_core::layout::GLYPHS;
 
 /// What the painter shows of a gesture in progress.
@@ -349,8 +350,7 @@ impl Gfx {
 				self.cap = Cap::Button { i, over };
 			}
 			Cap::Widget { idx, .. } => {
-				let mut o = Overlay::default();
-				let over = app.overlay(s, &mut o) && dialog::hit(&o, x, y) == Some(idx);
+				let over = Self::widget_at(app, s, x, y) == Some(idx);
 				self.cap = Cap::Widget { idx, over };
 			}
 			Cap::Pop { .. } => self.drop_over(app, x, y),
@@ -365,7 +365,9 @@ impl Gfx {
 			}
 			Cap::Thumb { grab, parts, range } => {
 				let pos = scroll::pos_at(&parts, if parts.vertical { y } else { x } - grab, range);
-				if parts.vertical {
+				if Self::file_parts(app) {
+					app.file_scroll(pos);
+				} else if parts.vertical {
 					app.set_vscroll_pos(&*s, pos);
 				} else {
 					app.set_hscroll_pos(pos);
@@ -383,6 +385,8 @@ impl Gfx {
 					self.menu_over(app, x, y);
 				} else if self.drop.is_some() {
 					self.drop_over(app, x, y);
+				} else if Self::file_parts(app) {
+					return self.file_light(app, s, f, x, y);
 				} else if app.editing() {
 					let t = Self::target_at(app, x, y);
 					self.rest_on(t);
@@ -390,6 +394,102 @@ impl Gfx {
 			}
 		}
 		false
+	}
+
+	/// True while the file dialog is open with no box over it: its parts are the pointer's.
+	fn file_parts<M: Measure + Clone>(app: &App<M>) -> bool {
+		app.file_view().is_some_and(|v| !v.covered())
+	}
+
+	/// The dialog widget under the pointer: for the file dialog, the control number of the button there.
+	fn widget_at<M: Measure + Clone, S: Store + ?Sized>(
+		app: &App<M>,
+		s: &S,
+		x: i32,
+		y: i32,
+	) -> Option<usize> {
+		let mut o = Overlay::default();
+		if !app.overlay(s, &mut o) {
+			return None;
+		}
+		match app.file_view().filter(|v| !v.covered()) {
+			Some(v) => match filedlg::hit(&o, v.dlg, x, y) {
+				Point::Button(id) => Some(usize::from(id)),
+				_ => None,
+			},
+			None => dialog::hit(&o, x, y),
+		}
+	}
+
+	/// The pointer moves over the file dialog with no button down: a row of an open drop-down list lights.
+	fn file_light<M: Measure + Clone, S: Store + ?Sized, F: Files>(
+		&mut self,
+		app: &mut App<M>,
+		s: &mut S,
+		f: &mut F,
+		x: i32,
+		y: i32,
+	) -> bool {
+		let mut o = Overlay::default();
+		let at = match app.file_view() {
+			Some(v) if app.overlay(&*s, &mut o) => filedlg::hit(&o, v.dlg, x, y),
+			_ => Point::Away,
+		};
+		if let Point::Pick(i) = at {
+			app.file_point(s, f, Point::Light(i));
+			return true;
+		}
+		false
+	}
+
+	/// A press on the file dialog's parts.
+	fn file_down<M: Measure + Clone, S: Store + ?Sized, F: Files>(
+		&mut self,
+		app: &mut App<M>,
+		s: &mut S,
+		f: &mut F,
+		(x, y): (i32, i32),
+		ctx: Ctx,
+	) {
+		let mut o = Overlay::default();
+		let mut at = Point::Away;
+		if let (true, Some(v)) = (app.overlay(&*s, &mut o), app.file_view()) {
+			at = filedlg::hit(&o, v.dlg, x, y);
+			if at == Point::Name(0) {
+				// The press lands on the character nearest it, with the field scrolled as it was drawn.
+				let (name, rect) = (v.dlg.name(), filedlg::name_rect(&o, v.dlg));
+				let (x0, room) = dialog::field_text_box(rect);
+				let text = name.as_bytes();
+				let skip = dialog::field_skip(text, name.cursor(), room, &mut |t| self.text_w(t));
+				let pos = dialog::field_pos(text, skip, x - x0, &mut |t| self.text_w(t));
+				at = Point::Name(pos);
+			}
+		}
+		match at {
+			Point::Button(id) => {
+				self.cap = Cap::Widget {
+					idx: usize::from(id),
+					over: true,
+				};
+				return;
+			}
+			Point::Bar => {
+				let lay = Layout::of(app);
+				self.bar_down(app, s, &lay, (x, y), true, ctx);
+				return;
+			}
+			Point::Item(i) => {
+				let again = self
+					.last
+					.is_some_and(|(t, k)| k == i && ctx.tick.wrapping_sub(t) <= DOUBLE_TICKS);
+				self.last = if again { None } else { Some((ctx.tick, i)) };
+				if again {
+					at = Point::Open(i);
+				}
+			}
+			_ => {}
+		}
+		app.file_point(s, f, at);
 	}
 
 	/// The pointer is over the open menu's bar or items, with or without the button: another title opens its menu, an item lights.
@@ -495,6 +595,10 @@ impl Gfx {
 	) {
 		let mut o = Overlay::default();
 		if !app.overlay(s, &mut o) {
+			return;
+		}
+		if Self::file_parts(app) {
+			self.file_down(app, s, f, (x, y), ctx);
 			return;
 		}
 		// The title bar, the border and the space between controls do nothing; the dialog is not dragged.
@@ -619,6 +723,19 @@ impl Gfx {
 		lay: &Layout,
 		vertical: bool,
 	) -> Option<Bar> {
+		if let Some(v) = app.file_view().filter(|v| !v.covered()) {
+			// The file dialog's list scrolls by entries: an arrow moves one, the track a page less one.
+			let mut o = Overlay::default();
+			app.overlay(s, &mut o);
+			let list = v.dlg.list();
+			return Some(Bar {
+				parts: filedlg::list_bar(&o, v.dlg)?,
+				pos: list.top() as i32,
+				range: list.count().saturating_sub(list.rows()) as i32,
+				line: 1,
+				page: (list.rows() as i32 - 1).max(1),
+			});
+		}
 		if vertical {
 			// Pixels of the page, not lines: a page with one line still scrolls to the foot of its sheet.
 			let view = app.vscroll_view();
@@ -654,7 +771,9 @@ impl Gfx {
 		to: i32,
 	) {
 		let to = to.clamp(0, bar.range);
-		if vertical {
+		if Self::file_parts(app) {
+			app.file_scroll(to);
+		} else if vertical {
 			app.set_vscroll_pos(&*s, to);
 		} else {
 			app.set_hscroll_pos(to);
@@ -829,8 +948,10 @@ impl Gfx {
 				}
 			}
 			Cap::Widget { idx, .. } => {
-				let mut o = Overlay::default();
-				if app.overlay(s, &mut o) && dialog::hit(&o, x, y) == Some(idx) {
+				if Self::widget_at(app, s, x, y) != Some(idx) {
+				} else if Self::file_parts(app) {
+					app.file_point(s, f, Point::Button(idx as u8));
+				} else {
 					app.press_widget(s, f, idx, false);
 				}
 			}
@@ -968,6 +1089,12 @@ impl Gfx {
 		if let Some((pop, hot)) = self.drop {
 			let last = pop.count().saturating_sub(1) as i32;
 			self.drop = Some((pop, (hot as i32 + n).clamp(0, last) as usize));
+			return;
+		}
+		if let Some(v) = app.file_view().filter(|v| !v.covered()) {
+			// The file dialog's list scrolls three entries a notch.
+			let top = v.dlg.list().top() as i32 + n.saturating_mul(3);
+			app.file_scroll(top);
 			return;
 		}
 		if app.editing() {

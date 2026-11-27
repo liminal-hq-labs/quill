@@ -1534,3 +1534,112 @@ fn a_dialog_given_up_part_way_is_freed_by_close() {
 	r.dlg.close(&mut r.store);
 	assert_eq!(r.store.live_chunks(), 0);
 }
+
+impl Rig {
+	fn point(&mut self, p: Point) -> Outcome {
+		self.dlg.point(p, &mut self.fs, &mut self.store)
+	}
+}
+
+#[test]
+fn a_press_on_an_entry_selects_it_and_a_second_press_opens_it() {
+	let mut r = Rig::new(Kind::Open, "C:\\DOCS", "", 0);
+	// `..`, 2025, LETTERS, then the files.
+	assert_eq!(r.point(Point::Item(3)), Outcome::None);
+	assert_eq!(r.selected(), r.names()[3]);
+	assert_eq!(r.dlg.focus().focused(), LIST);
+	assert_eq!(r.dlg.name().as_bytes(), r.selected().as_bytes());
+	assert_eq!(r.point(Point::Open(2)), Outcome::None);
+	assert_eq!(r.folder(), "C:\\DOCS\\LETTERS");
+	assert_eq!(r.point(Point::Open(0)), Outcome::None);
+	assert_eq!(r.folder(), "C:\\DOCS");
+	let file = r.names().iter().position(|n| n == "LETTER.QLD").unwrap();
+	assert_eq!(r.point(Point::Open(file)), Outcome::Accept);
+	assert_eq!(r.chosen(), "C:\\DOCS\\LETTER.QLD");
+	assert_eq!(r.store.live_chunks(), 0);
+}
+
+#[test]
+fn a_press_on_a_place_goes_there() {
+	let mut r = Rig::new(Kind::Open, "C:\\DOCS", "", 0);
+	let d = (0..r.dlg.place_count())
+		.position(|i| r.dlg.place(&r.store, i).unwrap().label() == b"D:")
+		.unwrap();
+	assert_eq!(r.point(Point::Place(d)), Outcome::None);
+	assert_eq!(r.dlg.focus().focused(), PLACES);
+	assert!(r.folder().starts_with("D:"));
+}
+
+#[test]
+fn a_press_on_a_header_sorts_and_again_reverses() {
+	let mut r = Rig::new(Kind::Open, "C:\\DOCS", "", 0);
+	r.point(Point::Header(SortBy::Size));
+	assert_eq!(r.files()[0], "LOCKED.QLD");
+	r.point(Point::Header(SortBy::Size));
+	assert_eq!(r.files()[0], "LETTER.QLD");
+}
+
+#[test]
+fn the_buttons_act_as_their_keys_do() {
+	let mut r = Rig::new(Kind::SaveAs, "C:\\DOCS\\LETTERS", "A.QLD", 0);
+	assert_eq!(r.point(Point::Button(UP)), Outcome::None);
+	assert_eq!(r.folder(), "C:\\DOCS");
+	r.point(Point::Button(NEW_FOLDER));
+	assert!(r.dlg.new_folder().is_some());
+	// A box is open: the dialog under it takes no pointer.
+	assert_eq!(r.point(Point::Button(CANCEL)), Outcome::None);
+	assert!(r.dlg.new_folder().is_some());
+	r.key(DlgKey::Esc);
+	// The name is a file that is not there, so OK accepts it.
+	assert_eq!(r.point(Point::Button(OK)), Outcome::Accept);
+}
+
+#[test]
+fn cancel_ends_the_dialog_and_frees_its_pages() {
+	let mut r = Rig::new(Kind::Open, "C:\\DOCS", "", 0);
+	assert_eq!(r.point(Point::Button(CANCEL)), Outcome::Cancel);
+	assert_eq!(r.store.live_chunks(), 0);
+}
+
+#[test]
+fn a_press_on_the_name_field_focuses_it_and_places_the_caret() {
+	let mut r = Rig::new(Kind::Open, "C:\\DOCS", "ABCDEF", 0);
+	r.point(Point::Name(2));
+	assert_eq!(r.dlg.focus().focused(), NAME);
+	assert_eq!(r.dlg.name().cursor(), 2);
+	r.key(DlgKey::Char(b'x'));
+	assert_eq!(r.dlg.name().as_bytes(), b"ABXCDEF");
+}
+
+#[test]
+fn a_drop_down_opens_on_a_press_picks_a_row_and_shuts_on_a_press_away() {
+	let mut r = Rig::new(Kind::Open, "C:\\DOCS", "", 0);
+	let before = r.dlg.type_index();
+	r.point(Point::Drop(TYPES));
+	assert!(r.dlg.type_box().is_open());
+	// Anything but a pick or a light shuts it, and does nothing else.
+	r.point(Point::Item(3));
+	assert!(!r.dlg.type_box().is_open());
+	assert_eq!(r.dlg.type_index(), before);
+	r.point(Point::Drop(TYPES));
+	r.point(Point::Light(1));
+	assert_eq!(r.dlg.type_box().list().selected(), Some(1));
+	assert_eq!(r.dlg.type_index(), before);
+	assert_eq!(r.point(Point::Pick(1)), Outcome::None);
+	assert!(!r.dlg.type_box().is_open());
+	assert_eq!(r.dlg.type_index(), 1);
+	// The Look in list picks a folder above the current one.
+	r.point(Point::Drop(LOOK_IN));
+	assert!(r.dlg.look_box().is_open());
+	r.point(Point::Pick(0));
+	assert!(r.folder().ends_with(":\\"));
+}
+
+#[test]
+fn a_press_while_a_question_is_pending_does_nothing() {
+	let mut r = Rig::new(Kind::SaveAs, "C:\\DOCS", "LETTER.QLD", 0);
+	assert_eq!(r.key(DlgKey::Enter), Outcome::Ask(Question::Overwrite));
+	assert_eq!(r.point(Point::Button(CANCEL)), Outcome::None);
+	assert_eq!(r.point(Point::Item(1)), Outcome::None);
+	assert_eq!(r.dlg.asking(), Some(Question::Overwrite));
+}

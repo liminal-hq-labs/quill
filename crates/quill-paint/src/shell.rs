@@ -380,7 +380,7 @@ fn over<F: Copy, M: Measure + Clone, St: Store + ?Sized>(
 		// The file dialog is its window and parts; a box over it (a question, a notice, the new folder's name) is the app's overlay.
 		let win = filedlg::window(v.dlg.kind());
 		dialog::draw_dialog(sf, ui, &win);
-		filedlg::draw(sf, ui, &win, &v, s);
+		filedlg::draw(sf, ui, &win, &v, s, view.widget);
 		if v.covered() && app.overlay(s, &mut ov) {
 			dialog::draw_dialog_held(sf, ui, &ov, view.widget);
 		}

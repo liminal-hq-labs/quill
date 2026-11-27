@@ -1,0 +1,60 @@
+# G9 (graphics): the pointer in the file dialog's Open. A press on an entry selects it and fills the name, a second press opens a
+# folder, Up and a place go elsewhere, a header sorts, the scroll bar's arrows, track and thumb scroll the list and so does the wheel,
+# the type and Look in drop-downs open, light a row, choose one and shut on a press away, a press on the name field places the caret, a
+# button held and let go off it does nothing, and OK takes the name. Every frame's CRC-32 must equal the host's in both graphics modes.
+@dialog
+@dir QUILL
+@place Quill C:\QUILL
+@cwd C:\DOCS
+@dir DOCS\LETTERS
+@dir DOCS\2025
+@many DOCS 24 QLD
+@copy letter.qld DOCS\
+@copy lists.rtf DOCS\LETTERS\
+@stamp DOCS\LETTER.QLD 2026-11-24 18:45
+@stamp DOCS\LETTERS\LISTS.RTF 2026-11-02 09:05
+@place Samples C:\QUILL
+f10 down enter                # File > Open...
+@click 200 191                # an entry: selected, and its name in the field
+@click 200 143                # a folder: selected, the name stays
+@dclick 200 159               # LETTERS: opened
+@click 384 83                 # Up: back, with LETTERS selected
+@click 290 105                # the Size header
+@click 290 105                # again: largest first
+@click 190 105                # the Name header
+@click 420 351                # the scroll bar's down arrow
+@click 420 351
+@click 420 103                # its up arrow
+@click 420 300                # the track below the thumb
+@drag 420 250 420 150         # the thumb dragged up
+@down 420 140                 # the thumb held
+@move 420 240
+@up 420 240
+@wheel 2                      # the wheel: three entries a notch
+@wheel -1
+@down 420 351                 # the arrow held: it repeats after the delay
+@wait 10
+@wait 8
+@up 420 351
+@click 70 143                 # a place
+@click 70 127                 # another
+@click 150 369                # the name field: the caret goes where it was pressed
+x
+@click 500 369                # the type drop-down opens
+@move 500 340                 # a row lights
+@click 500 340                # and is chosen
+@click 500 369
+@click 500 302                # Quill Documents again
+@click 200 83                 # Look in opens
+@click 560 300                # a press away shuts it, and does nothing else
+@down 384 83                  # Up held: it shows sunk
+@move 300 250                 # off it: raised again
+@up 300 250                   # let go off it: nothing happens
+@wheel 20                     # the foot of the list
+@click 200 351                # LETTER.QLD
+@click 490 391                # Open: the document is opened
+f10 down enter                # File > Open... again
+@click 580 391                # Cancel
+f10 down enter
+@wheel 20
+@dclick 200 351               # a double click on a file takes it
