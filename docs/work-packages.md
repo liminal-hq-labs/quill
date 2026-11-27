@@ -31,9 +31,9 @@ Two lanes edit `crates/quill-app/src`, each with at most one open branch there: 
 | 6 | WP-ARCH-6 `quill-settings` | WP-ED-8 Page Break, WP-ED-9 Edit menu state | WP-ARCH-9 Win16 strings from resources | — |
 | 7 | WP-ARCH-7 `quill-flow` | (WP-ED-8 or WP-ED-9 finishing) | — | — |
 | 8 (freeze) | WP-ED-10 Unicode U1b, then WP-ED-11 Unicode U2 | — (nothing else open in `quill-app`, `quill-paint` or the shells' key maps and painters) | Windows-shell-only work: WP-ED-6 if late | every earlier package merged |
-| 9 | WP-ARCH-8 `quill-a11y` (after WP-GTK-5) | WP-ED-12 default tab stops, WP-ED-13 settings by id | — | the freeze ended |
-| 10 | — | WP-ED-15 Tools > Options on DOS | WP-ED-14 Win16 profile functions | — |
-| 11 | — | WP-ED-16 Options on Windows | WP-ED-17 Page Layout | — |
+| 9 | WP-ARCH-8 `quill-a11y` (after WP-GTK-5) | WP-ED-12 default tab stops, WP-PREF-2 settings by id (was WP-ED-13) | — | the freeze ended |
+| 10 | — | WP-PREF-5 Tools > Options on DOS (was WP-ED-15) | WP-PREF-3 Win16 profile functions (was WP-ED-14) | — |
+| 11 | — | WP-PREF-6 Options on the DOS graphics screen; then WP-PREF-7 and WP-PREF-8 on Windows (were WP-ED-16) | WP-ED-17 Page Layout | — |
 | 12 | — | WP-ED-18 Numbering | WP-ED-19 Header and Footer | — |
 
 Why this order and not the list's: `quill-session` owns the idle cadence the DOS autosave builder is writing into `dos/quill-dos/src/main.rs` and `idle.rs` right now, so it waits for that merge; `quill-chrome` touches no file the autosave branch changes except one `use` line, so it goes first. `quill-a11y` is built from the snapshot GTK's WP-GTK-5 makes (LNX-24), once the text is UTF-8 (WP-ED-11), so it is written once. Unicode U1b and U2 run in a freeze after every move, because they touch about 70 call sites across `quill-app`, `quill-paint` and the shells; a move landing under them would mean rebasing the widest change in the track.
@@ -99,6 +99,7 @@ Ranges reserved for this track, above every id on `main`, in the autosave branch
 | W9X | W9X-60 to W9X-79 | |
 | LNX | LNX-60 to LNX-69 | Only for a UI slice this track builds itself; the UI track numbers its own from its next free id (LNX-25 on) |
 | WUI | WUI-60 to WUI-69 | The same, for WinUI (the UI track's own start at WUI-3) |
+| CORE, ARCH, DOS, W16, W9X, LNX, WUI, INS | CORE-150 to CORE-169, ARCH-30 to ARCH-34, DOS-80 to DOS-89 (carved out of the range above, which keeps DOS-70 to DOS-79), W16-90 to W16-99, W9X-90 to W9X-99, LNX-60 to LNX-64, WUI-60 to WUI-64, INS-8 and INS-9 | The preferences series, [plans/preferences.md](plans/preferences.md) (ARCH-30). The ids WP-ED-13 to WP-ED-16 named stay spare |
 
 ## Gates and evidence
 
@@ -659,6 +660,8 @@ interval in the document".
 
 ### WP-ED-13 — Settings by id, from one schema (preferences PRs 1, 3 and 4)
 
+**Replaced** by the preferences series in [plans/preferences.md](plans/preferences.md) (ARCH-30): this package is now WP-PREF-2, with the model built first as new files in WP-PREF-1. The text below is kept for reference.
+
 - **Finish line:** as the preferences design's steps 1, 3 and 4: B1, B5 and B6 fixed; `assets/settings/settings.json` is the one description and `emit-resources --settings` generates `crates/quill-settings/src/generated.rs` with a sync test; `App::get` and `App::set` by id; layers (build default, `QUILLDEF.INI`, `QUILL.INI`, session switches); a value equal to the inherited default deletes its key; unknown lines kept; `[Spelling] Language=en-CA` with a one-time migration from `[Quill] Language`; DOS `Rows` and `Graphics` are settings and the switches session overrides (B3, B4; `Kept` goes); the SPEC's settings table is generated; the unsaved-changes wording is one text in `quill-flow` (V7).
 - **Owns:** `crates/quill-settings`; `assets/settings/settings.json`; `emit-resources --settings`; the settings region of `lib.rs` and `ini_file.rs`; the settings load and save in `dos/quill-dos/src/main.rs`; the key list in `win9x/quill-win9x/src/ui.rs`; the confirm texts in `quill-flow` and the two Windows shells; SPEC's settings table.
 - **Depends on:** WP-ARCH-6, WP-ARCH-7, WP-ED-11.
@@ -679,6 +682,8 @@ write every setting by id from one schema".
 
 ### WP-ED-14 — Windows 3.x settings through the profile functions (preferences PR 5, side)
 
+**Replaced** by the preferences series in [plans/preferences.md](plans/preferences.md) (ARCH-30): this package is now WP-PREF-3. The text below is kept for reference.
+
 - **Finish line:** the Win16 build reads and writes `QUILL.INI` through `GetPrivateProfileString` and `WritePrivateProfileString` with a bare name, so the file is in the Windows directory (B2); the program's folder holds none.
 - **Owns:** the Win16 `Profile` implementation and its imports.
 - **Depends on:** WP-ED-13. Parallel with WP-ED-15.
@@ -695,6 +700,8 @@ the Windows directory".
 ```
 
 ### WP-ED-15 — Tools > Options: the flow and the DOS dialog (preferences PRs 7, 8, 9, 11)
+
+**Replaced** by the preferences series in [plans/preferences.md](plans/preferences.md) (ARCH-30): this package is now WP-PREF-5 (the flow and the text screens) and WP-PREF-6 (the graphics screen). The text below is kept for reference.
 
 - **Finish line:** a Tools menu with Options... on the DOS, Windows 3.x and Windows 95 builds (the owner's choice; Spelling's Options button opens the Spelling page); `Command::Options(page)`, `Dialog::Options(page)`, a `Draft` the dialog edits, the flow entry points and the host verbs; `CaretBlink` (System for users, Off in every harness); the DOS text-cell Options dialog built from the schema at 80 × 25, 80 × 50 and mono, and the graphics overlay with the mouse; Options sets the defaults for new documents only (CORE-108).
 - **Owns:** the Tools menu in `crates/quill-menu`; the Options flows in `crates/quill-flow`; `crates/quill-app/src/options.rs` (new) and its overlay and widget entries; `MENU_COLS` in `paint.rs`; the options drawing in `crates/quill-paint`; the restart notice in `dos/quill-dos/src/main.rs`; flows and goldens.
@@ -714,6 +721,8 @@ CORE-108, CORE-109, DOS-73; SPEC Settings and menus. PR: "Add Tools > Options to
 ```
 
 ### WP-ED-16 — Options on Windows 3.x and Windows 95 (preferences PRs 12, 13)
+
+**Replaced** by the preferences series in [plans/preferences.md](plans/preferences.md) (ARCH-30): this package is now WP-PREF-7 (Windows 95) and WP-PREF-8 (Windows 3.x). The text below is kept for reference.
 
 - **Finish line:** Windows 95 shows a COMCTL32 4.00 property sheet with OK, Cancel, Apply and What's This, `Folder32`; Windows 3.x a category dialog with a description line and F1 popups; both from `dialogs.json` pages whose controls carry `"setting": "<id>"`, with a binding test.
 - **Owns:** the Options entries in `assets/dialogs/dialogs.json` (regenerating `generated.rs`); the Options code in `win16/examples/quill/dialogs.rs` and `win9x/quill-win9x/src/dialogs.rs`; `res_pack.py` styles; `imports.allow` (`PropertySheetA`).

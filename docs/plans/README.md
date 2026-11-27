@@ -16,5 +16,6 @@ Planner write-ups kept for reference. Each was accurate when it was written, and
 | [threading-plan.md](threading-plan.md) | One job model for single-core and threaded builds | Later, not scheduled |
 | [zoom-review.md](zoom-review.md) | Root causes of the zoom, preview, paging, style box and toolbar items of the 2026-11-27 QA, and one builder brief per fix | Reference |
 | [web-demo.md](web-demo.md) | The ReactOS web demo: a clean address, Print to PDF with downloads, sound and hosting, as WP-WEB-1 to WP-WEB-8 | Planned |
+| [preferences.md](preferences.md) | One settings model (`quill-settings`) and an Options window on every build, autosave first, as WP-PREF-0 to WP-PREF-13 | Planned |
 
 The Desk page, [desk-app.md](../desk-app.md), is out of date against D130, so the plans that lean on it (the web and layering addendum in particular) inherit that.
