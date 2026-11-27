@@ -14,6 +14,7 @@ Printable media for Quill's release disks: floppy labels, the CD face and jewel 
 | `masters/option-b/` | Option B, modern Afterglow dusk |
 | `masters/stickers/` | Twelve 2 in stickers |
 | `masters/booklet/` | The eight manual pages and the shortcut card |
+| `vendor/afterglow-start-orb.svg` | The Afterglow Start orb, copied unchanged from afterglow-themes (`vendor/PROVENANCE.md`) |
 
 Each option has `floppy-dos.svg`, `floppy-w31.svg`, `floppy-w95.svg`, `floppy-all.svg`, `floppy-documents.svg`, `disc.svg`, `jewel-front.svg` and `tray-card.svg`.
 
@@ -25,7 +26,7 @@ python3 assets/media/render.py "$HOME/Documents/Liminal HQ/Quill/Print set"   # 
 
 ## Changing the version or the words
 
-`VERSION` at the top of `gen_media.py` is the release the media is worded for (today `0.1.0`, the demo release); `EDITION` says what that release is. The printed serial follows from the version (`serial()`): `QD01`, then the major version as one hex digit, the minor as two and the patch as one, so `0.1.0` is `QD01-0010`. Change them there, run the three commands above and commit `gen_media.py` with the regenerated masters. The tagline, the honest note, the licence, the addresses and the disk set (`DISKS`) are constants beside it.
+`VERSION` at the top of `gen_media.py` is the release the media is worded for (today `0.1.0`, the demo release); `EDITION` says what that release is. The printed serial follows from the version (`serial()`): the owner's catalogue prefix `QD05` (`SERIAL_PREFIX`), then the major version as one hex digit, the minor as two and the patch as one, so `0.1.0` is `QD05-0010` (INS-25). Change them there, run the three commands above and commit `gen_media.py` with the regenerated masters. The tagline, the honest note, the licence, the addresses and the disk set (`DISKS`) are constants beside it.
 
 ## The pieces and the standards they target
 
@@ -48,11 +49,11 @@ The booklet prints landscape and double-sided, flipping on the short edge. Its p
 - **Option A, era-accurate retro.** The DOS disk is a VGA text screen: the grey menu bar with red mnemonics, a double-bordered dialog with a black shadow, `QUILL` in block characters and a status line. The Windows 3.x disk is a Program Manager group in the 3.11 colours Quill's screenshots show, with the 16-colour Quill icon, Quill Help and Uninstall Quill. The Windows 95 disk is the teal desktop and the cascade Start, Programs, Quill, as the installed program appears. The all-in-one disk puts the three side by side over a parchment title band. The CD is a Windows 95 Setup window on teal, the jewel front the hero's three windows over a period title band with a starburst, the tray card a Windows 3.1 dialog.
 - **Option B, Afterglow dusk.** Quill's ink gradient, the gold ring and nib from `assets/icon/quill.svg`, Desk Serif in parchment, an amber chip naming the system, and the stepped dusk bands of the Afterglow palette at the foot. On the CD the gold ring of the Q goes round the centre hole.
 
-Both share the words, the sizes and the stickers, booklet and card, which use Quill's own identity with period accents (each system's heading in its own colours). No Microsoft, ReactOS or Rust logo is drawn: the Start button carries the Quill icon, and the systems are named in words.
+Both share the words, the sizes and the stickers, booklet and card, which use Quill's own identity with period accents (each system's heading in its own colours). No Microsoft, ReactOS or Rust logo is drawn: the Start button carries the Afterglow orb, and the systems are named in words.
 
 ## Type and art
 
-Every word is outlined from the Desk faces in `assets/fonts/desk` (SIL Open Font License 1.1, which allows embedding the outlines; the booklet's credits page names it), so no font is needed to render or print. The pixel icons are read from `assets/icon/QUILL31.ICO` and `QUILL.ICO`, the 16-colour images Windows 3.1 shows. The screenshots are linked from `docs/media` by a relative path and inlined by `render.py`. Text paths carry `data-text` and `data-pt` for the check.
+Every word is outlined from the Desk faces in `assets/fonts/desk` (SIL Open Font License 1.1, which allows embedding the outlines; the booklet's credits page names it), so no font is needed to render or print. Wherever the logo stands as a mark at print size (every sticker, the booklet, the shortcut card, the tray card, the CD, the option B labels and the title bands of option A) it is the master emblem from `assets/icon/quill.svg`. The 16-colour pixel icons from `assets/icon/QUILL31.ICO` and `QUILL.ICO` appear only inside option A's period screens: the Program Manager group, the Start menu and the window title bars. Every Start button (the Windows 95 and all-in-one labels of option A, and the Windows 95 sticker) is the Afterglow one of the ReactOS remaster: the gold face, the dusk orb from `vendor/afterglow-start-orb.svg` (see `vendor/PROVENANCE.md`) and the word Start, not the Quill icon or a Windows flag. The screenshots are linked from `docs/media` by a relative path and inlined by `render.py`. Text paths carry `data-text` and `data-pt` for the check.
 
 ## Not yet checked
 

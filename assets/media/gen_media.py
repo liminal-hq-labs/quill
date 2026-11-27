@@ -44,16 +44,17 @@ LABS = "A Liminal HQ Labs experiment"
 HONEST = "Experimental: every build has run in emulators, virtual machines and Wine only, never on real hardware."
 HONEST_SHORT = "Experimental · tried in emulators and Wine only"
 TRADEMARKS = "MS-DOS and Windows are trademarks of Microsoft; ReactOS is a trademark of the ReactOS project. Quill is not made, endorsed or supported by either."
+SERIAL_PREFIX = "QD05"  # the catalogue prefix of the printed serial (INS-25)
 TAGLINE = "A small word processor for DOS, Windows 3.x and Windows 95, written in Rust."
 
 
 def serial(version=VERSION):
-	"""The printed serial, as the release media plan names it: QD01, then the major version as one hex digit, the minor as two and the
-	patch as one (the Fizz scheme), so 0.1.0 is QD01-0010."""
+	"""The printed serial, the owner's catalogue number (INS-25): SERIAL_PREFIX, then the major version as one hex digit, the minor as
+	two and the patch as one (the Fizz scheme of the release media plan, version in the serial), so 0.1.0 is QD05-0010."""
 	major, minor, patch = (int(part) for part in version.split("."))
 	if major > 15 or minor > 255 or patch > 15:
 		sys.exit("gen_media.py: the version does not fit the serial (major and patch under 16, minor under 256)")
-	return "QD01-%X%02X%X" % (major, minor, patch)
+	return "%s-%X%02X%X" % (SERIAL_PREFIX, major, minor, patch)
 
 
 VERSION_LINE = "Version " + VERSION + " · " + EDITION
@@ -134,11 +135,13 @@ WIN_YELLOW = "#ffff00"
 # Afterglow dusk: the boot palette of liminal-hq/afterglow-themes desktop/boot/palette.json, night to gold
 DUSK = ("#1f2554", "#2a3164", "#35366a", "#42396c", "#523d6c", "#643f68", "#7a4562", "#b8893a", "#e89930", "#ffaa40", "#ffd08e")
 RUST = "#a4441c"
+AFTERGLOW_GOLD, AFTERGLOW_GOLD_LIGHT = "#ffaa40", "#ffd08e"  # the Afterglow Start button's face and its light
 
 FONT_DIR = os.path.join(ROOT, "assets", "fonts", "desk")
 ICON_SVG = os.path.join(ROOT, "assets", "icon", "quill.svg")
 ICON_31 = os.path.join(ROOT, "assets", "icon", "QUILL31.ICO")
 ICON_ALL = os.path.join(ROOT, "assets", "icon", "QUILL.ICO")
+START_ORB = os.path.join(HERE, "vendor", "afterglow-start-orb.svg")
 MEDIA_DIR = os.path.join(ROOT, "docs", "media")
 
 FACES = {
@@ -646,11 +649,38 @@ def menu_panel(x, y, width, items, highlight, row=4.2, sidebar=None):
 	return "".join(out), height
 
 
+def start_orb(x, y, size, prefix):
+	"""The Afterglow Start orb (vendor/afterglow-start-orb.svg, the master of the ReactOS remaster's Start button): a dusk disc with a
+	half-set gold sun, its left 160 x 160 square, ids given a prefix."""
+	source = open(START_ORB).read()
+	body = source[source.index(">", source.index("<svg")) + 1: source.rindex("</svg>")]
+	body = re.sub(r"<title>.*?</title>", "", body)
+	body = re.sub(r'id="([^"]+)"', lambda match: 'id="%s-%s"' % (prefix, match.group(1)), body)
+	body = re.sub(r"url\(#([^)]+)\)", lambda match: "url(#%s-%s)" % (prefix, match.group(1)), body)
+	return '<svg x="%s" y="%s" width="%s" height="%s" viewBox="0 0 160 160">%s</svg>' % (
+		number(x), number(y), number(size), number(size), body)
+
+
+_orb_count = [0]
+
+
 def start_button(x, y, width, height, pressed=False):
-	out = [bevel(x, y, width, height, raised=not pressed, depth=0.3)]
-	icon = height - 1.6
-	out.append(pixel_icon(x + 0.9, y + 0.8, icon, pixels=16))
-	out.append(text("Start", x + 1.6 + icon, y + height * 0.7, 7.0, "sans-bold", WIN_DARK))
+	"""A Start button in the Afterglow look of the ReactOS remaster: the gold face, the dusk orb and the word Start in ink."""
+	_orb_count[0] += 1
+	face, light, shadow = AFTERGLOW_GOLD, AFTERGLOW_GOLD_LIGHT, GOLD_LOW
+	if pressed:
+		light, shadow = shadow, light
+	depth = 0.3
+	out = [rect(x, y, width, height, face)]
+	out.append(rect(x, y + height - depth, width, depth, INK_800))
+	out.append(rect(x + width - depth, y, depth, height, INK_800))
+	out.append(rect(x, y, width - depth, depth, light))
+	out.append(rect(x, y, depth, height - depth, light))
+	out.append(rect(x, y + height - 2 * depth, width - depth, depth, shadow))
+	out.append(rect(x + width - 2 * depth, y, depth, height - depth, shadow))
+	icon = height - 1.2
+	out.append(start_orb(x + 0.7, y + 0.6, icon, "orb%d" % _orb_count[0]))
+	out.append(text("Start", x + 1.2 + icon, y + height * 0.7, 7.0, "sans-bold", INK_800))
 	return "".join(out)
 
 
@@ -707,7 +737,7 @@ def floppy_a_all(disk):
 	# the title band
 	out.append(rect(-LABEL_BLEED, top_h, LABEL + 2 * LABEL_BLEED, LABEL_FACE - top_h + 0.02, PARCHMENT_100))
 	out.append(rect(-LABEL_BLEED, top_h, LABEL + 2 * LABEL_BLEED, 0.5, INK_800))
-	out.append(pixel_icon(2.6, top_h + 3.0, 12.0))
+	out.append(emblem(2.6, top_h + 3.0, 12.0, "a-all-emblem", tile=True))
 	out.append(text("Quill", 17.0, top_h + 11.2, 22, "serif-bold", INK_800))
 	out.append(text("One disk for all three", 43.5, top_h + 6.8, 6.6, "sans-bold", INK_700))
 	out.append(text(VERSION_LINE, 43.5, top_h + 10.6, 6.3, "sans", MUTED))
@@ -833,7 +863,7 @@ def disc_a(master_dir):
 	out.append(text(VERSION_LINE, window_x + 35.0, window_y + 13.8, 6.4, "sans", WIN_DARK))
 	out.append(text("Written in Rust", window_x + 35.0, window_y + 17.2, 6.4, "sans", WIN_DARK))
 	# beside the hole
-	out.append(pixel_icon(-46.5, -8.5, 17.0, pixels=32))
+	out.append(emblem(-46.5, -8.5, 17.0, "a-disc-emblem", tile=True))
 	out.append(rect(26.0, -4.0, 20.0, 8.0, VGA_YELLOW))
 	out.append(text("CD-ROM", 36.0, 1.6, 8.4, "mono-bold", VGA_BLACK, "middle"))
 	# the three systems below the hole
@@ -954,7 +984,7 @@ def jewel_a(master_dir):
 	band_y = 80.0
 	out.append(rect(-CARD_BLEED, band_y, JEWEL + 2 * CARD_BLEED, JEWEL - band_y + CARD_BLEED, PARCHMENT_100))
 	out.append(rect(-CARD_BLEED, band_y, JEWEL + 2 * CARD_BLEED, 0.8, INK_800))
-	out.append(pixel_icon(6.0, band_y + 6.0, 20.0))
+	out.append(emblem(6.0, band_y + 6.0, 20.0, "a-jewel-emblem", tile=True))
 	out.append(text("Quill", 30.0, band_y + 22.0, 44, "serif-bold", INK_800))
 	out.append(text("The word processor for DOS, Windows 3.1 and Windows 95", 6.0, band_y + 31.0, 8.6, "sans-bold", INK_700))
 	out.append(text(VERSION_LINE + " · " + LABS, 6.0, band_y + 36.0, 7.0, "sans", MUTED))
@@ -1134,7 +1164,7 @@ def sticker_w31():
 	out = [round_ground(WIN_FACE)]
 	window, client_top = win31_window(8.0, 9.0, STICKER - 16.0, 25.0, "Quill", title_points=7.0)
 	out.append(window)
-	out.append(pixel_icon(R - 5.0, client_top + 2.6, 10.0))
+	out.append(emblem(R - 5.0, client_top + 2.6, 10.0, "s-w31-emblem", tile=True))
 	caption_width = text_width("Quill", "sans", 6.5) + 1.2
 	out.append(rect(R - caption_width / 2, client_top + 13.6, caption_width, 3.0, WIN_NAVY))
 	out.append(text("Quill", R, client_top + 15.9, 6.5, "sans", WIN_LIGHT, "middle"))
@@ -1145,7 +1175,7 @@ def sticker_w31():
 
 def sticker_w95():
 	out = [round_ground(WIN_TEAL)]
-	out.append(pixel_icon(R - 7.0, 7.5, 14.0))
+	out.append(emblem(R - 7.0, 7.5, 14.0, "s-w95-emblem", tile=True))
 	out.append(text("Windows 95", R, 28.5, 10.0, "sans-bold", WIN_LIGHT, "middle"))
 	out.append(text("98 and Me build", R, 33.0, 6.8, "sans", WIN_LIGHT, "middle"))
 	out.append(rect(-STICKER_BLEED, 36.5, STICKER + 2 * STICKER_BLEED, 20.0, WIN_FACE))
@@ -1448,7 +1478,7 @@ def booklet_disks():
 	for words in (
 		"Every disk carries README.TXT and LICENCE.TXT, and is 1.44 MB. On the all-in-one disk and the CD, Windows 3.x Setup is "
 		"A:\\WIN31\\SETUP and Windows 95 Setup is A:\\WIN95\\SETUP; A:\\SETUP is the DOS one.",
-		"The serial is " + SERIAL + ": QD01, then the version " + VERSION + " in hexadecimal digits. DIR and VOL show the volume label.",
+		"The serial is " + SERIAL + ": " + SERIAL_PREFIX + ", then the version " + VERSION + " in hexadecimal digits. DIR and VOL show the volume label.",
 	):
 		svg, y = body(words, y, points=6.8)
 		out.append(svg)
