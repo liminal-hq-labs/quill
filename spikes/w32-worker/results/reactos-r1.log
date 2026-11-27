@@ -1,0 +1,21 @@
+W32SPIKE doc=1048576 keys=20 keyms=2500 cycles=300 stressdoc=65536 freq=1193182
+ORACLE serialize on the main thread, no write: us=4939 out_bytes=1157322 crc=2335229655
+BEGIN base
+PHASE base keys=20 coalesced=0 lat_min_us=75897 lat_med_us=76927 lat_p95_us=81353 lat_max_us=81353
+BEGIN worker
+FAIL the worker reported an I/O error
+FAIL the worker reported an I/O error
+FAIL the worker reported an I/O error
+FAIL the worker reported an I/O error
+PHASE worker keys=20 coalesced=0 lat_min_us=76518 lat_med_us=81460 lat_p95_us=93639 lat_max_us=93639 jobs=534 bytes=559939584 job_ms_mean=87 serialize_ms_mean=6 write_ms_mean=32 copy_us_mean=5628 kb_per_s=11752
+BEGIN low
+PHASE low keys=20 coalesced=0 lat_min_us=76909 lat_med_us=77678 lat_p95_us=91768 lat_max_us=91768 jobs=531 bytes=556793856 job_ms_mean=82 serialize_ms_mean=6 write_ms_mean=31 copy_us_mean=9923 kb_per_s=12385
+BEGIN inline
+INLINE block us=82706
+PHASE inline keys=20 coalesced=0 lat_min_us=77996 lat_med_us=78626 lat_p95_us=82157 lat_max_us=82157
+BEGIN stress
+PHASE stress jobs=300 bytes=19660800 job_ms_mean=4 serialize_ms_mean=0 write_ms_mean=1 copy_us_mean=21 kb_per_s=13159
+BEGIN exit
+EXIT join: cancel_to_done_ms=18 status=2
+SUMMARY jobs_total=1370 max_job_ms=264 post_fails=0 freq=1193182
+RESULT FAIL

@@ -1,0 +1,29 @@
+# W32SPIKE.EXE: the Win32 worker-thread spike (checkpoint A of the autosave plan). Throwaway; its own workspace, never part of QUILL32.EXE.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[workspace]
+
+[package]
+name = "w32spike"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Spike: a CreateThread worker that serializes an owned copy of a 1 MB document while the main thread keeps painting"
+license = "Apache-2.0 OR MIT"
+
+[[bin]]
+name = "w32spike"
+path = "src/main.rs"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+overflow-checks = true

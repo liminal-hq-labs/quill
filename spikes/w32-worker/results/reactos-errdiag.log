@@ -1,0 +1,9 @@
+W32SPIKE doc=1048576 keys=20 keyms=1000 cycles=200 stressdoc=65536 freq=1193182
+ORACLE serialize on the main thread, no write: us=10374 out_bytes=1157322 crc=2335229655
+BEGIN worker
+PHASE worker keys=20 coalesced=0 lat_min_us=78562 lat_med_us=81654 lat_p95_us=164843 lat_max_us=164843 jobs=160 bytes=167772160 job_ms_mean=119 serialize_ms_mean=6 write_ms_mean=31 copy_us_mean=5439 kb_per_s=8542
+BEGIN low
+FAIL the worker reported an I/O error: stage=2 win32_error=1224 job=165
+PHASE low keys=20 coalesced=0 lat_min_us=77840 lat_med_us=83768 lat_p95_us=310595 lat_max_us=310595 jobs=152 bytes=159383552 job_ms_mean=127 serialize_ms_mean=6 write_ms_mean=37 copy_us_mean=3732 kb_per_s=8035
+SUMMARY jobs_total=313 max_job_ms=736 post_fails=0 freq=1193182
+RESULT FAIL
