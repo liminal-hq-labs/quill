@@ -1,0 +1,92 @@
+{
+	"name": "display-ops",
+	"description": "Fit, modes and changed.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "display",
+			"id": 1,
+			"more": false,
+			"payload_hex": "6f703d6669740a773d313336360a683d3736380a0a"
+		},
+		{
+			"kind": "packet",
+			"channel": "display",
+			"id": 2,
+			"more": false,
+			"payload_hex": "6f703d6d6f6465730a6c6973743d3634307834383078382c3830307836303078382c31303234783736387831360a0a"
+		},
+		{
+			"kind": "packet",
+			"channel": "display",
+			"id": 3,
+			"more": false,
+			"payload_hex": "6f703d6368616e6765640a773d313032340a683d3736380a6270703d31360a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "display",
+			"id": 1,
+			"op": "fit",
+			"fields": [
+				[
+					"op",
+					"fit"
+				],
+				[
+					"w",
+					"1366"
+				],
+				[
+					"h",
+					"768"
+				]
+			],
+			"data_hex": ""
+		},
+		{
+			"kind": "message",
+			"channel": "display",
+			"id": 2,
+			"op": "modes",
+			"fields": [
+				[
+					"op",
+					"modes"
+				],
+				[
+					"list",
+					"640x480x8,800x600x8,1024x768x16"
+				]
+			],
+			"data_hex": ""
+		},
+		{
+			"kind": "message",
+			"channel": "display",
+			"id": 3,
+			"op": "changed",
+			"fields": [
+				[
+					"op",
+					"changed"
+				],
+				[
+					"w",
+					"1024"
+				],
+				[
+					"h",
+					"768"
+				],
+				[
+					"bpp",
+					"16"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

@@ -1,0 +1,16 @@
+{
+	"name": "file-empty",
+	"description": "A file of zero bytes.",
+	"events": [
+		{
+			"kind": "file-begin",
+			"size": 0,
+			"name": "empty.txt"
+		},
+		{
+			"kind": "file-end",
+			"sha256": null
+		}
+	],
+	"messages": []
+}

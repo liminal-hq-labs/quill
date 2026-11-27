@@ -1,0 +1,56 @@
+{
+	"name": "ctl-pause-resume",
+	"description": "Pause then resume a channel.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 2,
+			"more": false,
+			"payload_hex": "6f703d70617573650a6368616e6e656c3d66696c650a0a"
+		},
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 3,
+			"more": false,
+			"payload_hex": "6f703d726573756d650a6368616e6e656c3d66696c650a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 2,
+			"op": "pause",
+			"fields": [
+				[
+					"op",
+					"pause"
+				],
+				[
+					"channel",
+					"file"
+				]
+			],
+			"data_hex": ""
+		},
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 3,
+			"op": "resume",
+			"fields": [
+				[
+					"op",
+					"resume"
+				],
+				[
+					"channel",
+					"file"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

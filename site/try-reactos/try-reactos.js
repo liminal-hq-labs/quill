@@ -6,7 +6,7 @@
 
 // The ?v= on a module's address is the first 8 hex of its SHA-256; tools/stamp-web.py keeps them current (SITE-14).
 import { applyManifest, buildLine, emulatorFiles, loadManifest, refetchFresh } from "./manifest.js?v=73de4d88";
-import * as hostFiles from "./host-files.js?v=7524586a";
+import * as hostLink from "./host-link.js?v=01f7d6f8";
 import * as sound from "./sound.js?v=295d6486";
 
 const player = document.querySelector("[data-player]");
@@ -221,7 +221,7 @@ async function start(overrides) {
 		say("Starting…");
 		emulator = new V86(opts);
 		hook(emulator);
-		hostFiles.attach(emulator);
+		hostLink.attach(emulator);
 		sound.attach(emulator);
 		window.tryReactos.emulator = emulator;
 		window.tryReactos.config = c;
@@ -241,7 +241,7 @@ async function start(overrides) {
 async function stop() {
 	if (!emulator) return;
 	clearInterval(tick);
-	hostFiles.detach();
+	hostLink.detach();
 	sound.detach();
 	if (pointer.following) stopFollowing();
 	try {

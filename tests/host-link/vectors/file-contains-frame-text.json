@@ -1,0 +1,20 @@
+{
+	"name": "file-contains-frame-text",
+	"description": "File bytes are not scanned: this content looks like a packet and a file header.",
+	"events": [
+		{
+			"kind": "file-begin",
+			"size": 46,
+			"name": "trap.bin"
+		},
+		{
+			"kind": "file-data",
+			"data_hex": "4c48512d504b5420312063746c2031204520302030303030303030300d0a4c48512d46494c452031203320780d0a"
+		},
+		{
+			"kind": "file-end",
+			"sha256": null
+		}
+	],
+	"messages": []
+}

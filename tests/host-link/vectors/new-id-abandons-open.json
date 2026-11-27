@@ -1,0 +1,39 @@
+{
+	"name": "new-id-abandons-open",
+	"description": "A new id on a channel drops the open message without a reply; only the second arrives.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 5,
+			"more": true,
+			"payload_hex": "6f703d646174610a7365713d310a666d743d746578740a0a6c6f7374"
+		},
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 6,
+			"more": false,
+			"payload_hex": "6f703d6f6b0a7365713d310a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 6,
+			"op": "ok",
+			"fields": [
+				[
+					"op",
+					"ok"
+				],
+				[
+					"seq",
+					"1"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

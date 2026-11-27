@@ -1,0 +1,36 @@
+{
+	"name": "clip-data-text",
+	"description": "Text with UTF-8 after the body.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 42,
+			"more": false,
+			"payload_hex": "6f703d646174610a7365713d31370a666d743d746578740a0a436166c3a920e28094206e61c3af7665"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 42,
+			"op": "data",
+			"fields": [
+				[
+					"op",
+					"data"
+				],
+				[
+					"seq",
+					"17"
+				],
+				[
+					"fmt",
+					"text"
+				]
+			],
+			"data_hex": "436166c3a920e28094206e61c3af7665"
+		}
+	]
+}

@@ -1,0 +1,16 @@
+[package]
+name = "quill-hostlink"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "The host link's codec (LHQ-PKT and LHQ-FILE frames, messages, credits) for the guest: no allocation, no unsafe, no panics"
+
+[dev-dependencies]
+proptest = { version = "1", default-features = false, features = ["std"] }
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = false
+float = false

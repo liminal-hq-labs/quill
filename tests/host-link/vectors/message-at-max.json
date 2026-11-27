@@ -1,0 +1,33 @@
+{
+	"name": "message-at-max",
+	"description": "A message exactly at max is accepted.",
+	"max": 13,
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 1,
+			"more": false,
+			"payload_hex": "6f703d6f6b0a7365713d310a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 1,
+			"op": "ok",
+			"fields": [
+				[
+					"op",
+					"ok"
+				],
+				[
+					"seq",
+					"1"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

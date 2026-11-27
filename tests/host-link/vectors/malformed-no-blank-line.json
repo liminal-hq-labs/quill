@@ -1,0 +1,21 @@
+{
+	"name": "malformed-no-blank-line",
+	"description": "A body with no empty line.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 3,
+			"more": false,
+			"payload_hex": "6f703d6279650a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "error",
+			"code": "malformed",
+			"channel": "ctl",
+			"id": 3
+		}
+	]
+}

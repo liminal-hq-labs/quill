@@ -1,0 +1,15 @@
+LHQ-PKT 1 display 1 E 21 0613f671
+op=fit
+w=1366
+h=768
+
+LHQ-PKT 1 display 2 E 47 84d52773
+op=modes
+list=640x480x8,800x600x8,1024x768x16
+
+LHQ-PKT 1 display 3 E 32 e75af767
+op=changed
+w=1024
+h=768
+bpp=16
+

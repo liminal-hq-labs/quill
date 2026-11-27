@@ -1,0 +1,56 @@
+{
+	"name": "id-wraps",
+	"description": "Ids wrap at 2^32.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "time",
+			"id": 4294967295,
+			"more": false,
+			"payload_hex": "6f703d7365740a7574633d310a0a"
+		},
+		{
+			"kind": "packet",
+			"channel": "time",
+			"id": 0,
+			"more": false,
+			"payload_hex": "6f703d7365740a7574633d320a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "time",
+			"id": 4294967295,
+			"op": "set",
+			"fields": [
+				[
+					"op",
+					"set"
+				],
+				[
+					"utc",
+					"1"
+				]
+			],
+			"data_hex": ""
+		},
+		{
+			"kind": "message",
+			"channel": "time",
+			"id": 0,
+			"op": "set",
+			"fields": [
+				[
+					"op",
+					"set"
+				],
+				[
+					"utc",
+					"2"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

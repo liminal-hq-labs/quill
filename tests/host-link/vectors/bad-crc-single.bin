@@ -1,0 +1,9 @@
+LHQ-PKT 1 clip 3 E 28 00000000
+op=data
+seq=1
+fmt=text
+
+oopsLHQ-PKT 1 clip 4 E 13 49529bd1
+op=ok
+seq=1
+

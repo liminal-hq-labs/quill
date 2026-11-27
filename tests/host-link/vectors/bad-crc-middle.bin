@@ -1,0 +1,11 @@
+LHQ-PKT 1 clip 8 M 26 d718446e
+op=data
+seq=1
+fmt=text
+
+aaLHQ-PKT 1 clip 8 M 2 deadbeef
+bbLHQ-PKT 1 clip 8 E 2 aa282760
+ccLHQ-PKT 1 clip 9 E 13 7e790bee
+op=ok
+seq=1
+

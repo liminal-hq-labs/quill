@@ -1,0 +1,92 @@
+{
+	"name": "clip-get-set-part",
+	"description": "The page asks, then sets.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 7,
+			"more": false,
+			"payload_hex": "6f703d6765740a7365713d330a666d743d6469620a0a"
+		},
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 8,
+			"more": false,
+			"payload_hex": "6f703d7365740a7365713d340a666f726d6174733d746578742c7274660a0a"
+		},
+		{
+			"kind": "packet",
+			"channel": "clip",
+			"id": 9,
+			"more": false,
+			"payload_hex": "6f703d706172740a7365713d340a666d743d746578740a0a68656c6c6f"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 7,
+			"op": "get",
+			"fields": [
+				[
+					"op",
+					"get"
+				],
+				[
+					"seq",
+					"3"
+				],
+				[
+					"fmt",
+					"dib"
+				]
+			],
+			"data_hex": ""
+		},
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 8,
+			"op": "set",
+			"fields": [
+				[
+					"op",
+					"set"
+				],
+				[
+					"seq",
+					"4"
+				],
+				[
+					"formats",
+					"text,rtf"
+				]
+			],
+			"data_hex": ""
+		},
+		{
+			"kind": "message",
+			"channel": "clip",
+			"id": 9,
+			"op": "part",
+			"fields": [
+				[
+					"op",
+					"part"
+				],
+				[
+					"seq",
+					"4"
+				],
+				[
+					"fmt",
+					"text"
+				]
+			],
+			"data_hex": "68656c6c6f"
+		}
+	]
+}

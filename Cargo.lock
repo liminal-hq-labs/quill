@@ -556,6 +556,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-hostlink"
+version = "0.0.0"
+dependencies = [
+ "proptest",
+]
+
+[[package]]
 name = "quill-image"
 version = "0.0.0"
 dependencies = [

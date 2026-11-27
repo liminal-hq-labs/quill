@@ -1,0 +1,42 @@
+{
+	"name": "file-bad-trailer",
+	"description": "The bytes after the file are not LHQ-END: the file is damaged, the parser resyncs at the next frame.",
+	"events": [
+		{
+			"kind": "file-begin",
+			"size": 3,
+			"name": "bad.txt"
+		},
+		{
+			"kind": "file-data",
+			"data_hex": "616263"
+		},
+		{
+			"kind": "error",
+			"error": "trailer",
+			"offset": 25
+		},
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 1,
+			"more": false,
+			"payload_hex": "6f703d6279650a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "message",
+			"channel": "ctl",
+			"id": 1,
+			"op": "bye",
+			"fields": [
+				[
+					"op",
+					"bye"
+				]
+			],
+			"data_hex": ""
+		}
+	]
+}

@@ -1,0 +1,11 @@
+LHQ-PKT 1 clip 1 M 26 5cdf242a
+op=data
+seq=1
+fmt=text
+
+abLHQ-PKT 1 file 2 E 17 4c9b6f83
+op=chunk
+id=1
+
+zzLHQ-PKT 1 clip 1 E 2 a1d4f710
+cd

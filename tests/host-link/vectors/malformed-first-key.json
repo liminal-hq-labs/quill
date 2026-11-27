@@ -1,0 +1,21 @@
+{
+	"name": "malformed-first-key",
+	"description": "A body whose first key is not op.",
+	"events": [
+		{
+			"kind": "packet",
+			"channel": "ctl",
+			"id": 3,
+			"more": false,
+			"payload_hex": "7365713d310a6f703d6f6b0a0a"
+		}
+	],
+	"messages": [
+		{
+			"kind": "error",
+			"code": "malformed",
+			"channel": "ctl",
+			"id": 3
+		}
+	]
+}

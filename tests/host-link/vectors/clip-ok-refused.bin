@@ -1,0 +1,9 @@
+LHQ-PKT 1 clip 10 E 13 1b233e65
+op=ok
+seq=4
+
+LHQ-PKT 1 clip 11 E 30 5f563753
+op=refused
+seq=5
+reason=busy
+
