@@ -105,6 +105,7 @@ Everything in this table is v1 unless the last column says otherwise. When time 
 - **Quill core** (`quill-core`): the document model, editing, undo and layout. Portable `no_std` Rust with no Windows or DOS dependency.
 - **Quill formats** (`quill-formats`): the native, RTF and plain text readers and writers.
 - **Quill image** (`quill-image`): the BMP and PNG decoders, scaling and colour reduction.
+- **Quill module interface** (`quill-modabi`): the C-style, versioned interface between a program and an optional module (structs of `u16` and `u32`, status codes, kinds, the picture kind's operations and the build-id check), with no loader yet. Its packaging for DOS is Desk's `.DMD` format and packer, copied into `dos/module` (CORE-90, DOS-50).
 - **Quill spell** (`quill-spell`): the dictionary reader, word checking and suggestions.
 - **Quill app** (`quill-app`): the platform-neutral editor controller: commands, the menu tree and its state, status text, and the painting of the page and chrome through a drawing trait.
 - **Quill grid** (`quill-grid`): the text-mode screen renderer for DOS text mode and the host's golden screens.

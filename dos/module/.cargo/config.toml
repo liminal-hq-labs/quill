@@ -1,0 +1,12 @@
+# Cargo settings for the module crates: the host's own target, so `cd dos/module && cargo test` runs on the host.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+#
+# The parent folder's config builds for DOS with -Zbuild-std; cargo merges configs upward, so the target is set back to the host and build-std emptied here (the host triple is the Linux CI and development machines').
+# The module crates that run on DOS build for it from the `dos/` workspace (or `dos/mods/`), not from here.
+[build]
+target = "x86_64-unknown-linux-gnu"
+
+[unstable]
+build-std = []

@@ -13,6 +13,7 @@ cd "$(dirname "$0")"
 
 cargo fmt --all -- --check
 (cd hal && cargo fmt --all -- --check && cargo clippy --locked --all-targets -- -D warnings && cargo test --locked)
+(cd module && cargo fmt --all -- --check && cargo clippy --locked --all-targets -- -D warnings && cargo test --locked)
 RUSTC_BOOTSTRAP=1 cargo clippy --release --locked -- -D warnings
 tools/e2e.sh
 tools/rt-test.sh

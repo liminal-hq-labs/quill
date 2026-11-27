@@ -14,7 +14,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 |---|---|---|---|
 | CORE-41 to CORE-47 | Editing review | in use | [work-packages.md](work-packages.md#decision-ids) |
 | CORE-55 | Editing review | reserved | [work-packages.md](work-packages.md#decision-ids) |
-| CORE-90 to CORE-99 | Optional modules (WP-MOD) | reserved | [plans/modules.md](plans/modules.md) |
+| CORE-90 to CORE-99 | Optional modules (WP-MOD) | in use | [plans/modules.md](plans/modules.md) |
 | CORE-100 to CORE-139 | Editor track (WP-ED) | reserved | [work-packages.md](work-packages.md#decision-ids) |
 | CORE-140 to CORE-144 | Zoom review | in use | [plans/zoom-review.md](plans/zoom-review.md) |
 | CORE-150 to CORE-169 | Preferences (WP-PREF) | in use | [plans/preferences.md](plans/preferences.md) |
@@ -35,7 +35,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 
 | Range | Owner | Status | Source |
 |---|---|---|---|
-| DOS-50 to DOS-59 | Optional modules (WP-MOD) | reserved | [plans/modules.md](plans/modules.md) |
+| DOS-50 to DOS-59 | Optional modules (WP-MOD) | in use | [plans/modules.md](plans/modules.md) |
 | DOS-70 to DOS-79 | Editor track (WP-ED) | in use | [work-packages.md](work-packages.md#decision-ids) |
 | DOS-80 to DOS-89 | Preferences (WP-PREF) | reserved | [plans/preferences.md](plans/preferences.md) |
 | DOS-90 to DOS-99 | Reveal Codes (WP-CODES) | reserved | [plans/reveal-codes.md](plans/reveal-codes.md) |

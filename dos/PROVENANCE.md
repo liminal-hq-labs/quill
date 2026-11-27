@@ -25,12 +25,17 @@ The Rust-on-DOS foundation in this folder comes from [Desk](https://github.com/l
 | `rt/src/bios.rs` | `dos/rt/src/hal.rs` (`DosBios`, `buffer_segment`) | Only `DosBios`: `DosDisplay` and the mode restore stay out until `quill-gfx` needs them. A new file header |
 | `.cargo/config.toml` | The installer's `dos/` | Adds `-C llvm-args=-inline-threshold=20`, which holds `QUILLDOS.EXE` under its budget (DOS-28) |
 | `build.sh`, `check.sh` | The installer's `dos/` | Build `quill-dos` and pack it as `QUILLDOS.EXE` |
+| `module/format` (`desk-module`), `module/pack` (`dmdpack`), `module/guest` (`desk-guest`) | Desk's `module/` at `862ec02` ("Refresh the Manual after the R139 code tasks (#127)") | The sources only reformatted with hard tabs. Three `Cargo.toml` files gain the `[package.metadata.quill]` table the layer check wants (`desk-module` and `desk-guest` base, `no_std`; `dmdpack` tool). One test path changed, below. The `.DMD` and `.DKX` format (parse, validate, write, `load_into`), the host packer and its cross check, and the module side's import slots, entry points, logging and panic handler. The format is specified in Desk's `docs/LOADER.md` |
+| `module/pack/tests/real.rs` | Desk's `module/pack/tests/real.rs` | Builds its test module for `dos/dos-elf.json` instead of Desk's kernel target, and passes its link flags in `CARGO_ENCODED_RUSTFLAGS`, because the build now sits under `dos/`, whose `.cargo/config.toml` would otherwise add `QUILLDOS.EXE`'s linker script. No assertion changed |
+| `module/Cargo.toml`, `module/Cargo.lock`, `module/clippy.toml` | Desk's `module/` | The workspace names Quill's four members (Desk's `mods` and `dos` excludes are gone) and carries a header. The lock file is Desk's, with the one member added. `clippy.toml` keeps the ban on compare-and-swap and gains a header |
+| `module/rustfmt.toml`, `module/.cargo/config.toml` | Quill's | Hard tabs at 130 columns. The config sets the host target and clears `-Zbuild-std`, as `hal/.cargo/config.toml` does, so `cd dos/module && cargo test` runs on the host |
+| `mods/module.ld`, `mods/link.rs` | Desk's `module/mods/` | None. The linker script that gives a module its read-only, read-only data and writable segments from the link base (`.desk.imp` in a section of its own, which the packer needs), and the link arguments each module crate's `build.rs` includes |
 
 Every copied file has its Desk header, which names the same copyright holder and licence as this repository's, so none needed changing. The files were reformatted with hard tabs (`cargo fmt` in `dos/hal`), and nothing else in them was touched.
 
 ## What is Quill's own
 
-`quill-dos/` (the program), `tools/e2e.sh` (the golden comparison) and the screens in `crates/quill-grid`.
+`quill-dos/` (the program), `tools/e2e.sh` (the golden comparison) and the screens in `crates/quill-grid`. `module/quill` (`quill-modtest`) holds the host tests that put `quill-modabi`'s picture interface into a `.DMD` file; nothing in it ships. The interface itself, `quill-modabi`, is in `crates/` (CORE-90).
 
 `rt/src/mem.rs` is written here, not copied: `memcpy` and `memset` with `rep movsd` and `rep stosd`. Desk's `dos/rt/src/mem.rs` is a byte-wise version for its Windows-flavoured COFF build and is not part of its ELF runtime (its roadmap lists the string-move version as planned), so there was nothing to copy. `hal-probe/` and `tools/hal-probe.sh` are also Quill's: a probe that draws and reads back a picture in mode 12h and in VBE 640 x 480 x 8. Desk's `spikes/a-vga-vbe` is the model.
 
@@ -41,6 +46,8 @@ Added to the copied `rt/` (the end of `rt/src/dos.rs`, and `free_memory` in `rt/
 The installer's copy dropped Desk's keyboard, timer and VGA modules; the VGA and INT 33h drivers are back as `hal/`; `quill-dos` uses `desk-hal`, `desk-vga`, `desk-i8042` and `desk-pic` (mode 12h registers, the DAC, VBE) for its graphics screen, and the mouse is Quill's `quill-mouse` over INT 33h, with `desk-i8042` and `rt::irq` as the PS/2 fallback. Quill reads the keyboard through BIOS INT 16h (copied in M1 from the installer's `keys.rs`) and writes B8000h directly, which needs none of them. `desk-int33` itself is not used.
 
 ## Refreshing
+
+The module crates (`module/`, `mods/`) refresh from Desk's `module/` the same way, keeping the changes the table lists; their tests are `cd module && cargo test`, which `check.sh` runs.
 
 1. Check out Desk at the commit to take, and diff each file in the table against its original, ignoring whitespace (`diff -w`).
 2. Copy the changed files over, then run `cargo fmt --all` in `dos/` to put the hard tabs back.

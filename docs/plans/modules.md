@@ -4,6 +4,8 @@ Quill keeps running into sizing notes: `QUILLDOS.EXE` has about 4.6 KB of its bu
 
 Written against `origin/main` at `b060d36`. It supersedes the DOS and Win16 verdicts of the earlier, unmerged `~/Documents/Liminal HQ/Quill/Quill modules and DLLs plan.md` (2026-11-25), keeps the decision ids that plan and the Liminal Installer's [shared libraries plan](https://github.com/liminal-hq-labs/liminal-installer/blob/main/docs/plans/shared-libraries.md) already use for Win16, and adopts Desk's `.DMD` container for DOS. Nothing here changes behaviour until a package lands, so `SPEC.md` and `docs/decisions.md` change with the packages.
 
+**Status.** WP-MOD-1 is built: `crates/quill-modabi` (CORE-90) and Desk's `.DMD` crates in `dos/module/` (DOS-50), host only, with no executable changed. WP-MOD-2 (the loader) is next; nothing else in the work packages has started.
+
 **Markers.** **[M]** measured for this plan (method, scripts and raw output in `~/Documents/Liminal HQ/Quill/Modules/`); **[V]** read in the code or documents named; **[W]** from Microsoft, DJGPP, Wine or otvdm sources, not run here; **[E]** estimate for the package to measure; **[U]** not checked, the package must check it. No emulator was started and nothing was built for this plan: the DOS figures come from an existing build of `refactor/quill-picture` (on `39b5683`, the day's `main` plus WP-ARCH-2 in progress), read with `nm`.
 
 ## Table of contents
