@@ -7,8 +7,10 @@
 // code to tell Enter, Backspace and Tab from Ctrl+M, Ctrl+H and Ctrl+I.
 
 use core::arch::asm;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
+use desk_hal::x86::RawPorts;
+use desk_hal::PortIo;
 use quill_app::{Dir, Key};
 
 /// Pixels Ctrl+Left and Ctrl+Right scroll the page sideways.
@@ -17,10 +19,24 @@ const SCROLL_STEP: i32 = 48;
 /// Set when a key was typed while Alt was held, so that letting Alt go afterwards is the end of a chord and not a tap.
 static ALT_USED: AtomicBool = AtomicBool::new(false);
 
+/// The BIOS key (AH:AL) last handed out, and the BIOS tick it was handed out at; `NONE` before the first.
+static LAST_KEY: AtomicU32 = AtomicU32::new(NONE);
+static LAST_TICK: AtomicU32 = AtomicU32::new(0);
+static LAST_POLL: AtomicU32 = AtomicU32::new(0);
+/// Set when the keyboard controller's last byte was a key being let go, seen while no key was waiting.
+static RELEASED: AtomicBool = AtomicBool::new(true);
+const NONE: u32 = u32::MAX;
+
+/// Ticks (18.2 a second) a key may be silent and still be taken as the same hold: a little over the longest typematic delay (1 s).
+const HOLD_TICKS: u32 = 22;
+
 /// What `wait_until` came back with.
 pub enum Wait {
 	/// A key was typed; `None` when Quill has no use for it.
 	Key(Option<Key>),
+	/// The same key again, with no release in between: the keyboard's auto-repeat of a key still held. Only the keys that repeat
+	/// (`App::key_repeats`) are to be acted on.
+	Held(Key),
 	/// The caller's check asked to stop waiting.
 	Break,
 	/// Ctrl+Left or Ctrl+Right: scroll the page sideways by this many pixels (the app has no key for either).
@@ -51,6 +67,7 @@ pub fn wait_until(check: &mut dyn FnMut() -> bool) -> Wait {
 		} else {
 			ALT_USED.store(false, Ordering::Relaxed);
 		}
+		watch_release();
 		idle();
 	}
 	if alt_flag() {
@@ -65,7 +82,47 @@ pub fn wait_until(check: &mut dyn FnMut() -> bool) -> Wait {
 	let Some(key) = quill_app::bios::decode(ax as u8, (ax >> 8) as u8) else {
 		return Wait::Key(None);
 	};
-	Wait::Key(with_shift(key))
+	let key = with_shift(key);
+	match key {
+		Some(k) if is_repeat(ax) => Wait::Held(k),
+		_ => Wait::Key(key),
+	}
+}
+
+/// True when BIOS key `ax` is the same key as the last one, with no release seen since and no long pause: a typematic repeat. The BIOS
+/// buffer hands over each repeat as a new key, so this is the only way to tell one from a press. A release is read from the keyboard
+/// controller's data port (60h), which keeps the last scan code and has bit 7 set for a key let go; it is looked at only while the
+/// BIOS buffer is empty (so the byte is later than every key waiting) and the output buffer is clear (so the BIOS has taken it
+/// and nothing here steals a byte from the BIOS or the mouse). Where the port shows nothing useful the pause alone ends the hold: a key
+/// is never taken for a repeat after more than `HOLD_TICKS`, and a release never seen costs at most one dropped press of a toggle.
+fn is_repeat(ax: u32) -> bool {
+	let now = crate::mouse::ticks();
+	let same = LAST_KEY.load(Ordering::Relaxed) == (ax & 0xFFFF)
+		&& !RELEASED.load(Ordering::Relaxed)
+		&& now.wrapping_sub(LAST_TICK.load(Ordering::Relaxed)) <= HOLD_TICKS;
+	LAST_KEY.store(ax & 0xFFFF, Ordering::Relaxed);
+	LAST_TICK.store(now, Ordering::Relaxed);
+	if !same {
+		RELEASED.store(false, Ordering::Relaxed);
+	}
+	same
+}
+
+/// While a key is taken as held, looks once a tick at whether the keyboard has sent its release. The port is read only then and only
+/// while its output buffer is empty, which keeps the reads rare and off any byte the BIOS or the mouse is about to take.
+fn watch_release() {
+	if RELEASED.load(Ordering::Relaxed) || LAST_KEY.load(Ordering::Relaxed) == NONE {
+		return;
+	}
+	let now = crate::mouse::ticks();
+	if now == LAST_POLL.swap(now, Ordering::Relaxed) {
+		return;
+	}
+	// SAFETY: a DPMI client may read the keyboard controller's ports; the data port is read only while the output buffer is empty.
+	let ports = unsafe { RawPorts::new() };
+	if ports.inb(0x64) & 1 == 0 && ports.inb(0x60) & 0x80 != 0 {
+		RELEASED.store(true, Ordering::Relaxed);
+	}
 }
 
 /// The key as the shift keys make it: Shift with a movement key extends the selection.
