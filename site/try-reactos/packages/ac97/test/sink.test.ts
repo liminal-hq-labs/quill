@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { attachAc97, createSink, type V86Cpu, type V86Emulator, type V86Machine } from "../src/index.ts";
 import { CR } from "../src/model.ts";
 
@@ -75,6 +75,18 @@ function guest() {
 }
 
 describe("the output", () => {
+	test("an output nothing has asked yet is not live, however little time the page has been running", async () => {
+		// The clock starts near zero in a fresh process or page: a last-asked time of 0 would read as a moment ago.
+		const clock = spyOn(performance, "now").mockReturnValue(5);
+		try {
+			const sink = await createSink(fakeContext().context);
+			expect(sink.live()).toBe(false);
+			sink.close();
+		} finally {
+			clock.mockRestore();
+		}
+	});
+
 	test("without an AudioWorklet a script processor carries the sound, at the context's rate", async () => {
 		const fake = fakeContext();
 		const sink = await createSink(fake.context);
