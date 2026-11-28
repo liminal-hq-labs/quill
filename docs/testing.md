@@ -181,4 +181,4 @@ The real check for the Win32 build (and the Win16 build's bonus run on 9x), on t
 - Windows 3.1 (not 3.11) and other display and printer drivers than the ones in the tree.
 - Windows 95 and 98 directly; the ME VM stands in for the 9x family.
 
-`dos/tools/held-keys-x11.sh [shots-dir]` (WP-BAR-1K, DOS-116) types Alt+=, Alt+minus, Alt+minus, Alt+=, Alt+=, Alt+0 and Alt+= through DOSBox's real INT 16h in an Xvfb of its own, and the last frame before the exit must be the host's (`tests/scenarios/g11-real-keys.keys`, `tests/golden/gfx/g11-real-keys.{16,256}.final`); DOSBox gives the program nothing for Alt with the keypad's plus or minus, so those are proved on the host only. Local, like `mouse-x11.sh`.
+`dos/tools/keys-x11.sh [shots-dir]` (WP-BAR-1K, DOS-116) types Alt+=, Alt+minus, Alt+minus, Alt+=, Alt+=, Alt+0 and Alt+= through DOSBox's real INT 16h in an Xvfb of its own, and the last frame before the exit must be the host's (`tests/scenarios/g11-real-keys.keys`, `tests/golden/gfx/g11-real-keys.{16,256}.final`); DOSBox gives the program nothing for Alt with the keypad's plus or minus, so those are proved on the host only. Local, like `mouse-x11.sh`.

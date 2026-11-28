@@ -301,7 +301,7 @@ fn the_real_driver_scenario_ends_on_the_same_frame_at_256_colours() {
 	real_driver_final(Mode::C256);
 }
 
-/// The frame `dos/tools/keys-x11.sh` compares with: the last one of the scenario whose keys are held down for real.
+/// The frame `dos/tools/held-keys-x11.sh` compares with: the last one of the scenario whose keys are held down for real.
 fn held_keys_final(mode: Mode) {
 	let (frames, _) = play_file(mode, "g18-held-keys");
 	let last = frames.last().unwrap();

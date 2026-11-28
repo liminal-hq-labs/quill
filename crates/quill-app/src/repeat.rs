@@ -10,7 +10,7 @@
 //! key on, and drops the repeat when the answer is no; a shell that cannot tell passes every key and gets the old behaviour.
 //!
 //! What repeats: characters, Tab and Enter (typing), Backspace and Delete, the cursor, Home and End, the page keys and the selecting
-//! forms of them, and Undo and Redo (Word repeats them too). The zoom steps also repeat. In a menu only the arrows repeat, and in a
+//! forms of them, and Undo and Redo (Word repeats them too). The zoom steps (Alt+minus and Alt+plus on DOS, Zoom In and Zoom Out) also repeat. In a menu only the arrows repeat, and in a
 //! dialog only the text and the movement of its fields; a key that answers a question, such as Enter or `Y`, never does.
 
 use crate::{App, Command, Key, Measure, Mode};
@@ -18,7 +18,10 @@ use crate::{App, Command, Key, Measure, Mode};
 impl Command {
 	/// True when the command may run again while its key is held: the ones that step through a history or a size.
 	pub fn repeats(self) -> bool {
-		matches!(self, Command::Undo | Command::Redo | Command::Zoom(_))
+		matches!(
+			self,
+			Command::Undo | Command::Redo | Command::Zoom(_) | Command::ZoomIn | Command::ZoomOut
+		)
 	}
 }
 
@@ -50,7 +53,10 @@ impl<M: Measure + Clone> App<M> {
 				motion(k)
 					|| matches!(
 						k,
-						Key::Char(_) | Key::Tab | Key::Enter | Key::Ctrl(b'z' | b'y')
+						Key::Char(_)
+							| Key::Tab | Key::Enter
+							| Key::Ctrl(b'z' | b'y')
+							| Key::Alt(b'-' | b'+')
 					)
 			}
 			Mode::Menu { .. } => matches!(k, Key::Left | Key::Right | Key::Up | Key::Down),

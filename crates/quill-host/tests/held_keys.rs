@@ -99,6 +99,8 @@ fn held_undo_and_redo_repeat() {
 	let e = editor();
 	assert!(e.0.key_repeats(Key::Ctrl(b'z')));
 	assert!(e.0.key_repeats(Key::Ctrl(b'y')));
+	assert!(e.0.key_repeats(Key::Alt(b'-')) && e.0.key_repeats(Key::Alt(b'+')));
+	assert!(Command::ZoomIn.repeats() && Command::ZoomOut.repeats());
 	assert!(Command::Undo.repeats() && Command::Redo.repeats() && Command::Zoom(0).repeats());
 	assert!(!Command::Bold.repeats() && !Command::Italic.repeats() && !Command::Super.repeats());
 	assert!(
