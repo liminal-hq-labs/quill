@@ -1,8 +1,8 @@
 # The reactos-liminal commit that builds QAGRR. Read by build-with-rl.sh: the first line that is not a comment is the full commit hash.
-# The reactos-liminal commit that builds QAGRR. It is the head of reactos-liminal pull request 40 (the compact trim drops the Logon ScreenSaver and keeps Blank screen, `ScreenSaverIsSecure` is cleared), on top of main with the Afterglow savers build (pull request 39, RL-67) and the round-4 icons. The Quill remix adds AGQUILL.SCR (Ghostwriter) on top. Once pull request 40 merges, move this to its merge commit on main. To move: set a newer commit, then run
+# The reactos-liminal commit that builds QAGRR. It is the merge of reactos-liminal pull request 40 on main (the compact trim drops the Logon ScreenSaver and keeps Blank screen, `ScreenSaverIsSecure` is cleared), on top of main with the Afterglow savers build (pull request 39, RL-67) and the round-4 icons. The Quill remix adds AGQUILL.SCR (Ghostwriter) on top. Pull request 41 (the exact magenta key for the Display Properties monitor) is not in it; move this once that merges. To move: set a newer commit, then run
 # `build-with-rl.sh --check-trim` and a dry run.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-145230644a92eb75c47bae00047b6801e7e45d61
+a7cec2aed2d859e678ebbe2fe05a597c34193eec
