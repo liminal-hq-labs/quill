@@ -245,3 +245,31 @@ fn a_recent_file_opened_by_the_editor_gives_the_window_its_name_and_folder() {
 	assert_eq!(doc.name(), Some("letter.rtf"));
 	assert!(doc.subtitle().ends_with("tests/docs"));
 }
+
+#[test]
+fn the_page_width_button_greys_at_page_width_and_lives_at_every_percentage() {
+	let cfg = tempfile::tempdir().unwrap();
+	let mut doc = document(cfg.path());
+	letter(&mut doc);
+	let mut view = View::new(Zoom::Width);
+	view.set_geometry(doc.geometry());
+	assert!(!StatusInfo::of(&doc, &view).can_reset);
+	view.set_zoom(Zoom::Percent(100), None);
+	assert!(StatusInfo::of(&doc, &view).can_reset);
+	view.set_zoom(Zoom::Percent(150), None);
+	assert!(StatusInfo::of(&doc, &view).can_reset);
+	view.set_zoom(Zoom::Width, None);
+	assert!(!StatusInfo::of(&doc, &view).can_reset);
+}
+
+#[test]
+fn the_tooltips_are_the_plans_and_the_labels_drop_the_key() {
+	use quill_gtk::status::{spoken, TIP_BOX, TIP_IN, TIP_OUT, TIP_RESET};
+	assert_eq!(TIP_OUT, "Zoom Out (Ctrl+-)");
+	assert_eq!(TIP_BOX, "Zoom (click for the list)");
+	assert_eq!(TIP_IN, "Zoom In (Ctrl+numpad +)");
+	assert_eq!(TIP_RESET, "Page Width (Ctrl+0)");
+	assert_eq!(spoken(TIP_RESET), "Page Width");
+	assert_eq!(spoken(TIP_IN), "Zoom In");
+	assert_eq!(spoken(TIP_BOX), "Zoom");
+}

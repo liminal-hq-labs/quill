@@ -5,13 +5,15 @@
 //
 // `StatusInfo` is read from the shared editor state (`status_position`, `char_state`) and the view, and is tested without a
 // display. The bar is an Adwaita-styled strip of captions with the zoom control at its right end: a minus button, the zoom as a menu
-// button that lists the shared levels, and a plus button, then a margin (`quill_chrome::zoom_field`, CORE-67).
+// button that lists the shared levels, a plus button and a Page Width button, then a margin (`quill_chrome::zoom_field`, CORE-67 and
+// CORE-206). The four parts are one linked group of flat buttons, each with its tooltip (LNX-90).
 
 use gtk::gio;
 use gtk::prelude::*;
 use quill_app::Command;
 use quill_chrome::zoom_field::{
-	zoom_command, zoom_step, zoom_text, ZOOM_LEVELS, ZOOM_MARGIN, ZOOM_TEXT_MAX,
+	reset_live, zoom_command, zoom_step, zoom_text, zoom_tip, ZoomPart, ZOOM_LEVELS, ZOOM_MARGIN,
+	ZOOM_TEXT_MAX,
 };
 
 use crate::actions::action_name;
@@ -38,6 +40,23 @@ pub struct StatusInfo {
 	pub can_zoom_out: bool,
 	/// Whether the plus button has a level to step up to.
 	pub can_zoom_in: bool,
+	/// Whether the Page Width button has anything to do: false while the zoom setting is already Page Width.
+	pub can_reset: bool,
+}
+
+/// The tooltip of the minus button. It moves to `quill_chrome::zoom_field::zoom_tip` when that table carries the keys (the zoom-keys
+/// work), and `the_tooltips_are_the_plans` then reads it from there.
+pub const TIP_OUT: &str = "Zoom Out (Ctrl+-)";
+/// The tooltip of the plus button: GTK's zoom in key is Ctrl with the keypad's plus (LNX-9).
+pub const TIP_IN: &str = "Zoom In (Ctrl+numpad +)";
+/// The tooltip of the box.
+pub const TIP_BOX: &str = zoom_tip(ZoomPart::Field);
+/// The tooltip of the Page Width button.
+pub const TIP_RESET: &str = zoom_tip(ZoomPart::Reset);
+
+/// A tooltip without its key, which is the accessible label of the part: `Page Width (Ctrl+0)` reads as `Page Width`.
+pub fn spoken(tip: &str) -> &str {
+	tip.split(" (").next().unwrap_or(tip)
 }
 
 impl StatusInfo {
@@ -69,6 +88,10 @@ impl StatusInfo {
 			zoom: crate::view::zoom_label(view.effective_zoom()),
 			can_zoom_out: zoom_step(view.effective_zoom() as i32, false).is_some(),
 			can_zoom_in: zoom_step(view.effective_zoom() as i32, true).is_some(),
+			can_reset: reset_live(match view.zoom() {
+				crate::view::Zoom::Width => 0,
+				crate::view::Zoom::Percent(p) => p as u16,
+			}),
 		}
 	}
 }
@@ -85,6 +108,7 @@ pub struct Status {
 	zoom: gtk::MenuButton,
 	zoom_out: gtk::Button,
 	zoom_in: gtk::Button,
+	zoom_reset: gtk::Button,
 }
 
 fn caption(text: &str) -> gtk::Label {
@@ -121,6 +145,7 @@ fn step_button(icon: &str, tooltip: &str, action: &str) -> gtk::Button {
 		.build();
 	button.add_css_class("flat");
 	button.add_css_class("caption");
+	button.update_property(&[gtk::accessible::Property::Label(spoken(tooltip))]);
 	button
 }
 
@@ -143,17 +168,26 @@ impl Status {
 			.build();
 		let zoom = gtk::MenuButton::builder()
 			.menu_model(&zoom_menu())
-			.tooltip_text("Zoom")
+			.tooltip_text(TIP_BOX)
 			.build();
 		zoom.add_css_class("flat");
 		zoom.add_css_class("caption");
-		let zoom_out = step_button("list-remove-symbolic", "Zoom out", "win.zoom-step-down");
-		let zoom_in = step_button("list-add-symbolic", "Zoom in", "win.zoom-step-up");
-		// The control is the minus button, the box and the plus button, close together.
-		let control = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+		zoom.update_property(&[gtk::accessible::Property::Label(spoken(TIP_BOX))]);
+		let zoom_out = step_button("zoom-out-symbolic", TIP_OUT, "win.zoom-step-down");
+		let zoom_in = step_button("zoom-in-symbolic", TIP_IN, "win.zoom-step-up");
+		// Page Width is the shared command the list's first row runs, so there is one route to it (LNX-91).
+		let zoom_reset = step_button(
+			"zoom-fit-best-symbolic",
+			TIP_RESET,
+			&format!("win.{}", action_name(Command::Zoom(0))),
+		);
+		// The control is the minus button, the box, the plus button and the Page Width button, in one linked group.
+		let control = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+		control.add_css_class("linked");
 		control.append(&zoom_out);
 		control.append(&zoom);
 		control.append(&zoom_in);
+		control.append(&zoom_reset);
 		let widget = gtk::Box::new(gtk::Orientation::Horizontal, 16);
 		widget.add_css_class("quill-status");
 		widget.set_margin_start(12);
@@ -179,6 +213,7 @@ impl Status {
 			zoom,
 			zoom_out,
 			zoom_in,
+			zoom_reset,
 		}
 	}
 
@@ -192,5 +227,6 @@ impl Status {
 		self.zoom.set_label(&info.zoom);
 		self.zoom_out.set_sensitive(info.can_zoom_out);
 		self.zoom_in.set_sensitive(info.can_zoom_in);
+		self.zoom_reset.set_sensitive(info.can_reset);
 	}
 }

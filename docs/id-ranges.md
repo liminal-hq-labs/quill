@@ -82,7 +82,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | LNX-65 to LNX-69 | Editor track (WP-ED) | reserved | [work-packages.md](work-packages.md#decision-ids) |
 | LNX-70 to LNX-74 | Reveal Codes (WP-CODES) | reserved | [plans/reveal-codes.md](plans/reveal-codes.md) |
 | LNX-80 to LNX-89 | GTK printing, help and dark paper (WP-GTK) | in use | [plans/gtk-print-help.md](plans/gtk-print-help.md) |
-| LNX-90 to LNX-94 | Status bar (WP-BAR) | reserved | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
+| LNX-90 to LNX-94 | Status bar (WP-BAR) | in use | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
 | LNX-95 to LNX-99 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
 
 ## WUI
