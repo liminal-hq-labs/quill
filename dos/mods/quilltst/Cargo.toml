@@ -1,0 +1,33 @@
+# QUILLTST: the loader's test module, a picture module that decodes nothing (a pattern into the rows it is given).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "quilltst"
+description = "A picture-kind module for testing the DOS loader: its info, a table and a pattern for rows"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[features]
+# Holds a megabyte of `.bss`, to test a module that does not fit in the memory left.
+big = []
+
+[dependencies]
+desk-guest = { path = "../../module/guest" }
+quill-modabi = { path = "../../../crates/quill-modabi" }
+
+[[bin]]
+name = "quilltst"
+path = "src/main.rs"
+test = false
+bench = false
+
+[package.metadata.quill]
+layer = "shell"
+no_std = true
+alloc = false
+float = false

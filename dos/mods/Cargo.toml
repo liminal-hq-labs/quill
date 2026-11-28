@@ -1,0 +1,25 @@
+# The module crates that run on DOS: each is a `no_std`, `no_main` program linked with `module.ld` for `dos-elf.json` and packed into a
+# `.DMD` file by `dmdpack` (`dos/tools/build-mods.sh`). A workspace of its own, because the default target here is DOS's, and the
+# `dos/` workspace does not include it (nor does `dos/module/`, the host tools).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+#
+# `quilltst` is the loader's test module; the shipped modules (`quillpic`, `quilldlg`) join it as their packages land (docs/plans/modules.md).
+[workspace]
+members = ["quilltst"]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+
+# A module is built like the program (`dos/Cargo.toml`): small, with link-time optimisation and no unwinding.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+debug = 0

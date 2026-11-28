@@ -15,6 +15,11 @@ cargo fmt --all -- --check
 (cd hal && cargo fmt --all -- --check && cargo clippy --locked --all-targets -- -D warnings && cargo test --locked)
 (cd module && cargo fmt --all -- --check && cargo clippy --locked --all-targets -- -D warnings && cargo test --locked)
 RUSTC_BOOTSTRAP=1 cargo clippy --release --locked -- -D warnings
+RUSTC_BOOTSTRAP=1 cargo clippy --release --locked -p rt-test --features module-arena -- -D warnings
+# The module crates build for DOS but are a workspace of their own; the linker flags are build-mods.sh's, so clippy takes only the one that
+# keeps the host's linker out of it.
+(cd mods && cargo fmt --all -- --check && RUSTC_BOOTSTRAP=1 CARGO_ENCODED_RUSTFLAGS=-Clink-arg=-nostdlib cargo clippy --release --locked \
+	--target-dir "${CARGO_TARGET_DIR:-$PWD/../target}/modules-clippy" -- -D warnings)
 tools/e2e.sh
 tools/rt-test.sh
 tools/hal-probe.sh

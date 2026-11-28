@@ -1,0 +1,18 @@
+# Cargo settings for the module crates: the DOS target specification and -Zbuild-std, as `dos/.cargo/config.toml` has them.
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+#
+# The linker flags are not here. `dos/.cargo/config.toml` sets `rustflags` for the `dos-elf` target (QUILLDOS.EXE's linker script), and cargo
+# joins the arrays of every config file it passes, so a flag set here could not take that one away. `dos/tools/build-mods.sh` passes the
+# module flags (no start files, `--emit-relocs`, 4 KiB pages, no location details, no `Debug` text, and the path remaps that keep a build
+# host's folders out of the image) in `CARGO_ENCODED_RUSTFLAGS`, which replaces every `rustflags` setting. A bare `cargo build` here
+# would link the module with QUILLDOS.EXE's script; build with the script. The linker script and the entry points are each crate's
+# `build.rs` (`link.rs`).
+[build]
+target = "../dos-elf.json"
+
+[unstable]
+build-std = ["core", "alloc", "compiler_builtins"]
+build-std-features = ["compiler-builtins-mem"]
+json-target-spec = true

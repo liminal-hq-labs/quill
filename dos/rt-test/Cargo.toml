@@ -16,7 +16,12 @@ name = "rt-test"
 path = "src/main.rs"
 
 [dependencies]
-rt = { path = "../rt" }
+rt = { path = "../rt", features = ["module"] }
+quill-modabi = { path = "../../crates/quill-modabi" }
+
+[features]
+# Loads the test modules into the arena in `.bss` instead of the heap (the `module-arena` feature of `rt`).
+module-arena = ["rt/module-arena"]
 
 [package.metadata.quill]
 layer = "shell"

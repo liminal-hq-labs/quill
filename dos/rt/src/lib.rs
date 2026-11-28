@@ -15,6 +15,7 @@
 // - `panic`    the panic handler: report, run the clean-up list, exit with status 3 (the `panic-handler` feature, on by default)
 // - `bios`     the HAL's `Bios` over DPMI 0300h: real-mode interrupts with a buffer in conventional memory
 // - `mem`      `memcpy` and `memset` with `rep movsd` and `rep stosd`
+// - `module`   the loader for optional `.DMD` modules (the `module` feature)
 // - `cleanup`  what must be undone before the program ends, by exit or by panic
 //
 // Single-threaded, with one exception: interrupt handlers, which touch only `static`s and never allocate or call DOS.
@@ -32,6 +33,8 @@ pub mod heap;
 pub mod io;
 pub mod irq;
 mod mem;
+#[cfg(feature = "module")]
+pub mod module;
 #[cfg(feature = "panic-handler")]
 mod panic;
 pub mod start;

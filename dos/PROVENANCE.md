@@ -41,6 +41,8 @@ Every copied file has its Desk header, which names the same copyright holder and
 
 Added to the copied `rt/` (the end of `rt/src/dos.rs`, and `free_memory` in `rt/src/dpmi.rs`): searching a folder (`find_first`, `find_next`, `find_each`, `DirEntry`), drives (`current_drive`, `set_current_drive`, `current_dir`, `drive_attributes`, `drive_valid`, `logical_drive_map`, `floppy_count`, `drive_mask`, `drive_removable`, `drive_is_cdrom`, `extended_error`), `rename`, `set_attributes`, `dos_version`, `File::finish` and the INT 24h stub (`install_critical_handler`, `remove_critical_handler`). Refreshing from Desk keeps them. `rt-test/` and `tools/rt-test.sh` check them under headless DOSBox.
 
+`rt/src/module.rs`, `dos/mods/` (`quilltst`, its workspace and `.cargo/config.toml`) and `tools/build-mods.sh` are Quill's own: the hosted loader Desk's roadmap lists as its M5 (to be offered back to Desk), a test module in the shape of Desk's `hello`, and a build script modelled on Desk's `tools/build-modules.sh`, which differs in passing the flags in `CARGO_ENCODED_RUSTFLAGS` (the parent folder's `rustflags` for QUILLDOS.EXE would otherwise be joined to them).
+
 ## Still to add (roadmap T4 and M1 to M2)
 
 The installer's copy dropped Desk's keyboard, timer and VGA modules; the VGA and INT 33h drivers are back as `hal/`; `quill-dos` uses `desk-hal`, `desk-vga`, `desk-i8042` and `desk-pic` (mode 12h registers, the DAC, VBE) for its graphics screen, and the mouse is Quill's `quill-mouse` over INT 33h, with `desk-i8042` and `rt::irq` as the PS/2 fallback. Quill reads the keyboard through BIOS INT 16h (copied in M1 from the installer's `keys.rs`) and writes B8000h directly, which needs none of them. `desk-int33` itself is not used.
