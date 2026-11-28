@@ -3,9 +3,9 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-.PHONY: installer disks sizes installer-dos installer-w31 installer-w95 dos gtk validate fmt clippy test headers floats layers ids unicode-docs goldens wasm bare
+.PHONY: installer disks sizes installer-dos installer-w31 installer-w95 dos gtk validate fmt clippy test headers floats layers ids unicode-docs unicode goldens wasm bare
 
-validate: fmt clippy test headers floats layers ids unicode-docs sizes magic wasm bare
+validate: fmt clippy test headers floats layers ids unicode-docs unicode sizes magic wasm bare
 	@echo "validate: ok"
 
 fmt:
@@ -36,6 +36,11 @@ bare:
 
 layers:
 	python3 -I scripts/check-layers.py
+
+# The Unicode tables: regenerated from the UCD when ~/.cache/quill-ucd/16.0.0/ has it (see assets/unicode/README.txt), otherwise
+# UNITAB.BIN is checked against the committed Rust tables, which is what CI does.
+unicode:
+	python3 -I scripts/gen-unicode.py --check
 
 ids:
 	python3 -I scripts/test_check_ids.py

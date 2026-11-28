@@ -117,3 +117,17 @@ pub fn to_ansi(b: u8) -> u8 {
 		_ => TO_ANSI.get(usize::from(b - 0x80)).copied().unwrap_or(b'?'),
 	}
 }
+
+/// The CP437 code that shows as `c`: the inverse of [`to_char`], so a printable ASCII character is itself, the bullet is
+/// 0x07, and each character above 0x7F is its position in the table. `None` for a character CP437 does not have; the
+/// codes below 0x20 other than the bullet, and 0x7F, show as spaces and so have no inverse.
+pub fn from_unicode(c: char) -> Option<u8> {
+	match c {
+		' '..='~' => u8::try_from(u32::from(c)).ok(),
+		'•' => Some(0x07),
+		_ => HIGH
+			.iter()
+			.position(|high| *high == c)
+			.and_then(|at| u8::try_from(at + 0x80).ok()),
+	}
+}
