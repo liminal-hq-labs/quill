@@ -348,6 +348,7 @@ Build order, three builders at most. `WP-BAR-1` and `WP-BAR-1G` are the zoom res
 - **Tests:** `cargo test` in `linux/quill-gtk` (the tooltips, the reset action, Ctrl+0 and Ctrl+9); G-GTK with `chrome-shots.sh` (light and dark, the reset greyed and live).
 - **Evidence:** `Status bar/WP-BAR-1G/` `before-` and `after-` `gtk-xvfb` light and dark.
 - **Decisions:** LNX-91, LNX-90 (the zoom part).
+- **Built:** feat/gtk-zoom-control; the finish line holds, with the minus and plus icons the theme's `zoom-out-symbolic` and `zoom-in-symbolic`, and the tooltips with the keys of the zoom-keys work (`Zoom Out (Ctrl+-)`, `Zoom In (Ctrl+numpad +)`) held locally until `zoom_tip` carries them. Evidence is in `Status bar/gtk/`.
 
 ### WP-BAR-2 — The status model and the layout function
 

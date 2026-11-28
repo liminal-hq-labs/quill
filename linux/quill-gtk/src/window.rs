@@ -174,6 +174,12 @@ fn primary_menu() -> gio::Menu {
 	file.append(Some("Save _As\u{2026}"), Some("win.save-as"));
 	menu.append_section(None, &file);
 	let zoom = gio::Menu::new();
+	// The keys show beside them: Ctrl+numpad plus, Ctrl+minus and, below, Ctrl+0 for Page Width (LNX-91).
+	let steps = gio::Menu::new();
+	steps.append(Some("Zoom _In"), Some("win.zoom-in"));
+	steps.append(Some("Zoom _Out"), Some("win.zoom-out"));
+	zoom.append_section(None, &steps);
+	let levels = gio::Menu::new();
 	for (label, z) in [
 		("Page Width", 0),
 		("150%", 150),
@@ -181,11 +187,12 @@ fn primary_menu() -> gio::Menu {
 		("75%", 75),
 		("50%", 50),
 	] {
-		zoom.append(
+		levels.append(
 			Some(label),
 			Some(&format!("win.{}", action_name(Command::Zoom(z)))),
 		);
 	}
+	zoom.append_section(None, &levels);
 	let view = gio::Menu::new();
 	view.append_submenu(Some("_Zoom"), &zoom);
 	view.append(Some("_Menu Bar"), Some(&format!("win.{MENU_BAR_ACTION}")));
@@ -509,14 +516,9 @@ impl Ui {
 		};
 		act("zoom-in", Box::new(|u| u.zoom(|v, a| v.zoom_in(a))));
 		act("zoom-out", Box::new(|u| u.zoom(|v, a| v.zoom_out(a))));
-		act("zoom-reset", Box::new(|u| u.zoom(|v, _| v.zoom_reset())));
 		// The status bar's minus and plus buttons: the next level of the shared list, from the zoom drawn now.
 		act("zoom-step-down", Box::new(|u| u.zoom_step(false)));
 		act("zoom-step-up", Box::new(|u| u.zoom_step(true)));
-		act(
-			"zoom-width",
-			Box::new(|u| u.zoom(|v, _| v.set_zoom(Zoom::Width, None))),
-		);
 		act(
 			"fullscreen",
 			Box::new(|u| u.window.set_fullscreened(!u.window.is_fullscreen())),
@@ -544,8 +546,12 @@ impl Ui {
 		app.set_accels_for_action("win.fullscreen", &["F11"]);
 		app.set_accels_for_action("win.zoom-in", &["<Ctrl>KP_Add"]);
 		app.set_accels_for_action("win.zoom-out", &["<Ctrl>minus", "<Ctrl>KP_Subtract"]);
-		app.set_accels_for_action("win.zoom-reset", &["<Ctrl>0", "<Ctrl>KP_0"]);
-		app.set_accels_for_action("win.zoom-width", &["<Ctrl>9"]);
+		// Page Width has one route, the tree's `Command::Zoom(0)` (its Ctrl+0 is registered above); the keypad's 0 and Ctrl+9 join it
+		// here, so one action answers all three (LNX-91).
+		app.set_accels_for_action(
+			&format!("win.{}", action_name(Command::Zoom(0))),
+			&["<Ctrl>0", "<Ctrl>KP_0", "<Ctrl>9"],
+		);
 		app.set_accels_for_action("win.save-as", &["<Ctrl><Shift>s"]);
 		app.set_accels_for_action(&format!("win.{MENU_BAR_ACTION}"), &["<Ctrl><Shift>m"]);
 		// The editing keys belong to a text field while one has the focus.

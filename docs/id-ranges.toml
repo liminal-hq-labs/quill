@@ -265,7 +265,7 @@ prefix = "LNX"
 first = 90
 last = 94
 owner = "Status bar (WP-BAR)"
-status = "reserved"
+status = "in use"
 source = "https://github.com/liminal-hq-labs/quill/pull/182"
 
 [[block]]

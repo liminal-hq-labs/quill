@@ -420,11 +420,6 @@ impl View {
 			.unwrap_or(ZOOM_MIN);
 		self.set_zoom(Zoom::Percent(next), anchor);
 	}
-
-	/// Ctrl+0: back to 100 %.
-	pub fn zoom_reset(&mut self) {
-		self.set_zoom(Zoom::Percent(100), None);
-	}
 }
 
 /// The status line's page text: `Page 2 of 5`.
@@ -600,8 +595,7 @@ mod tests {
 			v.zoom_in(None);
 		}
 		assert_eq!(v.effective_zoom(), ZOOM_MAX);
-		v.zoom_reset();
-		assert_eq!(v.zoom(), Zoom::Percent(100));
+		v.set_zoom(Zoom::Percent(100), None);
 		assert_eq!(zoom_label(v.effective_zoom()), "100%");
 	}
 

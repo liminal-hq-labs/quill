@@ -280,6 +280,20 @@ mod tests {
 	}
 
 	#[test]
+	fn page_width_has_one_accelerator_in_the_tree_and_no_other_action_binds_ctrl_0() {
+		let accels = accelerators(&tree(&[]));
+		let got: Vec<_> = accels
+			.iter()
+			.filter(|(_, k)| k == "<Ctrl>0")
+			.map(|(a, _)| a.as_str())
+			.collect();
+		assert_eq!(got, ["zoom-0"]);
+		assert!(!accels
+			.iter()
+			.any(|(a, _)| a == "zoom-reset" || a == "zoom-width"));
+	}
+
+	#[test]
 	fn every_command_of_the_windows_tree_is_here() {
 		let want: Vec<Command> = (0..MENU_COUNT)
 			.flat_map(|m| menu_items(m).iter())

@@ -703,6 +703,7 @@ dependencies = [
 name = "quill-app"
 version = "0.0.0"
 dependencies = [
+ "quill-clip",
  "quill-core",
  "quill-dlg",
  "quill-formats",
@@ -719,6 +720,15 @@ version = "0.0.0"
 dependencies = [
  "quill-app",
  "quill-core",
+]
+
+[[package]]
+name = "quill-clip"
+version = "0.0.0"
+dependencies = [
+ "quill-core",
+ "quill-formats",
+ "quill-text",
 ]
 
 [[package]]
