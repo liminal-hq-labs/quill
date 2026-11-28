@@ -17,6 +17,11 @@ export const KEY = { ctrl: [0x1d], a: [0x1e], c: [0x2e], v: [0x2f], enter: [0x1c
 
 /** Makes a CD from the vendored guest programs (as `D:\`), under the server's images folder, and returns its address on the server. */
 export function makeTestCd(imagesDir: string): string {
+	// TEST_ISO names a finished CD to use in place of one made from the vendored programs (to compare another build).
+	if (process.env.TEST_ISO) {
+		fs.copyFileSync(process.env.TEST_ISO, path.join(imagesDir, "vend-test.iso"));
+		return "/images/vend-test.iso";
+	}
 	const stage = path.join(imagesDir, "vend-test-cd");
 	fs.rmSync(stage, { recursive: true, force: true });
 	fs.mkdirSync(stage, { recursive: true });

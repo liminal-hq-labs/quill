@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 // The ?v= is the first 8 hex of the module's SHA-256; tools/stamp-web.py keeps it current (SITE-14).
-import { attach as attachLink, ClipboardSync, contentFromPaste, contentFromRead, createBrowserPort } from "./vendor/v86-host-link/host-link.js?v=9433171b";
+import { attach as attachLink, ClipboardSync, contentFromPaste, contentFromRead, createBrowserPort } from "./vendor/v86-host-link/host-link.js?v=0d03ac0f";
 
 const readout = document.querySelector("[data-link-readout]");
 const clipReadout = document.querySelector("[data-clip-readout]");
