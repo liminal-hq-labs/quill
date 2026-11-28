@@ -603,3 +603,27 @@ last = 28
 owner = "Optional modules on Windows 95 (WP-MOD)"
 status = "reserved"
 source = "docs/plans/modules.md"
+
+[[block]]
+prefix = "SITE"
+first = 120
+last = 129
+owner = "Host Link Kit (WP-KIT)"
+status = "in use"
+source = "docs/plans/host-link-kit.md"
+
+[[block]]
+prefix = "ARCH"
+first = 50
+last = 51
+owner = "Host Link Kit (WP-KIT)"
+status = "in use"
+source = "docs/plans/host-link-kit.md"
+
+[[block]]
+prefix = "INS"
+first = 30
+last = 31
+owner = "Host Link Kit (WP-KIT)"
+status = "in use"
+source = "docs/plans/host-link-kit.md"

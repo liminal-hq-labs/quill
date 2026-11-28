@@ -33,6 +33,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | ARCH-30 to ARCH-34 | Preferences (WP-PREF) | in use | [plans/preferences.md](plans/preferences.md) |
 | ARCH-35 | Reveal Codes (WP-CODES) | reserved | [plans/reveal-codes.md](plans/reveal-codes.md) |
 | ARCH-40 to ARCH-42 | Optional modules (WP-MOD) | reserved | [plans/modules.md](plans/modules.md) |
+| ARCH-50 to ARCH-51 | Host Link Kit (WP-KIT) | in use | [plans/host-link-kit.md](plans/host-link-kit.md) |
 
 ## DOS
 
@@ -107,6 +108,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | INS-20 to INS-22 | Optional modules (WP-MOD) | in use | [plans/modules.md](plans/modules.md) |
 | INS-23 to INS-25 | Printable media set | in use | assets/media/README.md |
 | INS-26 to INS-28 | Optional modules on Windows 95 (WP-MOD) | reserved | [plans/modules.md](plans/modules.md) |
+| INS-30 to INS-31 | Host Link Kit (WP-KIT) | in use | [plans/host-link-kit.md](plans/host-link-kit.md) |
 
 ## SITE
 
@@ -120,6 +122,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | SITE-51 to SITE-53 | Web demo sound package (WP-WEB-5) | in use | [plans/web-demo.md](plans/web-demo.md) |
 | SITE-60 to SITE-69 | DOS page bridge (WP-DOSWEB) | in use | [plans/dos-page-bridge.md](plans/dos-page-bridge.md) |
 | SITE-80 to SITE-89 | Host link guests (WP-HLG) | in use | [plans/host-link-guests.md](plans/host-link-guests.md) |
+| SITE-120 to SITE-129 | Host Link Kit (WP-KIT) | in use | [plans/host-link-kit.md](plans/host-link-kit.md) |
 
 ## Grandfathered ids
 
