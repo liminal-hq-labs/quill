@@ -722,9 +722,21 @@ impl Ui {
 		let keys = gtk::EventControllerKey::new();
 		keys.set_im_context(Some(im));
 		let weak = Rc::downgrade(ui);
-		keys.connect_key_pressed(move |_, key, _, state| match weak.upgrade() {
-			Some(u) if u.on_key(key, state) => glib::Propagation::Stop,
-			_ => glib::Propagation::Proceed,
+		// GTK 4 gives a held key's auto-repeat as more key-pressed events with no flag, so a key is a repeat when its hardware code is
+		// pressed again before it was released: a toggle (Ctrl+I) must act once for the press, not on and off for as long as it is held.
+		let held = Rc::new(std::cell::Cell::new(None::<u32>));
+		let released = held.clone();
+		keys.connect_key_pressed(move |_, key, code, state| {
+			let repeat = held.replace(Some(code)) == Some(code);
+			match weak.upgrade() {
+				Some(u) if u.on_key(key, state, repeat) => glib::Propagation::Stop,
+				_ => glib::Propagation::Proceed,
+			}
+		});
+		keys.connect_key_released(move |_, _, code, _| {
+			if released.get() == Some(code) {
+				released.set(None);
+			}
 		});
 		page.add_controller(keys);
 
@@ -836,10 +848,16 @@ impl Ui {
 	}
 
 	/// A key the page was given and the input method did not take. True when it was used.
-	fn on_key(self: &Rc<Self>, key: gdk::Key, state: gdk::ModifierType) -> bool {
+	fn on_key(self: &Rc<Self>, key: gdk::Key, state: gdk::ModifierType, repeat: bool) -> bool {
 		let mapped = map_key(key, state);
 		if mapped == Mapped::Ignore {
 			return false;
+		}
+		// A repeat of a held key acts only if the editor says that key repeats (text and movement do; a toggle does not).
+		if let (true, Mapped::Edit(k)) = (repeat, mapped) {
+			if !self.doc.borrow().key_repeats(k) {
+				return true;
+			}
 		}
 		let out = self.doc.borrow_mut().apply(mapped);
 		if let Some(c) = out.typed.refused.last() {

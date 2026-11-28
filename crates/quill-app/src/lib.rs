@@ -42,6 +42,7 @@ pub mod recent;
 mod recover_box;
 pub mod recovery;
 mod reflow;
+mod repeat;
 pub mod safe;
 pub mod savename;
 pub mod script;

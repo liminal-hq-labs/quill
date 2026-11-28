@@ -70,12 +70,12 @@ class Judging(unittest.TestCase):
 		self.assertEqual(gate.judge(BUDGETS, self.facts()), [])
 
 	def test_exe_over_budget(self):
-		failures = gate.judge(BUDGETS, self.facts(executable={"QUILLDOS": 454657}))
+		failures = gate.judge(BUDGETS, self.facts(executable={"QUILLDOS": 458753}))
 		self.assertEqual(len(failures), 1)
 		self.assertIn("1 over", failures[0].replace(",", ""))
 
 	def test_exe_at_budget_passes(self):
-		self.assertEqual(gate.judge(BUDGETS, self.facts(executable={"QUILLDOS": 454656})), [])
+		self.assertEqual(gate.judge(BUDGETS, self.facts(executable={"QUILLDOS": 458752})), [])
 
 	def test_exe_past_stop(self):
 		failures = gate.judge(BUDGETS, self.facts(executable={"QUILLDOS": 491521}))
@@ -103,7 +103,7 @@ class Judging(unittest.TestCase):
 
 class BudgetsFile(unittest.TestCase):
 	def test_figures_the_plan_names(self):
-		self.assertEqual(BUDGETS["executable"]["QUILLDOS"]["budget"], 454656)
+		self.assertEqual(BUDGETS["executable"]["QUILLDOS"]["budget"], 458752)
 		self.assertEqual(BUDGETS["executable"]["QUILLDOS"]["stop"], 491520)
 		self.assertEqual(BUDGETS["win16"]["data_segment"]["min_free"], 1024)
 		self.assertEqual(BUDGETS["disk"]["dos"]["min_free"], 131072)

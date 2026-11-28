@@ -301,6 +301,26 @@ fn the_real_driver_scenario_ends_on_the_same_frame_at_256_colours() {
 	real_driver_final(Mode::C256);
 }
 
+/// The frame `dos/tools/held-keys-x11.sh` compares with: the last one of the scenario whose keys are held down for real.
+fn held_keys_final(mode: Mode) {
+	let (frames, _) = play_file(mode, "g18-held-keys");
+	let last = frames.last().unwrap();
+	compare_bytes(
+		&format!("tests/golden/gfx/g18-held-keys.{}.final", mode.name()),
+		format!("crc32 {:08x}\n", crc32(&last.native)).as_bytes(),
+	);
+}
+
+#[test]
+fn the_held_keys_scenario_ends_on_the_same_frame_at_16_colours() {
+	held_keys_final(Mode::C16);
+}
+
+#[test]
+fn the_held_keys_scenario_ends_on_the_same_frame_at_256_colours() {
+	held_keys_final(Mode::C256);
+}
+
 #[test]
 fn spelling_as_you_type_in_graphics_at_16_colours() {
 	golden_of(Mode::C16, "g10-gfx-spell");

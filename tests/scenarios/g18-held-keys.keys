@@ -1,0 +1,12 @@
+# G18: keys held down in graphics (dos/tools/held-keys-x11.sh holds each key for a second or two in a virtual X server; DOSBox's keyboard
+# repeats it as a real one does). A toggle acts once however long the key is held; the cursor keys keep repeating. The host plays one press
+# of each toggle and enough presses of Left to reach the start, so the frame the program ends on is the same. AUTOTYPE has no Ctrl tokens,
+# so this file is played on the host and by the script's own xdotool calls; it is not an e2e.sh scenario.
+h i
+ctrl-a
+ctrl-i          # held: italic once
+ctrl-b          # held: bold once
+ctrl-u          # held: underline once
+right
+left left       # held: Left repeats past the start and stops there
+ctrl-q          # the question about saving: the frame the script compares

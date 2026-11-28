@@ -44,6 +44,12 @@ pub fn parse_token(t: &str) -> Option<Key> {
 		"pipe" => Key::Char(b'|'),
 		_ => {
 			let b = t.as_bytes();
+			// `ctrl-i`: Ctrl with a letter. AUTOTYPE has no such token, so only a host play (or a real keyboard) makes it.
+			if let Some([c]) = t.strip_prefix("ctrl-").map(str::as_bytes) {
+				if c.is_ascii_lowercase() {
+					return Some(Key::Ctrl(*c));
+				}
+			}
 			// `alt1`, `altn`: Alt with a letter or a digit, for the mnemonics and the sort keys of a dialog.
 			#[cfg(feature = "text-file-dialog")]
 			if let Some([c]) = t.strip_prefix("alt").map(str::as_bytes) {

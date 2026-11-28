@@ -304,6 +304,7 @@ fn main() -> i32 {
 	// A drive with no disk must fail the call, not stop the program on DOS's own "Abort, Retry, Fail?" prompt. The old handler goes
 	// back at exit.
 	let _ = rt::dos::install_critical_handler();
+	keys::watch_repeats();
 	let mut ini = [0u8; 512];
 	let n = File::open("QUILL.INI", Mode::Read)
 		.ok()
@@ -508,6 +509,12 @@ fn run(rows: usize, kept: &Kept) -> i32 {
 				app.key(&mut store, &mut files, k);
 				show(rows, &app, &store, &mut dump, &mut n, at, true);
 			}
+			keys::Wait::Held(k) => {
+				spell.input();
+				clock::set(&mut app);
+				app.key_held(&mut store, &mut files, k);
+				show(rows, &app, &store, &mut dump, &mut n, at, true);
+			}
 			keys::Wait::Key(None) | keys::Wait::Scroll(_) => {}
 			keys::Wait::Break => show(rows, &app, &store, &mut dump, &mut n, at, clicked),
 		}
@@ -650,6 +657,7 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 		if app.quit() {
 			break;
 		}
+		let mut held = false;
 		let key = match (&steps, &script) {
 			(Some(list), _) if step < list.len() => {
 				let this = list.get(step).copied();
@@ -726,6 +734,10 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 				repaint |= moved;
 				match waited {
 					keys::Wait::Key(k) => k,
+					keys::Wait::Held(k) => {
+						held = true;
+						Some(k)
+					}
 					keys::Wait::Break => None,
 					keys::Wait::Scroll(dx) => {
 						// Ctrl+Left and Ctrl+Right: the page sideways, with the caret left where it is.
@@ -735,7 +747,8 @@ fn run_gfx(want: Graphics, kept: &Kept) -> Result<i32, &'static str> {
 				}
 			}
 		};
-		if let Some(k) = key {
+		// A key still held down acts again only if it is one that repeats; a toggle waits for the next press.
+		if let Some(k) = key.filter(|k| !held || app.key_repeats(*k)) {
 			spell.input();
 			// An open drop-down list takes its own keys; every other key goes to the app.
 			if !gfx.key(&mut app, &mut store, k) {

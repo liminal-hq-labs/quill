@@ -364,6 +364,11 @@ impl Document {
 		out
 	}
 
+	/// True when the key may act again while it is held (text and movement do; a toggle does not).
+	pub fn key_repeats(&self, k: Key) -> bool {
+		self.app.key_repeats(k)
+	}
+
 	/// Hands the editor a key of its own.
 	pub fn key(&mut self, k: Key) -> Option<Dialog> {
 		self.apply(Mapped::Edit(k)).dialog
