@@ -12,8 +12,7 @@
 #        check_zoom.py crop FRAME BX BY0 BY1 OUT    writes the page area of a frame (what the goldens hold)
 #        check_zoom.py sheets FRAME BX BY0 BY1 N    exits 0 when the page area shows N sheets, or fewer where the window ends first, and
 #                                                   the desk (and nothing else) below the last one
-#        check_zoom.py pagetop FRAME BX BY0         exits 0 when the first ink of the sheet is in the page area's first rows (a page's
-#                                                   first line is at the top)
+#        check_zoom.py pagetop FRAME BX BY0         exits 0 when the top of the sheet is in the page area's first rows, under a strip of desk
 #
 # BX is the x of the vertical scroll bar and BY0 the y of the top of the page area (find_vbar.py). Everything is measured from what the
 # layout fixes and Windows' fonts cannot change: the sheet's edges, and the caret, which is a two-pixel bar as tall as its line. The
@@ -74,7 +73,8 @@ class Frame:
 		self.left = area_left(self.img, by0)
 		self.right = bx - BAR_LEFT
 		# The sheet's left edge and width, from a row inside the sheet's top margin. A sheet wider than the window runs to its edge.
-		row = by0 + 2
+		# The page area opens on the desk's gap above the sheet (CORE-233), so the row is two below the first one with white in it.
+		row = next((y for y in range(by0 + 2, by0 + 80) if any(white(self.img.getpixel((x, y))) for x in range(self.left, self.right, 4))), by0) + 2
 		self.page_left = next((x for x in range(self.left, self.right) if white(self.img.getpixel((x, row)))), None)
 		x = self.page_left
 		while x is not None and x < self.right and white(self.img.getpixel((x, row))):
@@ -387,11 +387,12 @@ def pagetop(argv: list[str]) -> int:
 		print("pagetop: no sheet in the frame", file=sys.stderr)
 		return 1
 	xs = range(f.page_left + 10, f.page_left + f.page_width - 10)
-	first = next((y for y in range(f.top, f.top + ROWS) if any(dark(f.px[x, y]) for x in xs)), None)
-	if first is None or first - f.top > 12:
-		print(f"pagetop: the first ink is {None if first is None else first - f.top} rows down the page area, not in the first 12", file=sys.stderr)
+	# The sheet's top is in the page area's first rows, under a strip of desk (CORE-233).
+	first = next((y for y in range(f.top, f.top + ROWS) if any(white(f.px[x, y]) for x in xs)), None)
+	if first is None or not 1 <= first - f.top <= 12:
+		print(f"pagetop: the sheet's top is {None if first is None else first - f.top} rows down the page area, not in 1 to 12", file=sys.stderr)
 		return 1
-	print(f"pagetop: ok (first ink {first - f.top} rows down)")
+	print(f"pagetop: ok (the sheet's top {first - f.top} rows down)")
 	return 0
 
 

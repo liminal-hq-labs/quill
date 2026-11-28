@@ -200,7 +200,11 @@ fn a_y_in_the_window_finds_its_line_and_the_scroll_bar_moves_the_view() {
 	let g = PageGeom::of(&app, &s);
 	let mut tops = Vec::new();
 	app.for_each_line(&s, |_, l| tops.push(g.line_y(l, area_top)));
-	assert_eq!(tops[0], area_top + view::PAGE_TOP);
+	assert_eq!(
+		tops[0],
+		area_top + view::PAGE_TOP + 96,
+		"under the top margin"
+	);
 	assert_eq!(tops[1] - tops[0], 16);
 	assert_eq!(app.line_at_y(&s, area_top, tops[2] + 5), Some(2));
 	assert_eq!(

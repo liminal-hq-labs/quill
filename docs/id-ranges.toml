@@ -571,3 +571,11 @@ last = 120
 owner = "Windows 3.x zoom word spacing"
 status = "in use"
 source = "docs/decisions.md"
+
+[[block]]
+prefix = "CORE"
+first = 233
+last = 233
+owner = "header-page-top"
+status = "in use"
+source = "docs/id-ranges.toml"

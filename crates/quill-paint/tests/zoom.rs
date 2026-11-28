@@ -217,7 +217,9 @@ fn ink_box(fr: &Frame, from: (i32, i32), to: (i32, i32)) -> Option<(i32, i32, i3
 #[test]
 fn the_text_shrinks_with_the_zoom_and_stays_inside_the_sheet() {
 	let width_of = |zoom: u16| {
-		let (app, s, _) = zoomed("letter.rtf", zoom);
+		let (mut app, s, _) = zoomed("letter.rtf", zoom);
+		// The first line at the top of the view, as the measure expects: the page opens a top margin (96 pixels) higher.
+		app.set_vscroll_pos(&s, 96);
 		let lay = Layout::of(&app);
 		let fr = screen(&app, &s);
 		let w = dev(page_width(&app), i32::from(zoom));

@@ -198,12 +198,12 @@ zoom_to() {
 }
 # Where the pointer waits while a frame is taken: on the page, out of the way of the text, and off the scroll bar.
 park() { point_to $((BX - 40)) $((BY0 + 300)); }
-# Clicks the vertical bar's track below the thumb until the foot of the sheet shows (at most 14 times) and writes how many it took to
+# Clicks the vertical bar's track below the thumb until the foot of the sheet shows (at most 20 times) and writes how many it took to
 # $WORK/clicks-$1, so the scroll range can be compared between zooms.
 clicks_to_foot() {
 	local n=0
-	point_to "$BX" $((BY1 - 24))
-	while [ "$n" -lt 14 ]; do
+	point_to "$BX" $((BY1 - 19))
+	while [ "$n" -lt 20 ]; do
 		shot "zoom-$1-foot"
 		python3 -I "$HERE/check_zoom.py" foot "$WORK/zoom-$1-foot.png" "$BX" "$BY0" && break
 		xdotool click 1

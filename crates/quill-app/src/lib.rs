@@ -2485,7 +2485,14 @@ impl<M: Measure + Clone> App<M> {
 			return;
 		};
 		let rows = self.rows as u32;
-		if idx < self.top || (idx == self.top && self.vsub > scroll::PAGE_TOP) {
+		let hidden = idx == self.top
+			&& if idx == 0 {
+				// From the first line the scroll counts from the sheet's top, so the line's own top is its margin and offset.
+				self.vsub > scroll::PageGeom::of(self, s).cum(&caret_line) + scroll::PAGE_TOP
+			} else {
+				self.vsub > scroll::PAGE_TOP
+			};
+		if idx < self.top || hidden {
 			// The caret's line is above the window, or its top is: the pixel scroll gives way to it.
 			self.top = idx;
 			self.vsub = 0;
