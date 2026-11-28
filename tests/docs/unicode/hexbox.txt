@@ -1,0 +1,6 @@
+BMP four digits: Ж д 中 א
+Astral five digits: 😀 𠀀 𝄞
+Six digits: 􏿽
+An emoji sequence is one box labelled with its first code point: 👨‍👩‍👧 end.
+A letter and a mark with no Windows-1252 form: ж́ end. With one: é end.
+Boxes beside letters: abcЖЗИdef

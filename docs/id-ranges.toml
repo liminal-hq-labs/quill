@@ -457,7 +457,7 @@ prefix = "CORE"
 first = 210
 last = 229
 owner = "Unicode (WP-UNI)"
-status = "reserved"
+status = "in use"
 source = "docs/plans/unicode.md"
 
 [[block]]

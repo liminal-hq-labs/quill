@@ -3,9 +3,9 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-.PHONY: installer disks sizes installer-dos installer-w31 installer-w95 dos gtk validate fmt clippy test headers floats layers ids goldens wasm bare
+.PHONY: installer disks sizes installer-dos installer-w31 installer-w95 dos gtk validate fmt clippy test headers floats layers ids unicode-docs goldens wasm bare
 
-validate: fmt clippy test headers floats layers ids sizes magic wasm bare
+validate: fmt clippy test headers floats layers ids unicode-docs sizes magic wasm bare
 	@echo "validate: ok"
 
 fmt:
@@ -43,6 +43,11 @@ ids:
 
 magic:
 	bash scripts/check-magic.sh
+
+# The Unicode test documents are generated, and the frozen .QLD 1.0 reader is never edited.
+unicode-docs:
+	python3 -I scripts/gen-unicode-docs.py --check
+	bash scripts/check-frozen-reader.sh
 
 # Rewrites the goldens from the current code. Review the diff like code.
 goldens:

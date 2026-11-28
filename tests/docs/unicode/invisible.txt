@@ -1,0 +1,5 @@
+ZWJ:a‍b ZWNJ:a‌b ZWSP:a​b WJ:a⁠b
+BOM inside text: a﻿b
+Direction marks: a‎b‏c
+Object replacement: a￼b
+C0 from outside: ab

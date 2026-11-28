@@ -1,0 +1,21 @@
+French (Canada): « Il était une fois… » — dit-elle, « c’est là qu’on s’est rencontrés. »
+Polish and Czech: Zażółć gęślą jaźń. Příliš žluťoučký kůň úpěl ďábelské ódy.
+Russian: Привет, мир! Съешь же ещё этих мягких французских булок, да выпей чаю.
+Greek: Καλημέρα κόσμε. Ξεσκεπάζω την ψυχοφθόρα βδελυγμία.
+Turkish: Pijamalı hasta yağız şoföre çabucak güvendi. İstanbul, ışık, ğüşiöç.
+Lithuanian: Įlinkdama fechtuotojo špaga sublykčiojusi pragręžė apvalų arbatą.
+Armenian: Հայերեն. Բարեւ աշխարհ։ Գրիչ, թուղթ, մատիտ։
+Georgian: ქართული. გამარჯობა მსოფლიო. ხვადია ქართული ენა.
+Vietnamese NFC: Tiếng Việt: Chào bạn, đây là một đoạn văn. Người Việt Nam ở Hà Nội.
+Vietnamese NFD: Tiếng Việt: Chào bạn, đây là một đoạn văn. Người Việt Nam ở Hà Nội.
+Chinese: 你好，世界。这是一段中文。
+Japanese: こんにちは、世界。カタカナとひらがなと漢字。
+Korean: 안녕하세요, 세계! 한글 음절입니다.
+Symbols: Maths: ∀ ∃ ∅ ∈ ∑ √ ∞ ∫ ≠ ≈ ≤ ≥ ± × ÷ ∴
+Hebrew: שלום עולם. זוהי שורה בעברית.
+Arabic: مرحبا بالعالم. هذا سطر بالعربية.
+Hindi: नमस्ते दुनिया। यह हिन्दी की एक पंक्ति है।
+Thai: สวัสดีชาวโลก นี่คือบรรทัดภาษาไทย
+Combining marks: é ạ̀ ố ñ ǖ ç Zalgo: Z͑ͫ̓ͪ̂ͫ̽͏̴̙̤̞͉͚̯̞̠͍
+Emoji: ZWJ family: 👨‍👩‍👧‍👦 and rainbow flag 🏳️‍🌈
+Hex boxes: BMP four digits: Ж д 中 א
