@@ -646,8 +646,8 @@ source = "docs/decisions.md"
 
 [[block]]
 prefix = "W9X"
-first = 140
-last = 141
+first = 144
+last = 145
 owner = "Zoom keys (WP-BAR-1K)"
 status = "in use"
 source = "docs/decisions.md"
