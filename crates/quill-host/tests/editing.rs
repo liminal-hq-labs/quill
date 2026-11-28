@@ -691,6 +691,13 @@ fn parse_accel(label: &str) -> Option<(u16, bool, bool)> {
 	let mut ctrl = false;
 	let mut shift = false;
 	let mut key = None;
+	// The zoom keys: the keypad's plus is `Num +`, and the minus sign is the main row's.
+	if let Some(keypad) = label.strip_suffix("Num +") {
+		return keypad.starts_with("Ctrl+").then_some((0x6B, true, false));
+	}
+	if label == "Ctrl+-" {
+		return Some((0xBD, true, false));
+	}
 	for part in label.split('+').filter(|p| !p.is_empty()) {
 		match part {
 			"Ctrl" => ctrl = true,
@@ -760,7 +767,7 @@ fn every_ctrl_shortcut_in_the_menus_comes_from_its_key_down_and_none_from_a_char
 			Some(Accel::Key(Key::Ctrl(letter)))
 		);
 	}
-	for c in [8u8, 9, 10, 13, 27] {
+	for c in [8u8, 9, 10, 13, 27, 0x1F, b'+', b'-', b'0'] {
 		assert!(is_ctrl_character(c));
 	}
 	// Without Ctrl nothing is a shortcut: Tab and Backspace stay the keys they are, and AltGr text is left alone.

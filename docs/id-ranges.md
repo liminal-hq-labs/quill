@@ -23,6 +23,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | CORE-210 to CORE-229 | Unicode (WP-UNI) | in use | [plans/unicode.md](plans/unicode.md) |
 | CORE-230 to CORE-231 | WP-ED-5 rich clipboard | in use | [decisions.md](decisions.md) |
 | CORE-233 | header-page-top | in use | [id-ranges.toml](id-ranges.toml) |
+| CORE-234 | Zoom keys (WP-BAR-1K) | in use | [decisions.md](decisions.md) |
 
 ## ARCH
 
@@ -46,6 +47,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | DOS-100 to DOS-109 | Status bar (WP-BAR) | in use | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
 | DOS-110 to DOS-114 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
 | DOS-115 | WP-ED-5 rich clipboard | in use | [decisions.md](decisions.md) |
+| DOS-116 | Zoom keys (WP-BAR-1K) | in use | [decisions.md](decisions.md) |
 | DOS-120 to DOS-123 | DOS page bridge (WP-DOSWEB) | reserved | [plans/dos-page-bridge.md](plans/dos-page-bridge.md) |
 
 ## W16
@@ -60,6 +62,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | W16-110 to W16-114 | Status bar (WP-BAR) | in use | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
 | W16-115 to W16-119 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
 | W16-120 | Windows 3.x zoom word spacing | in use | [decisions.md](decisions.md) |
+| W16-121 | Zoom keys (WP-BAR-1K) | in use | [decisions.md](decisions.md) |
 
 ## W9X
 
@@ -75,6 +78,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | W9X-120 to W9X-124 | Status bar (WP-BAR) | in use | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
 | W9X-125 to W9X-129 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
 | W9X-130 to W9X-139 | Optional modules on Windows 95 (WP-MOD) | reserved | [plans/modules.md](plans/modules.md) |
+| W9X-144 to W9X-145 | Zoom keys (WP-BAR-1K) | in use | [decisions.md](decisions.md) |
 
 ## LNX
 

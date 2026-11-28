@@ -200,6 +200,88 @@ sleep 2
 [ "$(ini_zoom)" = "Width" ] || fail "Ctrl+0 left Zoom=$(ini_zoom), not Width"
 echo "wine-zoom: the Page Width button and Ctrl+0 set Page Width, and the button greys there"
 
+# 4d. The zoom keys (WP-BAR-1K): Ctrl+numpad plus and minus and Ctrl+minus step through the same levels as the buttons, Ctrl+numpad 0
+# is Page Width as Ctrl+0 is, and Ctrl+Insert and Shift+Insert keep copying and pasting. View > Zoom In and Zoom Out step too.
+[ "$(ini_zoom)" = "Width" ] || fail "not at Page Width before the keys"
+key_zoom() {
+	xdotool key "$1"
+	sleep 1.5
+	[ "$(ini_zoom)" = "$2" ] || fail "$1 left Zoom=$(ini_zoom), not $2"
+}
+shot key-before
+key_zoom ctrl+KP_Add 100
+shot key-plus-100
+key_zoom ctrl+KP_Add 125
+key_zoom ctrl+KP_Subtract 100
+key_zoom ctrl+minus 75
+key_zoom ctrl+KP_0 Width
+[ "$(differ_box start reset 640 18 0 462)" -eq 0 ] || fail "the status bar does not look like the start's after Ctrl+numpad 0"
+key_zoom ctrl+KP_Add 100
+key_zoom ctrl+0 Width
+# Ctrl+minus steps down from Page Width (74 percent shown) to 50; Ctrl+numpad plus at 200 does nothing.
+key_zoom ctrl+minus 50
+key_zoom ctrl+minus 50
+for want in 75 100 125 150 200 200; do key_zoom ctrl+KP_Add "$want"; done
+key_zoom ctrl+0 Width
+shot key-width-again
+[ "$(differ_box key-before key-width-again 640 18 0 462)" -eq 0 ] || fail "a zoom key typed text or changed the status bar"
+# View > Zoom In (Alt+V, I) and View > Zoom Out (Alt+V, O).
+xdotool key alt+v
+sleep 1
+shot view-menu
+xdotool key i
+sleep 1.5
+[ "$(ini_zoom)" = "100" ] || fail "View > Zoom In left Zoom=$(ini_zoom), not 100"
+xdotool key alt+v
+sleep 1
+xdotool key o
+sleep 1.5
+[ "$(ini_zoom)" = "75" ] || fail "View > Zoom Out left Zoom=$(ini_zoom), not 75"
+key_zoom ctrl+0 Width
+# No key above typed a character: the page is still empty (the status bar says Col 1). Ctrl+Insert copies and Shift+Insert pastes:
+# type a word, select all, copy, go to the end and paste, and the page gains the word again.
+xdotool type --delay 80 quillword
+sleep 1
+xdotool key ctrl+a
+xdotool key ctrl+Insert
+xdotool key ctrl+End
+sleep 1
+shot before-paste
+xdotool key shift+Insert
+sleep 2
+shot after-paste
+[ "$(differ_box before-paste after-paste 600 300 10 130)" -gt 100 ] || fail "Ctrl+Insert, Shift+Insert did not copy and paste"
+[ "$(ini_zoom)" = "Width" ] || fail "Ctrl+Insert or Shift+Insert changed the zoom"
+xdotool key ctrl+z
+sleep 1
+echo "wine-zoom: Ctrl+numpad plus and minus, Ctrl+minus, Ctrl+numpad 0 and View > Zoom In and Out step like the buttons; Ctrl+Insert and Shift+Insert still copy and paste"
+
+# 4e. Ctrl and the wheel (WM_MOUSEWHEEL with MK_CONTROL): a notch up is Zoom In, a notch down Zoom Out, about the pointer; the wheel
+# alone still scrolls.
+xdotool mousemove 300 250
+sleep 1
+shot wheel-before
+xdotool keydown ctrl click 4 keyup ctrl
+sleep 1.5
+shot wheel-in
+[ "$(ini_zoom)" = "75" ] || fail "Ctrl+wheel up left Zoom=$(ini_zoom), not 75 (the step from the 74 percent Page Width shows)"
+xdotool keydown ctrl click 4 keyup ctrl
+sleep 1.5
+[ "$(ini_zoom)" = "100" ] || fail "Ctrl+wheel up again left Zoom=$(ini_zoom), not 100"
+xdotool keydown ctrl click 5 keyup ctrl
+sleep 1.5
+xdotool keydown ctrl click 5 keyup ctrl
+sleep 1.5
+shot wheel-out
+[ "$(ini_zoom)" = "50" ] || fail "Ctrl+wheel down twice left Zoom=$(ini_zoom), not 50"
+xdotool click 5
+sleep 1.5
+shot wheel-plain
+[ "$(ini_zoom)" = "50" ] || fail "the wheel alone changed the zoom"
+xdotool key ctrl+0
+sleep 1.5
+echo "wine-zoom: Ctrl+wheel zooms one level a notch; the wheel alone does not"
+
 # 4c. Tooltips and hints: the pointer resting on a part shows its tooltip above the status bar and its sentence in the first pane;
 # moving off takes both away.
 for part in MINUS BOX PLUS RESET; do

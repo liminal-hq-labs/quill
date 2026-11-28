@@ -1053,6 +1053,10 @@ fn run_command(hwnd: u32, c: Command) {
 		set_clock();
 	}
 	let before = view::signature(app(), store());
+	if matches!(c, Command::ZoomIn | Command::ZoomOut) {
+		// The same step the buttons take, from the zoom shown now (which for Page Width depends on the window).
+		app().set_shown_zoom(zoom_now(page_w(hwnd)));
+	}
 	if c == Command::PrintSetup {
 		// The common dialog's setup page: the printer and the paper.
 		dialogs::print_dialog(hwnd, true);
@@ -1061,9 +1065,13 @@ fn run_command(hwnd: u32, c: Command) {
 	}
 	if matches!(
 		c,
-		Command::Chrome(_) | Command::Zoom(_) | Command::SpellAsYouType
+		Command::Chrome(_)
+			| Command::Zoom(_)
+			| Command::ZoomIn
+			| Command::ZoomOut
+			| Command::SpellAsYouType
 	) {
-		if matches!(c, Command::Zoom(_)) {
+		if matches!(c, Command::Zoom(_) | Command::ZoomIn | Command::ZoomOut) {
 			fit_view_to_page(hwnd);
 		}
 		sync_chrome(hwnd);

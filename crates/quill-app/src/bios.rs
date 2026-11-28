@@ -21,6 +21,9 @@ fn alt_letter(scan: u8) -> Option<u8> {
 		0x2C..=0x32 => ROW3.get(usize::from(scan - 0x2C)).copied(),
 		0x78..=0x80 => Some(b'1' + (scan - 0x78)),
 		0x81 => Some(b'0'),
+		// Alt+minus (main row), Alt+keypad minus, Alt+keypad plus and Alt+equals (the plus key without Shift): the zoom keys.
+		0x82 | 0x4A => Some(b'-'),
+		0x4E | 0x83 => Some(b'+'),
 		_ => None,
 	}
 }

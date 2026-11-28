@@ -399,6 +399,32 @@ pub unsafe fn wheel(hwnd: Handle, sh: &mut Shell, delta: i32) {
 	scroll_v(hwnd, sh, to);
 }
 
+/// Ctrl and the wheel: one zoom step a notch (the buttons' step, `zoom_step`), keeping the point of the page under the pointer where it
+/// was. (`screen_x`, `screen_y`) is the pointer in screen pixels. Does nothing in the print preview, where the wheel turns pages.
+pub unsafe fn wheel_zoom(hwnd: Handle, sh: &mut Shell, delta: i32, screen_x: i32, screen_y: i32) {
+	if sh.grid || sh.preview.is_some() || delta == 0 {
+		return;
+	}
+	let area = page_area(hwnd, sh);
+	let aw = area.right - area.left;
+	let before = pct(sh, aw);
+	let mut origin = Point { x: 0, y: 0 };
+	ClientToScreen(hwnd, &mut origin);
+	let (x, y) = (screen_x - origin.x, screen_y - origin.y);
+	let (page_x, page_y) = to_page(hwnd, sh, x, y);
+	let Some(Command::Zoom(z)) = zoom_step(before, delta > 0) else {
+		return;
+	};
+	sh.app.set_zoom(z);
+	let after = pct(sh, aw);
+	sh.vpos = page_y + DESK_PAD - log(y - area.top, after);
+	sh.hscroll = view::PAGE_PAD + dev(page_x, after) - x;
+	crate::sync_chrome(hwnd, sh);
+	ini_save(sh);
+	update_scroll(hwnd, sh);
+	crate::invalidate_page(hwnd, sh);
+}
+
 /// Scrolls so the caret is in view, with a little room above and below it, and sideways when the page is wider than the window.
 pub unsafe fn ensure_visible(hwnd: Handle, sh: &mut Shell) {
 	ensure_visible_with(hwnd, sh, true);

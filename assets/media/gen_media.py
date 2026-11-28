@@ -1464,6 +1464,8 @@ SHORTCUTS = (
 		("Subscript", "Ctrl+="))),
 	("Paragraph", (("Left", "Ctrl+L"), ("Centred", "Ctrl+E"), ("Right", "Ctrl+R"), ("Justified", "Ctrl+J"), ("Single, 1½, double", "Ctrl+1, 5, 2"),
 		("Level up, down", "Alt+Shift+→ ←"))),
+	("View", (("Zoom in", "Ctrl+numpad +"), ("Zoom out", "Ctrl+- or numpad -"), ("Page Width", "Ctrl+0 or numpad 0"),
+		("Zoom", "Ctrl+wheel"))),
 	("Moving", (("Word", "Ctrl+← →"), ("Paragraph", "Ctrl+↑ ↓"), ("Document ends", "Ctrl+Home, End"), ("Page break", "Ctrl+Enter"),
 		("Help", "F1"))),
 )
@@ -1544,7 +1546,9 @@ def shortcut_card():
 	out.append(text("DOS · Windows 3.x · Windows 95", CARD_WIDTH - 6.0, 10.0, 6.8, "sans", PARCHMENT_300, "end"))
 	out.append(shortcut_columns(6.0, 23.5, CARD_WIDTH - 9.5, 3, 7.0, gap_after_group=2.2, leading=1.28))
 	out.append(rect(0, CARD_HEIGHT - 7.5, CARD_WIDTH, 0.3, RULE))
-	out.append(text("On DOS, Alt or F10 opens the menus; Ctrl+I is Italic and Ctrl+H is Replace there too.", 6.0, CARD_HEIGHT - 3.4, 6.2,
+	out.append(text("On DOS, Alt or F10 opens the menus; Ctrl+I is Italic and Ctrl+H is Replace there too.", 6.0, CARD_HEIGHT - 4.6, 6.2,
+		"sans", MUTED))
+	out.append(text("On DOS the zoom keys are Alt+numpad +, Alt+- and Alt+0; Windows 3.x has no wheel.", 6.0, CARD_HEIGHT - 1.7, 6.2,
 		"sans", MUTED))
 	out.append(text("Quill " + VERSION + " · " + SITE, CARD_WIDTH - 6.0, CARD_HEIGHT - 3.4, 6.2, "sans-bold", INK_700, "end"))
 	return defs, "".join(out)

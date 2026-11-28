@@ -88,6 +88,18 @@ pub struct Item {
 	pub sub: &'static [Item],
 }
 
+impl Item {
+	/// The accelerator as the DOS screens name it: their keys are read from the BIOS, which gives Alt with a digit, minus or the keypad's plus and no Ctrl with those (DOS-105).
+	pub const fn dos_accel(&self) -> &'static str {
+		match self.command {
+			Command::Zoom(0) if !self.accel.is_empty() => "Alt+0",
+			Command::ZoomIn => "Alt+Num +",
+			Command::ZoomOut => "Alt+-",
+			_ => self.accel,
+		}
+	}
+}
+
 const fn item(label: &'static str, accel: &'static str, command: Command) -> Item {
 	Item {
 		label,
@@ -144,12 +156,14 @@ const DOCUMENT: [Item; 6] = [
 	item("&Different First Page", "", Command::FirstPage),
 	rule(item("&Return to Document", "", Command::View(0))),
 ];
-const VIEW: [Item; 5] = [
+const VIEW: [Item; 7] = [
 	item("&Toolbar", "", Command::Chrome(1)),
 	item("&Formatting Bar", "", Command::Chrome(8)),
 	item("&Ruler", "", Command::Chrome(2)),
 	item("&Status Bar", "", Command::Chrome(4)),
-	rule(submenu("&Zoom", Command::Zoom(0), &ZOOM)),
+	rule(item("Zoom &In", "Ctrl+Num +", Command::ZoomIn)),
+	item("Zoom &Out", "Ctrl+-", Command::ZoomOut),
+	submenu("&Zoom", Command::Zoom(0), &ZOOM),
 ];
 const HELP: [Item; 2] = [
 	item("&Contents", "F1", Command::Help),
@@ -248,7 +262,11 @@ pub fn menu_box(menu: u8, text: bool, recents: usize) -> (usize, usize, usize) {
 	// Wide enough for the longest label and its accelerator with a gap between them (the Character menu needs more).
 	let w = items
 		.iter()
-		.map(|it| it.label.chars().filter(|c| *c != '&').count() + it.accel.len() + 6)
+		.map(|it| {
+			it.label.chars().filter(|c| *c != '&').count()
+				+ it.accel.len().max(it.dos_accel().len())
+				+ 6
+		})
 		.fold(26, usize::max);
 	// A rule above an item takes a row of its own, and so does the one above the recent files.
 	let rules = items.iter().filter(|it| it.rule).count() + usize::from(recents > 0);
@@ -735,7 +753,12 @@ pub fn draw_rows<M: Measure + Clone, S: ReadStore + ?Sized, const ROWS: usize>(
 						g.fill(col + 1, y, w - 2, 1, b' ', a);
 						put_label(g, col + 2, y, it.label, a, h);
 						if it.sub.is_empty() {
-							g.text(col + w - 2 - it.accel.len(), y, it.accel.as_bytes(), a);
+							g.text(
+								col + w - 2 - it.dos_accel().len(),
+								y,
+								it.dos_accel().as_bytes(),
+								a,
+							);
 						} else {
 							g.put(col + w - 3, y, 0x10, a);
 						}
@@ -1295,6 +1318,8 @@ pub fn command_hint(c: Command) -> &'static str {
 		Command::Chrome(_) => "Show or hide the formatting bar",
 		Command::Zoom(0) => "Fit the page to the width of the window",
 		Command::Zoom(_) => "Show the page larger or smaller",
+		Command::ZoomIn => "Show the page larger",
+		Command::ZoomOut => "Show the page smaller",
 		Command::Help => "Open the help contents",
 		Command::About => "Show the version and the licence",
 	}

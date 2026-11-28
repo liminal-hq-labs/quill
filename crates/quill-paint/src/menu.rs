@@ -101,8 +101,8 @@ pub fn menu_geom(
 	let mut w_of = |t: &[u8]| -> i32 { t.iter().filter(|c| **c != b'&').map(|c| adv(*c)).sum() };
 	for it in items {
 		let mut w = w_of(it.label.as_bytes()) + 16;
-		if !it.accel.is_empty() {
-			w += 24 + w_of(it.accel.as_bytes());
+		if !it.dos_accel().is_empty() {
+			w += 24 + w_of(it.dos_accel().as_bytes());
 		} else if !it.sub.is_empty() {
 			w += 16;
 		}
@@ -275,8 +275,8 @@ pub fn draw_menu<Sf: Surface + ?Sized, M: Measure + Clone, S: ReadStore + ?Sized
 				}
 				ui.label(sf, r.left + CHECK_W, ty, it.label.as_bytes(), fg);
 				if it.sub.is_empty() {
-					let w = ui.width(sf, it.accel.as_bytes());
-					ui.text(sf, r.right - 10 - w, ty, it.accel.as_bytes(), fg);
+					let w = ui.width(sf, it.dos_accel().as_bytes());
+					ui.text(sf, r.right - 10 - w, ty, it.dos_accel().as_bytes(), fg);
 				} else {
 					// An arrow for a submenu.
 					for d in 0..4 {

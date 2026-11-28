@@ -270,6 +270,8 @@ mod tests {
 				"_Formatting Bar",
 				"_Ruler",
 				"_Status Bar",
+				"Zoom _In",
+				"Zoom _Out",
 				"_Zoom"
 			]
 		);

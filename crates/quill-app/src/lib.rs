@@ -435,6 +435,10 @@ pub enum Command {
 	Spacing(u8),
 	/// View > Zoom: a percentage from 25 to 200, or 0 for the page's width. It changes only the view, so a build with no zoom ignores it.
 	Zoom(u16),
+	/// View > Zoom In: the next level above the zoom the page is drawn at now ([`scroll::zoom_step`], the rule the zoom box's plus button follows). Nothing happens at the top.
+	ZoomIn,
+	/// View > Zoom Out: the next level below the zoom the page is drawn at now, as the minus button does. Nothing happens at the bottom.
+	ZoomOut,
 }
 
 /// The longest file name the editor keeps, with room for the terminating NUL: a DOS path (79 bytes: `C:\` and 63 of folders and a
@@ -631,6 +635,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	fmt: u8,
 	/// The view's zoom: a percentage, or 0 for the page's width.
 	pub(crate) zoom: u16,
+	/// The percentage the page is drawn at now, which a shell that lays the page out says (`set_shown_zoom`); it matters only while the zoom is Page Width.
+	pub(crate) zoom_shown: u16,
 	/// `[Quill] Blink=0` was read: a shell that blinks the caret keeps it steady. Written back so the setting survives a save.
 	blink_steady: bool,
 	/// What the editor keeps about recovery files (`recovery.rs`).
@@ -704,6 +710,7 @@ impl<M: Measure + Clone> App<M> {
 			view: 0,
 			saved_view: (0, 0),
 			zoom: 0,
+			zoom_shown: 100,
 			blink_steady: false,
 			rcv: recovery::State::new(),
 			idle: idle::State::new(),
@@ -1833,6 +1840,13 @@ impl<M: Measure + Clone> App<M> {
 				});
 			}
 			Command::Zoom(z) => self.set_zoom(z),
+			Command::ZoomIn | Command::ZoomOut => {
+				if let Some(Command::Zoom(z)) =
+					scroll::zoom_step(self.zoom_shown(), c == Command::ZoomIn)
+				{
+					self.set_zoom(z);
+				}
+			}
 			Command::Preview | Command::PrintSetup => {
 				self.msg.set("That is not available in this version.")
 			}
@@ -2274,6 +2288,9 @@ impl<M: Measure + Clone> App<M> {
 			Key::Alt(8) => self.run(s, f, Command::Undo),
 			// Page Width on the DOS screens, which get no Ctrl with a digit from the BIOS (DOS-105); no menu has a digit mnemonic.
 			Key::Alt(b'0') => self.run(s, f, Command::Zoom(0)),
+			// Zoom Out and Zoom In on the DOS screens: Alt with the minus key (either one) and with the keypad's plus.
+			Key::Alt(b'-') => self.run(s, f, Command::ZoomOut),
+			Key::Alt(b'+') => self.run(s, f, Command::ZoomIn),
 			Key::Alt(c) if !self.native => {
 				if let Some(menu) = paint::menu_for_mnemonic(c) {
 					self.end_typing();

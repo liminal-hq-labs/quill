@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use quill_app::{bios, App, Key};
+use quill_app::{bios, App, Command, Key};
 use quill_host::script::MemFiles;
 use quill_host::HostStore;
 
@@ -322,4 +322,110 @@ fn recent_files_are_listed_in_file_before_exit_and_in_no_other_menu() {
 	assert_eq!(quill_app::Slot::Item(4), quill_app::slot(6, 1, 4));
 	assert_eq!(quill_app::item_for_mnemonic(0, b'1', 1, true), Some(5));
 	assert_eq!(quill_app::item_for_mnemonic(1, b'1', 0, true), None);
+}
+
+#[test]
+fn the_zoom_keys_step_like_the_buttons_on_the_windows_builds() {
+	use quill_app::accel::{from_vk, Accel};
+	let step = |code, ctrl, shift| from_vk(code, ctrl, shift, false);
+	// Ctrl+numpad plus (VK_ADD) is Zoom In; Ctrl+numpad minus (VK_SUBTRACT) and Ctrl+minus (VK_OEM_MINUS) are Zoom Out.
+	assert_eq!(
+		step(0x6B, true, false),
+		Some(Accel::Command(Command::ZoomIn))
+	);
+	assert_eq!(
+		step(0x6D, true, false),
+		Some(Accel::Command(Command::ZoomOut))
+	);
+	assert_eq!(
+		step(0xBD, true, false),
+		Some(Accel::Command(Command::ZoomOut))
+	);
+	// Without Ctrl they are text, and Ctrl+= stays Subscript.
+	assert_eq!(step(0x6B, false, false), None);
+	assert_eq!(step(0xBD, false, false), None);
+	assert_eq!(step(0xBB, true, false), Some(Accel::Command(Command::Sub)));
+	// Ctrl+numpad 0 is Page Width as Ctrl+0 is; Ctrl+Insert (the numpad 0 with Num Lock off) is still Copy and Shift+Insert Paste.
+	assert_eq!(
+		step(0x60, true, false),
+		Some(Accel::Command(Command::Zoom(0)))
+	);
+	assert_eq!(step(0x2D, true, false), Some(Accel::Command(Command::Copy)));
+	assert_eq!(
+		step(0x2D, false, true),
+		Some(Accel::Command(Command::Paste))
+	);
+	assert_eq!(step(0x60, false, false), None);
+}
+
+#[test]
+fn the_dos_zoom_keys_come_from_the_bios_scan_codes() {
+	// Alt+minus (82h), Alt+keypad minus (4Ah) and Alt+keypad plus (4Eh) arrive with AL 0.
+	assert_eq!(bios::decode(0, 0x82), Some(Key::Alt(b'-')));
+	assert_eq!(bios::decode(0, 0x4A), Some(Key::Alt(b'-')));
+	assert_eq!(bios::decode(0, 0x4E), Some(Key::Alt(b'+')));
+	// Alt+= (83h) is the same plus without the keypad, which DOSBox's BIOS gives and the keypad's keys it does not.
+	assert_eq!(bios::decode(0, 0x83), Some(Key::Alt(b'+')));
+	// The plain keys still type their characters.
+	assert_eq!(bios::decode(b'-', 0x0C), Some(Key::Char(b'-')));
+	assert_eq!(bios::decode(b'+', 0x4E), Some(Key::Char(b'+')));
+	// Ctrl+Insert, which is Ctrl+keypad 0 with Num Lock off, is not a key here.
+	assert_eq!(bios::decode(0, 0x92), None);
+	let (mut app, mut s, mut f) = setup();
+	app.set_zoom(100);
+	app.key(&mut s, &mut f, Key::Alt(b'+'));
+	assert_eq!(app.zoom(), 125);
+	app.key(&mut s, &mut f, Key::Alt(b'-'));
+	app.key(&mut s, &mut f, Key::Alt(b'-'));
+	assert_eq!(app.zoom(), 75);
+	assert!(app.menu_open().is_none(), "no menu opened");
+}
+
+#[test]
+fn zoom_in_and_out_walk_the_list_from_the_zoom_shown_and_stop_at_its_ends() {
+	let (mut app, mut s, mut f) = setup();
+	// Page Width drawn at 74 percent: plus goes to 75, minus to 50.
+	app.set_zoom(0);
+	app.set_shown_zoom(74);
+	app.command(&mut s, &mut f, Command::ZoomIn);
+	assert_eq!(app.zoom(), 75);
+	app.set_zoom(0);
+	app.command(&mut s, &mut f, Command::ZoomOut);
+	assert_eq!(app.zoom(), 50);
+	// The list is 200, 150, 125, 100, 75, 50, one step at a time, and the item is greyed at either end.
+	let seq: Vec<u16> = (0..7)
+		.map(|_| {
+			app.command(&mut s, &mut f, Command::ZoomIn);
+			app.zoom()
+		})
+		.collect();
+	assert_eq!(seq, [75, 100, 125, 150, 200, 200, 200]);
+	assert!(app.menu_mark(&s, Command::ZoomIn).disabled);
+	assert!(!app.menu_mark(&s, Command::ZoomOut).disabled);
+	app.set_zoom(50);
+	app.command(&mut s, &mut f, Command::ZoomOut);
+	assert_eq!(app.zoom(), 50);
+	assert!(app.menu_mark(&s, Command::ZoomOut).disabled);
+	assert!(!app.menu_mark(&s, Command::ZoomIn).disabled);
+	// Both items sit in the View menu, with the keys the Windows builds answer to and the DOS screens' own.
+	let items: Vec<_> = (0..quill_app::MENU_COUNT)
+		.flat_map(|m| quill_app::menu_items_for(m, true).iter())
+		.filter(|it| matches!(it.command, Command::ZoomIn | Command::ZoomOut))
+		.collect();
+	assert_eq!(items.len(), 2);
+	assert_eq!(
+		(items[0].accel, items[0].dos_accel()),
+		("Ctrl+Num +", "Alt+Num +")
+	);
+	assert_eq!((items[1].accel, items[1].dos_accel()), ("Ctrl+-", "Alt+-"));
+}
+
+#[test]
+fn the_menu_tree_still_fits_the_windows_3_command_table() {
+	// win16/examples/quill/main.rs numbers every item without a submenu into `CMDS` (NCMDS_MAX, 72); a longer tree would drop commands.
+	let leaves: usize = (0..quill_app::MENU_COUNT)
+		.flat_map(|m| quill_app::menu_items(m).iter())
+		.map(|it| if it.sub.is_empty() { 1 } else { it.sub.len() })
+		.sum();
+	assert!(leaves <= 72, "{leaves} menu commands");
 }

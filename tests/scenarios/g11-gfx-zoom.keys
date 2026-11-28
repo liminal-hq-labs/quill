@@ -3,6 +3,7 @@
 # through 125, 100 and 75, Page Width and 50 from the list, the minus button greyed at 50, the plus button held, a click in the margin that
 # does nothing, the scroll bar's arrow at 50, and View > Zoom from the keyboard. The control is a minus button, the box, a plus button, a
 # Page Width button and a margin; Alt+0 (the BIOS's AH 81h) and the Page Width button both set Page Width, which greys the button.
+# Alt+keypad plus, Alt+minus and the View menu's Zoom In and Zoom Out take the same steps as the buttons.
 # Every frame's CRC-32 must equal the host's.
 @copy letter.rtf
 @open LETTER.RTF
@@ -26,7 +27,7 @@ z o o m space t e s t   # typed at the caret
 @click 632 440          # the scroll bar's down arrow at 50 percent
 @click 200 200          # a click in the text at 50
 @wheel 2
-f10 right right right right right right right down down down down enter   # View > Zoom: the list of levels opens, 50 lit
+f10 right right right right right right right down down down down down down enter   # View > Zoom (after Zoom In and Zoom Out): the list opens, 50 lit
 up up enter             # 100 percent
 f10 right right right right right right right z     # the mnemonic opens the list too
 esc
@@ -41,5 +42,14 @@ esc
 @click 602 470          # 125
 @click 602 470          # 150
 alt0                    # Alt+0 is Page Width on DOS: INT 16h's scan code 81h, decoded as the host decodes it
+altplus                 # Alt+keypad plus: Zoom In from the 74 percent shown, 75
+altplus                 # 100
+altminus                # Alt+minus: Zoom Out, 75
+altminus                # 50
+altminus                # at 50 nothing runs
+altplus                 # 75
+f10 right right right right right right right down down down down enter   # View > Zoom In: 100
+f10 right right right right right right right down down down down down enter   # View > Zoom Out: 75
+alt0
 f10 down down enter     # File > Save
 f10 end enter           # File > Exit

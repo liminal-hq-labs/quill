@@ -11,7 +11,7 @@
 
 use quill_app::Command;
 
-pub use quill_app::scroll::{zoom_level_index, zoom_text, ZOOM_LEVELS, ZOOM_TEXT_MAX};
+pub use quill_app::scroll::{zoom_level_index, zoom_step, zoom_text, ZOOM_LEVELS, ZOOM_TEXT_MAX};
 
 /// The command that chooses level `index` of [`ZOOM_LEVELS`], or `None` past the end.
 pub fn zoom_command(index: usize) -> Option<Command> {
@@ -119,14 +119,19 @@ pub const fn reset_live(zoom: u16) -> bool {
 pub const fn zoom_tip(part: ZoomPart) -> &'static str {
 	match part {
 		ZoomPart::Reset => "Page Width (Ctrl+0)",
-		ZoomPart::Minus => "Zoom Out",
+		ZoomPart::Minus => "Zoom Out (Ctrl+-)",
 		ZoomPart::Field => "Zoom (click for the list)",
-		ZoomPart::Plus => "Zoom In",
+		ZoomPart::Plus => "Zoom In (Ctrl+numpad +)",
 	}
 }
 
 /// The Page Width button's tooltip on the DOS graphics screen, where the BIOS gives no Ctrl with a digit and Alt+0 does the work.
 pub const RESET_TIP_DOS: &str = "Page Width (Alt+0)";
+
+/// The minus and plus buttons' tooltips on the DOS graphics screen, where the BIOS gives Alt with the minus key and the keypad's keys (DOS-116).
+pub const MINUS_TIP_DOS: &str = "Zoom Out (Alt+-)";
+/// The plus button's tooltip on the DOS graphics screen.
+pub const PLUS_TIP_DOS: &str = "Zoom In (Alt+numpad +)";
 
 /// The sentence a status bar shows in its first field while the pointer rests on a part of the control.
 pub const fn zoom_hint(part: ZoomPart) -> &'static str {
@@ -154,26 +159,6 @@ pub fn reset_glyph(mut rect: impl FnMut(i32, i32, i32, i32)) {
 /// The width of the box for text `text_w` wide: 6 pixels a side, so the widest text (`Page Width`) fits every shell that measures.
 pub const fn field_for(text_w: i32) -> i32 {
 	text_w + 12
-}
-
-/// The command a click on the minus (`up` false) or plus (`up` true) button runs, or `None` when there is no level that way, which is
-/// when a shell greys the button. `shown` is the percentage the page is drawn at now, which is not the setting while it is Page
-/// Width. Minus goes to the largest percentage below it and plus to the smallest above it, so Page Width, which has no step of its
-/// own, is left by either button and reached only from the list.
-pub fn zoom_step(shown: i32, up: bool) -> Option<Command> {
-	let mut found: Option<u16> = None;
-	for &level in ZOOM_LEVELS.iter().filter(|&&level| level != 0) {
-		let level_pct = i32::from(level);
-		let better = if up {
-			level_pct > shown && found.is_none_or(|best| level < best)
-		} else {
-			level_pct < shown && found.is_none_or(|best| level > best)
-		};
-		if better {
-			found = Some(level);
-		}
-	}
-	found.map(Command::Zoom)
 }
 
 #[cfg(test)]
@@ -335,9 +320,11 @@ mod tests {
 	fn the_tooltips_are_the_owners_words() {
 		assert_eq!(zoom_tip(ZoomPart::Reset), "Page Width (Ctrl+0)");
 		assert_eq!(RESET_TIP_DOS, "Page Width (Alt+0)");
-		assert_eq!(zoom_tip(ZoomPart::Minus), "Zoom Out");
+		assert_eq!(zoom_tip(ZoomPart::Minus), "Zoom Out (Ctrl+-)");
+		assert_eq!(MINUS_TIP_DOS, "Zoom Out (Alt+-)");
+		assert_eq!(PLUS_TIP_DOS, "Zoom In (Alt+numpad +)");
 		assert_eq!(zoom_tip(ZoomPart::Field), "Zoom (click for the list)");
-		assert_eq!(zoom_tip(ZoomPart::Plus), "Zoom In");
+		assert_eq!(zoom_tip(ZoomPart::Plus), "Zoom In (Ctrl+numpad +)");
 	}
 
 	#[test]

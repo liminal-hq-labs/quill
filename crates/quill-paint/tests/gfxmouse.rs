@@ -634,9 +634,9 @@ fn each_part_of_the_zoom_control_has_a_tip_above_it() {
 	use quill_chrome::zoom_field::ZoomPart;
 	let mut r = Rig::doc("letter.rtf");
 	let want = [
-		(ZoomPart::Minus, &b"Zoom Out"[..]),
+		(ZoomPart::Minus, &b"Zoom Out (Alt+-)"[..]),
 		(ZoomPart::Field, &b"Zoom (click for the list)"[..]),
-		(ZoomPart::Plus, &b"Zoom In"[..]),
+		(ZoomPart::Plus, &b"Zoom In (Alt+numpad +)"[..]),
 		(ZoomPart::Reset, &b"Page Width (Alt+0)"[..]),
 	];
 	for (part, text) in want {

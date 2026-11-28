@@ -320,7 +320,7 @@ Build order, three builders at most. `WP-BAR-1` and `WP-BAR-1G` are the zoom res
 
 | Wave | Retro lane | Shared and ED lane | UI lane | Waits for |
 | --- | --- | --- | --- | --- |
-| 1 | WP-BAR-1 zoom reset and tooltips (shared, Win32, Win16, DOS graphics) | — | WP-BAR-1G GTK reset, tooltips, icons, Ctrl+0 | Nothing |
+| 1 | WP-BAR-1 zoom reset and tooltips (shared, Win32, Win16, DOS graphics); WP-BAR-1K zoom keys, View > Zoom In and Out and Ctrl+wheel (same builds; CORE-234, DOS-116, W16-121, W9X-144, W9X-145) | — | WP-BAR-1G GTK reset, tooltips, icons, Ctrl+0 | Nothing (WP-BAR-1K needs WP-BAR-1 merged) |
 | 2 | — | WP-BAR-2 the status model and layout | — | WP-BAR-1 merged; an ED-lane slot for `App::backed_up` |
 | 3 | WP-BAR-5 Windows 95 | WP-BAR-3 the text screens and the terminal | WP-BAR-6 Windows 3.x | WP-BAR-2 merged; WP-BAR-3 needs the ED-lane slot in `paint.rs` and no Unicode freeze open |
 | 4 | WP-BAR-4 DOS graphics | WP-BAR-8 word count, Language and the settings | WP-BAR-7 GTK | WP-BAR-3 for WP-BAR-4 (shared row text) and WP-BAR-8 (ED lane); WP-BAR-1G for WP-BAR-7 |

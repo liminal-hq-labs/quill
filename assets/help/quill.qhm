@@ -30,7 +30,9 @@ Quill saves its own [.QLD files](!qld) and reads and writes Rich Text Format (.R
 # Keyboard shortcuts
 - Ctrl+N new, Ctrl+O open, Ctrl+S save
 - Ctrl+X cut, Ctrl+C copy, Ctrl+V paste
-- Ctrl+0 Page Width (Alt+0 on DOS)
+- Ctrl+0 or Ctrl+numpad 0 Page Width (Alt+0 on DOS)
+- Ctrl+numpad + zoom in, Ctrl+minus or Ctrl+numpad minus zoom out (Alt+numpad +, Alt+= and Alt+minus on DOS)
+- Ctrl+wheel zooms on Windows 95 and later
 - F7 checks the spelling
 - F1 opens this help
 [Back to the contents](start).

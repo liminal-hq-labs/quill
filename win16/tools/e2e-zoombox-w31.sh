@@ -11,7 +11,7 @@
 # box reads Page Width), `zoombox-open` (a click on the box opened the list: the pixels above the box changed), `zoombox-escape`
 # (Escape closed it and nothing else changed), `zoombox-75` (the list's sixth entry, chosen by the keys, redrew the page and the box),
 # `zoombox-plus` (the plus button went to 100), `zoombox-minus` (minus twice went to 50) and `zoombox-minus-end` (minus at 50, greyed, did
-# nothing). The margin at the right edge is checked on the host (the pointer cannot be steered onto it against the black screen).
+# nothing). The zoom keys, View > Zoom In and Out and Ctrl+Insert, Shift+Insert follow (`zoombox-key-*`, `zoombox-menu-*`). The margin at the right edge is checked on the host (the pointer cannot be steered onto it against the black screen).
 # At the end File > Exit must leave `Zoom=50` in QUILL.INI and the stack margin as the other tests demand. Exits 0 with a note when the
 # Windows 3.11 tree is missing. The mouse needs the emulator's pointer lock; see docs/testing.md.
 set -euo pipefail
@@ -291,15 +291,87 @@ sleep 2
 shot zoombox-ctrl0
 [ "$(differ_box zoombox-reset zoombox-ctrl0 600 400 440 440)" -lt 50 ] || fail "Ctrl+0 did not bring Page Width back ($(differ_box zoombox-reset zoombox-ctrl0 600 400 440 440) pixels)"
 log "Ctrl+0 sets Page Width"
+# The zoom keys (WP-BAR-1K) take the buttons' steps: each key from Page Width gives the picture the matching button gave from Page Width.
+# Ctrl+numpad plus is the plus button's, and Ctrl+minus and Ctrl+numpad minus are the minus button's.
+same() { [ "$(differ_box "$1" "$2" 780 590 330 318)" -lt 50 ] || fail "$3 ($(differ_box "$1" "$2" 780 590 330 318) pixels differ)"; }
+xdotool key ctrl+KP_Add
+sleep 2
+shot zoombox-key-plus
+same zoombox-plus-again zoombox-key-plus "Ctrl+numpad plus is not the plus button's step"
+# The keypad's 0 is Ctrl+Insert (Copy) with Num Lock off, so Num Lock goes on for it and off again.
+xdotool key Num_Lock
+sleep 0.5
+xdotool key ctrl+KP_0
+sleep 2
+xdotool key Num_Lock
+sleep 0.5
+shot zoombox-key-kp0
+same zoombox-ctrl0 zoombox-key-kp0 "Ctrl+numpad 0 did not bring Page Width back"
+log "Ctrl+numpad plus steps like the plus button, Ctrl+numpad 0 is Page Width"
+point_to "$MINUS_X" "$BOX_Y"
+xdotool click 1
+sleep 2
+park
+shot zoombox-minus-width
+[ "$(differ_box zoombox-ctrl0 zoombox-minus-width 600 400 440 440)" -gt 500 ] || fail "minus from Page Width did not change the page"
+xdotool key ctrl+0
+sleep 2
+xdotool key ctrl+minus
+sleep 2
+shot zoombox-key-minus
+same zoombox-minus-width zoombox-key-minus "Ctrl+minus is not the minus button's step"
+xdotool key ctrl+0
+sleep 2
+xdotool key ctrl+KP_Subtract
+sleep 2
+shot zoombox-key-kpminus
+same zoombox-minus-width zoombox-key-kpminus "Ctrl+numpad minus is not the minus button's step"
+xdotool key ctrl+0
+sleep 2
+log "Ctrl+minus and Ctrl+numpad minus step like the minus button"
+# View > Zoom In (Alt+V, I) is the same step as the key.
+xdotool key alt+v
+sleep 1
+shot zoombox-view-menu
+xdotool key i
+sleep 2
+shot zoombox-menu-in
+same zoombox-key-plus zoombox-menu-in "View > Zoom In is not the plus button's step"
+xdotool key ctrl+0
+sleep 2
+xdotool key alt+v
+sleep 1
+xdotool key o
+sleep 2
+shot zoombox-menu-out
+same zoombox-minus-width zoombox-menu-out "View > Zoom Out is not the minus button's step"
+xdotool key ctrl+0
+sleep 2
+log "View > Zoom In and Zoom Out step like the buttons"
+# Ctrl+Insert still copies and Shift+Insert still pastes: select all, copy, go to the end and paste; the document is then modified.
+xdotool key ctrl+a
+xdotool key ctrl+Insert
+xdotool key ctrl+End
+sleep 2
+shot zoombox-before-paste
+xdotool key shift+Insert
+sleep 3
+shot zoombox-after-paste
+[ "$(differ_box zoombox-before-paste zoombox-after-paste 600 400 440 440)" -gt 200 ] || fail "Ctrl+Insert and Shift+Insert did not copy and paste"
+xdotool key ctrl+z
+sleep 2
+log "Ctrl+Insert and Shift+Insert still copy and paste"
 # Resting on the Page Width button shows its tooltip above the bar and its sentence in the status bar's text.
+park
+shot zoombox-pre-tip
 point_to "$RESET_X" "$BOX_Y"
 sleep 3
 shot zoombox-tip
-[ "$(differ_box zoombox-ctrl0 zoombox-tip 170 34 $((RESET_X - 150)) 858)" -gt 100 ] || fail "no tooltip over the Page Width button"
-[ "$(differ_box zoombox-ctrl0 zoombox-tip 300 14 326 896)" -gt 50 ] || fail "no hint in the status bar over the Page Width button"
+[ "$(differ_box zoombox-pre-tip zoombox-tip 170 34 $((RESET_X - 150)) 858)" -gt 100 ] || fail "no tooltip over the Page Width button"
+[ "$(differ_box zoombox-pre-tip zoombox-tip 300 14 326 896)" -gt 50 ] || fail "no hint in the status bar over the Page Width button"
 park
 sleep 2
 shot zoombox-tip-gone
-[ "$(differ_box zoombox-ctrl0 zoombox-tip-gone 640 54 320 858)" -lt 50 ] || fail "the tooltip or the hint stayed after the pointer left"
+[ "$(differ_box zoombox-pre-tip zoombox-tip-gone 640 54 320 858)" -lt 50 ] || fail "the tooltip or the hint stayed after the pointer left"
 log "the Page Width button's tooltip and hint come and go"
-finish Width zoombox
+finish Width zoombox modified
