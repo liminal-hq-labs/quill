@@ -541,6 +541,14 @@ status = "in use"
 source = "docs/plans/dos-page-bridge.md"
 
 [[block]]
+prefix = "SITE"
+first = 80
+last = 89
+owner = "Host link guests (WP-HLG)"
+status = "in use"
+source = "docs/plans/host-link-guests.md"
+
+[[block]]
 prefix = "DOS"
 first = 120
 last = 123
