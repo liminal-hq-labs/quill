@@ -163,7 +163,7 @@ class WorkletSink implements Sink {
 	private pushed = 0;
 	private popped = 0;
 	private clearing = false;
-	private lastAsk = 0;
+	private lastAsk = Number.NEGATIVE_INFINITY;
 	private target: number;
 	private wanted = 1;
 	private pending: ((message: { t: string; s?: SinkStats; l?: Float32Array[]; r?: Float32Array[] }) => void)[] = [];
@@ -261,7 +261,7 @@ class ScriptSink implements Sink {
 	readonly output: GainNode;
 	readonly rate: number;
 	onNeed: NeedFn | null = null;
-	private lastAsk = 0;
+	private lastAsk = Number.NEGATIVE_INFINITY;
 	private wanted = 1;
 	private blocks = 0;
 	private frames = 0;

@@ -85,7 +85,7 @@ export class Microphone {
 	private nodes: AudioNode[] = [];
 	private generation = 0;
 	/** The time of the last block (performance.now()), 0 before the first. */
-	lastBlockAt = 0;
+	lastBlockAt = Number.NEGATIVE_INFINITY;
 
 	constructor(
 		private readonly context: AudioContext,
@@ -171,7 +171,7 @@ export class Microphone {
 			}
 		}
 		this.nodes = [];
-		this.lastBlockAt = 0;
+		this.lastBlockAt = Number.NEGATIVE_INFINITY;
 		if (this.current !== "off") this.set("off");
 	}
 
