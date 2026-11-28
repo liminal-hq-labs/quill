@@ -30,6 +30,13 @@
 		return Math.max(low, Math.min(high, value));
 	}
 
+	// A list of calls that also says after which of them the guest is clamped at an edge. The list is kept out of the array's own values, so
+	// a list of calls still equals the plain one.
+	function withClamps(calls, clampAfter) {
+		Object.defineProperty(calls, "clampAfter", { value: clampAfter, enumerable: false, writable: true });
+		return calls;
+	}
+
 	// Cuts a move into calls of at most `max` counts on each axis, in proportion, so a diagonal stays diagonal; the calls add up
 	// to the move exactly. dx and dy are whole numbers.
 	function splitCounts(dx, dy, max) {
@@ -71,10 +78,14 @@
 			return mover.overshoot === undefined ? Math.max(OVERSHOOT_PIXELS, Math.ceil(mover.h * 0.05)) : mover.overshoot;
 		}
 
-		function advance(countX, countY) {
+		// The calls end in a clamp when the guest is driven past an edge (an overshoot, or a park): `calls.clampAfter` lists the indexes of the
+		// calls after which the guest has clamped. An emulator that joins the calls of one tick into one report must be given a pause there
+		// (the adapter's `send.move` gets the flag as its third argument), or the clamp would never happen between the call and the next.
+		function advance(countX, countY, clamps) {
 			mover.x = clamp(mover.x + countX / mover.unitsX, 0, mover.w - 1);
 			mover.y = clamp(mover.y + countY / mover.unitsY, 0, mover.h - 1);
-			return splitCounts(countX, countY, mover.maxCount);
+			const calls = splitCounts(countX, countY, mover.maxCount);
+			return withClamps(calls, clamps && calls.length ? [calls.length - 1] : []);
 		}
 
 		// Follow: the guest pixel under (px, py), given in fractional guest pixels. The difference between the model and the target is
@@ -87,13 +98,15 @@
 			const ey = ty <= 0 ? -1 : ty >= mover.h - 1 ? 1 : 0;
 			let countX = Math.round((tx - mover.x) * mover.unitsX);
 			let countY = Math.round((ty - mover.y) * mover.unitsY);
-			if (ex && ex !== mover.edgeX) countX += ex * Math.round(overshootX() * mover.unitsX);
-			if (ey && ey !== mover.edgeY) countY += ey * Math.round(overshootY() * mover.unitsY);
+			const arrivedX = !!ex && ex !== mover.edgeX;
+			const arrivedY = !!ey && ey !== mover.edgeY;
+			if (arrivedX) countX += ex * Math.round(overshootX() * mover.unitsX);
+			if (arrivedY) countY += ey * Math.round(overshootY() * mover.unitsY);
 			mover.edgeX = ex;
 			mover.edgeY = ey;
 			mover.remX = 0;
 			mover.remY = 0;
-			return advance(countX, countY);
+			return advance(countX, countY, arrivedX || arrivedY);
 		};
 
 		// Capture: a move in guest pixels. The fraction of a count is carried to the next call.
@@ -116,14 +129,15 @@
 			const cornerY = py < (mover.h - 1) / 2 ? 0 : mover.h - 1;
 			const dirX = cornerX === 0 ? -1 : 1;
 			const dirY = cornerY === 0 ? -1 : 1;
-			const calls = advance(dirX * Math.round((mover.w + overshootX()) * mover.unitsX), dirY * Math.round((mover.h + overshootY()) * mover.unitsY));
+			const calls = advance(dirX * Math.round((mover.w + overshootX()) * mover.unitsX), dirY * Math.round((mover.h + overshootY()) * mover.unitsY), true);
 			mover.x = cornerX;
 			mover.y = cornerY;
 			mover.remX = 0;
 			mover.remY = 0;
 			mover.edgeX = dirX;
 			mover.edgeY = dirY;
-			return calls.concat(mover.moveTo(px, py));
+			const move = mover.moveTo(px, py);
+			return withClamps(calls.concat(move), calls.clampAfter.concat(move.clampAfter.map((i) => i + calls.length)));
 		};
 
 		mover.resize = function (w, h) {
@@ -452,10 +466,19 @@
 			options.onState(s);
 		}
 
+		// Two lists of calls as one, keeping where the clamps are.
+		function joined(first, second) {
+			return withClamps(first.concat(second), (first.clampAfter || []).concat((second.clampAfter || []).map((i) => i + first.length)));
+		}
+
+		// `send.move(dx, dy, clamps)`: the third argument is true after a call that leaves the guest clamped at an edge (a park, or the
+		// overshoot on arriving at one). An emulator that joins the calls of one tick into one report is given a pause there (js-dos).
 		function emit(calls) {
 			const t = now();
-			for (const call of calls) {
-				send.move(call[0], call[1]);
+			const clampAfter = calls.clampAfter || [];
+			for (let i = 0; i < calls.length; i++) {
+				const call = calls[i];
+				send.move(call[0], call[1], clampAfter.includes(i));
 				if (tracing) {
 					traceOutput.push({ t, dx: call[0], dy: call[1], model: [mover.x, mover.y] });
 					trimTrace(traceOutput, t);
@@ -486,12 +509,12 @@
 			}
 			if (captureX || captureY) {
 				const k = baseGain * speed;
-				calls = calls.concat(model.moveBy(captureX * (rect.guest.w / rect.w) * k, captureY * (rect.guest.h / rect.h) * k));
+				calls = joined(calls, model.moveBy(captureX * (rect.guest.w / rect.w) * k, captureY * (rect.guest.h / rect.h) * k));
 				captureX = 0;
 				captureY = 0;
 			}
 			if (fingerX || fingerY) {
-				calls = calls.concat(model.moveBy(fingerX, fingerY));
+				calls = joined(calls, model.moveBy(fingerX, fingerY));
 				fingerX = 0;
 				fingerY = 0;
 			}
@@ -809,6 +832,18 @@
 			},
 			park() {
 				needsPark = true;
+			},
+			// The guest's pointer is known to be at (x, y), in guest pixels (a program that centres it on starting): no park is needed.
+			assume(x, y) {
+				const model = sync();
+				model.x = clamp(x, 0, model.w - 1);
+				model.y = clamp(y, 0, model.h - 1);
+				model.remX = 0;
+				model.remY = 0;
+				model.edgeX = model.x <= 0 ? -1 : model.x >= model.w - 1 ? 1 : 0;
+				model.edgeY = model.y <= 0 ? -1 : model.y >= model.h - 1 ? 1 : 0;
+				needsPark = false;
+				logEvent("assume");
 			},
 			state,
 			trace: {

@@ -160,11 +160,58 @@
 	min-height: 1.5em;
 }
 
+/* The mouse's mode (Follow or Capture), the speed slider that Capture needs, and the trace button that ?pointer=debug adds. */
+.mouse-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem 1.5rem;
+	margin: 0.75rem 0 0;
+}
+
+.mouse-controls[hidden],
+.mouse-controls .speed[hidden],
+.mouse-controls .button[hidden],
+.mouse-hint[hidden] {
+	display: none;
+}
+
+.mouse-mode {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.25rem 1rem;
+	margin: 0;
+	padding: 0 0.75rem;
+	border: 1px solid var(--rule);
+	border-radius: 0.5rem;
+	background: var(--surface);
+}
+
+.mouse-mode legend {
+	font-weight: 700;
+	color: var(--heading);
+	padding: 0 0.4rem;
+}
+
+.mouse-mode label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 2.75rem;
+	cursor: pointer;
+}
+
+.mouse-mode input {
+	width: 1.2rem;
+	height: 1.2rem;
+}
+
 .speed {
 	display: flex;
 	align-items: center;
 	gap: 0.75rem;
-	margin: 0.75rem 0 0;
+	margin: 0;
 }
 
 .speed input {

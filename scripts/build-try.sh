@@ -98,6 +98,8 @@ sed 's/$/\r/' "$HERE/try-disk/QUILL.INI" >"$tree/QUILL/QUILL.INI"
 sed 's/$/\r/' "$ROOT/assets/fonts/desk/OFL.txt" >"$tree/QUILL/OFL.TXT"
 cp "$exe" "$tree/QUILL/QUILLDOS.EXE"
 cp "$WORK/cm/$CM_MEMBER" "$tree/QUILL/CTMOUSE.EXE"
+# CuteMouse speeds the pointer up by the size of each report, which the page cannot predict (SITE-22): one two-byte change in the disk's copy.
+python3 -I "$HERE/patch-ctmouse.py" "$tree/QUILL/CTMOUSE.EXE"
 cp "$fnt" "$tree/QUILL/QUILL.FNT"
 cp "$dict" "$tree/QUILL/EN_CA.DIC"
 cp "$ROOT/samples/demo.qld" "$tree/QUILL/SAMPLES/DEMO.QLD"
