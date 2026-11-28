@@ -7,7 +7,7 @@
 # usage: python3 -I site/try-reactos/tools/stamp-web.py          (restamp index.html and try-reactos.js)
 #        python3 -I site/try-reactos/tools/stamp-web.py --check  (the versions are current; nothing is written)
 #
-# Every `?v=XXXXXXXX` on an href or src in index.html, and on a module specifier in try-reactos.js and host-link.js, is set to the first 8 hex of the
+# Every `?v=XXXXXXXX` on an href or src in index.html, and on a module specifier in try-reactos.js, host-link.js and kit-link.js, is set to the first 8 hex of the
 # SHA-256 of the file it names. try-reactos.js is stamped first (its own hash covers the versions of its modules), then index.html.
 # This is the page-side twin of scripts/stamp-try.py, which does the same for site/try/; the two share no code because the Try Quill
 # page's list of files differs and its script has a check in CI of its own.
@@ -57,9 +57,10 @@ def stamp(path, pattern, check):
 def stamp_all(page_dir, check):
 	# The modules first, each stamped with the hash of what it imports, then the script that imports them, then the page.
 	stale = []
-	glue = os.path.join(page_dir, "host-link.js")
-	if os.path.isfile(glue):
-		stale += stamp(glue, JS_REF, check)
+	for name in ("kit-link.js", "host-link.js"):
+		glue = os.path.join(page_dir, name)
+		if os.path.isfile(glue):
+			stale += stamp(glue, JS_REF, check)
 	stale += stamp(os.path.join(page_dir, "try-reactos.js"), JS_REF, check)
 	stale += stamp(os.path.join(page_dir, "index.html"), HTML_REF, check)
 	return stale

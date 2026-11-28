@@ -213,3 +213,57 @@
 	font-size: 1.15rem;
 	margin: 0 0 0.25rem;
 }
+
+/* The Host Link Kit's controls (kit-link.js): the bar of buttons under the player and the PC's own rows in the diagnostics. */
+.kit-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+	margin: 0 0 0.75rem;
+	max-width: 64rem;
+}
+
+.kit-bar[hidden],
+.kit-diag[hidden],
+.kit-bar [hidden] {
+	display: none;
+}
+
+.kit-badge {
+	border: 1px solid currentColor;
+	border-radius: 999px;
+	padding: 0.2rem 0.8rem;
+	font: inherit;
+	font-size: 0.85rem;
+	color: var(--text-muted);
+	background: none;
+}
+
+.kit-badge--button {
+	cursor: pointer;
+	text-decoration: underline;
+}
+
+.kit-note {
+	font-size: 0.85rem;
+	color: var(--text-muted);
+}
+
+.kit-diag {
+	margin: 0.5rem 0;
+}
+
+.kit-log {
+	max-height: 12rem;
+	overflow: auto;
+	margin: 0 0 0.4rem;
+	padding: 0.4rem;
+	border: 1px solid var(--ink-700);
+	white-space: pre-wrap;
+}
+
+.kit-switches label {
+	margin-right: 1rem;
+	white-space: nowrap;
+}

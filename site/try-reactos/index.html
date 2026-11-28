@@ -17,8 +17,8 @@
 		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
 		<link rel="stylesheet" href="../css/site.css?v=a4d3a119">
 		<link rel="stylesheet" href="../css/try.css?v=fc9dccd7">
-		<link rel="stylesheet" href="try-reactos.css?v=d6e7c22b">
-		<script src="try-reactos.js?v=53057017" type="module"></script>
+		<link rel="stylesheet" href="try-reactos.css?v=99862545">
+		<script src="try-reactos.js?v=324a8cbf" type="module"></script>
 	</head>
 	<body>
 		<main id="main">
@@ -51,6 +51,9 @@
 							</label>
 							<button class="button" type="button" data-clip-dialog-send>Send to ReactOS</button>
 						</div>
+						<!-- kit-link: begin -->
+						<div class="kit-bar" data-kit-bar role="group" aria-label="The PC" hidden></div>
+						<!-- kit-link: end -->
 						<div class="stage stage--reactos" data-stage tabindex="0" aria-label="ReactOS running in an emulated PC">
 							<div class="screen" data-screen>
 								<div class="screen-text"></div>
@@ -117,6 +120,9 @@
 						<dl class="diag-readout" data-readout aria-live="off"></dl>
 						<dl class="diag-readout" data-link-readout aria-live="off"><dt>Link</dt><dd>off</dd></dl>
 						<dl class="diag-readout" data-clip-readout aria-live="off"><dt>Clipboard</dt><dd>off</dd></dl>
+						<!-- kit-link: begin -->
+						<div class="kit-diag" data-kit-diag hidden></div>
+						<!-- kit-link: end -->
 						<p class="diag-buttons">
 							<button class="button button--alt" type="button" data-shot>Screenshot (PNG)</button>
 							<button class="button button--alt" type="button" data-save-state>Save state</button>

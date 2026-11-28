@@ -6,7 +6,7 @@
 
 // The ?v= on a module's address is the first 8 hex of its SHA-256; tools/stamp-web.py keeps them current (SITE-14).
 import { applyManifest, buildLine, emulatorFiles, loadManifest, refetchFresh } from "./manifest.js?v=73de4d88";
-import * as hostLink from "./host-link.js?v=705a7c38";
+import * as hostLink from "./host-link.js?v=1b132aea";
 import * as sound from "./sound.js?v=295d6486";
 import * as power from "./power.js?v=bda0a706";
 

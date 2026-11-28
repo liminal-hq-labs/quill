@@ -194,6 +194,10 @@ jobs:
         working-directory: site/try-reactos/packages/host-link
         run: bun run check:built
 
+      # The page's Host Link Kit glue: the taper, Keep in step's echo rules, the badge, the switches, the panel's timers and the log (kit-rules.js).
+      - name: Test the kit glue's rules
+        run: bun test site/try-reactos/kit-link.test.js
+
   layers:
     name: Layers
     runs-on: ubuntu-24.04

@@ -8,6 +8,9 @@
 
 // The ?v= is the first 8 hex of the module's SHA-256; tools/stamp-web.py keeps it current (SITE-14).
 import { attach as attachLink, ClipboardSync, contentFromPaste, contentFromRead, createBrowserPort } from "./vendor/v86-host-link/host-link.js?v=0d03ac0f";
+// kit-link: begin
+import * as kitLink from "./kit-link.js?v=fabefa1b";
+// kit-link: end
 
 const readout = document.querySelector("[data-link-readout]");
 const clipReadout = document.querySelector("[data-clip-readout]");
@@ -360,6 +363,9 @@ export function attach(emulator, options = {}) {
 		window.tryReactos.hostLink = host;
 		window.tryReactos.clipboard = sync;
 	}
+	// kit-link: begin
+	kitLink.attach(host, emulator);
+	// kit-link: end
 	render();
 	timer = setInterval(render, 500);
 }
@@ -371,6 +377,9 @@ export function detach() {
 	pasteKey = null;
 	if (sync) sync.dispose();
 	sync = null;
+	// kit-link: begin
+	kitLink.detach();
+	// kit-link: end
 	if (host) host.detach();
 	if (window.tryReactos) {
 		window.tryReactos.hostLink = null;
