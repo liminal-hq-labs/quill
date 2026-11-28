@@ -563,3 +563,11 @@ last = 115
 owner = "WP-ED-5 rich clipboard"
 status = "in use"
 source = "docs/decisions.md"
+
+[[block]]
+prefix = "SITE"
+first = 110
+last = 112
+owner = "Try Quill wheel and the Save As clicks audit (fix/dos-page-wheel)"
+status = "in use"
+source = "docs/decisions.md"

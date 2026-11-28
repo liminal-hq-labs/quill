@@ -35,7 +35,7 @@
 	var MODE_KEYS = { gfx: 49, g16: 50, text: 51 };
 	var MODE_NAMES = { gfx: "graphics, 256 colours", g16: "graphics, 16 colours", text: "text mode" };
 	// js-dos key codes for the on-screen keys.
-	var KEYS = { esc: 256, enter: 257, tab: 258, up: 265, down: 264, left: 263, right: 262, f10: 299, f7: 296 };
+	var KEYS = { esc: 256, enter: 257, tab: 258, up: 265, down: 264, left: 263, right: 262, pgup: 266, pgdn: 267, f10: 299, f7: 296 };
 	var STORE = "quill-try-";
 	// A key pressed before FreeDOS shows its menu waits in the keyboard buffer, so the delay only keeps the press from landing on the boot messages.
 	var MENU_DELAY_MS = 1000;
@@ -360,6 +360,49 @@
 		paceClosed = false;
 	}
 
+	// The wheel (SITE-111). js-dos 8.5.3 cannot send a wheel to DOSBox (its wasm exports mouseMove, mouseButton and mouseSync, nothing else),
+	// so the page turns it into keys. The module counts notches (one per WHEEL_PIXELS, so one Firefox click of three lines is one notch and a
+	// touchpad's small deltas add up); a notch is WHEEL_LINES Up or Down presses, Quill's own three lines. Lines owed are kept as one signed
+	// number and paid one key every WHEEL_KEY_MS: Page Up or Page Down while a screenful (WHEEL_PAGE_LINES) or more is owed, an arrow after.
+	// The pace is the guest's: measured, DOS Quill takes keys at about one in 40 ms (30 Right presses sent every 16 ms made 20 moves, every
+	// 40 ms 28, every 50 ms 29 and every 60 ms all 30, as the status line's column showed), the rest lost from the BIOS buffer.
+	// Quill has no key that scrolls the view without moving the caret (Ctrl+Up is a paragraph), so these move the caret and the view
+	// follows it. Never more than WHEEL_OWED_MAX lines are owed, and a turn the other way drops what was owed.
+	var WHEEL_PIXELS = 48;
+	var WHEEL_LINES = 3;
+	var WHEEL_PAGE_LINES = 15;
+	var WHEEL_KEY_MS = 70;
+	var WHEEL_OWED_MAX = 60;
+	var wheelOwed = 0;
+	var wheelTimer = 0;
+
+	function wheelSend() {
+		wheelTimer = 0;
+		if (!ci || !wheelOwed) {
+			wheelOwed = 0;
+			return;
+		}
+		var down = wheelOwed > 0;
+		var page = Math.abs(wheelOwed) >= WHEEL_PAGE_LINES;
+		ci.simulateKeyPress(page ? (down ? KEYS.pgdn : KEYS.pgup) : down ? KEYS.down : KEYS.up);
+		var paid = page ? WHEEL_PAGE_LINES : 1;
+		wheelOwed += down ? -paid : paid;
+		if (wheelOwed) wheelTimer = window.setTimeout(wheelSend, WHEEL_KEY_MS);
+	}
+
+	function wheelTurn(notches) {
+		var lines = notches * WHEEL_LINES;
+		wheelOwed = (wheelOwed > 0) === (lines > 0) ? wheelOwed + lines : lines;
+		wheelOwed = Math.max(-WHEEL_OWED_MAX, Math.min(WHEEL_OWED_MAX, wheelOwed));
+		if (!wheelTimer) wheelSend();
+	}
+
+	function wheelStop() {
+		window.clearTimeout(wheelTimer);
+		wheelTimer = 0;
+		wheelOwed = 0;
+	}
+
 	function attachPointer(mode) {
 		detachPointer();
 		if (!window.QuillPointer) return;
@@ -385,8 +428,11 @@
 						},
 					});
 				},
-				wheel: null,
+				wheel: wheelTurn,
 			},
+			// The wheel works as soon as the pointer is over the screen (the page does not scroll under it), and Ctrl+wheel stays the browser's.
+			wheelOverPicture: true,
+			wheelPixelsPerNotch: WHEEL_PIXELS,
 			maxCount: PACE_COUNTS,
 			// The units are exact (the driver is linear) and every count is sent, so the model stays true between visits to the screen. Where the
 			// guest's pointer is comes from Quill's start (the display changes and Quill centres it: watchFrameSize), and from the edges.
@@ -415,6 +461,7 @@
 		traceButton.hidden = true;
 		if (pointer) pointer.detach();
 		pointer = null;
+		wheelStop();
 		paceFlush();
 		mouseHint.textContent = "";
 	}

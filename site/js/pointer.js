@@ -686,9 +686,12 @@
 			stage.style.cursor = "";
 		}
 
+		// Ctrl with the wheel is the browser's zoom (and a pinch on a touchpad): never taken. With `wheelOverPicture` the wheel acts as soon
+		// as the pointer is over the stage; otherwise only once the screen has been pressed, so a visitor scrolling past still scrolls the page.
 		function onWheel(e) {
+			if (e.ctrlKey) return;
 			if (options.stopEvents) e.stopPropagation();
-			if (!send.wheel || !selected) return;
+			if (!send.wheel || !(selected || options.wheelOverPicture)) return;
 			const rect = shownRect();
 			const notches = wheelAccumulator.add(e.deltaY, e.deltaMode, rect.h, now());
 			e.preventDefault();
@@ -769,7 +772,7 @@
 			e.preventDefault();
 		}
 
-		const wheelAccumulator = createWheel();
+		const wheelAccumulator = createWheel({ pixelsPerNotch: options.wheelPixelsPerNotch });
 		const listeners = [
 			[stage, "pointerdown", onDown, { capture: true }],
 			[stage, "pointermove", onMove, { capture: true }],

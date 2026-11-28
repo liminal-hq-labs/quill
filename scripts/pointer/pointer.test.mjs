@@ -227,6 +227,26 @@ test("the wheel's remainder is dropped after 300 ms without an event", () => {
 	assert.equal(wheel.add(40, 0, 480, 400), 1);
 });
 
+test("the wheel: before the screen is pressed it is left to the page unless wheelOverPicture is set; Ctrl+wheel is never taken", () => {
+	const make = (extra) => {
+		const dom = fakeDom();
+		const rec = recorder();
+		attach({ stage: dom.stage, picture: () => ({ el: dom.picture, w: 640, h: 480 }), send: rec.send, defaults: { mode: "follow", speed: 1, force: true }, storageKey: "t", ...extra });
+		return { dom, rec };
+	};
+	const plain = make({});
+	const first = plain.dom.fire("wheel", { deltaY: 100, deltaMode: 0, ctrlKey: false });
+	assert.equal(first.defaultPrevented, false);
+	assert.deepEqual(plain.rec.log.wheel, []);
+	const over = make({ wheelOverPicture: true, wheelPixelsPerNotch: 48 });
+	const scrolled = over.dom.fire("wheel", { deltaY: 3, deltaMode: 1, ctrlKey: false });
+	assert.equal(scrolled.defaultPrevented, true);
+	assert.deepEqual(over.rec.log.wheel, [1]);
+	const zoom = over.dom.fire("wheel", { deltaY: 400, deltaMode: 0, ctrlKey: true });
+	assert.equal(zoom.defaultPrevented, false);
+	assert.deepEqual(over.rec.log.wheel, [1]);
+});
+
 test("touch: a tap clicks, a drag moves with the gain, a drag below the tap distance is a tap", () => {
 	const touch = core.createTouch({});
 	touch.down(1, 100, 100, 0);
