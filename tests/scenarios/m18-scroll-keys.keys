@@ -1,0 +1,9 @@
+# M18: Ctrl+Page Up and Ctrl+Page Down scroll the text screen three lines without moving the caret, on a document of sixty lines. Two down, one up,
+# then End: the caret was on the first line all along, so End shows it again.
+@copy scroll.rtf
+@open SCROLL.RTF
+ctrlpagedown
+ctrlpagedown
+ctrlpageup
+ctrlpagedown ctrlpagedown ctrlpagedown ctrlpagedown
+end

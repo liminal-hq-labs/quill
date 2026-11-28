@@ -2291,6 +2291,11 @@ impl<M: Measure + Clone> App<M> {
 			// Zoom Out and Zoom In on the DOS screens: Alt with the minus key (either one) and with the keypad's plus.
 			Key::Alt(b'-') => self.run(s, f, Command::ZoomOut),
 			Key::Alt(b'+') => self.run(s, f, Command::ZoomIn),
+			// Scroll the view three lines without moving the caret (the wheel of the web page sends these).
+			Key::Ctrl(c @ (0x18 | 0x19)) => {
+				self.scroll_notches(s, if c == 0x18 { -1 } else { 1 });
+				self.view_hold = true;
+			}
 			Key::Alt(c) if !self.native => {
 				if let Some(menu) = paint::menu_for_mnemonic(c) {
 					self.end_typing();

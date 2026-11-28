@@ -286,6 +286,12 @@ fn m10_menus_script_matches_its_golden_screens() {
 }
 
 #[test]
+fn m18_scroll_keys_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("m18-scroll-keys");
+	compare("tests/golden/screens/m18-scroll-keys.frames.txt", &frames);
+}
+
+#[test]
 fn m11_recent_script_matches_its_golden_screens() {
 	let (_, frames) = scenario("m11-recent");
 	compare("tests/golden/screens/m11-recent.frames.txt", &frames);

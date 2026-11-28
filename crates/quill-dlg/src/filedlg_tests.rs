@@ -860,6 +860,52 @@ fn a_recent_file_in_save_as_fills_the_name_and_goes_to_its_folder() {
 }
 
 #[test]
+fn a_relative_recent_file_is_resolved_before_save_as_uses_it() {
+	let mut fs = tree();
+	fs.add_file("C:\\DOCS\\LETTERS\\DEMO.QLD", 0);
+	let recent: [&[u8]; 1] = [b"LETTERS\\DEMO.QLD"];
+	let mut start = Start::new(b"C:\\GAMES", b"", 8);
+	start.recent = &recent;
+	let mut r = Rig::start(fs, Kind::SaveAs, start);
+	// The relative path is the program's folder (C:\DOCS here), not the dialog's.
+	assert_eq!(r.dlg.go_place(3, &mut r.fs, &mut r.store), Outcome::None);
+	assert_eq!(r.folder(), "C:\\DOCS\\LETTERS");
+	assert_eq!(r.dlg.name().as_bytes(), b"DEMO.QLD");
+	r.dlg.focus_for_test(NAME);
+	assert!(matches!(
+		r.key(DlgKey::Enter),
+		Outcome::Ask(_) | Outcome::Accept
+	));
+	assert_eq!(r.dlg.chosen(), b"C:\\DOCS\\LETTERS\\DEMO.QLD");
+}
+
+#[test]
+fn a_relative_recent_file_in_open_is_chosen_as_a_full_path() {
+	let mut fs = tree();
+	fs.add_file("C:\\DOCS\\LETTERS\\DEMO.QLD", 0);
+	let recent: [&[u8]; 1] = [b"LETTERS\\DEMO.QLD"];
+	let mut start = Start::new(b"C:\\GAMES", b"", 8);
+	start.recent = &recent;
+	let mut r = Rig::start(fs, Kind::Open, start);
+	assert_eq!(r.dlg.go_place(3, &mut r.fs, &mut r.store), Outcome::Accept);
+	assert_eq!(r.dlg.chosen(), b"C:\\DOCS\\LETTERS\\DEMO.QLD");
+}
+
+#[test]
+fn a_recent_file_whose_folder_is_gone_leaves_save_as_as_it_was() {
+	let recent: [&[u8]; 1] = [b"C:\\GONE\\DEMO.QLD"];
+	let mut start = Start::new(b"C:\\DOCS", b"KEEP.QLD", 8);
+	start.recent = &recent;
+	let mut r = Rig::start(tree(), Kind::SaveAs, start);
+	assert!(matches!(
+		r.dlg.go_place(3, &mut r.fs, &mut r.store),
+		Outcome::Error(_)
+	));
+	assert_eq!(r.folder(), "C:\\DOCS");
+	assert_eq!(r.dlg.name().as_bytes(), b"KEEP.QLD");
+}
+
+#[test]
 fn more_than_four_of_each_kind_of_place_are_dropped() {
 	let folders: Vec<PlaceSpec<'_>> = (0..6)
 		.map(|_| PlaceSpec {

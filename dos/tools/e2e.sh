@@ -240,6 +240,10 @@ for scen in m16-open m16-open-50 m16-open-mono m16-big m16-errors; do
 	run_mouse_text "$scen" "" normalise
 done
 run_mouse_text m16-save-as "" normalise
+# Ctrl+Page Up and Ctrl+Page Down scroll the text screen without the caret (m18-scroll-keys); a Last used file kept as a relative path goes to its own
+# folder in Save As (m19-last-used).
+run_mouse_text m18-scroll-keys ""
+run_mouse_text m19-last-used "" normalise
 # The recovery question (tests/scenarios/m17-*.keys): the old QUILL.RCV in `RECOVER\` is offered at launch in the app's own box, and
 # Recover, Discard and Later are the host's, screen for screen.
 for scen in m17-recover m17-recover-50 m17-discard m17-later; do
@@ -413,6 +417,9 @@ for scen in menus dialogs toolbar scroll hscroll fields ruler; do
 	run_mouse_gfx "g8-gfx-$scen-12h" svga_s3 /G16 16 "g8-gfx-$scen"
 	run_mouse_gfx "g8-gfx-$scen-vbe" svga_s3 /G 256 "g8-gfx-$scen"
 done
+# G12 (graphics): Ctrl+Page Up and Ctrl+Page Down scroll the page without the caret.
+run_mouse_gfx g12-gfx-scroll-keys-12h svga_s3 /G16 16 g12-gfx-scroll-keys
+run_mouse_gfx g12-gfx-scroll-keys-vbe svga_s3 /G 256 g12-gfx-scroll-keys
 # G11 (graphics): the zoom (tests/scenarios/g11-gfx-zoom.keys): the control at the right end of the status line, the list of levels, the buttons and
 # View > Zoom, the page drawn at 150, 125, 100, 75, Page Width, 50 and 200 percent, and the pointer's clicks in the page, the scroll bar and the
 # margin at those zooms. The same frames as the host's in both modes, and the saved file.
@@ -474,6 +481,9 @@ for scen in open save-as open-mouse save-as-mouse; do
 	run_dialog_gfx "g9-gfx-$scen-12h" svga_s3 /G16 16 "g9-gfx-$scen"
 	run_dialog_gfx "g9-gfx-$scen-vbe" svga_s3 /G 256 "g9-gfx-$scen"
 done
+# G13: a Last used file kept as a relative path goes to its own folder in Save As.
+run_dialog_gfx g13-gfx-last-used-12h svga_s3 /G16 16 g13-gfx-last-used
+run_dialog_gfx g13-gfx-last-used-vbe svga_s3 /G 256 g13-gfx-last-used
 # G7: the pull-down menus and every dialog, drawn by the same painter.
 # The dialog frames take longer to draw than the menus, so these keys go in more slowly still.
 run_gfx_scenario g7-menus-12h svga_s3 /G16 16 g7-menus 0.8

@@ -31,6 +31,9 @@ pub fn parse_token(t: &str) -> Option<Key> {
 		// The DOS zoom keys: Alt with the minus key (scan code 82h) or the keypad's minus (4Ah), and with the keypad's plus (4Eh).
 		"altminus" => Key::Alt(b'-'),
 		"altplus" => Key::Alt(b'+'),
+		// Ctrl+Page Up and Ctrl+Page Down on DOS: the view scrolls three lines and the caret stays.
+		"ctrlpageup" => Key::Ctrl(0x18),
+		"ctrlpagedown" => Key::Ctrl(0x19),
 		#[cfg(feature = "text-file-dialog")]
 		"backslash" => Key::Char(b'\\'),
 		#[cfg(feature = "text-file-dialog")]

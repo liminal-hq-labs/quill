@@ -1,0 +1,12 @@
+# G13 (graphics): the same as m19-last-used (a Last used file kept as a relative path, SAMPLES\PLAIN.QLD, goes to C:\SAMPLES and fills in
+# PLAIN.QLD in Save As), in both graphics modes. Every frame's CRC-32 must equal the host's.
+@dialog
+@dir QUILL
+@cwd C:\
+@copy plain.qld SAMPLES\
+@copy letter.qld DOCS\
+@open SAMPLES\PLAIN.QLD
+f10 down down down enter      # File > Save As...: in SAMPLES, PLAIN.QLD
+altp home enter               # the C: place: C:\
+altp end enter                # the Last used file, PLAIN.QLD: back to C:\SAMPLES with PLAIN.QLD in the name
+esc

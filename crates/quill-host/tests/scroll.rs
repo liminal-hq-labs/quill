@@ -225,6 +225,29 @@ fn a_step_scrolls_pixels_and_stops_at_both_ends() {
 	assert!(!app.vscroll_by(&s, 1), "and at the foot");
 }
 
+#[test]
+fn ctrl_page_up_and_ctrl_page_down_scroll_three_lines_and_leave_the_caret() {
+	let (mut app, mut s, mut f) = doc(100, 300);
+	app.key(&mut s, &mut f, Key::Down);
+	let caret = app.caret();
+	let up = Key::Ctrl(0x18);
+	let down = Key::Ctrl(0x19);
+	assert_eq!(quill_app::bios::decode(0, 0x84), Some(up));
+	assert_eq!(quill_app::bios::decode(0xE0, 0x76), Some(down));
+	let at = app.vscroll_pos(&s);
+	app.key(&mut s, &mut f, down);
+	assert_eq!(app.vscroll_pos(&s), at + 3 * SCROLL_LINE);
+	app.key(&mut s, &mut f, down);
+	assert_eq!(app.vscroll_pos(&s), at + 6 * SCROLL_LINE);
+	assert_eq!(app.caret(), caret, "the caret stays where it was");
+	app.key(&mut s, &mut f, up);
+	assert_eq!(app.vscroll_pos(&s), at + 3 * SCROLL_LINE);
+	app.key(&mut s, &mut f, up);
+	app.key(&mut s, &mut f, up);
+	assert_eq!(app.vscroll_pos(&s), 0, "and the top is as far as it goes");
+	assert_eq!(app.caret(), caret);
+}
+
 proptest! {
 	#![proptest_config(ProptestConfig { cases: 48, ..ProptestConfig::default() })]
 

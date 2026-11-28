@@ -1,0 +1,9 @@
+# G12: Ctrl+Page Down three times and Ctrl+Page Up once, made through the real INT 16h of DOSBox's keyboard (dos/tools/keys-x11.sh sends them with
+# xdotool in a virtual X server): scan codes 76h and 84h, which `quill_app::bios::decode` reads as the scroll keys. The view is two
+# notches (six lines) down and the caret is on the first line. The run's last frame before it exits must be this scenario's last frame.
+@copy scroll.rtf
+@open SCROLL.RTF
+ctrlpagedown
+ctrlpagedown
+ctrlpagedown
+ctrlpageup

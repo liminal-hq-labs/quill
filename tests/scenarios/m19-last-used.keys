@@ -1,0 +1,12 @@
+# M19: a Last used file kept as a relative path (SAMPLES\PLAIN.QLD, as it was opened) in Save As: it goes to C:\SAMPLES and fills in
+# PLAIN.QLD, whatever folder the dialog was in. The scenario ends before anything is saved.
+@dialog
+@dir QUILL
+@cwd C:\
+@copy plain.qld SAMPLES\
+@copy letter.qld DOCS\
+@open SAMPLES\PLAIN.QLD
+f10 down down down enter      # File > Save As...: in SAMPLES, PLAIN.QLD
+altp home enter               # the C: place: C:\
+altp end enter                # the Last used file, PLAIN.QLD: back to C:\SAMPLES with PLAIN.QLD in the name
+esc
