@@ -87,6 +87,16 @@ icon = 'C:\Quill\QUILLDESK.ICO'
 # The shortcut starts WineVDM's own launcher. A shortcut (or the Run box) that names `QUILL.EXE` directly reaches WineVDM through ReactOS's
 # 16-bit hand-off, which drops the command line: Quill opens Untitled. `otvdmw.exe` (the windowed launcher, no console) hands the path and the
 # document to the task intact.
+# Sound check: opens Media Player on the five-second tune the base recipe's `[sounds]` writes to `C:\Sounds`. `[[shortcuts]]` replaces the
+# base recipe's list, so the shortcut is repeated here; the Afterglow sound scheme itself (the files, the registry, the Media Player and
+# Sound Recorder entries) comes from the base through `[sounds]` and needs nothing else.
+[[shortcuts]]
+name = "Sound test"
+target = 'C:\ReactOS\system32\mplay32.exe'
+arguments = '"C:\Sounds\Dusk melody.wav"'
+working_dir = 'C:\Sounds'
+description = "Plays a short tune in Media Player to check the sound"
+
 [[shortcuts]]
 name = "Quill (Windows 3.x, slow)"
 target = 'C:\Program Files\otvdm\otvdmw.exe'
