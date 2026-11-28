@@ -540,6 +540,16 @@ owner = "DOS page bridge (WP-DOSWEB)"
 status = "in use"
 source = "docs/plans/dos-page-bridge.md"
 
+# Reserved by hand above every SITE block on main and in the open branches (SITE-54 to SITE-57, SITE-70 to SITE-73,
+# SITE-80 to SITE-89 and SITE-90 to SITE-91), so none collides when they merge.
+[[block]]
+prefix = "SITE"
+first = 100
+last = 109
+owner = "AC'97 reuse and the v86 virtual hardware (WP-AC97, WP-USB)"
+status = "in use"
+source = "docs/plans/v86-ac97-reuse.md"
+
 [[block]]
 prefix = "SITE"
 first = 80

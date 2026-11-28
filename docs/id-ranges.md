@@ -122,6 +122,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | SITE-51 to SITE-53 | Web demo sound package (WP-WEB-5) | in use | [plans/web-demo.md](plans/web-demo.md) |
 | SITE-60 to SITE-69 | DOS page bridge (WP-DOSWEB) | in use | [plans/dos-page-bridge.md](plans/dos-page-bridge.md) |
 | SITE-80 to SITE-89 | Host link guests (WP-HLG) | in use | [plans/host-link-guests.md](plans/host-link-guests.md) |
+| SITE-100 to SITE-109 | AC'97 reuse and the v86 virtual hardware (WP-AC97, WP-USB) | in use | [plans/v86-ac97-reuse.md](plans/v86-ac97-reuse.md) |
 | SITE-120 to SITE-129 | Host Link Kit (WP-KIT) | in use | [plans/host-link-kit.md](plans/host-link-kit.md) |
 
 ## Grandfathered ids
