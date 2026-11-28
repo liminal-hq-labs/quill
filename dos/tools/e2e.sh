@@ -240,6 +240,13 @@ for scen in m16-open m16-open-50 m16-open-mono m16-big m16-errors; do
 	run_mouse_text "$scen" "" normalise
 done
 run_mouse_text m16-save-as "" normalise
+# The mouse in the file dialog and in the text dialogs (tests/scenarios/g8-mouse-*.keys): the cells of every part, played from a file as the
+# host plays them.
+for scen in g8-mouse-file g8-mouse-open; do
+	run_mouse_text "$scen" "" normalise
+done
+run_mouse_text g8-mouse-dialogs ""
+run_mouse_text g8-mouse-recover ""
 # The recovery question (tests/scenarios/m17-*.keys): the old QUILL.RCV in `RECOVER\` is offered at launch in the app's own box, and
 # Recover, Discard and Later are the host's, screen for screen.
 for scen in m17-recover m17-recover-50 m17-discard m17-later; do

@@ -1,0 +1,46 @@
+# G8 (text): the mouse in the dialogs of the text screen, one click at a time, each by the cell it is drawn at. About: a click off its
+# button does nothing and OK closes it. Replace: the two fields take the focus, a check box ticks, Replace All, Find Next and Close
+# press. Spelling: a suggestion is chosen by a click and a button presses. Fonts and Tabs (the form dialogs): a row takes the focus, a
+# check box ticks and OK presses. The question on Exit: Cancel, No and Yes press.
+@copy plain.qld
+@copy en_ca.dic
+@open PLAIN.QLD
+@click 65 0                   # Help menu
+@click 66 3                   # About Quill...
+@click 5 20                   # off the box: nothing
+@click 34 16                  # OK
+@click 22 0                   # Find menu
+@click 24 4                   # Replace...
+@click 24 10                  # Find what
+Q u i l l s
+@click 24 11                  # Replace with
+p e n s
+@click 12 12                  # Match case
+@click 40 14                  # Replace All
+@click 25 14                  # Replace
+@click 12 14                  # Find Next
+@click 57 14                  # Close
+@click 22 0
+@click 24 6                   # Spelling...
+@click 17 13                  # the suggestion
+@click 32 18                  # Change: the word is changed and the next one shown
+@click 66 18                  # Cancel
+@click 28 0                   # Character menu
+@click 30 12                  # Fonts...
+@click 12 12                  # Bold: ticked
+@click 12 16                  # OK
+@click 40 0                   # Paragraph menu
+@click 42 16                  # Tabs...
+@click 12 11                  # Kind: the next kind
+@click 12 12                  # Leader: the next leader
+@click 24 10                  # Position
+1 period 5
+@click 12 13                  # Set
+@click 12 16                  # Close
+x
+@click 3 0
+@click 5 12                   # Exit: the question
+@click 45 12                  # Cancel
+@click 3 0
+@click 5 12
+@click 31 12                  # No: Quill ends

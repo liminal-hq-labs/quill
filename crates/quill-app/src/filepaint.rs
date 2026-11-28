@@ -13,13 +13,14 @@
 use quill_core::layout::Measure;
 use quill_core::store::ReadStore;
 use quill_dlg::filedlg::{
-	Entry, EntryKind, FileDlg, PlaceKind, SortBy, CANCEL, LIST, LOOK_IN, NAME, NEW_FOLDER, OK,
-	PLACES, TYPES, UP,
+	Entry, EntryKind, FileDlg, PlaceKind, Point, SortBy, CANCEL, LIST, LOOK_IN, NAME, NEW_FOLDER,
+	OK, PLACES, TYPES, UP,
 };
 use quill_dlg::filelayout::{
 	default_button, file_icon, glyph, text, title, type_label, Icon, Layout, Part, Rect, Screen,
 };
 use quill_dlg::fs::DriveKind;
+use quill_dlg::types::Kind;
 use quill_dlg::widgets::thumb;
 use quill_grid::Grid;
 
@@ -634,13 +635,23 @@ fn bottom<const R: usize, S: ReadStore + ?Sized>(
 	);
 }
 
+/// The frame of the drop-down of control `which` (`TYPES` or `LOOK_IN`) showing `n` rows: the types above their box, Look in below its
+/// field.
+fn drop_box(l: &Layout, which: u8, n: u16) -> Rect {
+	if which == TYPES {
+		let (tb, td) = (rect::<0>(l, Part::TypeBox), rect::<0>(l, Part::TypeDrop));
+		Rect::new(tb.x, tb.y.saturating_sub(n + 2), tb.w + td.w, n + 2)
+	} else {
+		let (f, dr) = (rect::<0>(l, Part::LookIn), rect::<0>(l, Part::LookInDrop));
+		Rect::new(f.x, f.y + 1, f.w + dr.w, n + 2)
+	}
+}
+
 /// The drop-down that is open: types above their box, Look in below its field.
 fn drops<const R: usize>(g: &mut Grid<R>, l: &Layout, dlg: &FileDlg, roles: &Roles) {
-	let tb = rect::<R>(l, Part::TypeBox);
-	let td = rect::<R>(l, Part::TypeDrop);
 	if dlg.type_box().is_open() {
 		let n = dlg.type_box().count().min(6) as u16;
-		let box_ = Rect::new(tb.x, tb.y.saturating_sub(n + 2), tb.w + td.w, n + 2);
+		let box_ = drop_box(l, TYPES, n);
 		pop(g, box_);
 		let lst = dlg.type_box().list();
 		for i in 0..n {
@@ -672,10 +683,8 @@ fn drops<const R: usize>(g: &mut Grid<R>, l: &Layout, dlg: &FileDlg, roles: &Rol
 		}
 	}
 	if dlg.look_box().is_open() {
-		let f = rect::<R>(l, Part::LookIn);
-		let dr = rect::<R>(l, Part::LookInDrop);
 		let n = dlg.look_box().count().min(6) as u16;
-		let box_ = Rect::new(f.x, f.y + 1, f.w + dr.w, n + 2);
+		let box_ = drop_box(l, LOOK_IN, n);
 		pop(g, box_);
 		let lst = dlg.look_box().list();
 		for i in 0..n {
@@ -742,10 +751,15 @@ fn pop<const R: usize>(g: &mut Grid<R>, r: Rect) {
 	);
 }
 
+/// Where a box `w` by `h` in the middle of the dialog is.
+fn box_at(l: &Layout, w: u16, h: u16) -> Rect {
+	let d = l.dialog;
+	Rect::new(d.x + (d.w - w) / 2, d.y + (d.h.saturating_sub(h)) / 2, w, h)
+}
+
 /// A box in the middle of the dialog, `w` by `h`, framed in the dialog's colours.
 fn centred<const R: usize>(g: &mut Grid<R>, l: &Layout, w: u16, h: u16, title: &[u8]) -> Rect {
-	let d = l.dialog;
-	let r = Rect::new(d.x + (d.w - w) / 2, d.y + (d.h.saturating_sub(h)) / 2, w, h);
+	let r = box_at(l, w, h);
 	fill(g, r, CHROME);
 	g.frame(
 		usize::from(r.x),
@@ -780,25 +794,24 @@ fn message_box<const R: usize>(
 	put(g, r.x + 2, r.y + 2, l1.bytes(), CHROME, 46);
 	put(g, r.x + 2, r.y + 3, l2.bytes(), CHROME, 46);
 	// The buttons sit side by side, centred; the focused one is in normal video.
+	for (r, (label, focused)) in buttons_at(l, buttons).into_iter().zip(buttons) {
+		button(g, r, label, *focused, *focused, true);
+	}
+}
+
+/// Where the (at most two) buttons of the message box are: side by side, centred, four cells apart.
+fn buttons_at(l: &Layout, buttons: &[(&[u8], bool)]) -> [Rect; 2] {
+	let r = box_at(l, 50, 7);
 	let widths: [u16; 2] = [
 		buttons.first().map_or(0, |b| button_width(b.0)),
 		buttons.get(1).map_or(0, |b| button_width(b.0)),
 	];
-	let gap = 4;
-	let total = widths[0] + if widths[1] > 0 { gap + widths[1] } else { 0 };
-	let mut x = r.x + (r.w - total) / 2;
-	for (i, (label, focused)) in buttons.iter().enumerate() {
-		let w = widths.get(i).copied().unwrap_or(0);
-		button(
-			g,
-			Rect::new(x, r.y + 5, w, 1),
-			label,
-			*focused,
-			*focused,
-			true,
-		);
-		x += w + gap;
-	}
+	let total = widths[0] + if widths[1] > 0 { 4 + widths[1] } else { 0 };
+	let x = r.x + (r.w - total) / 2;
+	[
+		Rect::new(x, r.y + 5, widths[0], 1),
+		Rect::new(x + widths[0] + 4, r.y + 5, widths[1], 1),
+	]
 }
 
 fn button_width(label: &[u8]) -> u16 {
@@ -827,4 +840,92 @@ fn new_folder_box<const R: usize>(
 		32,
 	);
 	Some((usize::from(field.x) + cursor.min(12), usize::from(field.y)))
+}
+
+/// The labels of the message box over the dialog: Yes and No, Retry and Cancel, or OK.
+fn box_labels(b: FileBox) -> &'static [(&'static [u8], bool)] {
+	match b {
+		FileBox::Ask(..) => &[(b"&Yes", false), (b"&No", false)],
+		FileBox::Say(Some(_), ..) => &[(b"&Retry", false), (b"&Cancel", false)],
+		_ => &[(b"OK", false)],
+	}
+}
+
+/// The button of the message box under cell (`x`, `y`): 0 for the first, 1 for the second.
+pub(crate) fn box_button(rows: u16, boxed: FileBox, x: u16, y: u16) -> Option<u8> {
+	let l = Layout::new(Screen::Text(rows), Kind::Open)?;
+	buttons_at(&l, box_labels(boxed))
+		.iter()
+		.position(|r| r.contains(x, y))
+		.map(|i| i as u8)
+}
+
+/// The part of the open dialog `dlg` under cell (`x`, `y`) as the press it is, the cells' counterpart of the graphics screen's `hit`:
+/// an entry or place by its index, a header, a button, a drop-down's field or row, the name field (the character under the cell, with
+/// the field scrolled as it was drawn) and the list's scroll bar. An open drop-down is drawn over the dialog, so its rows come first.
+pub(crate) fn hit(dlg: &FileDlg, rows: u16, x: u16, y: u16) -> Point {
+	let Some(l) = Layout::new(Screen::Text(rows), dlg.kind()) else {
+		return Point::Away;
+	};
+	for (which, combo) in [(TYPES, dlg.type_box()), (LOOK_IN, dlg.look_box())] {
+		let box_ = drop_box(&l, which, combo.count().min(6) as u16);
+		if combo.is_open() && box_.contains(x, y) {
+			let i = combo.list().top() + usize::from(y.saturating_sub(box_.y + 1));
+			let inside =
+				y > box_.y && y + 1 < box_.y + box_.h && x > box_.x && x + 1 < box_.x + box_.w;
+			return if inside && i < combo.count() {
+				Point::Pick(i)
+			} else {
+				Point::Away
+			};
+		}
+	}
+	let Some(part) = l.hit(x, y) else {
+		return Point::Away;
+	};
+	let r = rect::<0>(&l, part);
+	let row = usize::from(y - r.y);
+	match part {
+		Part::LookIn | Part::LookInDrop => Point::Drop(LOOK_IN),
+		Part::TypeBox | Part::TypeDrop => Point::Drop(TYPES),
+		Part::Up => Point::Button(UP),
+		Part::NewFolder => Point::Button(NEW_FOLDER),
+		Part::Open => Point::Button(OK),
+		Part::Cancel => Point::Button(CANCEL),
+		Part::Header(by) => Point::Header(by),
+		Part::Name => {
+			let f = dlg.name();
+			let (start, _) = field_window(f.len(), f.cursor(), usize::from(r.w));
+			Point::Name((start + usize::from(x - r.x)).min(f.len()))
+		}
+		Part::ListScroll => Point::Bar,
+		Part::Places if dlg.places().top() + row < dlg.places().count() => {
+			Point::Place(dlg.places().top() + row)
+		}
+		Part::List if dlg.list().top() + row < dlg.list().count() => {
+			Point::Item(dlg.list().top() + row)
+		}
+		_ => Point::Away,
+	}
+}
+
+/// Where the list shows from after a press at row `y` of its scroll bar: an arrow moves one entry, the track beside the thumb a page
+/// less one, the thumb nothing.
+pub(crate) fn bar_press(dlg: &FileDlg, rows: u16, y: u16) -> usize {
+	let bar = Layout::new(Screen::Text(rows), dlg.kind())
+		.map_or(Rect::default(), |l| rect::<0>(&l, Part::ListScroll));
+	let (lst, row) = (dlg.list(), usize::from(y.saturating_sub(bar.y)));
+	let (top, page) = (lst.top(), lst.rows().saturating_sub(1).max(1));
+	let end = usize::from(bar.h).saturating_sub(1);
+	if row == 0 {
+		top.saturating_sub(1)
+	} else if row >= end {
+		top + 1
+	} else {
+		match (row - 1).cmp(&thumb(lst.count(), lst.rows(), top, end - 1)) {
+			core::cmp::Ordering::Less => top.saturating_sub(page),
+			core::cmp::Ordering::Greater => top + page,
+			core::cmp::Ordering::Equal => top,
+		}
+	}
 }

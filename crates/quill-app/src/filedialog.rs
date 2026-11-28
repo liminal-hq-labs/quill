@@ -17,6 +17,7 @@ use quill_dlg::key::DlgKey;
 use quill_dlg::name83::NameError;
 use quill_dlg::types::Kind;
 
+use crate::paint::filepaint;
 use crate::{App, Files, Key, Mode, Prompt, NAME_MAX};
 
 /// How many bytes of a box's line.
@@ -133,6 +134,8 @@ pub(crate) struct State {
 	pub date: [u8; 10],
 	pub date_len: u8,
 	pub h24: bool,
+	/// The tick and entry of the last press on a list entry, for a double click (`u16::MAX` for none).
+	last: (u32, u16),
 }
 
 impl State {
@@ -153,6 +156,7 @@ impl State {
 			date: *b"MM/dd/yyyy",
 			date_len: 10,
 			h24: false,
+			last: (0, u16::MAX),
 		}
 	}
 }
@@ -461,6 +465,53 @@ impl<M: Measure + Clone> App<M> {
 			None => Outcome::Cancel,
 		};
 		self.file_outcome(s, f, dlg, out);
+	}
+
+	/// A press on the text screen's cell (`col`, `row`) while the file dialog is open, found as the graphics screen's pointer finds a
+	/// pixel: a box over the dialog takes its own buttons, the New folder box takes none (Enter and Esc), and everything else is a
+	/// `Point` for `file_point`, a second press on one entry within `DOUBLE_TICKS` opening it.
+	#[inline(never)]
+	pub(crate) fn file_cell_press<S: Store + ?Sized, F: Files>(
+		&mut self,
+		s: &mut S,
+		f: &mut F,
+		(col, row): (i32, i32),
+		tick: u32,
+	) {
+		let (x, y) = (
+			u16::try_from(col).unwrap_or(u16::MAX),
+			u16::try_from(row).unwrap_or(u16::MAX),
+		);
+		let rows = self.rows as u16 + 2;
+		let boxed = self.fd.boxed;
+		if boxed != FileBox::None {
+			if let Some(i) = filepaint::box_button(rows, boxed, x, y) {
+				self.press_file_box(s, f, i, true);
+			}
+			return;
+		}
+		let Some(dlg) = self.fd.dlg.as_ref().filter(|d| d.new_folder().is_none()) else {
+			return;
+		};
+		let mut at = filepaint::hit(dlg, rows, x, y);
+		if at == Point::Bar {
+			let top = filepaint::bar_press(dlg, rows, y);
+			self.file_scroll(top as i32);
+		} else if let Point::Item(i) = at {
+			let (t, k) = self.fd.last;
+			let again = usize::from(k) == i && tick.wrapping_sub(t) <= crate::mouse::DOUBLE_TICKS;
+			self.fd.last = if again {
+				(0, u16::MAX)
+			} else {
+				(tick, i as u16)
+			};
+			if again {
+				at = Point::Open(i);
+			}
+		}
+		if at != Point::Bar {
+			self.file_point(s, f, at);
+		}
 	}
 
 	/// Scrolls the file dialog's list so entry `top` is the first shown, as its scroll bar and the wheel do.

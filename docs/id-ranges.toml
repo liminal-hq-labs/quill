@@ -563,3 +563,11 @@ last = 115
 owner = "WP-ED-5 rich clipboard"
 status = "in use"
 source = "docs/decisions.md"
+
+[[block]]
+prefix = "DOS"
+first = 140
+last = 144
+owner = "DOS text screen mouse audit (fix/dos-text-mouse)"
+status = "in use"
+source = "docs/decisions.md"

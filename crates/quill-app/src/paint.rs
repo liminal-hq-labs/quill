@@ -18,7 +18,7 @@ pub const MENU_COUNT: u8 = 9;
 
 #[cfg(feature = "text-file-dialog")]
 #[path = "filepaint.rs"]
-mod filepaint;
+pub(crate) mod filepaint;
 
 /// The column each menu's title starts at on the DOS menu bar.
 pub(crate) const MENU_COLS: [usize; 9] = [1, 7, 13, 21, 27, 38, 49, 59, 65];

@@ -45,6 +45,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | DOS-110 to DOS-114 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
 | DOS-115 | WP-ED-5 rich clipboard | in use | [decisions.md](decisions.md) |
 | DOS-120 to DOS-123 | DOS page bridge (WP-DOSWEB) | reserved | [plans/dos-page-bridge.md](plans/dos-page-bridge.md) |
+| DOS-140 to DOS-144 | DOS text screen mouse audit (fix/dos-text-mouse) | in use | [decisions.md](decisions.md) |
 
 ## W16
 

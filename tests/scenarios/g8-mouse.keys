@@ -14,7 +14,7 @@
 @click 3 8
 @click 3 0
 @click 5 3
-@click 41 12                  # Open dialog: Cancel
+@click 67 19                  # Open dialog: Cancel
 @click 22 0                   # Find menu
 @click 24 2                   # Find...
 t h i s

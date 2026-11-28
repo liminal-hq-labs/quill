@@ -113,6 +113,7 @@ pub trait PointerTarget<M: Measure + Clone> {
 		_f: &mut F,
 		_x: i32,
 		_y: i32,
+		_tick: u32,
 	) {
 	}
 
@@ -220,7 +221,7 @@ impl Pointer {
 		self.sel = None;
 		if !app.editing() {
 			self.click = None;
-			t.press_overlay(app, s, f, x, y);
+			t.press_overlay(app, s, f, x, y, ctx.tick);
 			return;
 		}
 		let Some(hit) = t.page_hit(app, s, x, y) else {
@@ -422,13 +423,14 @@ impl<M: Measure + Clone> App<M> {
 		f: &mut F,
 		col: i32,
 		row: i32,
+		tick: u32,
 	) {
 		let at = |x: i32, y: i32, w: usize| row == y && col >= x && col < x + w as i32;
+		#[cfg(not(feature = "text-file-dialog"))]
+		let _ = tick;
 		match self.mode {
-			// The file dialog takes the pointer through `filelayout::hit` with the graphics screen's pointer (a later step); a press
-			// does nothing here.
 			#[cfg(feature = "text-file-dialog")]
-			Mode::File => {}
+			Mode::File => self.file_cell_press(s, f, (col, row), tick),
 			Mode::Menu { menu, .. } => {
 				if row == 0 {
 					if !self.bar_press(col) {
@@ -622,8 +624,9 @@ impl<M: Measure + Clone> PointerTarget<M> for TextCells {
 		f: &mut F,
 		x: i32,
 		y: i32,
+		tick: u32,
 	) {
-		app.cell_press(s, f, x, y);
+		app.cell_press(s, f, x, y, tick);
 	}
 
 	fn hover_overlay(&self, app: &mut App<M>, x: i32, y: i32) {
