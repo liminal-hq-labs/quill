@@ -1,0 +1,473 @@
+# LineBreakTest-16.0.0.txt
+# Date: 2024-07-05, 00:45:20 GMT
+# © 2024 Unicode®, Inc.
+# Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
+# For terms of use and license, see https://www.unicode.org/terms_of_use.html
+#
+# Unicode Character Database
+#   For documentation, see https://www.unicode.org/reports/tr44/
+#
+# Default Line_Break Test
+#
+# Format:
+# <string> (# <comment>)?
+#  <string> contains hex Unicode code points, with
+#	÷ wherever there is a break opportunity, and
+#	× wherever there is not.
+#  <comment> the format can change, but currently it shows:
+#	- the sample character name
+#	- (x) the Line_Break property value for the sample character
+#	- [x] the rule that determines whether there is a break or not,
+#	   as listed in the Rules section of LineBreakTest.html
+#
+# These samples may be extended or changed in the future.
+#
+#
+# Trimmed by scripts/gen-unicode.py to the 408 of 16672 lines whose answer the quill-text table gives exactly; the comments are dropped.
+# excluded 2370: the line's first class outside the subset is CM, which the pair rule does not answer exactly
+# excluded 869: the line's first class outside the subset is QU, which the pair rule does not answer exactly
+# excluded 656: the line's first class outside the subset is OP, which the pair rule does not answer exactly
+# excluded 604: the line's first class outside the subset is CL, which the pair rule does not answer exactly
+# excluded 578: the line's first class outside the subset is NS, which the pair rule does not answer exactly
+# excluded 575: the line's first class outside the subset is PR, which the pair rule does not answer exactly
+# excluded 571: the line's first class outside the subset is EX, which the pair rule does not answer exactly
+# excluded 570: the line's first class outside the subset is EB, which the pair rule does not answer exactly
+# excluded 570: the line's first class outside the subset is IN, which the pair rule does not answer exactly
+# excluded 569: the line's first class outside the subset is PO, which the pair rule does not answer exactly
+# excluded 568: the line's first class outside the subset is AI, which the pair rule does not answer exactly
+# excluded 309: the line's first class outside the subset is IS, which the pair rule does not answer exactly
+# excluded 301: the line's first class outside the subset is CJ, which the pair rule does not answer exactly
+# excluded 292: the line's first class outside the subset is NU, which the pair rule does not answer exactly
+# excluded 289: the line's first class outside the subset is CP, which the pair rule does not answer exactly
+# excluded 289: the line's first class outside the subset is RI, which the pair rule does not answer exactly
+# excluded 289: the line's first class outside the subset is ZWJ, which the pair rule does not answer exactly
+# excluded 287: the line's first class outside the subset is JV, which the pair rule does not answer exactly
+# excluded 286: the line's first class outside the subset is AK, which the pair rule does not answer exactly
+# excluded 286: the line's first class outside the subset is B2, which the pair rule does not answer exactly
+# excluded 286: the line's first class outside the subset is BB, which the pair rule does not answer exactly
+# excluded 286: the line's first class outside the subset is CR, which the pair rule does not answer exactly
+# excluded 286: the line's first class outside the subset is EM, which the pair rule does not answer exactly
+# excluded 286: the line's first class outside the subset is HL, which the pair rule does not answer exactly
+# excluded 286: the line's first class outside the subset is SA, which the pair rule does not answer exactly
+# excluded 286: the line's first class outside the subset is VI, which the pair rule does not answer exactly
+# excluded 285: the line's first class outside the subset is AS, which the pair rule does not answer exactly
+# excluded 285: the line's first class outside the subset is BK, which the pair rule does not answer exactly
+# excluded 285: the line's first class outside the subset is CB, which the pair rule does not answer exactly
+# excluded 285: the line's first class outside the subset is JL, which the pair rule does not answer exactly
+# excluded 285: the line's first class outside the subset is JT, which the pair rule does not answer exactly
+# excluded 285: the line's first class outside the subset is NL, which the pair rule does not answer exactly
+# excluded 285: the line's first class outside the subset is WJ, which the pair rule does not answer exactly
+# excluded 284: the line's first class outside the subset is AP, which the pair rule does not answer exactly
+# excluded 284: the line's first class outside the subset is LF, which the pair rule does not answer exactly
+# excluded 284: the line's first class outside the subset is SY, which the pair rule does not answer exactly
+# excluded 284: the line's first class outside the subset is VF, which the pair rule does not answer exactly
+# excluded 284: the line's first class outside the subset is XX, which the pair rule does not answer exactly
+# excluded 5: LB20a: no break after a word-initial hyphen
+× 23E9 × 23E9 ÷
+× 23E9 × 0020 ÷ 23E9 ÷
+× 23E9 × 3000 ÷
+× 23E9 × 0020 ÷ 3000 ÷
+× 23E9 × 16FE4 ÷
+× 23E9 × 0020 ÷ 16FE4 ÷
+× 23E9 ÷ AC00 ÷
+× 23E9 × 0020 ÷ AC00 ÷
+× 23E9 ÷ AC01 ÷
+× 23E9 × 0020 ÷ AC01 ÷
+× 23E9 ÷ 231A ÷
+× 23E9 × 0020 ÷ 231A ÷
+× 23E9 × 0020 ÷
+× 23E9 × 0020 × 0020 ÷
+× 23E9 × 002D ÷
+× 23E9 × 0020 ÷ 002D ÷
+× 23E9 × 00A0 ÷
+× 23E9 × 0020 ÷ 00A0 ÷
+× 23E9 ÷ 1B5C ÷
+× 23E9 × 0020 ÷ 1B5C ÷
+× 23E9 × 200B ÷
+× 23E9 × 0020 × 200B ÷
+× 23E9 × 0009 ÷
+× 23E9 × 0020 ÷ 0009 ÷
+× 23E9 × 2010 ÷
+× 23E9 × 0020 ÷ 2010 ÷
+× 23E9 × 0023 ÷
+× 23E9 × 0020 ÷ 0023 ÷
+× 3000 ÷ 23E9 ÷
+× 3000 × 0020 ÷ 23E9 ÷
+× 3000 × 3000 ÷
+× 3000 × 0020 ÷ 3000 ÷
+× 3000 ÷ 16FE4 ÷
+× 3000 × 0020 ÷ 16FE4 ÷
+× 3000 ÷ AC00 ÷
+× 3000 × 0020 ÷ AC00 ÷
+× 3000 ÷ AC01 ÷
+× 3000 × 0020 ÷ AC01 ÷
+× 3000 ÷ 231A ÷
+× 3000 × 0020 ÷ 231A ÷
+× 3000 × 0020 ÷
+× 3000 × 0020 × 0020 ÷
+× 3000 × 002D ÷
+× 3000 × 0020 ÷ 002D ÷
+× 3000 ÷ 00A0 ÷
+× 3000 × 0020 ÷ 00A0 ÷
+× 3000 ÷ 1B5C ÷
+× 3000 × 0020 ÷ 1B5C ÷
+× 3000 × 200B ÷
+× 3000 × 0020 × 200B ÷
+× 3000 × 0009 ÷
+× 3000 × 0020 ÷ 0009 ÷
+× 3000 × 2010 ÷
+× 3000 × 0020 ÷ 2010 ÷
+× 3000 ÷ 0023 ÷
+× 3000 × 0020 ÷ 0023 ÷
+× 16FE4 × 23E9 ÷
+× 16FE4 × 0020 ÷ 23E9 ÷
+× 16FE4 × 3000 ÷
+× 16FE4 × 0020 ÷ 3000 ÷
+× 16FE4 × 16FE4 ÷
+× 16FE4 × 0020 ÷ 16FE4 ÷
+× 16FE4 × AC00 ÷
+× 16FE4 × 0020 ÷ AC00 ÷
+× 16FE4 × AC01 ÷
+× 16FE4 × 0020 ÷ AC01 ÷
+× 16FE4 × 231A ÷
+× 16FE4 × 0020 ÷ 231A ÷
+× 16FE4 × 0020 ÷
+× 16FE4 × 0020 × 0020 ÷
+× 16FE4 × 002D ÷
+× 16FE4 × 0020 ÷ 002D ÷
+× 16FE4 × 00A0 ÷
+× 16FE4 × 0020 ÷ 00A0 ÷
+× 16FE4 × 1B5C ÷
+× 16FE4 × 0020 ÷ 1B5C ÷
+× 16FE4 × 200B ÷
+× 16FE4 × 0020 × 200B ÷
+× 16FE4 × 0009 ÷
+× 16FE4 × 0020 ÷ 0009 ÷
+× 16FE4 × 2010 ÷
+× 16FE4 × 0020 ÷ 2010 ÷
+× 16FE4 × 0023 ÷
+× 16FE4 × 0020 ÷ 0023 ÷
+× AC00 ÷ 23E9 ÷
+× AC00 × 0020 ÷ 23E9 ÷
+× AC00 × 3000 ÷
+× AC00 × 0020 ÷ 3000 ÷
+× AC00 × 16FE4 ÷
+× AC00 × 0020 ÷ 16FE4 ÷
+× AC00 ÷ AC00 ÷
+× AC00 × 0020 ÷ AC00 ÷
+× AC00 ÷ AC01 ÷
+× AC00 × 0020 ÷ AC01 ÷
+× AC00 ÷ 231A ÷
+× AC00 × 0020 ÷ 231A ÷
+× AC00 × 0020 ÷
+× AC00 × 0020 × 0020 ÷
+× AC00 × 002D ÷
+× AC00 × 0020 ÷ 002D ÷
+× AC00 × 00A0 ÷
+× AC00 × 0020 ÷ 00A0 ÷
+× AC00 ÷ 1B5C ÷
+× AC00 × 0020 ÷ 1B5C ÷
+× AC00 × 200B ÷
+× AC00 × 0020 × 200B ÷
+× AC00 × 0009 ÷
+× AC00 × 0020 ÷ 0009 ÷
+× AC00 × 2010 ÷
+× AC00 × 0020 ÷ 2010 ÷
+× AC00 ÷ 0023 ÷
+× AC00 × 0020 ÷ 0023 ÷
+× AC01 ÷ 23E9 ÷
+× AC01 × 0020 ÷ 23E9 ÷
+× AC01 × 3000 ÷
+× AC01 × 0020 ÷ 3000 ÷
+× AC01 × 16FE4 ÷
+× AC01 × 0020 ÷ 16FE4 ÷
+× AC01 ÷ AC00 ÷
+× AC01 × 0020 ÷ AC00 ÷
+× AC01 ÷ AC01 ÷
+× AC01 × 0020 ÷ AC01 ÷
+× AC01 ÷ 231A ÷
+× AC01 × 0020 ÷ 231A ÷
+× AC01 × 0020 ÷
+× AC01 × 0020 × 0020 ÷
+× AC01 × 002D ÷
+× AC01 × 0020 ÷ 002D ÷
+× AC01 × 00A0 ÷
+× AC01 × 0020 ÷ 00A0 ÷
+× AC01 ÷ 1B5C ÷
+× AC01 × 0020 ÷ 1B5C ÷
+× AC01 × 200B ÷
+× AC01 × 0020 × 200B ÷
+× AC01 × 0009 ÷
+× AC01 × 0020 ÷ 0009 ÷
+× AC01 × 2010 ÷
+× AC01 × 0020 ÷ 2010 ÷
+× AC01 ÷ 0023 ÷
+× AC01 × 0020 ÷ 0023 ÷
+× 231A ÷ 23E9 ÷
+× 231A × 0020 ÷ 23E9 ÷
+× 231A × 3000 ÷
+× 231A × 0020 ÷ 3000 ÷
+× 231A × 16FE4 ÷
+× 231A × 0020 ÷ 16FE4 ÷
+× 231A ÷ AC00 ÷
+× 231A × 0020 ÷ AC00 ÷
+× 231A ÷ AC01 ÷
+× 231A × 0020 ÷ AC01 ÷
+× 231A ÷ 231A ÷
+× 231A × 0020 ÷ 231A ÷
+× 231A × 0020 ÷
+× 231A × 0020 × 0020 ÷
+× 231A × 002D ÷
+× 231A × 0020 ÷ 002D ÷
+× 231A × 00A0 ÷
+× 231A × 0020 ÷ 00A0 ÷
+× 231A ÷ 1B5C ÷
+× 231A × 0020 ÷ 1B5C ÷
+× 231A × 200B ÷
+× 231A × 0020 × 200B ÷
+× 231A × 0009 ÷
+× 231A × 0020 ÷ 0009 ÷
+× 231A × 2010 ÷
+× 231A × 0020 ÷ 2010 ÷
+× 231A ÷ 0023 ÷
+× 231A × 0020 ÷ 0023 ÷
+× 0020 ÷ 23E9 ÷
+× 0020 × 0020 ÷ 23E9 ÷
+× 0020 ÷ 3000 ÷
+× 0020 × 0020 ÷ 3000 ÷
+× 0020 ÷ 16FE4 ÷
+× 0020 × 0020 ÷ 16FE4 ÷
+× 0020 ÷ AC00 ÷
+× 0020 × 0020 ÷ AC00 ÷
+× 0020 ÷ AC01 ÷
+× 0020 × 0020 ÷ AC01 ÷
+× 0020 ÷ 231A ÷
+× 0020 × 0020 ÷ 231A ÷
+× 0020 × 0020 ÷
+× 0020 × 0020 × 0020 ÷
+× 0020 ÷ 002D ÷
+× 0020 × 0020 ÷ 002D ÷
+× 0020 ÷ 00A0 ÷
+× 0020 × 0020 ÷ 00A0 ÷
+× 0020 ÷ 1B5C ÷
+× 0020 × 0020 ÷ 1B5C ÷
+× 0020 × 200B ÷
+× 0020 × 0020 × 200B ÷
+× 0020 ÷ 0009 ÷
+× 0020 × 0020 ÷ 0009 ÷
+× 0020 ÷ 2010 ÷
+× 0020 × 0020 ÷ 2010 ÷
+× 0020 ÷ 0023 ÷
+× 0020 × 0020 ÷ 0023 ÷
+× 002D × 0020 ÷ 23E9 ÷
+× 002D × 3000 ÷
+× 002D × 0020 ÷ 3000 ÷
+× 002D ÷ 16FE4 ÷
+× 002D × 0020 ÷ 16FE4 ÷
+× 002D ÷ AC00 ÷
+× 002D × 0020 ÷ AC00 ÷
+× 002D ÷ AC01 ÷
+× 002D × 0020 ÷ AC01 ÷
+× 002D ÷ 231A ÷
+× 002D × 0020 ÷ 231A ÷
+× 002D × 0020 ÷
+× 002D × 0020 × 0020 ÷
+× 002D × 002D ÷
+× 002D × 0020 ÷ 002D ÷
+× 002D ÷ 00A0 ÷
+× 002D × 0020 ÷ 00A0 ÷
+× 002D ÷ 1B5C ÷
+× 002D × 0020 ÷ 1B5C ÷
+× 002D × 200B ÷
+× 002D × 0020 × 200B ÷
+× 002D × 0009 ÷
+× 002D × 0020 ÷ 0009 ÷
+× 002D × 2010 ÷
+× 002D × 0020 ÷ 2010 ÷
+× 002D × 0020 ÷ 0023 ÷
+× 00A0 × 23E9 ÷
+× 00A0 × 0020 ÷ 23E9 ÷
+× 00A0 × 3000 ÷
+× 00A0 × 0020 ÷ 3000 ÷
+× 00A0 × 16FE4 ÷
+× 00A0 × 0020 ÷ 16FE4 ÷
+× 00A0 × AC00 ÷
+× 00A0 × 0020 ÷ AC00 ÷
+× 00A0 × AC01 ÷
+× 00A0 × 0020 ÷ AC01 ÷
+× 00A0 × 231A ÷
+× 00A0 × 0020 ÷ 231A ÷
+× 00A0 × 0020 ÷
+× 00A0 × 0020 × 0020 ÷
+× 00A0 × 002D ÷
+× 00A0 × 0020 ÷ 002D ÷
+× 00A0 × 00A0 ÷
+× 00A0 × 0020 ÷ 00A0 ÷
+× 00A0 × 1B5C ÷
+× 00A0 × 0020 ÷ 1B5C ÷
+× 00A0 × 200B ÷
+× 00A0 × 0020 × 200B ÷
+× 00A0 × 0009 ÷
+× 00A0 × 0020 ÷ 0009 ÷
+× 00A0 × 2010 ÷
+× 00A0 × 0020 ÷ 2010 ÷
+× 00A0 × 0023 ÷
+× 00A0 × 0020 ÷ 0023 ÷
+× 1B5C ÷ 23E9 ÷
+× 1B5C × 0020 ÷ 23E9 ÷
+× 1B5C × 3000 ÷
+× 1B5C × 0020 ÷ 3000 ÷
+× 1B5C × 16FE4 ÷
+× 1B5C × 0020 ÷ 16FE4 ÷
+× 1B5C ÷ AC00 ÷
+× 1B5C × 0020 ÷ AC00 ÷
+× 1B5C ÷ AC01 ÷
+× 1B5C × 0020 ÷ AC01 ÷
+× 1B5C ÷ 231A ÷
+× 1B5C × 0020 ÷ 231A ÷
+× 1B5C × 0020 ÷
+× 1B5C × 0020 × 0020 ÷
+× 1B5C × 002D ÷
+× 1B5C × 0020 ÷ 002D ÷
+× 1B5C × 00A0 ÷
+× 1B5C × 0020 ÷ 00A0 ÷
+× 1B5C ÷ 1B5C ÷
+× 1B5C × 0020 ÷ 1B5C ÷
+× 1B5C × 200B ÷
+× 1B5C × 0020 × 200B ÷
+× 1B5C × 0009 ÷
+× 1B5C × 0020 ÷ 0009 ÷
+× 1B5C × 2010 ÷
+× 1B5C × 0020 ÷ 2010 ÷
+× 1B5C ÷ 0023 ÷
+× 1B5C × 0020 ÷ 0023 ÷
+× 200B ÷ 23E9 ÷
+× 200B × 0020 ÷ 23E9 ÷
+× 200B ÷ 3000 ÷
+× 200B × 0020 ÷ 3000 ÷
+× 200B ÷ 16FE4 ÷
+× 200B × 0020 ÷ 16FE4 ÷
+× 200B ÷ AC00 ÷
+× 200B × 0020 ÷ AC00 ÷
+× 200B ÷ AC01 ÷
+× 200B × 0020 ÷ AC01 ÷
+× 200B ÷ 231A ÷
+× 200B × 0020 ÷ 231A ÷
+× 200B × 0020 ÷
+× 200B × 0020 × 0020 ÷
+× 200B ÷ 002D ÷
+× 200B × 0020 ÷ 002D ÷
+× 200B ÷ 00A0 ÷
+× 200B × 0020 ÷ 00A0 ÷
+× 200B ÷ 1B5C ÷
+× 200B × 0020 ÷ 1B5C ÷
+× 200B × 200B ÷
+× 200B × 0020 × 200B ÷
+× 200B ÷ 0009 ÷
+× 200B × 0020 ÷ 0009 ÷
+× 200B ÷ 2010 ÷
+× 200B × 0020 ÷ 2010 ÷
+× 200B ÷ 0023 ÷
+× 200B × 0020 ÷ 0023 ÷
+× 0009 ÷ 23E9 ÷
+× 0009 × 0020 ÷ 23E9 ÷
+× 0009 × 3000 ÷
+× 0009 × 0020 ÷ 3000 ÷
+× 0009 ÷ 16FE4 ÷
+× 0009 × 0020 ÷ 16FE4 ÷
+× 0009 ÷ AC00 ÷
+× 0009 × 0020 ÷ AC00 ÷
+× 0009 ÷ AC01 ÷
+× 0009 × 0020 ÷ AC01 ÷
+× 0009 ÷ 231A ÷
+× 0009 × 0020 ÷ 231A ÷
+× 0009 × 0020 ÷
+× 0009 × 0020 × 0020 ÷
+× 0009 × 002D ÷
+× 0009 × 0020 ÷ 002D ÷
+× 0009 ÷ 00A0 ÷
+× 0009 × 0020 ÷ 00A0 ÷
+× 0009 ÷ 1B5C ÷
+× 0009 × 0020 ÷ 1B5C ÷
+× 0009 × 200B ÷
+× 0009 × 0020 × 200B ÷
+× 0009 × 0009 ÷
+× 0009 × 0020 ÷ 0009 ÷
+× 0009 × 2010 ÷
+× 0009 × 0020 ÷ 2010 ÷
+× 0009 ÷ 0023 ÷
+× 0009 × 0020 ÷ 0023 ÷
+× 2010 × 0020 ÷ 23E9 ÷
+× 2010 × 3000 ÷
+× 2010 × 0020 ÷ 3000 ÷
+× 2010 ÷ 16FE4 ÷
+× 2010 × 0020 ÷ 16FE4 ÷
+× 2010 ÷ AC00 ÷
+× 2010 × 0020 ÷ AC00 ÷
+× 2010 ÷ AC01 ÷
+× 2010 × 0020 ÷ AC01 ÷
+× 2010 ÷ 231A ÷
+× 2010 × 0020 ÷ 231A ÷
+× 2010 × 0020 ÷
+× 2010 × 0020 × 0020 ÷
+× 2010 × 002D ÷
+× 2010 × 0020 ÷ 002D ÷
+× 2010 ÷ 00A0 ÷
+× 2010 × 0020 ÷ 00A0 ÷
+× 2010 ÷ 1B5C ÷
+× 2010 × 0020 ÷ 1B5C ÷
+× 2010 × 200B ÷
+× 2010 × 0020 × 200B ÷
+× 2010 × 0009 ÷
+× 2010 × 0020 ÷ 0009 ÷
+× 2010 × 2010 ÷
+× 2010 × 0020 ÷ 2010 ÷
+× 2010 × 0020 ÷ 0023 ÷
+× 0023 × 23E9 ÷
+× 0023 × 0020 ÷ 23E9 ÷
+× 0023 × 3000 ÷
+× 0023 × 0020 ÷ 3000 ÷
+× 0023 × 16FE4 ÷
+× 0023 × 0020 ÷ 16FE4 ÷
+× 0023 ÷ AC00 ÷
+× 0023 × 0020 ÷ AC00 ÷
+× 0023 ÷ AC01 ÷
+× 0023 × 0020 ÷ AC01 ÷
+× 0023 ÷ 231A ÷
+× 0023 × 0020 ÷ 231A ÷
+× 0023 × 0020 ÷
+× 0023 × 0020 × 0020 ÷
+× 0023 × 002D ÷
+× 0023 × 0020 ÷ 002D ÷
+× 0023 × 00A0 ÷
+× 0023 × 0020 ÷ 00A0 ÷
+× 0023 ÷ 1B5C ÷
+× 0023 × 0020 ÷ 1B5C ÷
+× 0023 × 200B ÷
+× 0023 × 0020 × 200B ÷
+× 0023 × 0009 ÷
+× 0023 × 0020 ÷ 0009 ÷
+× 0023 × 2010 ÷
+× 0023 × 0020 ÷ 2010 ÷
+× 0023 × 0023 ÷
+× 0023 × 0020 ÷ 0023 ÷
+× 0066 × 0069 × 006E × 0061 × 006C ÷
+× 0061 × 0062 × 00AD ÷ 0062 × 0079 ÷
+× 0061 × 0020 × 0020 ÷ 0062 ÷
+× 0061 × 0020 × 0020 × 200B ÷ 0062 ÷
+× 0061 × 0062 ÷
+× 0061 × 0062 × 0020 ÷
+× 0061 × 0062 × 0020 ÷ 0063 ÷
+× 0061 ÷ 307E ÷
+× 5370 ÷ 672C ÷
+× 8AAD ÷ 3080 ÷
+× 5165 ÷ 529B ÷ 3057 ÷ 30A8 ÷
+× 307E ÷ 0061 ÷ 672C ÷
+× C5C6 ÷ C5B4 ÷ C694 × 0020 ÷ 006F × 0072 × 0020 ÷ BABB ÷
+× 307E ÷ 0061 × 0062 × 0020 ÷
+× 3067 ÷ 4F7F ÷
+× 3059 ÷ 308B ÷
+× 306E ÷ 30D1 ÷ 30F3 ÷
+× 308B × 0020 ÷ C740 ÷ C601 × 0020 ÷ 306B ÷
+× 30E0 ÷ 306E ÷ 4E00 ÷
+× 30D5 ÷ 30EA ÷

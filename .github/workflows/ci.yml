@@ -111,6 +111,21 @@ jobs:
       - name: Check the frozen .QLD 1.0 reader is unchanged
         run: bash scripts/check-frozen-reader.sh
 
+  unicode-tables:
+    name: Unicode tables
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # CI has no Unicode download, so this checks that UNITAB.BIN holds what the committed Rust tables hold; the
+      # regeneration from the UCD files runs wherever `~/.cache/quill-ucd/16.0.0/` exists (`make unicode`).
+      - name: Check the Unicode tables
+        run: python3 -I scripts/gen-unicode.py --check
+
   size-gate:
     name: Size gate tests
     runs-on: ubuntu-24.04

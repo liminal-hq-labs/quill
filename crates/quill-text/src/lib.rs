@@ -11,6 +11,19 @@
 //! - [`cp1252`]: a Windows-1252 byte to a Unicode character and back.
 //! - [`cp437`]: a CP437 byte to a Unicode character, and between CP437 and Windows-1252 bytes.
 //! - [`utf8`]: reading text as UTF-8 when it is valid and as Windows-1252 otherwise, and writing UTF-8.
+//!
+//! The Unicode tables (WP-UNI-1), generated from the Unicode Character Database 16.0.0 by `scripts/gen-unicode.py`.
+//! Nothing links them yet, so no build pays for them; each is a sorted range table with a binary search, and
+//! [`unitab`] reads them all from one blob (`assets/unicode/UNITAB.BIN`) for a build that serves them from a resource.
+//!
+//! - [`cluster`]: which characters join the one before in a grapheme cluster.
+//! - [`breaks`]: where a line may break, a UAX #14 subset.
+//! - [`word`]: letter, punctuation, space or ideograph, for words beyond ASCII.
+//! - [`fold`]: simple case folding for the alphabetic scripts.
+//! - [`compose`]: the Windows-1252 letters as a base and a combining mark.
+//! - [`width`]: East Asian Wide and Fullwidth.
+//! - [`script`]: the scripts drawn as placeholders in v1, and the invisible format characters.
+//! - [`blocks`]: the Unicode block of a character and the short names of invisible ones.
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -23,9 +36,21 @@
 	clippy::todo
 )]
 
+#[cfg(test)]
+extern crate std;
+
+pub mod blocks;
+pub mod breaks;
+pub mod cluster;
 pub mod codepage;
+pub mod compose;
 pub mod cp1252;
 pub mod cp437;
+pub mod fold;
+pub mod script;
+pub mod unitab;
 pub mod utf8;
+pub mod width;
+pub mod word;
 
 mod cpdata;
