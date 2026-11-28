@@ -27,8 +27,31 @@ pub const CTL_H: i32 = 20;
 /// The side of a check box and the diameter of a radio button.
 pub const BOX: i32 = 13;
 
-/// The window, centred on the screen.
+/// How much of a dragged window stays on the screen, in pixels.
+pub const KEEP: i32 = 16;
+
+/// The window as the overlay's drag has moved it from the middle of the screen.
 pub fn window_rect(o: &Overlay) -> Rect {
+	let r = centred_rect(o);
+	let (dx, dy) = (i32::from(o.off.0), i32::from(o.off.1));
+	Rect::new(r.left + dx, r.top + dy, r.right + dx, r.bottom + dy)
+}
+
+/// `off` brought within what a drag may reach: at least [`KEEP`] pixels of the window's width stay on the screen, and its title bar
+/// stays on it, so the window can always be grabbed again.
+pub fn clamp_off(o: &Overlay, (dx, dy): (i32, i32)) -> (i16, i16) {
+	let r = centred_rect(o);
+	let lo_x = KEEP - r.right;
+	let hi_x = SCREEN_W - KEEP - r.left;
+	let hi_y = SCREEN_H - KEEP - r.top;
+	(
+		dx.clamp(lo_x, hi_x.max(lo_x)) as i16,
+		dy.clamp(-r.top, hi_y.max(-r.top)) as i16,
+	)
+}
+
+/// The window, centred on the screen.
+fn centred_rect(o: &Overlay) -> Rect {
 	let w = i32::from(o.w) * CELL_W + 2 * BORDER;
 	let h = BORDER + TITLE_H + 8 + (i32::from(o.h) - 1).max(0) * ROW_H + 8 + BORDER;
 	let left = ((SCREEN_W - w) / 2).max(0);

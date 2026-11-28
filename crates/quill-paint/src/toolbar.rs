@@ -14,6 +14,7 @@ use quill_chrome::view::{is_on, Act, Button, BTN_H, BTN_W, TB_H, TOOLBAR};
 use quill_core::layout::Measure;
 use quill_core::store::ReadStore;
 
+use crate::drop::Pop;
 use crate::layout::Layout;
 use crate::ui::{bevel, outline, Ui, FACE, INK, LIGHT, SHADOW};
 use crate::{Rect, Rgb, Surface};
@@ -184,7 +185,7 @@ fn button<Sf: Surface + ?Sized, M: Measure + Clone, S: ReadStore + ?Sized>(
 	}
 }
 
-fn combo<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, text: &[u8]) {
+fn combo<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, text: &[u8], open: bool) {
 	sf.fill_rect(r, Rgb::WHITE);
 	bevel(sf, r, false);
 	sf.hline(r.left + 1, r.right - 1, r.top + 1, INK);
@@ -196,9 +197,13 @@ fn combo<Sf: Surface + ?Sized>(sf: &mut Sf, ui: &Ui<Sf::Font>, r: Rect, text: &[
 	bevel(
 		sf,
 		Rect::new(a.left + 1, a.top + 1, a.right - 1, a.bottom - 1),
-		true,
+		!open,
 	);
-	let (cx, cy) = ((a.left + a.right) / 2, (a.top + a.bottom) / 2);
+	// While its list is down the button stays sunk, as the scroll bar's arrows do under the pointer.
+	let (cx, cy) = (
+		(a.left + a.right) / 2 + i32::from(open),
+		(a.top + a.bottom) / 2 + i32::from(open),
+	);
 	for i in 0..4 {
 		sf.hline(cx - 3 + i, cx + 4 - i, cy - 1 + i, INK);
 	}
@@ -217,7 +222,7 @@ pub fn draw<Sf: Surface + ?Sized, M: Measure + Clone, S: ReadStore + ?Sized>(
 	app: &App<M>,
 	s: &S,
 	lay: &Layout,
-	held: Option<usize>,
+	(held, open): (Option<usize>, Option<Pop>),
 ) {
 	for (row, strip) in [(0u8, lay.tool), (1u8, lay.format)] {
 		let Some(strip) = strip else { continue };
@@ -265,7 +270,7 @@ pub fn draw<Sf: Surface + ?Sized, M: Measure + Clone, S: ReadStore + ?Sized>(
 		];
 		for (b, t) in texts {
 			if let Some(r) = box_rect(lay, b) {
-				combo(sf, ui, r, t);
+				combo(sf, ui, r, t, open == Some(Pop::of_box(b)));
 			}
 		}
 	}

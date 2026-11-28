@@ -1,0 +1,24 @@
+# G8 (graphics): a dialog dragged by its title bar. About is taken by its title, dragged and let go (the box and its OK button stand where it
+# was dropped, and a click there closes it); Find is dragged past the foot of the screen and stops 16 pixels from it, Esc closes it, and
+# the next Find opens in the middle again. Every frame's CRC-32 must equal the host's in both graphics modes.
+@copy letter.rtf
+@open LETTER.RTF
+@click 425 9            # Help menu
+@click 425 50           # About
+@down 320 144           # the title bar taken
+@move 360 164
+@move 380 184           # mid-drag
+@up 380 184             # dropped
+@click 356 365          # OK, where it is now
+@click 145 9            # Find menu
+@click 215 32          # Find...
+@down 320 177           # the title bar taken
+@move 500 330
+@move 639 479           # past the foot of the screen
+@up 639 479
+@click 320 177          # the old place is the page's now
+esc
+@click 145 9
+@click 215 32           # Find opens in the middle again
+@click 236 292          # Close
+f10 end enter

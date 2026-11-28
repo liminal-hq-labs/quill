@@ -111,19 +111,26 @@ pub fn pos_at(p: &Parts, coord: i32, range: i32) -> i32 {
 	((coord - start).clamp(0, p.travel) * range + p.travel / 2) / p.travel
 }
 
-/// An arrow button in `r` pointing up, down, left or right (`dir` 0 to 3), greyed when not `enabled`.
-pub(crate) fn arrow<Sf: Surface + ?Sized>(sf: &mut Sf, r: Rect, dir: u8, enabled: bool) {
+/// An arrow button in `r` pointing up, down, left or right (`dir` 0 to 3), greyed when not `enabled`, sunk with its arrow a pixel
+/// down and right when `down` (held by the pointer, as the zoom buttons are).
+pub(crate) fn arrow<Sf: Surface + ?Sized>(
+	sf: &mut Sf,
+	r: Rect,
+	dir: u8,
+	(enabled, down): (bool, bool),
+) {
 	let ink = if enabled { INK } else { SHADOW };
+	let off = i32::from(down);
 	sf.fill_rect(r, FACE);
 	outline(sf, r, INK);
 	bevel(
 		sf,
 		Rect::new(r.left + 1, r.top + 1, r.right - 1, r.bottom - 1),
-		true,
+		!down,
 	);
 	triangle(
 		sf,
-		((r.left + r.right) / 2, (r.top + r.bottom) / 2),
+		((r.left + r.right) / 2 + off, (r.top + r.bottom) / 2 + off),
 		dir,
 		ink,
 	);
@@ -141,8 +148,9 @@ pub(crate) fn triangle<Sf: Surface + ?Sized>(sf: &mut Sf, (cx, cy): (i32, i32), 
 	}
 }
 
-/// Draws a bar: a striped track (white and silver in a checker), the thumb raised, the arrows on their buttons.
-pub fn draw<Sf: Surface + ?Sized>(sf: &mut Sf, p: &Parts, enabled: bool) {
+/// Draws a bar: a striped track (white and silver in a checker), the thumb raised, the arrows on their buttons. `held` is the part the
+/// pointer has pressed: an arrow is drawn sunk and the thumb grabbed (sunk, on the track's silver), as the zoom buttons are.
+pub fn draw<Sf: Surface + ?Sized>(sf: &mut Sf, p: &Parts, enabled: bool, held: Option<Part>) {
 	sf.clip(None);
 	let t = p.track;
 	// The track is white and silver in lines one pixel wide along its length, which reads as the grey of Windows 3.1's dither but takes
@@ -162,8 +170,10 @@ pub fn draw<Sf: Surface + ?Sized>(sf: &mut Sf, p: &Parts, enabled: bool) {
 	} else {
 		sf.hline(t.left, t.right, t.top, SHADOW);
 	}
-	arrow(sf, p.up, if p.vertical { 0 } else { 2 }, enabled);
-	arrow(sf, p.down, if p.vertical { 1 } else { 3 }, enabled);
+	let up = (enabled, held == Some(Part::LineUp));
+	let down = (enabled, held == Some(Part::LineDown));
+	arrow(sf, p.up, if p.vertical { 0 } else { 2 }, up);
+	arrow(sf, p.down, if p.vertical { 1 } else { 3 }, down);
 	if enabled && !p.thumb.is_empty() {
 		let r = p.thumb;
 		sf.fill_rect(r, FACE);
@@ -171,7 +181,7 @@ pub fn draw<Sf: Surface + ?Sized>(sf: &mut Sf, p: &Parts, enabled: bool) {
 		bevel(
 			sf,
 			Rect::new(r.left + 1, r.top + 1, r.right - 1, r.bottom - 1),
-			true,
+			held != Some(Part::Thumb),
 		);
 	}
 	let _ = LIGHT;

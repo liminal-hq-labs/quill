@@ -23,7 +23,7 @@ use quill_picture::WINDOW;
 use crate::layout::{Layout, BAR};
 use crate::page::{paint_page, PageInfo, PageView};
 use crate::pointer::{View, KIND_W};
-use crate::scroll;
+use crate::scroll::{self, Part};
 use crate::ui::{bevel, Ui, FACE, INK, LIGHT, SHADOW};
 use crate::{dialog, drop, filedlg, menu, tip, toolbar, zoombox};
 use crate::{Rect, Surface};
@@ -291,7 +291,9 @@ fn scroll_bars<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 	app: &App<M>,
 	s: &St,
 	lay: &Layout,
+	held: Option<(bool, Part)>,
 ) {
+	let held_on = |vertical: bool| held.and_then(|(v, p)| (v == vertical).then_some(p));
 	// The bar counts pixels of the page, so a page of one line (an empty one) still scrolls down its sheet.
 	let view = app.vscroll_view();
 	let range = app.vscroll_max(s);
@@ -302,13 +304,13 @@ fn scroll_bars<Sf: Surface + ?Sized, M: Measure + Clone, St: Store + ?Sized>(
 		range + view,
 		view,
 	);
-	scroll::draw(sf, &v, range > 0);
+	scroll::draw(sf, &v, range > 0, held_on(true));
 	if let Some(hbar) = lay.hbar {
 		// The thumb is the width of the area over the width of what it can show, and sits at the sideways scroll.
 		let w = lay.page.width();
 		let range = hrange(app, s, w);
 		let h = scroll::parts(hbar, false, app.hscroll_pos(), range + w, w);
-		scroll::draw(sf, &h, range > 0);
+		scroll::draw(sf, &h, range > 0, held_on(false));
 	}
 	if let Some(c) = lay.corner {
 		sf.fill_rect(c, FACE);
@@ -368,7 +370,7 @@ fn chrome<F: Copy, M: Measure + Clone, St: Store + ?Sized, Me: Measure>(
 	view: &View,
 ) {
 	let ui = Ui::new(sf, m);
-	toolbar::draw(sf, &ui, app, s, lay, view.button);
+	toolbar::draw(sf, &ui, app, s, lay, (view.button, view.drop.map(|d| d.0)));
 	if let Some(r) = lay.ruler {
 		ruler(
 			sf,
@@ -395,7 +397,13 @@ fn rest<F: Copy, M: Measure + Clone, St: Store + ?Sized>(
 ) {
 	let open = app.menu_open();
 	menu::draw_bar(sf, ui, open.map(|(m, _)| m));
-	scroll_bars(sf, app, s, lay);
+	scroll_bars(
+		sf,
+		app,
+		s,
+		lay,
+		view.bar.filter(|_| app.file_view().is_none()),
+	);
 	if let Some(r) = lay.status {
 		status_line(sf, ui, app, s, r, view.zoom);
 	}
@@ -424,9 +432,9 @@ fn over<F: Copy, M: Measure + Clone, St: Store + ?Sized>(
 	let mut ov = Overlay::default();
 	if let Some(v) = app.file_view() {
 		// The file dialog is its window and parts; a box over it (a question, a notice, the new folder's name) is the app's overlay.
-		let win = filedlg::window(v.dlg.kind());
+		let win = filedlg::window(v.dlg.kind(), app.dialog_off());
 		dialog::draw_dialog(sf, ui, &win);
-		filedlg::draw(sf, ui, &win, &v, s, view.widget);
+		filedlg::draw(sf, ui, &win, &v, s, (view.widget, view.bar.map(|b| b.1)));
 		if v.covered() && app.overlay(s, &mut ov) {
 			dialog::draw_dialog_held(sf, ui, &ov, view.widget);
 		}

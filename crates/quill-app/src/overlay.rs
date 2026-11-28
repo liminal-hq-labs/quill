@@ -109,6 +109,9 @@ pub struct Overlay {
 	pub n: u8,
 	/// The widgets.
 	pub wid: [Wid; WIDS],
+	/// How far the person has dragged the window from the middle of the screen, in pixels (the graphics screen only; the text
+	/// screens place a dialog by its cells and ignore it).
+	pub off: (i16, i16),
 }
 
 impl Default for Overlay {
@@ -120,6 +123,7 @@ impl Default for Overlay {
 			h: 0,
 			n: 0,
 			wid: [BLANK; WIDS],
+			off: (0, 0),
 		}
 	}
 }
@@ -326,6 +330,22 @@ impl<M: Measure + Clone> crate::App<M> {
 
 	/// Describes the dialog that is open, or returns false when none is (a menu is not a dialog: its state is `menu_open`).
 	pub fn overlay<S: ReadStore + ?Sized>(&self, s: &S, o: &mut Overlay) -> bool {
+		let open = self.overlay_in(s, o);
+		o.off = self.dlg_off;
+		open
+	}
+
+	/// Where the person has dragged the dialog, in pixels from the middle of the screen.
+	pub fn dialog_off(&self) -> (i16, i16) {
+		self.dlg_off
+	}
+
+	/// Sets where the dialog stands (the pointer's drag; `(0, 0)` puts it back in the middle).
+	pub fn set_dialog_off(&mut self, off: (i16, i16)) {
+		self.dlg_off = off;
+	}
+
+	fn overlay_in<S: ReadStore + ?Sized>(&self, s: &S, o: &mut Overlay) -> bool {
 		match &self.mode {
 			Mode::Edit | Mode::Menu { .. } => false,
 			// The file dialog has no widgets: its parts are `filelayout`'s, which the painters and (later) the pointer share. The
