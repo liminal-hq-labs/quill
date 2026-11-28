@@ -32,6 +32,17 @@ remove_desktop_shortcuts = ["Applications Manager", "Command Prompt", "Read Me"]
 [trim]
 extra = ["trim-extra.txt"]
 
+# Quill Ghostwriter, the sixth saver, ships only in this remix (and Quill's installers). The savers build is declared in the base recipe, which
+# lists the five Afterglow outputs and writes them; this table merges key by key, so the sum of AGQUILL.SCR lives here and `rl pin --savers`
+# keeps it current in this file. The screen saver list is then the five Afterglow savers, Ghostwriter and Blank screen: the compact recipe
+# (extended above) already removes the Logon ScreenSaver, and no saver is selected (RL-68, RL-69).
+[builds.afterglow-savers.outputs]
+"AGQUILL.SCR" = "b8dbb9eece27e9ef4540debd8aed5943f293cdf05fd14681f785666889c4e74a"
+
+[[files]]
+source = "built:afterglow-savers/AGQUILL.SCR"
+destination = "ReactOS/system32/AGQUILL.SCR"
+
 # These [[files]] merge with the base recipe's by destination, so the base's afterfetch and the neofetch family are inherited, not repeated.
 # The programs, QUILLDESK.ICO and the wallpaper are staged into payload/ by build-with-rl.sh (the programs come from a Quill build, the
 # icon from guest/make_desk_icon.py, the wallpaper from guest/quillify.py: the Afterglow dusk scene with the Quill emblem on its sun). The
