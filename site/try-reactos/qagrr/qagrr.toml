@@ -48,10 +48,33 @@ destination = "Quill/QUILL32.EXE"
 source = "payload/QUILL.EXE"
 destination = "Quill/QUILL.EXE"
 
-# The host link's guest helper (SITE-32): the clipboard now, files, the clock and the screen's size later. quill-run.reg starts it at logon.
+# The host link's guest programs (SITE-32, SITE-129): the helper, the modules it loads from beside itself and the tray icon, all taken from
+# site/try-reactos/vendor/v86-host-link/guest/ by build-with-rl.sh after tools/check-v86-host-link.sh has checked them. quill-run.reg starts the
+# helper and the tray at logon.
+
 [[files]]
 source = "payload/HOSTLINK.EXE"
 destination = "Quill/HOSTLINK.EXE"
+
+[[files]]
+source = "payload/HLAUDIO.DLL"
+destination = "Quill/HLAUDIO.DLL"
+
+[[files]]
+source = "payload/HLSYS.DLL"
+destination = "Quill/HLSYS.DLL"
+
+[[files]]
+source = "payload/HLPOWER.DLL"
+destination = "Quill/HLPOWER.DLL"
+
+[[files]]
+source = "payload/HLLOG.DLL"
+destination = "Quill/HLLOG.DLL"
+
+[[files]]
+source = "payload/HLTRAY.EXE"
+destination = "Quill/HLTRAY.EXE"
 
 [[files]]
 source = "payload/QUILLDESK.ICO"

@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 // The ?v= is the first 8 hex of the module's SHA-256; tools/stamp-web.py keeps it current (SITE-14).
-import { attach as attachLink, ClipboardSync, contentFromPaste, contentFromRead, createBrowserPort } from "./lib/host-link.js?v=cd482121";
+import { attach as attachLink, ClipboardSync, contentFromPaste, contentFromRead, createBrowserPort } from "./vendor/v86-host-link/host-link.js?v=9433171b";
 
 const readout = document.querySelector("[data-link-readout]");
 const clipReadout = document.querySelector("[data-clip-readout]");
@@ -60,7 +60,9 @@ function codes(counts) {
 function describe(stats) {
 	if (stats.state === "closed") return "off";
 	if (!stats.peer) return stats.bytesOut === 0 ? "waiting for the guest to speak first" : "no helper";
-	const peer = (stats.peer.app || "helper") + ", protocol " + stats.peer.proto;
+	const caps = stats.peer.caps || [];
+	const mods = stats.peer.mods || [];
+	const peer = (stats.peer.app || "helper") + ", protocol " + stats.peer.proto + (caps.length ? ", offers " + caps.join(" ") : "") + (mods.length ? ", modules " + mods.join(" ") : "");
 	if (stats.state === "version") return peer + ": a different version, so the link is off";
 	const credit = stats.credit.window - stats.credit.outstanding + " of " + stats.credit.window + " bytes of credit";
 	const state = stats.state === "stalled" ? " (waiting for credit)" : "";

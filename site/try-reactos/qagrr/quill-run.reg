@@ -14,6 +14,9 @@ Windows Registry Editor Version 5.00
 ; Quill's value is not promised; the helper does not depend on it.
 "HostLink"="C:\\Quill\\HOSTLINK.EXE"
 
+; The tray icon and the Sound card window: a client of the helper (it finds the helper's window), so it is listed after the helper.
+"HostLinkTray"="C:\\Quill\\HLTRAY.EXE"
+
 ; No crash or error-reporting prompts.
 [HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\PCHealth\ErrorReporting]
 "DoReport"=dword:00000000
