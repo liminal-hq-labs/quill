@@ -217,7 +217,7 @@ prefix = "INS"
 first = 20
 last = 22
 owner = "Optional modules (WP-MOD)"
-status = "reserved"
+status = "in use"
 source = "docs/plans/modules.md"
 
 [[block]]
@@ -345,7 +345,7 @@ prefix = "W9X"
 first = 40
 last = 41
 owner = "Optional modules (WP-MOD)"
-status = "reserved"
+status = "in use"
 source = "docs/plans/modules.md"
 
 [[block]]
@@ -579,3 +579,19 @@ last = 233
 owner = "header-page-top"
 status = "in use"
 source = "docs/id-ranges.toml"
+
+[[block]]
+prefix = "W9X"
+first = 130
+last = 139
+owner = "Optional modules on Windows 95 (WP-MOD)"
+status = "reserved"
+source = "docs/plans/modules.md"
+
+[[block]]
+prefix = "INS"
+first = 26
+last = 28
+owner = "Optional modules on Windows 95 (WP-MOD)"
+status = "reserved"
+source = "docs/plans/modules.md"

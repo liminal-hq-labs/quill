@@ -4,7 +4,9 @@ Quill keeps running into sizing notes: `QUILLDOS.EXE` has about 4.6 KB of its bu
 
 Written against `origin/main` at `b060d36`. It supersedes the DOS and Win16 verdicts of the earlier, unmerged `~/Documents/Liminal HQ/Quill/Quill modules and DLLs plan.md` (2026-11-25), keeps the decision ids that plan and the Liminal Installer's [shared libraries plan](https://github.com/liminal-hq-labs/liminal-installer/blob/main/docs/plans/shared-libraries.md) already use for Win16, and adopts Desk's `.DMD` container for DOS. Nothing here changes behaviour until a package lands, so `SPEC.md` and `docs/decisions.md` change with the packages.
 
-**Status.** WP-MOD-1 is built: `crates/quill-modabi` (CORE-90) and Desk's `.DMD` crates in `dos/module/` (DOS-50), host only, with no executable changed. WP-MOD-2 (the loader) is next; nothing else in the work packages has started.
+**Status.** WP-MOD-1 is built: `crates/quill-modabi` (CORE-90) and Desk's `.DMD` crates in `dos/module/` (DOS-50), host only, with no executable changed. WP-MOD-8 (the packed-size gate) merged as pull request 191. As of 2026-11-28: **WP-MOD-2** is built in pull request 203 (open): `rt::module` behind `rt`'s `module` feature, `QUILLDOS.EXE` byte-identical, but linking the loader costs **+11,776 bytes** (a probe took the program to 450,560), against section 5.3's 2.5 to 5 KB, so WP-MOD-3 must raise the budget, trim `desk-module` or swap its CRC table (owner decision there). **WP-MOD-9's first pull request** is built in pull request 201 (open, stacked on this plan's branch): `quill-w32rt`, the loader, `MODHOST.EXE` and a test module named `QUILLTST.DLL` (this plan's `MODHELLO.DLL`, 4,096 bytes), `QUILL32.EXE` unchanged; it uses W9X-130 to W9X-135, CORE-97 and CORE-98 as section 19.12 defines them. **WP-UNI-1**'s Unicode tables (pull request 212, not linked by any build yet) measure 13,611 bytes against the Unicode plan's 2.8 KB, which makes the room the modules free on every build matter more. Nothing else in the work packages has started.
+
+**Revised 2026-11-27 (Windows 95).** The owner reversed W9X-40: "let's do the DLLs for Windows 95 so they keep in line with the app split in its siblings". Windows 95, 98 and Me now split the same way as DOS and Windows 3.x, with Win32 DLLs beside `QUILL32.EXE` over the same `quill-modabi` contract and module crates; only the loader differs. [Section 19](#19-windows-95-and-later-dll-modules) is the design, measured on `origin/main` at `08bc6dc`, with a throwaway no-CRT DLL built and run under Wine to prove the toolchain (WP-MOD-9 to WP-MOD-13).
 
 **Markers.** **[M]** measured for this plan (method, scripts and raw output in `~/Documents/Liminal HQ/Quill/Modules/`); **[V]** read in the code or documents named; **[W]** from Microsoft, DJGPP, Wine or otvdm sources, not run here; **[E]** estimate for the package to measure; **[U]** not checked, the package must check it. No emulator was started and nothing was built for this plan: the DOS figures come from an existing build of `refactor/quill-picture` (on `39b5683`, the day's `main` plus WP-ARCH-2 in progress), read with `nm`.
 
@@ -28,6 +30,7 @@ Written against `origin/main` at `b060d36`. It supersedes the DOS and Win16 verd
 - [16. Briefs](#16-briefs)
 - [17. Owner decisions](#17-owner-decisions)
 - [18. Found while planning](#18-found-while-planning)
+- [19. Windows 95 and later DLL modules](#19-windows-95-and-later-dll-modules)
 
 ## 1. Bottom line
 
@@ -37,7 +40,7 @@ A module relieves a different limit on each platform, and only where the feature
 |---|---|---|---|
 | DOS | The `QUILLDOS.EXE` budget (DOS-70's stop at 480 KB) and the memory the program holds at start. **Not** the floppy: a module sits on the same disk | **GO**, with Desk's `.DMD` format (copied with provenance) and a loader in `dos/rt` | WP-MOD-1 to WP-MOD-3: `QUILLPIC.DMD` (PNG decoding) out of the EXE, end to end, with the installer |
 | Windows 3.x | A second 64 KB data segment for a module's own working memory. **Not** the 1.9 KB left in `QUILL.EXE`'s segment: what fills it (the `App`, the stack, the UI text, the `Store` table) cannot move | **GO** for picture decoding: rust-win16's DLL runtime passed its go/no-go (rust-win16 pull request 6, D28 to D30) | WP-MOD-6: `QUILLPIC.DLL` from the same module crate as DOS, on the refreshed vendored packer |
-| Windows 95 and later | Nothing: a PE image is paged on demand and the address space is flat | **NO-GO** (W9X-40); later only for an optional feature over 100 KB | — |
+| Windows 95 and later | No hard limit: a PE image is paged on demand and the address space is flat. What a module gives here is the **same split as the siblings** (one module crate and one contract on three builds), cold code out of `QUILL32.EXE` (about 28 to 42 KB [E from M]) and Print to PDF as a component of its own | **GO** (W9X-40 revised by the owner, 2026-11-27; it was NO-GO) | WP-MOD-9: the Win32 module toolchain and loader now, then `QUILLPIC.DLL` from the same crate as `QUILLPIC.DMD` (section 19) |
 | Linux (GTK and terminal), WinUI, web | Nothing: no segment, file or memory limit applies | **NO** | — |
 
 **The proof** is one module on one platform: `QUILLPIC.DMD` on DOS (WP-MOD-3), built on the format and loader packages WP-MOD-1 and WP-MOD-2. It is chosen because it is the narrowest real interface (bytes in, rows out), it already exists with goldens, it is the same module Windows 3.x needs, and JPEG (10 to 16 KB on DOS, pictures plan J2) then lands in it without touching the EXE. Its own saving is small (the EXE moves by −1 to +1 KB [E], because the loader costs about what PNG frees); the **first real saving** is WP-MOD-4, the DOS file dialog as `QUILLDLG.DMD`, about **−26 to −29 KB** of `QUILLDOS.EXE` [E from M].
@@ -53,7 +56,7 @@ A module relieves a different limit on each platform, and only where the feature
 | DOS floppy | About 427,000 bytes free (DOS-48, estimated); the EXE packs to about 58 % (255,525 of 437,760 bytes with `gzip -9` [M]) | +16 KB of code costs about 9.5 KB of disk | DOS-48, [M] |
 | Windows 3.x data segment | About **1.9 KB** free; nothing merges below 1,024 (W16-60) | Preferences +100 to +340 bytes, Reveal Codes up to +72, Unicode +20 to +150; reliefs −4.4 KB planned | W16-60, preferences.md, reveal-codes.md |
 | Windows 3.x code | 8 segments of 253 possible, each under its budget | Not short | `segments.json` [V] |
-| `QUILL32.EXE` | 441,344 bytes with Print to PDF (34,304 of it `quill-pdf` and `quill-pdfdoc`) | No limit beyond the Windows 95 disk | shared libraries plan [V] |
+| `QUILL32.EXE` | 441,856 bytes on `08bc6dc` [M]: Print to PDF is 32,256 of it and picture decoding 18,432 (section 19.2); 452,608 with the rich clipboard (pull request 196 [V]) | No limit beyond the Windows 95 disk; section 19 adds a budget row | section 19.2 [M], shared libraries plan |
 
 **Two different problems.** DOS has one flat address space and plenty of extended memory, and its limit is a number the project chose to keep the program lean and the floppy comfortable; a module moves bytes out of that number. Windows 3.x has a hard 64 KB near segment, and its limit is physical; a DLL cannot take anything out of it, but gives new features a segment of their own.
 
@@ -109,7 +112,7 @@ The history agrees: the text file dialog took the EXE from 382,464 to 415,232 by
 | **The packaging** | `dos/mods/<name>` (a `.DMD`), `win16/examples/<name>` (a DLL) | A few dozen lines of glue: the entry, the table, address translation (near offsets on DOS, far pointers on Win16), the panic handler |
 | **The loader** | `dos/rt/src/module.rs`; `w16::dll` from rust-win16 | Finds the file beside the program, checks it, binds it, and reports a status the seam turns into a greyed feature |
 
-A Win32, Linux, WinUI or web build links the logic crate statically through `Static` and never sees `quill-modabi` at run time; the host tests use `Static` too, plus a fake that answers `Missing` to test the absent path (CORE-96).
+A Linux, WinUI or web build links the logic crate statically through `Static` and never sees `quill-modabi` at run time; the host tests use `Static` too, plus a fake that answers `Missing` to test the absent path (CORE-96). The Win32 build was in that list until 2026-11-27; it is now a third packaging (`win9x/mods/<name>`, a Win32 DLL) with its loader in `win9x/quill-win9x/src/modules.rs` (section 19).
 
 ### 4.2 The interface (CORE-90)
 
@@ -276,26 +279,27 @@ Loaded on the first picture that needs it, by full path with `SEM_NOOPENFILEERRO
 
 ## 7. Windows 95 and later, Linux, WinUI and the web
 
-- **Windows 95 and later (W9X-40).** One `QUILL32.EXE`. A PE image is mapped and paged on first touch, so unused code costs nothing on an 8 MB machine; a DLL would add a second no-CRT link, relocations, a version check and an import scan, and lose LTO across the boundary. The Windows 95 disk has room for `QUILL32.EXE` at 441 KB. A DLL only for an optional feature over 100 KB, as an unticked component (W9X-41); the no-CRT Win32 DLL recipe will by then be proved by the savers' `AGCORE1.DLL` (shared libraries plan, WP-SL-1).
+- **Windows 95 and later (W9X-40, revised).** *Superseded on 2026-11-27 by section 19.* The verdict here was one `QUILL32.EXE`, since a PE image is mapped and paged on first touch, so unused code costs nothing on an 8 MB machine, and a DLL adds a second no-CRT link, relocations, a version check and an import scan, and loses LTO across the boundary. Those costs are real and section 19 prices them (about 1.5 to 3 KB a module, section 19.2); the owner chose the split for consistency with DOS and Windows 3.x. The recipe is no longer waiting for the savers' `AGCORE1.DLL` (WP-SL-1 has not been built): section 19.2's spike proved it with Quill's own toolchain.
 - **Linux, WinUI and the web.** No size limit applies; the logic crates link statically through each seam's `Static` implementation. The web demo's DOS page (`site/try/`, built by `scripts/build-try.sh`) ships the DOS build, so its bundle gains the `.DMD` files (WP-MOD-3), and `scripts/check-try.sh` checks they are there.
 
 ## 8. Which features go where
 
-Savings are for `QUILLDOS.EXE`; Win16 figures are the data segment.
+Savings are for `QUILLDOS.EXE`; Win16 figures are the data segment; the Windows 95 column's savings are `QUILL32.EXE`'s (section 19.2).
 
-| Feature | DOS | Windows 3.x | Saving (DOS EXE) | Order |
-|---|---|---|---|---|
-| **Picture decoders** (PNG; JPEG, RLE4 later) | `QUILLPIC.DMD`, required (`appdos`); plain BMP stays in the EXE | `QUILLPIC.DLL`, required (`app16`) | PNG −4.0 KB [M] against the loader's +3 to +5 KB once: about −1 to +1 KB now; JPEG's +10 to 16 KB never enters the EXE | **1st** (the proof) |
-| **File dialog** (Open, Save As, Insert Picture, both DOS screens) | `QUILLDLG.DMD`, required | n/a (common dialogs) | **−26 to −29 KB** [E from 31,274 movable, M], after +2 to +4 KB of dialog host in the EXE | **2nd** (the first real saving) |
-| **Options** (Preferences WP-PREF-5, WP-PREF-6) | Joins `QUILLDLG.DMD` | In the EXE | −7 to −12 KB of the ledger's +8 to +14 | 3rd, as the dialog lands |
-| **Page Layout, Numbering, Header and Footer** (WP-ED-17 to WP-ED-19) | Join `QUILLDLG.DMD` | In the EXE | −2 to −4 KB each of their +3 to +5 | As they land |
-| **Help viewer** (`QUILL.HLX`, roadmap H2) | `QUILLHLP.DMD` in a new DOS `help` component (`default = true`, optional) | n/a (WinHelp) | Its whole size, about 10 to 20 KB [G], never in the EXE | When H2 makes `.HLX` |
-| PDF writing | `QUILLPDF.DMD`, optional unticked component, if a plan asks for PDF on DOS | `QUILLPDF.DLL`, likewise | All of it (34 KB on Win32 [V]) | Later |
-| Spelling engine | Stays in the EXE: 2.8 KB movable against 9.4 KB that is `App`'s | `QUILLSP.DLL` later (W16-47) | About −2 KB net: not worth a module | Later or never |
-| **Reveal Codes** | Stays in the EXE: per key and per paint, caret and undo in `App` | In the EXE | — (it spends the room the dialogs free) | — |
-| **Unicode U1 and U2** | Stays in the EXE: the text buffers and every caller | In the EXE; tables as resources | — | — |
-| Preferences model (WP-PREF-2, `quill-settings`) | Stays in the EXE: every build reads it at start | In the EXE | — | — |
-| RTF, QLD, layout, paint, print, autosave | Stay | Stay | — | — |
+| Feature | DOS | Windows 3.x | Windows 95 and later | Saving (DOS EXE) | Order |
+|---|---|---|---|---|---|
+| **Picture decoders** (PNG; JPEG, RLE4 later) | `QUILLPIC.DMD`, required (`appdos`); plain BMP stays in the EXE | `QUILLPIC.DLL`, required (`app16`) | `QUILLPIC.DLL`, required (`app32`), BMP included: about −15 to −16 KB of `QUILL32.EXE` [E from M] | PNG −4.0 KB [M] against the loader's +3 to +5 KB once: about −1 to +1 KB now; JPEG's +10 to 16 KB never enters the EXE | **1st** (the proof) |
+| **File dialog** (Open, Save As, Insert Picture, both DOS screens) | `QUILLDLG.DMD`, required | n/a (common dialogs) | n/a (common dialogs) | **−26 to −29 KB** [E from 31,274 movable, M], after +2 to +4 KB of dialog host in the EXE | **2nd** (the first real saving) |
+| **Options** (Preferences WP-PREF-5, WP-PREF-6) | Joins `QUILLDLG.DMD` | In the EXE | Joins `QUILLDLG.DLL` (WP-MOD-12), its template a DLL resource | −7 to −12 KB of the ledger's +8 to +14 | 3rd, as the dialog lands |
+| **Page Layout, Numbering, Header and Footer** (WP-ED-17 to WP-ED-19) | Join `QUILLDLG.DMD` | In the EXE | Join `QUILLDLG.DLL` | −2 to −4 KB each of their +3 to +5 | As they land |
+| **Modal dialogs of today** (About, Fonts, Tabs) | Already `quill-dlg` widgets in the EXE | In the EXE | `QUILLDLG.DLL`, about −4 to −6 KB [E from M]; Find, Spelling and the save question stay | — | WP-MOD-12 |
+| **Help viewer** (`QUILL.HLX`, roadmap H2) | `QUILLHLP.DMD` in a new DOS `help` component (`default = true`, optional) | n/a (WinHelp) | n/a (WinHelp reads `QUILL.HLP`; `QUILLHLP` stays a reserved kind) | Its whole size, about 10 to 20 KB [G], never in the EXE | When H2 makes `.HLX` |
+| PDF writing | `QUILLPDF.DMD`, optional unticked component, if a plan asks for PDF on DOS | `QUILLPDF.DLL`, likewise | `QUILLPDF.DLL` in a ticked `pdf32` component (WP-MOD-10): the writer moves, the document walk stays; about −14 to −20 KB [E from 32,256 M] | All of it (34 KB on Win32 [V]) | Win32 2nd; DOS and Windows 3.x later |
+| Spelling engine | Stays in the EXE: 2.8 KB movable against 9.4 KB that is `App`'s | `QUILLSP.DLL` later (W16-47) | Stays (3.4 KB, the dictionary is a file already) | About −2 KB net: not worth a module | Later or never |
+| **Reveal Codes** | Stays in the EXE: per key and per paint, caret and undo in `App` | In the EXE | In the EXE | — (it spends the room the dialogs free) | — |
+| **Unicode U1 and U2** | Stays in the EXE: the text buffers and every caller | In the EXE; tables as resources | In the EXE | — | — |
+| Preferences model (WP-PREF-2, `quill-settings`) | Stays in the EXE: every build reads it at start | In the EXE | In the EXE | — | — |
+| RTF, QLD, layout, paint, print, autosave | Stay | Stay | Stay | — | — |
 
 ## 9. The installer
 
@@ -304,7 +308,8 @@ Savings are for `QUILLDOS.EXE`; Win16 figures are the data segment.
 - **Unticked components (INS-21).** Only a feature that is optional by nature becomes a component of its own, with the installer's `default = false` (supported since installer D90 [V]) when it is a rarely wanted extra: a DOS `help` component (`QUILLHLP.DMD`, `QUILL.HLX`) ticked by default; `pdf` unticked. Pictures and dialogs are core features and stay in the required components; the absent-module message (CORE-93) covers a hand-made install.
 - **In use.** Windows 3.x cannot replace a loaded module; the retro setup already asks the person to close Quill, and `GetModuleHandle("QUILLPIC")` is the check to add when the first DLL ships (shared libraries plan section 6.5 [U: not in the runtime yet]). DOS has nothing loaded during install.
 - **Staging and checks.** `installer/tools/stage.sh` copies the modules into `dist/dos-x86/` and `dist/win16-x86/`; `verify-disks.sh` compares them with the builds; `e2e-dos.sh` and `e2e-w31.sh` check each is installed, listed in `INSTALL.LIR` and removed by uninstall, and that Quill draws a PNG afterwards.
-- **Disks.** DOS +3 to 6 KB packed per module; Windows 3.x, the DLL's headers and its runtime copy, 2 to 4 KB packed [E]; Windows 95 unchanged.
+- **Disks.** DOS +3 to 6 KB packed per module; Windows 3.x, the DLL's headers and its runtime copy, 2 to 4 KB packed [E]; Windows 95 about 1 to 2 KB packed per module (headers, relocations, the runtime copy) [E from M].
+- **Windows 95 and later (section 19.9).** `QUILLPIC.DLL` and, later, `QUILLDLG.DLL` are files of the required `app32`; `QUILLPDF.DLL` is the one file of a new `pdf32` component, ticked by default (INS-26). Never `{system}`: Windows 95's `LoadLibraryA` with a bare name looks in the program's folder, the current folder, the system folder and the Windows folder, so a copy there would be found by a hand-copied `QUILL32.EXE` anywhere; Quill loads by full path. No reference counts: the files are private. Where both Windows builds share a folder (the ReactOS demo's `C:\Quill`), each build gets its own folder, since both name their picture module `QUILLPIC.DLL` (INS-27).
 
 ## 10. The DOS budget policy and the ledger
 
@@ -379,6 +384,7 @@ Reveal Codes stays in the EXE on every build: its view model runs per paint, the
 | A module panic takes the program down | DOS | The same as today, when the code is linked in; Desk's guard later (DOS-54) |
 | The hosted loader diverges from Desk's own M5 when Desk builds it | DOS | The loader is offered upstream; `PROVENANCE.md` lists what Quill changed |
 | Builders start moving features into modules that are hot | All | Section 8's table; CORE-92's "cold and narrow" test in each brief |
+| The Win32 risks: a DLL linked with the program's `/FIXED`, a second allocator, the loader lock, Windows 9x reusing a loaded module by its base name, the two `QUILLPIC.DLL` files in one folder | Win32 | Section 19.10 |
 
 ## 13. Tests
 
@@ -390,10 +396,11 @@ Reveal Codes stays in the EXE on every build: its view model runs per paint, the
 | Win16 | The rust-win16 gate (passed, D30), then the 2026-11-25 plan's gate 2: every PNG in `tests/docs` draws on Windows 3.11 at 256 and 16 colours and under otvdm; `m1-edit` byte-equal; the DLL missing, wrong build, two instances, 200 cycles |
 | Installer | `e2e-dos.sh` and `e2e-w31.sh`: the module installed, listed in `INSTALL.LIR`, removed on uninstall; Quill draws a PNG after the install |
 | Web demo | `scripts/check-try.sh` finds the `.DMD` files in the bundle |
+| Win32 | Section 19.11: `MODHOST.EXE` under Wine (200 cycles, relocated, missing, wrong build, refused pointers), every Wine script with the modules present, the absent and wrong-build scenarios, `check-dll.sh`, the Pentium scan and the per-module import lists; `e2e-w95.sh` on Windows 95 (plain and Internet Explorer 4 bases); the ReactOS 0.4.16 guest; Windows 98 SE and Me by hand |
 
 ## 14. Decisions
 
-**Ranges.** Above every id on `main` and on the open branches (pull requests 160, 161, 168, 169, 170), checked on 2026-11-27. W16-40 to W16-49, W9X-40, W9X-41, DOS-50 to DOS-52 and CORE-90 to CORE-91 are the ids the 2026-11-25 plan and the Liminal Installer's shared libraries plan already name for this work (none is used in the repository), kept so those documents stay right; the rest extend them. Reserved: **CORE-90 to CORE-99**, **DOS-50 to DOS-59**, **W16-40 to W16-49**, **W9X-40 to W9X-41**, **INS-20 to INS-22**, **ARCH-40 to ARCH-42**. Each package copies its rows into `docs/decisions.md` (Status **Assumed** unless the owner has answered) and the SPEC in the same change.
+**Ranges.** Above every id on `main` and on the open branches (pull requests 160, 161, 168, 169, 170), checked on 2026-11-27. W16-40 to W16-49, W9X-40, W9X-41, DOS-50 to DOS-52 and CORE-90 to CORE-91 are the ids the 2026-11-25 plan and the Liminal Installer's shared libraries plan already name for this work (none is used in the repository), kept so those documents stay right; the rest extend them. Reserved: **CORE-90 to CORE-99**, **DOS-50 to DOS-59**, **W16-40 to W16-49**, **W9X-40 to W9X-41**, **INS-20 to INS-22**, **ARCH-40 to ARCH-42**; for Windows 95 (section 19, `scripts/next-id.sh` on 2026-11-27) **W9X-130 to W9X-139** and **INS-26 to INS-28**, and CORE-97, CORE-98 and ARCH-42 from the spares above. INS-22 was taken by the packed-size gate (pull request 191, WP-MOD-8). Each package copies its rows into `docs/decisions.md` (Status **Assumed** unless the owner has answered) and the SPEC in the same change.
 
 | Id | Decision | Rejected | Why |
 |---|---|---|---|
@@ -403,8 +410,10 @@ Reveal Codes stays in the EXE on every build: its view model runs per paint, the
 | CORE-93 | An absent or refused module greys its feature with a message naming the file and Setup, never a system box or a crash; the reason is logged | Refusing to start; a loader box | A damaged install keeps a working editor |
 | CORE-94 | Versions: the EXE and modules share a build id, required equal in release builds; `abi_major` refused if different, `abi_minor` accepted if higher; no version digit in the file names | `NAME1.DLL` naming (shared libraries rule 3) | Private modules always ship as a set; the build id is stricter |
 | CORE-95 | Modules are found beside the program only, by full path | The current folder, `PATH`, the Windows folders | A stale copy elsewhere can never win |
-| CORE-96 | One module crate, two packagings (`.DMD`, NE DLL), linked statically through the seam's `Static` on every other build and in the host tests | A module build on Win32, Linux, WinUI or the web | Nothing to relieve there; one code path for the tests |
-| CORE-97 to CORE-99 | Spare | | |
+| CORE-96 | One module crate, three packagings (`.DMD`, NE DLL, Win32 DLL), linked statically through the seam's `Static` on Linux, WinUI, the web and in the host tests. *Revised 2026-11-27*: it said two packagings and named Win32 among the static builds | A module build on Linux, WinUI or the web | Nothing to relieve there; one code path for the tests; Win32 follows the owner's split (W9X-40) |
+| CORE-97 | `quill-modabi` gains, with the Win32 packages: `WIN32_EXTENSION`, the two export names, `QS_NOMEMORY` (10, a loader's answer only, so an addition within major 1), and the PDF and Win32 dialog kinds' tables (`PdfTableV1`, `DlgTableV1`) when WP-MOD-10 and WP-MOD-12 define them, each with layout tests | A Win32 header of its own | One contract (CORE-90) |
+| CORE-98 | DOS and Win32 share the flat-address glue: a module address is a flat 32-bit pointer on both, so the entries that turn a `PicTableV1` call into slices (`quill-modpic::flat`) and the host side that calls a `PicTableV1` (`quill_picture::modular::TableDecoders`) are written once; only finding the table differs (`rt::module` on DOS, `LoadLibraryA` and `QuillModuleStart` on Win32). Win16 keeps its far-pointer glue | Glue per platform | "Only the loader differs" |
+| CORE-99 | Spare | | |
 | DOS-50 | DOS modules are Desk `.DMD` files, with `desk-module`, `dmdpack` and `desk-guest` copied into `dos/module/` with provenance, and the hosted loader in `rt::module` | DXE3; classic overlays; a Quill-only format; ELF PIE | Desk's format is built, host-tested, `no_std` and pure Rust; one container across Liminal's DOS programs |
 | DOS-51 | The DOS size gate also measures program bytes (the EXE and its required modules, packed) on the disk image, with the floppy's free bytes | Raw EXE bytes alone | The floppy is the physical limit |
 | DOS-52 | DOS-70 revised: the 480 KB stop stays; a module-ready cold feature goes into its module instead of raising the budget once the module exists; a move-out does not lower the budget; each module has its own budget | One raise to 480 KB now; savings only | Ends the package-by-package negotiation without hiding bytes |
@@ -422,14 +431,16 @@ Reveal Codes stays in the EXE on every build: its view model runs per paint, the
 | W16-47 | (Later) `QUILLSP.DLL` in `dicts` | — | When paging or as-you-type needs it |
 | W16-48 | (Later) DLL import stubs that switch back to the caller's stack, for modules that must call Windows | — | Only if a dialog module is ever wanted on Windows 3.x |
 | W16-49 | Windows 3.x modules: pictures now; PDF and spelling later; dialogs, Reveal Codes, Unicode, help and the editor stay in the EXE | DLLs to relieve `QUILL.EXE`'s own segment | Section 6.2 |
-| W9X-40 | One `QUILL32.EXE`; no DLL until an optional feature passes 100 KB | Codec, speller, engine DLLs | Paged images; nothing to relieve |
-| W9X-41 | (Later) The Win32 module recipe, taken from the savers' proven `AGCORE1.DLL` recipe | — | Not rediscovered |
+| W9X-40 | *Revised by the owner, 2026-11-27.* Windows 95 and later split like DOS and Windows 3.x: `QUILLPIC.DLL` (decoders), `QUILLPDF.DLL` (the PDF writer) and later `QUILLDLG.DLL` (modal dialogs) beside `QUILL32.EXE`, from the shared module crates over `quill-modabi`; help stays WinHelp. It said: one `QUILL32.EXE`, no DLL until an optional feature passes 100 KB | One `QUILL32.EXE` (the earlier verdict); codec or engine DLLs outside the module contract | The owner wants the app split in line with its siblings; the costs are measured (section 19.2) |
+| W9X-41 | *Revised 2026-11-27.* The Win32 module recipe is Quill's own, proved by this plan's spike (section 19.2) and recorded in section 19.3, and offered to the shared libraries plan's section 9 for the savers. It said: taken from the savers' `AGCORE1.DLL` | Waiting for WP-SL-1 (not built) | Proved with the toolchain Quill already has |
+| W9X-130 to W9X-138 | The Windows 95 module design | | Section 19.12 |
 | INS-20 | Modules are private `{install}` files in the component that owns the feature; never `{windows}` or `{system}` | The system folder | Global module names, stale copies, D95's rule is for owned files |
 | INS-21 | A module gets a component of its own only for an optional-by-nature feature (help ticked, PDF unticked with `default = false`) | Every module optional | Core features must not be missing |
-| INS-22 | Spare | | |
+| INS-22 | Taken by the packed-size gate (pull request 191) | | |
+| INS-26 to INS-28 | The Windows 95 installer rows | | Section 19.12 |
 | ARCH-40 | The module seam is a trait in the crate that owns the feature, with `Static` and module implementations; shells choose | A module registry in `App` | `App` stays unaware of packaging |
 | ARCH-41 | Module packages are side-lane unless they move code out of `crates/quill-app/src`, which makes them ARCH-lane moves | A third lane | ARCH-6's rules hold unchanged |
-| ARCH-42 | Spare | | |
+| ARCH-42 | The PDF seam: `quill_pdfdoc::Writer`, a trait the document walk writes pages through, with `Static` over `quill-pdf` and a module implementation in the Win32 shell (WP-MOD-10) | The walk in the module (it needs the `Doc`) | ARCH-40's rule for the PDF kind |
 
 ## 15. Work packages
 
@@ -446,6 +457,12 @@ Reveal Codes stays in the EXE on every build: its view model runs per paint, the
 | 6 | **WP-MOD-5** Options and the editor dialogs into `QUILLDLG.DMD` | Side | WP-MOD-4, and WP-PREF-5, WP-PREF-6, WP-ED-17 to WP-ED-19 as each lands | M per dialog | ED lane |
 | 7 | **WP-MOD-7** JPEG and RLE4 into `QUILLPIC` on DOS and Windows 3.x | Side | WP-MOD-3, the pictures plan's J1 and J2; WP-MOD-6 for the Win16 half | M | Anything |
 | — | Later, each with a plan of its own: `QUILLHLP.DMD` (after H2), `QUILLSP.DLL` (W16-47), `QUILLPDF` (if PDF on the retro builds), W16-46 cold segments | — | — | — | — |
+| 1 | **WP-MOD-11** The Windows 95 rows in the packed-size gate: `QUILL32.EXE`'s budget, DLL rows by target (section 19.13) | Side | Pull request 191 merged | S | Anything |
+| 2 | **WP-MOD-9**, pull request 1: the Win32 module toolchain, runtime crate, loader and `MODHOST.EXE` under Wine (**built**: pull request 201, open) | Side | — | M | Anything, the freeze included |
+| 4 | **WP-MOD-9**, pull request 2: `QUILLPIC.DLL` on Windows 95 | Side | WP-MOD-3 (`quill-modpic`, the seam), WP-MOD-9 PR 1, WP-MOD-11 | M | WP-MOD-6, WP-MOD-4 |
+| 5 | **WP-MOD-10** `QUILLPDF.DLL` and the `pdf32` component | Side | WP-MOD-9 | M to L | ED lane |
+| 6 | **WP-MOD-13** The Windows 95 module set in the ReactOS 0.4.16 guest and on Windows 98 SE and Me | Side | WP-MOD-10 | S | Anything |
+| 8 | **WP-MOD-12** `QUILLDLG.DLL` on Windows 95 | Side | WP-MOD-10, WP-PREF-8 (Options on Windows 95) | M | ED lane |
 
 At most three builders at once: WP-MOD-1 and WP-MOD-8 now beside the two lanes' builders leaves room for one; WP-MOD-2 follows WP-MOD-1.
 
@@ -733,7 +750,7 @@ Windows 3.x instead of J3's code segment; RLE4 and the OS/2 header on Windows 3.
 | 8 | A module panic on DOS ends the program (version 1), or wait for Desk's guard? | **Ends the program**, as today | DOS-54 |
 | 9 | Release builds require the same build id in the EXE and the modules? | **Yes**; development builds log and accept | CORE-94 |
 | 10 | No version digit in module file names (`QUILLPIC.DMD`, not `QUILPIC1.DMD`)? | **No digit** | CORE-94 |
-| 11 | `QUILL32.EXE` stays one file? | **Yes** (W9X-40) | W9X-40 |
+| 11 | `QUILL32.EXE` stays one file? | **Answered by the owner, 2026-11-27: no.** Windows 95 splits like its siblings (W9X-40 revised); its own questions are in section 19.15 | W9X-40 |
 | 12 | Offer the hosted loader back to Desk as its M5? | **Yes**, after WP-MOD-2 merges | A Desk issue; not a Quill package |
 
 ## 18. Found while planning
@@ -743,3 +760,430 @@ Windows 3.x instead of J3's code segment; RLE4 and the OS/2 header on Windows 3.
 - **The SPEC disagrees with itself on the DOS dictionary**: the build note under D88 says it is "read whole into memory when the first check begins", the dictionary section says it is "read in 32 KB pages, so only the pages a check touches are in memory" [V: `SPEC.md` lines 262 and 493]. Worth a one-line fix by whoever owns spelling next.
 - **`[Quill] PictureMemory` defaults to 4,096 KB on DOS** [V: `SPEC.md` line 536], the whole of the 4 MB memory floor the SPEC promises; a 4 MB machine cannot give pictures that much. Worth checking when WP-MOD-3 measures memory.
 - **Disk space.** `/home` had 19 GB free when this plan started, under the 20 GB floor builders keep, so no build was made; the figures come from an existing build. Builders of WP-MOD-1 and WP-MOD-2 should check before building.
+
+## 19. Windows 95 and later DLL modules
+
+**What changed (2026-11-27).** Section 7 gave Windows 95 a NO-GO (W9X-40) because nothing there binds: a PE image is paged on demand and the address space is flat. That is still true. The owner reversed the verdict for another reason: "let's do the DLLs for Windows 95 so they keep in line with the app split in its siblings". So the reason for modules on Windows 95, 98 and Me is the shape of the product, not a limit: one module crate per feature, one `quill-modabi` contract and three loaders, so a feature that is a file of its own on DOS and Windows 3.x is a file of its own on Windows 95 where Windows 95 has the feature at all. Two facts changed since section 7 was written: `QUILL32.EXE` grew to 452,608 bytes with the rich clipboard (pull request 196), and the no-CRT Win32 DLL recipe, which W9X-41 meant to borrow from the savers' `AGCORE1.DLL`, was never built there (WP-SL-1 has not started), so this plan proved it with Quill's own toolchain (section 19.2).
+
+Measured for this section on `origin/main` at `08bc6dc`; the raw figures, the scripts and the spike's sources are in `~/Documents/Liminal HQ/Quill/Modules/Win95 spike/`. The spike's build and the Wine prefix were deleted afterwards. Markers as at the top of this page.
+
+### 19.1 Verdict
+
+| Module | Windows 95, 98 and Me | Why | What it takes out of `QUILL32.EXE` |
+|---|---|---|---|
+| `QUILLPIC.DLL` (PNG, BMP, then JPEG and RLE4) | **GO, first** (WP-MOD-9) | The same crate and kind as `QUILLPIC.DMD` and the Windows 3.x DLL; the narrowest interface; already measured | About **−15 to −16 KB** [E from 18,432 M, less 2 to 3 KB of loader and seam] |
+| `QUILLPDF.DLL` (the PDF writer) | **GO, second** (WP-MOD-10), in a component of its own | Print to PDF exists only on Windows 95 today; as a file it becomes an optional component, as `QUILLPDF` is planned for the siblings. The walk over the document stays in the EXE (it needs the `Doc`); the writer moves | About **−14 to −20 KB** [E from 32,256 M] |
+| `QUILLDLG.DLL` (modal dialogs) | **GO, later** (WP-MOD-12), after Options on Windows 95 | DOS puts its dialogs in `QUILLDLG`; on Win32 a DLL may call `USER32` freely (Windows 3.x's may not, W16-48), so the dialog procedures and their templates can move. Small today; it grows with Options, Page Layout, Numbering and Header and Footer | About −4 to −6 KB now, −15 to −25 KB once those dialogs land [E from M] |
+| `QUILLHLP` | **None** | Help on Windows is WinHelp reading `QUILL.HLP`, as on Windows 3.x; the program holds one `WinHelpA` call. The kind stays reserved | — |
+
+**The target.** From 452,608 bytes with pull request 196: about **418 to 424 KB** once `QUILLPIC` and `QUILLPDF` are out, and about **412 to 420 KB** with today's dialogs in `QUILLDLG` [E]. As on DOS (DOS-52 rule 3), a move-out lowers no budget: the 28 to 42 KB freed is what Unicode on Windows (WP-UNI-11), Reveal Codes (WP-CODES-5) and Options (WP-PREF-8) spend without a raise (W9X-138).
+
+**The disk.** Each DLL carries its headers, relocations and runtime copy, about 1.5 to 3 KB raw and 1 to 2 KB packed [E from M]; the three together cost the Windows 95 floppy about 3 to 6 KB against its 64 KB floor. Splitting saves nothing on the disk; it was never the reason.
+
+### 19.2 What was measured [M]
+
+**`QUILL32.EXE` today.** 441,856 bytes: `.text` 342,016 on disk (341,786 in memory), `.rdata` 27,648, `.data` 512, `.rsrc` 70,656 (icons 63,118, the five dialog templates 2,850, the menu 2,238, the version 640), headers 1,024. Image base `0x400000`, `/FIXED` (no `.reloc`), section alignment 4,096, file alignment 512, subsystem 4.0 [M: `llvm-readobj`].
+
+**What each feature costs it**, by building variants with `win9x/build.sh` and reverting them:
+
+| Variant | Bytes | Δ | `.text` Δ | `.rdata` Δ |
+|---|---:|---:|---:|---:|
+| `main` at `08bc6dc` | 441,856 | — | — | — |
+| Print to PDF cut (`pdf.rs`'s `render` returns an empty `Vec`) | 409,600 | **−32,256** | −27,860 | −4,364 |
+| and picture decoding cut (both `quill_picture::render` calls in `gdi.rs` stubbed) | 391,168 | **−18,432** | −18,068 | −160 |
+
+The order matters: `quill-pdfdoc` draws pictures through `quill_picture::render` too, so with Print to PDF in, stubbing the screen's calls frees almost nothing. **So `QUILLPIC.DLL` saves bytes only if every caller decodes through the seam**, the PDF walk and the clipboard's picture included (WP-MOD-9's finish line says so).
+
+**By area**, from a build with DWARF (`CARGO_PROFILE_RELEASE_DEBUG=limited`, `.text` unchanged at 341,786; `win32-groups.py` charges each out-of-line function to its path; LTO inlines across crates, so these are lower bounds): `quill-app` 111,067; the Win32 shell 106,823 (its painter's closures hold the inlined picture and PDF code: `gdi::draw_line::closure$4` alone is 14,996); `quill-core` 33,010; `quill-formats` 25,633; `core` 13,615; `quill32::pdf` 12,097; `quill-pdfdoc` 11,551; the Win32 dialog procedures 7,445 (`tabs_proc` 1,462, `find_proc` 1,394, `about_proc` 1,241, `fonts_proc` 1,152, `spelling_proc` and its fill 1,035, `confirm_save` 280); `quill-inflate` 5,385; `quill-spell` 3,371; `quill-pdf` 3,109; `alloc` 3,101; `quill-image` 2,693.
+
+**The spike: a no-CRT `QUILLPIC.DLL` with the existing toolchain.** A `cdylib` in a scratch workspace with `win9x/win9x.json`, `-Zbuild-std=core,compiler_builtins`, `opt-level = "z"`, LTO, `panic = "abort"`, linked by `lld-link` with the program's flags less `/ENTRY:start` and `/FIXED`, plus `/ENTRY:QuillDllEntry /BASE:0x10000000 /FILEALIGN:512` from its `build.rs`. It wraps `quill-image`'s PNG decoder and scaler over a chunk list behind `PicTableV1`, with the inflate window as a 32 KB static, and exports `QuillModuleInfo` and `QuillModuleStart`. A test program (`HOST.EXE`, 3,584 bytes, the same toolchain) builds the full path from `GetModuleFileNameA`, loads it with `LoadLibraryA` under `SetErrorMode`, checks `ModInfo` with `check_info` (release policy), starts it with a `ModStart`, decodes `tests/docs/pic.png` into 64 rows and frees it, 200 times.
+
+| Finding | Figure |
+|---|---|
+| `QUILLPIC.DLL` (PNG and the scaler; no BMP, no dither) | **11,776 bytes**: `.text` 8,742, `.rdata` 403, `.data` 32,804 in memory and 0 on disk (the window is `.bss`), `.reloc` 68 (27 fixups), headers and tables the rest |
+| Characteristics | `DLL`, no `RELOCS_STRIPPED`, subsystem 4.0, section alignment 4,096, file alignment 512, entry at the assembly stub; lld sets `DYNAMIC_BASE` and `NX_COMPAT` on a DLL unless told not to |
+| Imports | `KERNEL32!ExitProcess` only (the panic handler); `check-imports.sh` and `scan-pentium.sh` pass on the DLL unchanged |
+| Exports | Exactly `QuillModuleInfo` and `QuillModuleStart`, undecorated, **once `DllMain` and `_fltused` are assembly labels**: as `#[no_mangle]` Rust items a `cdylib` exports them too |
+| Wine 11.21 | Exit 0: 200 load, check, start, decode and free cycles with one checksum; 10 with the picture missing, 11 with the DLL missing (a null handle, no box). `WINEDEBUG=+loaddll` shows the DLL loaded at `0x7B540000`, not its preferred `0x10000000` (Wine moves a `DYNAMIC_BASE` DLL), so the relocations were applied and work |
+
+So the answers to the toolchain questions are yes: the existing Win32 toolchain emits a no-CRT, no-C-runtime DLL with Pentium-only code, relocations, subsystem 4.0, 4 KiB sections and 512-byte file alignment (both what Windows 95 accepts, and what `QUILL32.EXE` already uses), importing only `KERNEL32` ANSI functions on the allowlist. What the spike did not show: Windows 95, 98 and Me themselves, ReactOS, BMP and dither in the module, the shell's own loader, and the size with every decoder in (WP-MOD-9 measures it; 14 to 18 KB [E]).
+
+### 19.3 The image (W9X-132)
+
+- **Where.** `win9x/mods/<name>`: one `cdylib` package per module in the `win9x` workspace, so it shares `win9x.json`, `-Zbuild-std` and the release profile (`opt-level = "z"`, LTO inside the module, `panic = "abort"`, `strip`, `overflow-checks`).
+- **Link flags.** `/ENTRY:start` and `/FIXED` move from `win9x/.cargo/config.toml`'s shared `rustflags` into `quill-win9x/build.rs` as `cargo:rustc-link-arg-bins` (the program's bytes stay identical, checked by SHA-256). Each module's `build.rs` adds `/ENTRY:QuillDllEntry`, `/BASE:<its base>`, `/DYNAMICBASE:NO`, `/FILEALIGN:512` and `/MAP` (the map is kept in the target folder for fault addresses, not shipped). Kept from the program: `/NODEFAULTLIB`, `/SUBSYSTEM:WINDOWS,4.0`, `/SAFESEH`, `/LARGEADDRESSAWARE`, no jump tables.
+- **Bases.** `QUILLPIC` `0x61000000`, `QUILLDLG` `0x61100000`, `QUILLPDF` `0x61200000`: inside the private arena every Windows 9x process has (below `0x80000000`), clear of the program at `0x400000`, of `0x10000000` (where most third-party DLLs, shell extensions in the Open dialog among them, ask to be), of the savers' `0x63000000` and of the system DLLs. Relocations stay in every module, so a taken base costs a relocation pass, never a failure. `/DYNAMICBASE:NO` makes the load address the same on every run (Windows 9x ignores the flag; NT, ReactOS and Wine honour it).
+- **Entry.** `QuillDllEntry@12` in assembly: `mov eax, 1; ret 12`. It stores nothing and runs nothing under the loader lock. Assembly, so the `cdylib` does not export it; `_fltused` is an assembly label for the same reason.
+- **No TLS, no constructors.** The target says `has-thread-local: false`; Rust has no static constructors, so no C runtime start-up is missing; the loader zeroes `.bss` [W].
+- **Checks per file** (`win9x/tools/check-dll.sh`, new): the `DLL` characteristic, no `RELOCS_STRIPPED`, a `.reloc` section, subsystem 4.0, section alignment 4,096 and file alignment 512, no TLS directory, the base the table above gives, and exactly the two exports. `scan-pentium.sh` and `check-imports.sh` run on every DLL, the latter against the module's own list (W9X-134).
+
+### 19.4 The runtime and the boundary (W9X-133)
+
+- **One runtime crate.** `quill-win9x/src/rt.rs` (the allocator over the process heap, `__chkstk`, the `_alldiv` family, `_fltused`, the panic handler) becomes `win9x/quill-w32rt`, used by the program and every module, with a feature `heap` for the allocator and `dll` for the entry macro and the label form of `_fltused`. It is a move: `QUILL32.EXE` byte-identical.
+- **No shared heap.** `QUILLPIC.DLL` has no allocator at all (`quill-image` and `quill-inflate` allocate nothing): its working memory is its own `.bss` (the 32 KB window), per process on every Windows [W], so `ModInfo::arena` is 0 as on DOS. `QUILLPDF.DLL` needs a heap for the PDF it builds; it gets its own `#[global_allocator]` over `GetProcessHeap`, and nothing it allocates crosses: it hands the finished bytes out by copying into the caller's buffers (19.5). Only `#[repr(C)]` structs, flat addresses of caller memory and statuses cross (CORE-90).
+- **Statics.** Each module has its own; nothing in the program is reachable from a module except what a call names. One session at a time, called only from the window thread (`QS_BUSY` otherwise); a module starts no thread.
+- **Panics.** `panic = "abort"` on both sides, and no unwinding crosses a call (Rust aborts at an `extern "C"` boundary in any case). A module's panic handler ends the process with code 3, exactly as the program's does today, so a module panic is the program's panic, as DOS-54 says for DOS version 1. Containing it (a poisoned module answering `QS_INTERNAL`, as Windows 3.x's runtime does) would need a stack switch in every export; not now.
+- **Never panics on input.** The glue checks every pointer and `size` before it reads (null, below the struct's own size, a chunk list longer than its count), and answers `QS_CORRUPT`; the logic crates keep their property tests (a damaged picture never panics). `overflow-checks` stays on, as in the program.
+
+### 19.5 Exports and the contract (W9X-130, CORE-97, CORE-98)
+
+- **Two exports by name, no ordinals.** `QuillModuleInfo(*ModInfo) -> Status` and `QuillModuleStart(*ModStart) -> Status`, `extern "C"` (cdecl, so the i586 names carry no `@n`). Names, because `GetProcAddress` by name is how every Windows, ReactOS and Wine find a function the same way; ordinals matter only on Windows 3.x, where the packer fixes them. No `.def` file and no import library: nothing links against a module.
+- **The tables are the DOS tables.** On Win32 a module address is a flat 32-bit pointer, which is what it is on DOS (an offset in the flat 4 GiB segment), so `QuillModuleStart` fills the kind's table exactly as a `.DMD`'s `app_start` does: `PicTableV1` for pictures, unchanged. `quill-modabi` gains `WIN32_EXTENSION`, the two export names as constants and `QS_NOMEMORY` (10, a loader's answer only, so an addition within major 1); `PdfTableV1` and the Win32 `DlgTableV1` arrive with WP-MOD-10 and WP-MOD-12, with layout tests.
+- **One glue, two packagings (CORE-98).** The entries that turn a `PicTableV1` call into slices of caller memory move from `dos/mods/quillpic` (WP-MOD-3) into `quill-modpic::flat`, which both `dos/mods/quillpic` and `win9x/mods/quillpic` call; the host side that drives a `PicTableV1` (WP-MOD-3's `Decoders` over a table in `dos/quill-dos/src/modules.rs`) moves into `quill_picture::modular::TableDecoders`. Only finding the table differs: `rt::module` on DOS, `LoadLibraryA` and `QuillModuleStart` on Win32. Windows 3.x keeps its far-pointer glue.
+- **PDF (WP-MOD-10, ARCH-42).** `quill_pdfdoc` writes pages through a `Writer` trait (begin with the document's `Info`, a page of a size and resolution, text runs, rectangles, a picture as 24-bit rows, end of page, finish), with `Static` over `quill-pdf` and the Win32 shell's implementation over `PdfTableV1`. Pictures reach the module as rows the program decoded through `QUILLPIC`, so the PDF module holds no decoder; the finished file comes back through `read(*Chunk, *written)`, `QS_MORE` until the last byte, into the program's buffer.
+- **Dialogs (WP-MOD-12).** `DlgTableV1 { size, info, run }` with `run(dialog, owner window, module handle, model, model length) -> Status`: the dialog's model (`#[repr(C)]`, generated beside the control ids in `quill-dialogs`) goes in, the person's answers and an `answer` field (OK or Cancel) come out, and the template is a resource of the DLL (`DialogBoxParamA` with the module's handle). Find (it searches as the person types), Spelling (it calls the checker) and the save question (it must work with every module missing) stay in the program.
+
+### 19.6 Loading, versions and lifetime (W9X-131, W9X-135)
+
+1. **The path.** `GetModuleFileNameA(NULL)`, cut after the last `\`, plus `QUILLPIC.DLL`. Never a bare name: Windows 95's `LoadLibraryA` with a bare name searches the program's folder, the current folder, the system folder, the Windows folder and `PATH` [W], so a stale copy in any of them could win.
+2. **Load.** `SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX)` around `LoadLibraryA`, the old mode put back after, so a missing, damaged or 16-bit file never raises a system box [W]. On a null handle `GetLastError` sorts the reason: file or path not found is `QS_MISSING`; not enough memory (8, 14) is `QS_NOMEMORY`; a bad image (193, such as Windows 3.x's `QUILLPIC.DLL` in the same folder) is `QS_VERSION`, logged as "not a Win32 module".
+3. **Check.** `GetProcAddress` for both names (`QS_VERSION` if either is missing); `QuillModuleInfo` then `quill_modabi::check_info` against the program's kind, `ABI_MAJOR` and build id; then `QuillModuleStart` with a `ModStart`, on which the module runs `check_start` from its side. A refused module is freed at once.
+4. **Lifetime.** Loaded on first use (the first PNG drawn, the first Print to PDF, the first dialog), kept until exit, freed with `FreeLibrary` before `ExitProcess` (Windows frees it at exit anyway, unlike Windows 3.11; freeing it ourselves keeps `DLL_PROCESS_DETACH` in a sane process and makes the 200-cycle test the shell's own path). No idle unload: address space and memory are plentiful, as DOS-54 says for DOS. A "swap" is only ever a refused module freed; a module is never replaced while loaded.
+5. **Retries.** `QS_VERSION` and `QS_CORRUPT` are remembered for the session (the file will not change under a running program); `QS_MISSING` and `QS_NOMEMORY` are retried at the next command that needs the module.
+6. **Versions (CORE-94, W9X-135).** `win9x/build.sh` passes one `QUILL_BUILD_ID` to the program and every module. **Release policy when the build id is clean, development when its dirty bit is set**: anything staged for a disk comes from a clean commit and accepts only its own modules; a builder's dirty tree accepts another build with a log line. A `VERSIONINFO` resource in each DLL matching the program's (for Explorer's Properties), not a check.
+7. **The log.** With `[Debug] Trace=1` in `QUILL.INI`, one line per load in `QUILL.LOG` beside `QUILL.INI`: the file, the load address, the status and both build ids, so a fault address can be read against the module's `.MAP`.
+
+### 19.7 Failure modes
+
+| What | What the person sees | Status, log |
+|---|---|---|
+| `QUILLPIC.DLL` missing | Each PNG or BMP is the grey box with `This picture needs QUILLPIC.DLL, which is missing or from another build of Quill. Run Setup again to repair Quill.` once a session on the status line; text, saving and printing work | `QS_MISSING` |
+| `QUILLPDF.DLL` missing (the `pdf32` component unticked) | File > Print to PDF is greyed, its hint names the component (`Print to PDF is not installed. Run Setup to add it.`); `/PDF OUT` exits with code 2 | `QS_MISSING` |
+| `QUILLDLG.DLL` missing | Format > Fonts, Tabs and the later dialogs are greyed with the CORE-93 message; Help > About falls back to a `MessageBoxA` with the name and version | `QS_MISSING` |
+| A module from another build (release) or another `ABI_MAJOR` | As missing, with `from another build` in the log | `QS_VERSION`, both ids |
+| Windows 3.x's `QUILLPIC.DLL` in the folder | As missing | `QS_VERSION`, "not a Win32 module" (error 193) |
+| Not enough memory to load it | The same message with `not enough memory` in place of `missing`; retried next time | `QS_NOMEMORY` |
+| Windows 95 without Internet Explorer, or without the OLE updates | Nothing: the modules import only what Windows 95's own `KERNEL32`, `USER32`, `GDI32` and `COMCTL32` 4.00 export, never `OLE32`, `OLEAUT32`, `SHLWAPI`, `MSVCRT` or a later `COMCTL32` (W9X-134) | — |
+| A panic in a module | The program ends with code 3, as a panic does today | — |
+
+### 19.8 Windows 98, Me, 2000 and later, ReactOS and Wine
+
+- **Windows 95, 98 and Me** share the Windows 9x loader. It honours a full path, but a module whose base name matches one already loaded in the process is reused without looking at the path [W]: a foreign `QUILLPIC.DLL` already in Quill's process (pulled in by a shell extension in the Open dialog, say) would be the one Quill gets. The build id refuses it and the log names it. A DLL whose file alignment is below 4 KB is read into memory rather than mapped [W]; at 12 to 30 KB that is nothing. Windows 9x ignores `DllCharacteristics` and has no ASLR or NX [W].
+- **Windows Me**'s System Restore keeps copies of changed `.exe` and `.dll` files outside its excluded folders [W], so a restore could put back an older module beside a newer program; the build id refuses the mix and the message sends the person to Setup.
+- **Windows 2000, XP and later** run the same `QUILL32.EXE`. The NT loader takes the full path, the program's folder comes first for a module's own imports (all system DLLs, all `KnownDLLs`), `DllMain` never touches the loader lock, and `/DYNAMICBASE:NO` keeps the base fixed.
+- **ReactOS 0.4.16**'s loader (`ntdll`) applies relocations and calls the entry with `DLL_PROCESS_ATTACH` as Windows does [U: the guest run, WP-MOD-13]. The demo images put `QUILL32.EXE` and `QUILL.EXE` together in `C:\Quill`, and both builds name their picture module `QUILLPIC.DLL`; the Windows 3.x build moves to `C:\Quill\WIN31\` (INS-27).
+- **Wine** (11.21 here [M]) loads and relocates the spike as above; it is the everyday gate (`win9x/tools/wine-*.sh`), with `WINEDEBUG=+loaddll,+module` for the load address.
+
+### 19.9 The installer and the gate (INS-26 to INS-28, W9X-138)
+
+- **Files.** `QUILLPIC.DLL` (and later `QUILLDLG.DLL`) join `app32`'s `files`, required; `QUILLPDF.DLL` is the one file of a new component `pdf32`, "Print to PDF", for `windows-x86`, **ticked by default** (`default = true`), because Print to PDF ships today and unticking it would take a working feature away (INS-26; DOS's `pdf` stays unticked, INS-21). All are `{install}/NAME`, recorded `F name size crc32` in `INSTALL.LIR` and removed on uninstall (INS-20, installer D111); none goes to `{system}` or `{windows}`; no reference counting (they are private).
+- **In use.** Windows 95 cannot replace a loaded DLL; only Quill loads these, so the installer's step that asks the person to close Quill covers them [U: whether `liminst` checks the program for Windows 95 today; WP-MOD-9 records what it finds].
+- **Staging.** `win9x/build.sh` writes the modules to `win9x/dist/`; `installer/tools/stage.sh` copies them (by name) to `dist/windows-x86/`; `verify-disks.sh` compares them; `e2e-w95.sh` checks each is installed, listed and removed, and that Quill draws the sample's picture afterwards; a second run with `pdf32` unticked checks Print to PDF is greyed.
+- **The gate (WP-MOD-11, INS-28).** `installer/budgets.toml` (pull request 191) gains `[executable.QUILL32]` (the budget: the measured size at that package's branch point rounded up to 4 KB; the stop 524,288) and module rows **keyed by target** for DLLs, since Windows 3.x and Windows 95 both ship a `QUILLPIC.DLL`: `[module."windows-x86/QUILLPIC.DLL"]` 24,576, `[module."windows-x86/QUILLPDF.DLL"]` 32,768, `[module."windows-x86/QUILLDLG.DLL"]` 49,152 (and WP-MOD-6's `win16-x86/QUILLPIC.DLL`). `size-gate.py` checks each staged `*.DLL` of `win16-x86` and `windows-x86` against its row and refuses one without; the `.DMD` rows keep their bare names. Program bytes (DOS-51) for Windows 95 are `QUILL32.EXE` and its required modules, packed; the 64 KB floor of the Windows 95 disk is unchanged.
+- **Everywhere else the programs are copied.** `.github/workflows/reactos-demo.yml` and `reactos-qagrr.yml` copy `QUILL32.EXE` and `QUILL.EXE` only, `site/try-reactos/guest/build-all.sh` checks for those two, and `site/try-reactos/qagrr/qagrr.toml` lists the files for `C:\Quill`: each must carry the modules, or the demo loses its pictures the day `QUILLPIC.DLL` lands. The media's disk listing (`assets/media/gen_media.py`, "SETUP.EXE, QUILL32.EXE, QUILL.HLP and three dictionaries") changes with it. WP-MOD-9 owns these lines.
+
+### 19.10 Risks
+
+| Risk | Containment |
+|---|---|
+| A module linked with the program's `/ENTRY:start` or `/FIXED` (the flags are workspace-wide today) | They move to `quill-win9x/build.rs` (bins only); `check-dll.sh` fails on `RELOCS_STRIPPED`, a missing `.reloc` or the wrong entry |
+| Relocations wrong, so a module works only at its base | `MODHOST.EXE` loads a second copy linked at `0x400000`, a base that is always taken, and compares its output (the spike's Wine run already relocated) |
+| DLL hell: a stale or foreign `QUILLPIC.DLL` found first | Full path only (CORE-95), never `{system}` (INS-20), the build id, the log naming the file; Windows 9x's reuse by base name (19.8) is caught by the same check |
+| Windows 3.x's `QUILLPIC.DLL` beside `QUILL32.EXE` | Separate folders where both builds sit (INS-27); error 193 is logged as "not a Win32 module" |
+| A second allocator, or memory freed on the wrong side | `QUILLPIC` has none; `QUILLPDF`'s is its own and nothing it allocates crosses; the PDF leaves by copy into caller buffers |
+| Work under the loader lock, TLS callbacks, missing CRT start-up | The entry is three instructions; no TLS (`check-dll.sh`); nothing needs a constructor |
+| A panic in a module | The program's own panic path (exit code 3), as today when the code is linked in |
+| Exports drift (an extra `#[no_mangle]` exported, a decorated name) | `check-dll.sh` lists exactly the two names |
+| An import Windows 95 lacks, or one from Internet Explorer's updates | A per-module allowlist (W9X-134), `check-imports.sh` on each DLL, `e2e-w95.sh` on the plain base as well as the IE4 one |
+| Decoders still linked into the program through the PDF walk or the clipboard, so nothing is saved | WP-MOD-9's finish line: every caller of `quill_picture::render` in the Win32 build goes through `Decoders`; the size figure must fall by at least 10 KB or the package stops and reports |
+| The demo and the media forget the new files | WP-MOD-9 owns the workflow, `build-all.sh`, `qagrr.toml` and media lines (19.9) |
+| Debugging across the boundary | A `.MAP` per DLL in the target folder, the load address in `QUILL.LOG`, Wine's `+loaddll`, ReactOS's serial log |
+
+### 19.11 Tests
+
+| Level | What |
+|---|---|
+| Host | `quill-modabi`'s layout tests for the new items (`QS_NOMEMORY`, the export names, `PdfTableV1` and `DlgTableV1` as they land, each 32-bit size checked under `target_pointer_width = "32"`); `quill-modpic::flat` against `quill-image`'s goldens; `quill_picture::modular::TableDecoders` over a fake table; `quill_pdfdoc`'s golden PDF through `Static` and through a recording `Writer` (the same calls in the same order) |
+| `MODHOST.EXE` under Wine (`win9x/tools/wine-modules.sh`) | `MODHELLO.DLL` and `QUILLPIC.DLL`: 200 load, start, call and free cycles with one checksum; the relocated copy equal; a missing file `QS_MISSING` with no box; a wrong-build copy `QS_VERSION` and freed; a 16-bit DLL `QS_VERSION`; null and short structs `QS_CORRUPT` |
+| Quill under Wine | Every `win9x/tools/wine-*.sh` with the modules present, byte-equal to today (`wine-picture.sh`, `wine-pic8.sh`, `wine-pdf.sh` above all); `wine-e2e.sh`'s picture scenarios with `QUILLPIC.DLL` absent and from another build (their own goldens: the grey box and the message); `wine-pdf.sh` with `QUILLPDF.DLL` absent (the item greyed, `/PDF` exit code 2) |
+| Each DLL | `check-dll.sh`, `scan-pentium.sh`, `check-imports.sh` against the module's list |
+| Windows 95 | `make installer-w95` (`e2e-w95.sh` in DOSBox-X, Windows 95 OSR2.5) on the plain base and with `W95_BASE_KIND=ie4`: installed, listed, removed; the sample's picture drawn; Print to PDF writes a file; `pdf32` unticked greys it |
+| ReactOS 0.4.16 | The demo guest (WP-MOD-13): the demo letter's picture, Print to PDF, and the module renamed |
+| Windows 98 SE and Me | By hand on the VMs (WP-MOD-13): the same three checks, a screenshot each |
+| Installer and gate | `make disks` with the new rows (G-DISK); `installer/tools/test_size_gate.py` gains the DLL rows and the unlisted-DLL refusal |
+
+### 19.12 Decisions
+
+Ids from `scripts/next-id.sh` (W9X-130 to W9X-139, INS-26 to INS-28) and the spares of section 14 (CORE-97, CORE-98, ARCH-42). W9X-40 and W9X-41 are in `docs/decisions.md` with this plan; the rest are copied there, **Assumed**, by the package that builds them, as section 14 says.
+
+| Id | Decision | Rejected | Why |
+|---|---|---|---|
+| W9X-130 | A Win32 module exports two functions by name, `QuillModuleInfo` and `QuillModuleStart` (cdecl, undecorated), and `QuillModuleStart` fills the kind's DOS table (`PicTableV1`) with flat addresses; no ordinals, no `.def`, no import library | Ordinals; one export per operation; implicit linking | `GetProcAddress` by name behaves the same everywhere; the flat tables are already defined and tested |
+| W9X-131 | Modules load by full path from `GetModuleFileNameA` under `SetErrorMode(SEM_FAILCRITICALERRORS \| SEM_NOOPENFILEERRORBOX)`, on first use, stay until exit and are freed with `FreeLibrary` before `ExitProcess` or at once when refused; `GetLastError` sorts missing, memory and bad image | Idle unload; a bare name; loading at start | No system box; nothing to save by unloading on Win32 |
+| W9X-132 | The image: a `cdylib` in `win9x/mods/<name>`, entry `QuillDllEntry@12` in assembly, bases from `0x61000000` a megabyte apart, relocations kept, `/DYNAMICBASE:NO`, `/FILEALIGN:512`, 4 KiB sections, subsystem 4.0, Pentium code, no TLS; `check-dll.sh` checks it | `0x10000000`; stripped relocations; `/FILEALIGN:4096` | Clear of the program, the shell extensions' usual base and the savers; relocatable everywhere |
+| W9X-133 | One runtime crate, `win9x/quill-w32rt`, for the program and its modules; a module allocates only if it must, on its own allocator, and nothing it allocates crosses; `panic = "abort"`, a module's panic ends the process as the program's does | A shared heap; containing panics now | No second owner of any memory; the containment needs a stack switch per export |
+| W9X-134 | Each module has its own import list: `QUILLPIC` and `QUILLPDF` `KERNEL32` only, `QUILLDLG` the `USER32`, `GDI32` and `COMCTL32` 4.00 functions already on the program's list; never `OLE32`, `OLEAUT32`, `SHLWAPI`, `MSVCRT` or a later `COMCTL32`. The program adds `LoadLibraryA`, `FreeLibrary`, `SetErrorMode` and `GetLastError` | One list for every file | Windows 95 with no Internet Explorer must load every module |
+| W9X-135 | On Win32 the policy follows the build id: release when it is clean, development when its dirty bit is set | A cargo feature; always release | Every staged build is from a clean commit; a builder can rebuild one side |
+| W9X-136 | `QUILLPDF.DLL` holds the PDF writer (`quill-pdf`: pages, fonts, deflate, the file); the walk (`quill-pdfdoc`) stays in the program and writes through `quill_pdfdoc::Writer`; pictures reach it as rows decoded by `QUILLPIC` | The walk in the module; a decoder in the PDF module | The walk needs the `Doc`; one decoder in one module |
+| W9X-137 | `QUILLDLG.DLL` on Win32 holds modal dialogs whose state is a model in and out (About, Fonts, Tabs, Options, Page Layout, Numbering, Header and Footer), with their templates as its resources; Find, Spelling and the save question stay in the program | Every dialog; none | Narrow dialogs only; the save question must work with every module missing |
+| W9X-138 | `QUILL32.EXE` gets a budget row and each Win32 module its own (WP-MOD-11); a move-out lowers no budget (as DOS-52) | No budget on Windows 95 | The freed room is what the planned Windows features spend |
+| W9X-139 | Spare | | |
+| INS-26 | `QUILLPDF.DLL` is the component `pdf32`, "Print to PDF", ticked by default; `QUILLPIC.DLL` and `QUILLDLG.DLL` are in the required `app32` | `pdf32` unticked; PDF in `app32` | Print to PDF ships today; the component makes it optional without taking it away |
+| INS-27 | Where both Windows builds share a folder (the ReactOS demo's `C:\Quill`, a future all-in-one disc), each build's set sits in its own folder (`C:\Quill` for Windows 95, `C:\Quill\WIN31` for Windows 3.x); module stems stay the same on every build | A Win32 stem of its own (`QPIC32.DLL`) | Both builds call their picture module `QUILLPIC.DLL` (CORE-94, `quill-modabi`) |
+| INS-28 | Budget rows for DLL modules are keyed by target (`windows-x86/QUILLPIC.DLL`), and the gate refuses a staged DLL with no row; `.DMD` rows keep their bare names | Bare names for DLLs | Two `QUILLPIC.DLL` files, one per Windows build |
+| CORE-96 (revised), CORE-97, CORE-98, ARCH-42 | Section 14 | | |
+
+### 19.13 Work packages
+
+**Order.** The side lane takes all of them (no file in `crates/quill-app/src`, ARCH-41), one builder at a time beside the two lanes' builders, inside the cap of three.
+
+| Order | Package | Needs | Size | Saves (`QUILL32.EXE`) |
+|---:|---|---|---|---|
+| 1 | **WP-MOD-11** The Windows 95 rows in the packed-size gate | Pull request 191 merged | S | — (the budget row) |
+| 2 | **WP-MOD-9**, pull request 1: the Win32 module toolchain, `quill-w32rt`, the loader, `MODHELLO.DLL` (built as `QUILLTST.DLL`) and `MODHOST.EXE` (**built**: pull request 201, open) | — | M | 0 (byte-identical) |
+| 3 | **WP-MOD-9**, pull request 2: `QUILLPIC.DLL` | WP-MOD-3 merged (`quill-modpic`, `quill_picture::Decoders`), PR 1, WP-MOD-11 | M | −15 to −16 KB [E] |
+| 4 | **WP-MOD-10** `QUILLPDF.DLL` and `pdf32` | WP-MOD-9 | M to L | −14 to −20 KB [E] |
+| 5 | **WP-MOD-13** The set in the ReactOS 0.4.16 guest and on Windows 98 SE and Me | WP-MOD-10 | S | — (evidence) |
+| 6 | **WP-MOD-12** `QUILLDLG.DLL` | WP-MOD-10; WP-PREF-8 (Options on Windows 95) merged | M | −4 to −6 KB now, −15 to −25 KB with the later dialogs [E] |
+
+Against the siblings: WP-MOD-9's second pull request follows WP-MOD-3 as WP-MOD-6 does, and the two can run together (different shells; `quill-modpic::flat` and `TableDecoders` are WP-MOD-9's only shared-crate files, and WP-MOD-6 uses neither). WP-MOD-7 (JPEG) then lands in `QUILLPIC` on all three builds at once.
+
+#### WP-MOD-9 — the Win32 module toolchain, the loader and `QUILLPIC.DLL`
+
+- **Finish line, pull request 1.** `win9x/quill-w32rt` holds the runtime (moved from `rt.rs`) and the loader (`quill_w32rt::module`: path, load, check, start, free, the status and the log line); the link flags are per artefact; `win9x/mods/hello` builds `MODHELLO.DLL` (a `KIND_PIC` module that writes a gradient) and `win9x/mods/modhost` builds `MODHOST.EXE` (never staged); `win9x/build.sh` builds the modules after the program with one `QUILL_BUILD_ID`; `check-dll.sh` and `wine-modules.sh` pass; `QUILL32.EXE` is byte-identical (SHA-256).
+- **Finish line, pull request 2.** `win9x/mods/quillpic` builds `QUILLPIC.DLL` from `quill-modpic` through `quill-modpic::flat` (PNG, every BMP the program reads, the scaler); `win9x/quill-win9x/src/modules.rs` gives the shell a `quill_picture::Decoders` over it through `quill_picture::modular::TableDecoders`; every caller of picture decoding in the Win32 build goes through it (the screen, Print Preview and printing, the PDF walk, the clipboard's DIB); every Wine script byte-equal with the module present; absent and wrong-build behave as 19.7; the installer, the gate row, the demo pipeline and the media list carry the file.
+- **Owns.** PR 1: `win9x/quill-w32rt/**` (new), `win9x/quill-win9x/src/rt.rs` (removed), `win9x/quill-win9x/src/main.rs` (the `rt` lines), `win9x/quill-win9x/Cargo.toml`, `win9x/quill-win9x/build.rs` (new), `win9x/.cargo/config.toml`, `win9x/Cargo.toml`, `win9x/Cargo.lock`, `win9x/mods/hello/**`, `win9x/mods/modhost/**`, `win9x/build.sh`, `win9x/PROVENANCE.md`, `win9x/tools/check-dll.sh` (new), `win9x/tools/wine-modules.sh` (new), `win9x/tools/check-imports.sh` (a list argument), `win9x/tools/imports.allow`, `crates/quill-modabi/src/lib.rs` and `tests/abi.rs` (`WIN32_EXTENSION`, the export names, `QS_NOMEMORY`). PR 2: `win9x/mods/quillpic/**`, `win9x/quill-win9x/src/modules.rs` (new), `win9x/quill-win9x/src/gdi.rs` and `pdf.rs` (the decode calls, named lines), `crates/quill-modpic/src/flat.rs` (new, moved from `dos/mods/quillpic`), `dos/mods/quillpic/src/*.rs` (the call into `flat`), `crates/quill-picture/src/modular.rs` (`TableDecoders`, moved from `dos/quill-dos/src/modules.rs` if WP-MOD-3 put it there), `crates/quill-pdfdoc/src/lib.rs` (its picture call through `Decoders`), `installer/components.toml` (`app32`'s files), `installer/tools/stage.sh`, `installer/tools/e2e-w95.sh`, `installer/budgets.toml` (the row's figure), `.github/workflows/reactos-demo.yml` and `reactos-qagrr.yml` (the copy lines), `site/try-reactos/guest/build-all.sh` (the input check and copy), `site/try-reactos/qagrr/qagrr.toml` (the files; `QUILL.EXE` and its files to `Quill/WIN31/`, its shortcut's paths), `assets/media/gen_media.py` (the disk listing), `SPEC.md` (the Windows 95 file list and pictures), the decision rows.
+- **Must not touch.** `crates/quill-app/src/**` (if the seam needs an `App` line, stop and report), `crates/quill-image/src/**`, `crates/quill-inflate/src/**`, `dos/rt/**`, `win16/**`, `linux/**`, `winui/**`.
+- **Budgets.** PR 1: `QUILL32.EXE` byte-identical; `MODHELLO.DLL` ≤ 8 KB. PR 2: `QUILL32.EXE` −10 KB at least (−15 to −16 KB expected; stop and report under −10 KB); `QUILLPIC.DLL` ≤ 24,576; each DLL's figure and the Windows 95 disk's free bytes in the PR.
+- **Tests.** G-HOST, G-W32 with `wine-modules.sh`, `wine-picture.sh`, `wine-pic8.sh`, `wine-pdf.sh`, `check-dll.sh`; G-DISK; `make installer-w95` on both bases (PR 2).
+- **Evidence.** `~/Documents/Liminal HQ/Quill/Modules/WP-MOD-9/`: `win32-wine-picture.png` (present), `win32-wine-picture-absent.png`, `win95-picture.png` (from `e2e-w95.sh`'s shots), `modhost.txt` (the cycle log), `sizes.txt` (before and after, `llvm-readobj` of each file). Not verified by them: Windows 98 and Me, ReactOS (WP-MOD-13).
+- **Decisions.** W9X-130 to W9X-135, W9X-138, CORE-96 (revised), CORE-97, CORE-98, INS-27, INS-28.
+
+#### WP-MOD-10 — `QUILLPDF.DLL` and the `pdf32` component
+
+- **Finish line.** `quill_pdfdoc` writes through a `Writer` trait (ARCH-42) with `Static` over `quill-pdf`; `quill-modabi` has `PdfTableV1` and its structs with layout tests; `win9x/mods/quillpdf` builds `QUILLPDF.DLL` over `quill-pdf` with its own allocator; the shell's `Writer` drives it, passing pictures as rows from `QUILLPIC`; `wine-pdf.sh` gives byte-equal PDFs with the module present (the same `qpdf`, `pdftotext` and `pdfimages` checks); with it absent, Print to PDF is greyed with its hint and `/PDF OUT` exits with code 2; `pdf32` installs and removes it.
+- **Owns.** `crates/quill-pdfdoc/src/**`, `crates/quill-pdf/src/lib.rs` (the `Writer` implementation, named lines), `crates/quill-modabi/**` (the PDF kind), `win9x/mods/quillpdf/**`, `win9x/quill-win9x/src/pdf.rs`, `win9x/quill-win9x/src/modules.rs` (the PDF lines), the menu's greying (`win9x/quill-win9x/src/ui.rs`, named lines), `win9x/build.sh`, `installer/components.toml` (`pdf32`), `installer/tools/stage.sh`, `installer/tools/e2e-w95.sh`, `installer/budgets.toml` (the row), `SPEC.md`.
+- **Must not touch.** `crates/quill-app/src/**`, `linux/**` (the GTK client uses `quill-pdfdoc` through `Static`: its PDFs must stay byte-equal; run `make gtk`'s PDF test), `dos/**`, `win16/**`.
+- **Budgets.** `QUILL32.EXE` −10 KB at least (−14 to −20 KB expected); `QUILLPDF.DLL` ≤ 32,768.
+- **Tests.** G-HOST (`quill-pdf`, `quill-pdfdoc` goldens unchanged through `Static`), G-W32 with `wine-pdf.sh` present and absent, G-GTK's PDF check, G-DISK, `make installer-w95` with `pdf32` ticked and unticked.
+- **Decisions.** W9X-136, INS-26, ARCH-42, CORE-97 (the PDF table).
+
+#### WP-MOD-11 — the Windows 95 rows in the packed-size gate
+
+- **Finish line.** `installer/budgets.toml` has `[executable.QUILL32]` (`file = "windows-x86/QUILL32.EXE"`, the budget the measured size rounded up to 4 KB, `stop = 524288`) and the target-keyed DLL rows of 19.9; `size-gate.py` checks `QUILL32.EXE`, each staged `*.DLL` in `win16-x86` and `windows-x86` against its row, refuses one with no row, and counts required modules in program bytes for each disk; `test_size_gate.py` covers it. No DLL exists yet, so the rows are checked by the tests only.
+- **Owns.** `installer/budgets.toml`, `installer/tools/size-gate.py`, `installer/tools/test_size_gate.py`, `docs/installer.md` (the gate's section), the decision rows. **Must not touch** everything else.
+- **Tests.** `python3 installer/tools/test_size_gate.py`, G-DISK, G-MD. **Budgets.** No executable changes.
+- **Decisions.** W9X-138, INS-28.
+
+#### WP-MOD-12 — `QUILLDLG.DLL` on Windows 95
+
+- **Finish line.** `quill-modabi`'s Win32 `DlgTableV1`; each moved dialog's model generated in `quill-dialogs` beside its control ids; `win9x/mods/quilldlg` holds About, Fonts, Tabs and the Options, Page Layout, Numbering and Header and Footer dialogs that have landed, their templates in its own `.res` (`res_pack.py` writes the program's and the module's); the program keeps Find, Spelling and the save question; every dialog scenario under Wine byte-equal; absent, the CORE-93 message and About's `MessageBoxA`.
+- **Owns.** `win9x/mods/quilldlg/**`, `win9x/quill-win9x/src/dialogs.rs`, `win9x/tools/res_pack.py` and its test, `crates/quill-dialogs/**` (the models), `crates/quill-modabi/**` (the kind), `installer/components.toml` (`app32`), `stage.sh`, `e2e-w95.sh`, `budgets.toml` (the row).
+- **Must not touch.** `crates/quill-app/src/**`, `dos/**`, `win16/**`.
+- **Budgets.** `QUILL32.EXE` down by the moved procedures and templates (report); `QUILLDLG.DLL` ≤ 49,152.
+- **Tests.** G-W32 with `wine-dialogs.sh` and `wine-e2e.sh`'s `m2-dialogs`; `check-dll.sh`; G-DISK.
+- **Decisions.** W9X-137, CORE-97 (the dialog table).
+
+#### WP-MOD-13 — the set on ReactOS 0.4.16, Windows 98 SE and Me
+
+- **Finish line.** The ReactOS demo image built with the modules (`site/try-reactos`, the QAGRR recipe) boots in the guest; the demo letter's picture draws, Print to PDF writes a file, and with `QUILLPIC.DLL` renamed the grey box and the message show with no system box; the Windows 3.x build still runs from `C:\Quill\WIN31`. The same three checks by hand on the Windows 98 SE and Me VMs. `docs/testing.md` and `docs/progress.md` record it.
+- **Owns.** `site/try-reactos/qagrr/check-state.sh` (the checks), `docs/testing.md`, `docs/progress.md`. **Must not touch** the programs.
+- **Evidence.** `~/Documents/Liminal HQ/Quill/Modules/WP-MOD-13/`: `reactos-picture.png`, `reactos-pdf.png`, `reactos-absent.png`, `win98-picture.png`, `winme-picture.png`. Not verified: Windows 95 retail on real hardware.
+
+### 19.14 Briefs
+
+Each starts with [the common brief](../work-packages.md#the-common-brief); evidence goes to `~/Documents/Liminal HQ/Quill/Modules/<WP-ID>/`; decision ids are section 19.12's.
+
+#### WP-MOD-9 (full)
+
+```text
+Package: WP-MOD-9 — the Win32 module toolchain, the loader and QUILLPIC.DLL (two pull requests).
+Branches feat/w32-modules (PR 1) and feat/w32-quillpic (PR 2); worktrees ~/source/worktrees/quill/mod-9
+and ~/source/worktrees/quill/mod-9b. Read docs/plans/modules.md sections 4, 14 and 19 (all of it) first,
+then win9x/PROVENANCE.md, win9x/.cargo/config.toml, win9x/quill-win9x/src/rt.rs and sys.rs, and
+crates/quill-modabi. The spike in ~/Documents/Liminal HQ/Quill/Modules/Win95 spike/spike/ is a working
+reference for the DLL's link flags, entry stub and exports; copy ideas, not files.
+
+PR 1 can start now. PR 2 waits for WP-MOD-3 (quill-modpic, quill_picture::Decoders) and WP-MOD-11 to
+merge; branch it from origin/main after they do.
+
+PR 1 — the toolchain and the loader (no behaviour change):
+1. Measure first: sha256sum and size of win9x/dist/QUILL32.EXE from `bash win9x/build.sh` at the branch
+   point, into the evidence folder's sizes.txt.
+2. Move win9x/quill-win9x/src/rt.rs into a new crate win9x/quill-w32rt (no_std; [package.metadata.quill]
+   layer "shell"; SPDX headers), with features `heap` (the GlobalAlloc over the process heap) and `dll`
+   (a `dll_entry!()` macro emitting `.globl _QuillDllEntry@12` / `mov eax, 1` / `ret 12` in global_asm,
+   and `_fltused` as an assembly label instead of the #[no_mangle] static). Without `dll` it must produce
+   exactly today's symbols. The program uses it with `heap`. QUILL32.EXE must stay byte-identical.
+3. Link flags: take /ENTRY:start and /FIXED out of win9x/.cargo/config.toml's rustflags and emit them from
+   a new win9x/quill-win9x/build.rs with cargo:rustc-link-arg-bins. Each module's build.rs emits, with
+   cargo:rustc-link-arg-cdylib: /ENTRY:QuillDllEntry, /BASE:<base>, /DYNAMICBASE:NO, /FILEALIGN:512 and
+   /MAP:<target dir>/<NAME>.MAP. Bases: MODHELLO 0x61F00000, QUILLPIC 0x61000000 (PR 2). Check
+   QUILL32.EXE is still byte-identical.
+4. The loader, quill_w32rt::module (feature `loader`): load(kind) builds <program folder>\<NAME>.DLL from
+   GetModuleFileNameA(NULL) (never a bare name), sets SetErrorMode(SEM_FAILCRITICALERRORS |
+   SEM_NOOPENFILEERRORBOX) around LoadLibraryA and restores it, maps a null handle through GetLastError
+   (2 and 3 -> QS_MISSING; 8 and 14 -> QS_NOMEMORY; 193 and any other -> QS_VERSION, with the code kept for
+   the log), gets QuillModuleInfo and QuillModuleStart with GetProcAddress (either missing -> QS_VERSION),
+   calls info and quill_modabi::check_info (kind, ABI_MAJOR, build id; Policy::Release unless
+   quill_modabi::is_dirty(own build id)), then start with a ModStart, and frees the module on any refusal.
+   It returns { module handle, table address, table length, ModInfo, Accepted }. free() calls FreeLibrary.
+   Every field it reads from a module is checked (size first). Add LoadLibraryA, FreeLibrary, SetErrorMode
+   and GetLastError to win9x/tools/imports.allow (all Windows 95 KERNEL32) and to the sys declarations.
+5. crates/quill-modabi: add WIN32_EXTENSION ".DLL" (beside WIN16_EXTENSION), WIN32_INFO_EXPORT
+   "QuillModuleInfo", WIN32_START_EXPORT "QuillModuleStart", QS_NOMEMORY = 10 (a loader's answer; doc
+   comment says so) and its status_name; tests for each (distinct statuses, names). ABI_MINOR stays 0
+   unless a struct changes (none does).
+6. win9x/mods/hello: a cdylib MODHELLO.DLL of kind KIND_PIC (quill-w32rt with `dll`, no `heap`) whose
+   QuillModuleStart runs check_start and fills a PicTableV1 whose rows entry writes a gradient of the
+   asked width; its own imports.allow (KERNEL32!ExitProcess only). A second build of it linked at
+   /BASE:0x00400000 (always taken by the program) as MODHELLOR.DLL, for the relocation test. Use the
+   build id QUILL_BUILD_ID from the environment (build.sh sets it: the first eight hex digits of HEAD,
+   the top bit set when `git status --porcelain` is not empty).
+7. win9x/mods/modhost: MODHOST.EXE (a test program, never staged) that uses quill_w32rt::module to:
+   load, start, call (open, rows, close) and free MODHELLO.DLL 200 times with one checksum; load the
+   relocated copy and compare its rows; ask for a missing name (QS_MISSING, no box); load a copy built
+   with another build id (QS_VERSION, and the handle freed); load win16's QUILL.EXE renamed to a .DLL if
+   present, or any NE file, for error 193 (QS_VERSION); call the table with a null and a short struct
+   (QS_CORRUPT). It writes one line per check to MODHOST.LOG and exits 0 only if all pass.
+8. win9x/build.sh: after the program, build every module and copy it as an upper-case NAME.DLL into
+   dist/ (MODHELLO.DLL and MODHOST.EXE into dist/test/, which stage.sh never reads), with one
+   QUILL_BUILD_ID for all. win9x/tools/check-dll.sh FILE BASE: llvm-readobj must show the DLL
+   characteristic, no RELOCS_STRIPPED, a .reloc section, subsystem 4.0, SectionAlignment 4096,
+   FileAlignment 512, no TLS directory, ImageBase = BASE, and exactly the exports QuillModuleInfo and
+   QuillModuleStart. check-imports.sh takes an optional second argument, the list file. Run
+   scan-pentium.sh on every DLL. win9x/tools/wine-modules.sh runs MODHOST.EXE under Wine (own prefix under
+   ~/.cache, WINEDEBUG=+loaddll kept in the log) and fails unless it exits 0 and MODHELLOR.DLL loaded
+   away from 0x400000.
+9. Docs: win9x/PROVENANCE.md gains the DLL recipe (what came from the spike, what is Quill's);
+   docs/toolchain-needs.md if it lists Win32 needs; decisions W9X-130 to W9X-135, CORE-97, CORE-98
+   (Assumed; text from modules.md 19.12); docs/progress.md.
+Gates PR 1: G-HOST, bash win9x/build.sh, check-imports.sh (the program and each DLL with its list),
+scan-pentium.sh (each file), check-dll.sh (each DLL), wine-modules.sh, wine-e2e.sh (unchanged),
+check-headers, G-MD. Budget: QUILL32.EXE byte-identical (sha256 in the PR); MODHELLO.DLL <= 8 KB.
+
+PR 2 — QUILLPIC.DLL:
+1. Measure QUILL32.EXE at the branch point. Move WP-MOD-3's flat-address glue (the entries turning u32
+   addresses into slices, in dos/mods/quillpic) into crates/quill-modpic/src/flat.rs and call it from
+   dos/mods/quillpic (G-DOS must stay byte-equal: QUILLPIC.DMD's behaviour and QUILLDOS.EXE unchanged),
+   and the host side that calls a PicTableV1 into quill_picture::modular::TableDecoders if WP-MOD-3 left
+   it in dos/quill-dos. If either move is more than a move, stop and report.
+2. win9x/mods/quillpic: QUILLPIC.DLL (base 0x61000000) over quill-modpic::flat: PNG, every BMP the
+   program decodes today, the scaler; no allocator; its imports.allow KERNEL32!ExitProcess only.
+3. win9x/quill-win9x/src/modules.rs: a quill_picture::Decoders over quill_w32rt::module and
+   TableDecoders: loads on the first picture, remembers QS_VERSION and QS_CORRUPT for the session,
+   retries QS_MISSING and QS_NOMEMORY at the next picture, frees before ExitProcess; the grey box and
+   the message of modules.md 19.7 once a session; [Debug] Trace=1 writes the load line to QUILL.LOG beside
+   QUILL.INI (file, load address, status, both build ids). Route every decode of the Win32 build through
+   it: gdi.rs's screen and printing paths, Print Preview, and quill-pdfdoc's picture call (give it the
+   Decoders through its Options or a generic parameter, with Static for GTK; GTK's PDFs must stay
+   byte-equal: run its PDF test). If the clipboard writes a DIB of a picture by decoding it, that path
+   too. Nothing in crates/quill-app/src changes; if it must, stop and report.
+4. Installer and copies: QUILLPIC.DLL in app32's files (installer/components.toml), stage.sh copies it
+   by name, e2e-w95.sh lists it among the installed files, checks it is removed, and checks the sample's
+   picture draws; the budget row windows-x86/QUILLPIC.DLL = 24576 (WP-MOD-11's file). The ReactOS demo:
+   .github/workflows/reactos-demo.yml and reactos-qagrr.yml copy QUILLPIC.DLL with QUILL32.EXE;
+   site/try-reactos/guest/build-all.sh checks for it; qagrr.toml writes it to Quill/ and moves QUILL.EXE,
+   DEMO16.* and the Windows 3.x shortcut's paths to Quill/WIN31/ (INS-27), so WP-MOD-6's QUILLPIC.DLL can
+   never sit beside this one. assets/media/gen_media.py's Windows 95 disk listing names the DLL.
+5. Tests: every win9x/tools/wine-*.sh byte-equal with the module present (wine-picture, wine-pic8,
+   wine-pdf, wine-print, wine-e2e above all; copy the module into each script's work folder through one
+   helper, win9x/tools/lib-dist.sh, with names spelled out); wine-e2e.sh's m7-picture and
+   m15-picture-select with QUILLPIC.DLL absent and with a wrong-build copy (new goldens of their own:
+   the grey box and the message, the same golden for both); MODHOST.EXE also cycles QUILLPIC.DLL 200
+   times over tests/docs/pic.png.
+6. Docs: SPEC.md (the Windows 95 files, pictures needing the module), decisions W9X-138 (if WP-MOD-11 has
+   not), INS-27, CORE-96 revised; docs/progress.md.
+Gates PR 2: G-HOST, G-DOS (the glue move), G-W32 with the scripts above, check-dll.sh, check-imports.sh
+and scan-pentium.sh on QUILLPIC.DLL, G-GTK's PDF test, G-DISK, make installer-w95 on the plain base and
+with W95_BASE_KIND=ie4, check-headers, G-MD. Budgets: QUILL32.EXE at least -10 KB from the branch point
+(-15 to -16 KB expected; under -10 KB stop and report what is still linked, by building once with
+CARGO_PROFILE_RELEASE_DEBUG=limited and reading the DWARF as modules.md 19.2 did); QUILLPIC.DLL <= 24,576;
+each DLL's size and the Windows 95 disk's free bytes in the PR.
+
+Must not touch: crates/quill-app/src/**, crates/quill-image/src/**, crates/quill-inflate/src/**,
+dos/rt/**, win16/**, linux/** (except running its tests), winui/**.
+Evidence (~/Documents/Liminal HQ/Quill/Modules/WP-MOD-9/): sizes.txt (before and after, llvm-readobj of
+each file), modhost.txt, win32-wine-picture.png, win32-wine-picture-absent.png, win95-picture.png (from
+e2e-w95.sh's SHOTS). Say what they do not show: Windows 98 and Me, ReactOS (WP-MOD-13).
+OWNER DECISION defaults to take and record if unanswered: modules.md 19.15 rows 1 to 6.
+Report: both PR URLs, the gates and results, the sizes before and after, the evidence folder, and what
+was not verified.
+```
+
+#### WP-MOD-10
+
+```text
+Package: WP-MOD-10 — QUILLPDF.DLL and the pdf32 component. Branch feat/w32-quillpdf, worktree
+~/source/worktrees/quill/mod-10. Needs WP-MOD-9 merged. Read modules.md 19 (19.5's PDF bullet, 19.7,
+19.9) and docs/decisions.md W9X-90 to W9X-94.
+1. quill-pdfdoc writes through a Writer trait (ARCH-42): begin(Info), page(width, height, dpi),
+   text(Run), rect(Rgb, x, y, w, h), picture(Picture as 24-bit rows), end_page(), finish(); Static over
+   quill-pdf is today's behaviour (every quill-pdf and quill-pdfdoc golden byte-equal, GTK's PDFs too).
+2. quill-modabi: KIND_PDF's PdfTableV1 { size, info, begin, page, text, rect, picture, end_page, finish,
+   read, close } and its #[repr(C)] structs (text as Windows-1252 bytes in a caller chunk with a font id
+   and size; a picture as a chunk list of rows), with size, align and offset tests.
+3. win9x/mods/quillpdf: QUILLPDF.DLL (base 0x61200000) over quill-pdf with quill-w32rt's `heap` (its own
+   allocator; nothing it allocates crosses); read() copies the finished file into the caller's chunk,
+   QS_MORE until the last byte; imports KERNEL32!ExitProcess, GetProcessHeap, HeapAlloc and HeapFree.
+4. The shell: pdf.rs implements Writer over the table through quill_w32rt::module; pictures go through
+   the QUILLPIC Decoders first. Absent: File > Print to PDF greyed with "Print to PDF is not installed.
+   Run Setup to add it." as its hint; /PDF OUT exits with code 2 and a QUILL.LOG line under Trace.
+5. Installer: a component pdf32 ("Print to PDF", targets windows-x86, default = true) with QUILLPDF.DLL;
+   stage.sh, e2e-w95.sh (installed; and a run with pdf32 unticked: the item greyed), the budget row
+   windows-x86/QUILLPDF.DLL = 32768.
+Gates: G-HOST, G-W32 with wine-pdf.sh (byte-equal PDFs present; absent behaviour), check-dll.sh,
+check-imports.sh and scan-pentium.sh on the DLL, G-GTK's PDF test, G-DISK, make installer-w95, G-MD.
+Budgets: QUILL32.EXE at least -10 KB (-14 to -20 KB expected; under -10 stop and report); QUILLPDF.DLL
+<= 32,768. Decisions: W9X-136, INS-26, ARCH-42, CORE-97. Must not touch: crates/quill-app/src/**,
+dos/**, win16/**, linux/** except its tests.
+```
+
+#### WP-MOD-11
+
+```text
+Package: WP-MOD-11 — the Windows 95 rows in the packed-size gate. Branch feat/w95-size-rows, worktree
+~/source/worktrees/quill/mod-11. Needs pull request 191 (installer/budgets.toml, size-gate.py) merged.
+Read modules.md 19.9 and INS-22. Add [executable.QUILL32] (file windows-x86/QUILL32.EXE; budget the size
+at your branch point rounded up to 4,096; stop 524288) and the DLL rows keyed by target
+(windows-x86/QUILLPIC.DLL 24576, windows-x86/QUILLPDF.DLL 32768, windows-x86/QUILLDLG.DLL 49152,
+win16-x86/QUILLPIC.DLL with WP-MOD-6's figure if it has one, else 65536 with a comment). size-gate.py:
+check each staged *.DLL in win16-x86 and windows-x86 against its row, refuse an unlisted one, add each
+disk's required modules to its program bytes; keep the .DMD rows' bare names working. Tests in
+test_size_gate.py for every new path (over, under, unlisted, a target with none). Update
+docs/installer.md's gate section and record W9X-138 and INS-28 (Assumed). Gates: the test file, G-DISK,
+G-MD, check-headers. No executable changes. Must not touch anything else.
+```
+
+#### WP-MOD-12 and WP-MOD-13
+
+```text
+WP-MOD-12 — QUILLDLG.DLL on Windows 95. Branch feat/w32-quilldlg. Needs WP-MOD-10 and WP-PREF-8 merged.
+Define the Win32 DlgTableV1 { size, info, run(dialog, owner, module, model, model_len) } in quill-modabi
+with layout tests and each moved dialog's #[repr(C)] model in quill-dialogs; move About, Fonts, Tabs and
+the landed Options, Page Layout, Numbering, Header and Footer procedures into win9x/mods/quilldlg (base
+0x61100000) with their templates in its own .res (res_pack.py writes both files); Find, Spelling and the
+save question stay. Absent: the items greyed with the CORE-93 message, About as a MessageBoxA. Gates:
+G-W32 with wine-dialogs.sh and m2-dialogs byte-equal, check-dll.sh, the per-module import list (USER32,
+GDI32, COMCTL32 functions already on the program's list), G-DISK, make installer-w95. Budgets: report the
+program's fall; QUILLDLG.DLL <= 49,152. Decisions: W9X-137, CORE-97.
+
+WP-MOD-13 — the module set on ReactOS 0.4.16, Windows 98 SE and Me. Branch test/w32-modules-guests. Needs
+WP-MOD-10 merged. Build the QAGRR image with the modules (site/try-reactos/qagrr, build-with-rl.sh) under
+~/.cache (check df -h /home and free -g first), boot it headless, and check: the demo letter's picture,
+Print to PDF to C:\Quill\OUT.PDF, QUILLPIC.DLL renamed (the grey box, the message, no system box), and
+the Windows 3.x build from C:\Quill\WIN31. Then the same three by hand on the Windows 98 SE and Me VMs.
+Add the guest checks to qagrr/check-state.sh; record the results in docs/testing.md and progress.md.
+Evidence as modules.md 19.13 lists. Your own QEMU and Xvfb only; kill only your PIDs.
+```
+
+### 19.15 Owner decisions
+
+| # | Question | Default taken | Where to swap |
+|---:|---|---|---|
+| 1 | Print to PDF on Windows 95 as a ticked component (`pdf32`), or unticked as DOS's `pdf` would be? | **Ticked** (it ships today) | INS-26; `installer/components.toml`'s `default` |
+| 2 | `QUILLDLG.DLL` on Windows 95 at all, though it saves only 4 to 6 KB until Options and the editor dialogs land? | **Yes, last** (WP-MOD-12 after WP-PREF-8) | W9X-137; drop WP-MOD-12 |
+| 3 | Where both Windows builds share a folder, separate folders (`C:\Quill\WIN31`) or a Win32 stem of its own? | **Separate folders**, one stem | INS-27; `qagrr.toml` and `quill_modabi::NAME_PIC` |
+| 4 | The policy: release when the build id is clean, development when dirty (Win32; offered to DOS and Windows 3.x)? | **Yes** | W9X-135; `quill_w32rt::module` |
+| 5 | A module panic ends the program (as today), or contain it first? | **Ends the program** | W9X-133; the export thunk |
+| 6 | Win32 first as the proof (no CS-widening risk) instead of waiting for `QUILLPIC.DMD`? | **No**: WP-MOD-3 stays the proof; WP-MOD-9's first pull request starts now, its second follows WP-MOD-3 | Section 19.13's order; PR 2 would then own `quill-modpic` and the seam |
+| 7 | `QUILL32.EXE`'s budget: the measured size rounded up, not lowered as modules take code out? | **Yes** (as DOS-52) | W9X-138; `installer/budgets.toml` |
+
+### 19.16 Found while planning
+
+- **The decoders are linked twice over.** `quill-pdfdoc` decodes pictures through `quill_picture::render` on its own, so taking the screen's decoding out of `QUILL32.EXE` frees nothing until the PDF walk goes through the same seam (19.2). The same will hold for any other caller (the clipboard's picture, Print Preview).
+- **The Win32 link flags are workspace-wide.** `/ENTRY:start` and `/FIXED` sit in `win9x/.cargo/config.toml`'s `rustflags`, so the first `cdylib` in the workspace would be linked as a fixed program; they must move to the program's `build.rs` first (WP-MOD-9).
+- **`#[no_mangle]` exports leak from a `cdylib`.** `DllMain` and `_fltused` were exported by the spike until they became assembly labels.
+- **The ReactOS demo and its CI copy two files by name** (`QUILL32.EXE`, `QUILL.EXE`) into one folder, so the first module on either Windows build would vanish from the demo, and the two `QUILLPIC.DLL` files would collide there (19.9, INS-27). WP-MOD-6 should take the folder split if it lands before WP-MOD-9's second pull request.
+- **The shared libraries plan** (liminal-installer) still says W9X-41 waits for `AGCORE1.DLL` and gives Quill a NO-GO on Win32; its section 9 can cite this plan's spike instead, and its verdict table should point here once this merges.
+- **`QUILL32.EXE` carries 63,118 bytes of icons** in `.rsrc` (13 images), 14 % of the file: more than any module saves. Not a module question; worth a look by whoever owns the icon set.
