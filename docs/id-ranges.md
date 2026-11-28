@@ -74,6 +74,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | W9X-120 to W9X-124 | Status bar (WP-BAR) | in use | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
 | W9X-125 to W9X-129 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
 | W9X-130 to W9X-139 | Optional modules on Windows 95 (WP-MOD) | reserved | [plans/modules.md](plans/modules.md) |
+| W9X-140 to W9X-143 | Clipboard (WP-ED-6) | in use | [work-packages.md](work-packages.md) |
 
 ## LNX
 

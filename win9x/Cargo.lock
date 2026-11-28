@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "clipcheck"
+version = "0.0.0"
+
+[[package]]
 name = "quill-app"
 version = "0.0.0"
 dependencies = [
@@ -31,6 +35,7 @@ version = "0.0.0"
 dependencies = [
  "quill-core",
  "quill-formats",
+ "quill-image",
  "quill-text",
 ]
 
@@ -133,6 +138,7 @@ version = "0.0.0"
 dependencies = [
  "quill-app",
  "quill-chrome",
+ "quill-clip",
  "quill-core",
  "quill-formats",
  "quill-grid",
