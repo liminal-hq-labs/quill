@@ -1,0 +1,38 @@
+# G8 (text): the mouse in the file dialog's Open and Insert Picture. A folder of 16 entries, more than the list shows: the scroll bar's
+# arrows move one entry and its track a page, a click on the empty part of the list does nothing, the Name header sorts, a double click on
+# a file opens it, the Open button opens the selected file, Cancel ends the dialog, and Insert > Picture takes a picture by a double click.
+@dialog
+@dir QUILL
+@place Quill C:\QUILL
+@cwd C:\DOCS
+@many DOCS 14 QLD
+@copy letter.qld DOCS\
+@copy pic.bmp DOCS\
+@stamp DOCS\LETTER.QLD 2026-11-24 18:45
+@stamp DOCS\PIC.BMP 2026-11-20 10:00
+@click 3 0                    # File menu
+@click 4 3                    # Open...: the dialog
+@click 52 15                  # the scroll bar's down arrow: one entry
+@click 52 15
+@click 52 4                   # its up arrow: one entry back
+@click 52 13                  # the track below the thumb: the end of the list
+@click 52 5                   # the track above the thumb: the top again
+@click 30 3                   # the Name header: sorted by name, descending
+@click 30 3                   # and ascending again
+@click 20 10                  # an entry: selected
+@click 25 18                  # the empty row under the list: nothing
+@click 53 4                   # beside the list: nothing
+@click 67 19                  # Cancel: the dialog ends
+@click 3 0
+@click 4 3
+@click 52 13                  # the end of the list
+@click 20 15                  # LETTER.QLD
+@click 55 19                  # Open: that file is opened
+@click 3 0
+@click 4 3
+@click 52 13
+@dclick 20 15                 # a double click opens a file
+@click 14 0                   # Insert menu
+@click 16 2                   # Picture...: the Insert Picture dialog
+@click 20 5                   # PIC.BMP: selected
+@click 67 19                  # Cancel

@@ -1,0 +1,6 @@
+# G8 (text): the mouse on the recovery question. A click off the buttons does nothing and Recover brings the copy back.
+@recovery
+@copy quill.rcv RECOVER\
+@stamp RECOVER\QUILL.RCV 2025-01-01 00:00
+@click 0 0                    # off the buttons: nothing
+@click 14 13                  # Recover

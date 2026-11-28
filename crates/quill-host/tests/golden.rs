@@ -473,3 +473,42 @@ fn g8_mouse_script_matches_its_golden_screens() {
 	let (_, frames) = scenario("g8-mouse");
 	compare("tests/golden/screens/g8-mouse.frames.txt", &frames);
 }
+
+#[test]
+fn g8_mouse_file_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("g8-mouse-file");
+	compare("tests/golden/screens/g8-mouse-file.frames.txt", &frames);
+}
+
+#[test]
+fn g8_mouse_open_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("g8-mouse-open");
+	compare("tests/golden/screens/g8-mouse-open.frames.txt", &frames);
+}
+
+#[test]
+fn g8_mouse_dialogs_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("g8-mouse-dialogs");
+	compare("tests/golden/screens/g8-mouse-dialogs.frames.txt", &frames);
+}
+
+#[test]
+fn g8_mouse_recover_script_matches_its_golden_screens() {
+	let (_, frames) = scenario("g8-mouse-recover");
+	compare("tests/golden/screens/g8-mouse-recover.frames.txt", &frames);
+}
+
+/// The pointer in the file dialog reaches the operations the keys reach: the clicks of `g8-mouse-file` refuse a read-only file, ask before a
+/// replace and save, so the file is the one the keys of `m16-save-as` write.
+#[test]
+fn g8_mouse_file_clicks_do_what_the_keys_do() {
+	let (files, _) = scenario("g8-mouse-file");
+	compare_bytes(
+		"tests/golden/files/m16-letter.rtf",
+		saved(&files, "C:\\DOCS\\LETTER.RTF"),
+	);
+	assert!(
+		!files.files.contains_key("C:\\DOCS\\PLAIN.RTF"),
+		"the read-only PLAIN.QLD was not saved over"
+	);
+}

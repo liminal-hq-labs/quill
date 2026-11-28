@@ -1,0 +1,52 @@
+# G8 (text): the mouse in the file dialog's Save As. Places are cells: column, then row, row 0 being the menu bar. File > Save As... by
+# menu clicks; a click on an entry selects it and puts its name in the field, a click on the Size header sorts, a double click on a folder
+# goes in and on `..` goes back, the Look in drop-down and a place and Up change folder, a click in the File name field puts the caret
+# there, the type drop-down picks a type, New folder makes its folder (the box takes keys only), Save with a name that is there asks and No
+# keeps the dialog, a read-only file is refused and OK on the notice closes it, Cancel ends the dialog, and Yes saves.
+@dialog
+@dir QUILL
+@place Quill C:\QUILL
+@cwd C:\DOCS
+@dir DOCS\LETTERS
+@copy letter.qld DOCS\
+@copy letter.rtf DOCS\
+@copy plain.qld DOCS\
+@stamp DOCS\LETTER.QLD 2026-11-24 18:45
+@stamp DOCS\LETTER.RTF 2026-11-02 09:05
+@stamp DOCS\PLAIN.QLD 2026-03-14 12:00
+@readonly DOCS\PLAIN.QLD
+@open C:\DOCS\LETTER.QLD
+@click 3 0                    # File menu
+@click 4 6                    # Save As...: the dialog
+@click 20 7                   # PLAIN.QLD: selected, its name in the field
+@click 36 3                   # the Size header: sorted by size
+@dclick 20 5                  # LETTERS: opened
+@dclick 20 4                  # .. : back in DOCS
+@click 30 2                   # the Look in drop-down opens
+@click 30 4                   # C:\
+@click 8 8                    # the place Quill: C:\QUILL
+@click 55 2                   # Up: C:\
+@dclick 20 4                  # DOCS
+@click 20 17                  # the File name field: the caret before the dot
+@click 61 2                   # New folder: its box
+@click 20 12                  # a click in the box does nothing
+d r a f t s enter             # DRAFTS is made and selected
+@click 54 17                  # the type drop-down opens
+@click 60 14                  # Rich Text Format: LETTER.RTF is listed
+@click 20 7                   # LETTER.RTF
+@click 55 19                  # Save: it is there, so it asks
+@click 41 12                  # No: back in the dialog
+@click 67 19                  # Cancel: the dialog ends
+@click 3 0
+@click 4 6
+@click 20 8                   # PLAIN.QLD
+@click 55 19                  # Save: it is read-only
+@click 38 12                  # OK
+@click 67 19                  # Cancel
+@click 3 0
+@click 4 6
+@click 54 17
+@click 60 14
+@click 20 7                   # LETTER.RTF
+@click 55 19                  # Save: it asks
+@click 31 12                  # Yes: saved
