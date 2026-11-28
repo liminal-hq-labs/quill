@@ -9,5 +9,5 @@ publish.workspace = true
 [package.metadata.quill]
 layer = "base"
 no_std = true
-alloc = false
+alloc = true
 float = false
