@@ -10,11 +10,11 @@
 [floppy]
 capacity = 1457664
 
-# QUILLDOS.EXE as dos/build.sh leaves it, before packing (DOS-48, DOS-70). The budget is 444 KB since DOS-115; the stop is 480 KB (491,520); a package that passes this
+# QUILLDOS.EXE as dos/build.sh leaves it, before packing (DOS-48, DOS-70). The budget is 448 KB since DOS-146; the stop is 480 KB (491,520); a package that passes this
 # figure first takes savings, then raises it by its measured cost rounded up to 4 KB, in a DOS decision row of its own.
 [executable.QUILLDOS]
 file = "dos-x86/QUILLDOS.EXE"
-budget = 454656
+budget = 458752
 stop = 491520
 
 # QUILL.EXE's automatic data segment (data, stack and heap) must keep this much of its 64 KB free (W16-60). The gate reads the

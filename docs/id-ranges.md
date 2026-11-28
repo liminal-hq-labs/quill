@@ -53,6 +53,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | DOS-134 | DOS scroll keys (fix/dos-scroll-keys; inside the DOS-130 to DOS-134 block of fix/dos-mouse-polish) | in use | [decisions.md](decisions.md) |
 | DOS-143 | DOS Last used path (fix/dos-scroll-keys; inside the DOS-140 to DOS-144 block of fix/dos-text-mouse) | in use | [decisions.md](decisions.md) |
 | DOS-145 | Held keys | in use | [decisions.md](decisions.md) |
+| DOS-146 | DOS size budget step | in use | [decisions.md](decisions.md) |
 
 ## W16
 
