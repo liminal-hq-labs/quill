@@ -300,6 +300,56 @@ async function run(browserName: string, base: string) {
 			const ups = buttons.filter((b: any) => !b.b).length;
 			check(browserName, key, "no button is left down after a release outside", downs >= 1 && downs === ups, `${downs} presses, ${ups} releases`);
 
+			// Text mode: the page's pointer clicks a menu title, a menu item, a dialog's own drop-down and its button, each at the middle of its
+			// cell (the 80 by 25 cells of the 640 by 400 frame, 8 by 16 pixels each). A guest pointer a cell off would open the wrong thing or
+			// nothing: the Save As dialog of the text screen (DOS-34) once did not answer the pointer at all, and a one-row button is the
+			// smallest target there is.
+			if (key === "text") {
+				// The box is read again for each click: a click on the stage can scroll the page, and a stale box would aim at the wrong cell. The
+				// viewport is made tall enough that the whole picture is on it, so the last rows of the dialog can be reached.
+				await page.setViewportSize({ width: 1100, height: 1500 });
+				await sleep(800);
+				const clickCell = async (col: number, row: number) => {
+					const now = (await page.locator("[data-dos] canvas").first().boundingBox())!;
+					const at = { x: now.x + ((col + 0.5) * now.width) / 80, y: now.y + ((row + 0.5) * now.height) / 25 };
+					await stroke(at.x - 40, at.y - 24, at.x, at.y, 12, 8);
+					await sleep(500);
+					if (dispatched) {
+						// Firefox's moves here are dispatched, so its press is too: a real one would be at the real mouse's last place.
+						const press = (type: string, buttons: number) =>
+							page.evaluate(([t, px, py, b]) => document.querySelector("[data-stage]")!.dispatchEvent(new PointerEvent(t as string, { clientX: px as number, clientY: py as number, button: 0, buttons: b as number, pointerType: "mouse", pointerId: 1, isPrimary: true, bubbles: true, cancelable: true })), [type, at.x, at.y, buttons]);
+						await press("pointerdown", 1);
+						await sleep(120);
+						await press("pointerup", 0);
+					} else {
+						await page.mouse.down();
+						await sleep(120);
+						await page.mouse.up();
+					}
+					await sleep(1500);
+				};
+				const changed = (c0: number, r0: number, c1: number, r1: number) => page.evaluate(([a, b, c, d]) => (window as any).__spike.changed(a * 8, b * 16, c * 8, d * 16), [c0, r0, c1, r1]);
+				await page.evaluate(() => ((window as any).__spike.mask = null));
+				await page.evaluate(() => (window as any).__spike.setRef());
+				await clickCell(3, 0);
+				check(browserName, key, "a click on the File title opens its menu", (await changed(1, 1, 26, 13)) > 4000, `${await changed(1, 1, 26, 13)} pixels changed`);
+				await clickCell(4, 6);
+				const opened = await changed(1, 3, 76, 20);
+				check(browserName, key, "a click on Save As... in the menu opens the file dialog", opened > 20000, `${opened} pixels changed`);
+				await page.locator("[data-stage]").screenshot({ path: path.join(outDir, "shots", `text-save-as-${browserName}.png`) });
+				await page.evaluate(() => (window as any).__spike.setRef());
+				await clickCell(60, 17);
+				const dropped = await changed(54, 12, 75, 17);
+				check(browserName, key, "a click on the type box of the file dialog drops its list", dropped > 1500, `${dropped} pixels changed`);
+				await page.locator("[data-stage]").screenshot({ path: path.join(outDir, "shots", `text-save-as-drop-${browserName}.png`) });
+				await clickCell(60, 14);
+				const closed = await changed(54, 12, 75, 16);
+				check(browserName, key, "a click on a row of the list picks it and shuts the list", closed < 1500, `${closed} pixels changed`);
+				await clickCell(67, 19);
+				const gone = await changed(1, 3, 76, 20);
+				check(browserName, key, "a click on Cancel in the file dialog closes it", gone > 20000, `${gone} pixels of the dialog are gone`);
+			}
+
 			// A diagonal selection, for the evidence.
 			await moveTo(cx(0.1), cy(0.5));
 			await sleep(300);

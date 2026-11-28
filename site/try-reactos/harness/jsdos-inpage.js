@@ -21,6 +21,19 @@
 		}
 		return found;
 	};
+	// How many pixels of the frame, inside the box (x0, y0, x1, y1), differ from the reference frame: what a dialog opening or closing does.
+	spike.changed = async (x0, y0, x1, y1) => {
+		const frame = await window.__ci.screenshot();
+		const ref = spike.ref;
+		let n = 0;
+		for (let y = y0; y < y1; y++) {
+			for (let x = x0; x < x1; x++) {
+				const i = (y * frame.width + x) * 4;
+				if (Math.abs(frame.data[i] - ref.data[i]) + Math.abs(frame.data[i + 1] - ref.data[i + 1]) + Math.abs(frame.data[i + 2] - ref.data[i + 2]) > 60) n++;
+			}
+		}
+		return n;
+	};
 	window.__spike = spike;
 	spike.send = (dx, dy) => window.__ci.sendMouseRelativeMotion(dx, dy);
 	spike.setRef = async () => {
