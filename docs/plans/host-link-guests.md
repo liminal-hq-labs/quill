@@ -34,7 +34,7 @@ A plan for making the host link (the protocol in [host-link.md](../host-link.md)
 | Transport | **Serial now, everywhere it exists** (COM1 on Windows, `ttyS1` on Linux so the console and `getty` keep `ttyS0`); **virtio-console** for Linux once a spike proves it (no 16550 quirks, chunks not bytes); **the 9p share** for files on Linux only; **a custom v86 device last**, only if serial becomes the bottleneck | v86 0.5.473 has `virtio_console` and 9p (`create_file`, `read_file`, `handle9p`) and no vsock; a custom device needs a driver per guest OS |
 | Printing | **A Print... button beside Download** for every PDF in the page's list, page-only, after WP-HOST-5 (new **WP-HOST-8**): the PDF opens in a hidden frame and the browser's own print dialog prints it on the visitor's real printer. Text jobs (DOS, Windows 3.x Generic / Text Only, LPT1 bytes) become a text PDF in the page later. **PostScript and PCL: NO-GO** (a WASM Ghostscript is 15.6 to 16.3 MB and AGPL-3.0). **Raw USB printing through WebUSB: later, optional** (Chromium only) | See [Printing through the host link](#printing-through-the-host-link) |
 | USB | **Nothing now.** v86 0.5.473 has no USB controller (no UHCI, OHCI, EHCI or xHCI in `libv86.mjs`); an emulated USB printer (class 7) plugs into the same print path once the controller exists, which the AC'97 reuse plan (`docs/plans/v86-ac97-reuse.md`, being written) covers | See [USB printers](#usb-printers-emulated-and-real) |
-| Package boundary | **A family of small packages named `v86-*`**: `v86-host-link` (the protocol, conformance sessions and vectors, the TypeScript page library, the Rust guest core, one reference helper per guest family) beside `v86-ac97`; in one Labs repository if the AC'97 plan picks one, otherwise their own | One name pattern lets the two live together as "virtual hardware and host integration for v86" |
+| Package boundary | **`v86-host-link`, its own repository** (decided by the owner, 2026-11-28, SITE-129), beside `v86-devices` (`v86-device-kit`, `v86-ac97`): the protocol, conformance sessions and vectors, the TypeScript page library, the Rust guest core and one reference helper per guest family; see [host-link-kit.md](host-link-kit.md#the-v86-host-link-repository) | One name pattern lets the two live side by side as virtual hardware and host integration for v86, without a dependency between them |
 | The first demo | **Unchanged: ReactOS only**, plus the Print... button (WP-HOST-8) if WP-HOST-5 lands in time | It is page-only and small; nothing else here is on the launch's critical path |
 | Packages | **WP-HLG-1** (spike: a Linux guest in v86) and **WP-HLG-2** (conformance sessions and the page's transport seam) first, beside the launch work; then WP-HLG-3 (`hostlinkd`), WP-HLG-4 (the Linux guest image), WP-HLG-5 (terminal guests), WP-HLG-6 (Windows 3.x helper), WP-HLG-7 (print jobs from every guest), WP-HLG-8 (extraction), WP-HLG-9 (the live demo page) | See [Order and parallelism](#order-and-parallelism) |
 
@@ -244,7 +244,7 @@ Extract the pattern into its own package once a second guest works (WP-HLG-8), n
 | **`v86-ac97`** (the AC'97 reuse plan's) | The sound card |
 | The family | "Virtual hardware and host integration for v86": the same layout (strict TypeScript, `bun test`, a committed built module with a drift check, a pinned v86 version and a test that it matches), the same licence, one hero banner style with a distinct palette per package, and a shared demo page |
 
-If the AC'97 reuse plan (`docs/plans/v86-ac97-reuse.md`, being written) chooses one repository for the family (for example `v86-devices` with `packages/ac97` and `packages/host-link`), the host link joins it under that layout and the names above become folder names. That plan was not pushed when this one was written; the two planners' outputs are reconciled by whichever merges second (owner decision below).
+The owner chose a repository of its own for the host link (2026-11-28, SITE-129): `v86-devices` and `v86-host-link` share the layout, licence and banner style but not a repository or a dependency. The layout, the migration from Quill and the lead who builds it are in [host-link-kit.md](host-link-kit.md#the-v86-host-link-repository).
 
 ### What the repository carries
 
@@ -312,7 +312,7 @@ The next free SITE id on `main` is SITE-70, but SITE-54 to SITE-57 (the recordin
 | SITE-86 | The Linux demo image: its base, its size, its licences and where its source is offered | WP-HLG-4 |
 | SITE-87 | The Windows 3.x helper's streaming lane and lower limits | WP-HLG-6 |
 | SITE-88 | The Print... button (WP-HOST-8) | WP-HOST-8 |
-| SITE-89 | The package family's name and repository | WP-HLG-8, with the owner |
+| SITE-89 | The package family's name and repository: **`v86-host-link`, its own repository** (SITE-129) | WP-HLG-8, with the owner |
 
 ## Rules for every package
 
@@ -427,10 +427,10 @@ The next free SITE id on `main` is SITE-70, but SITE-54 to SITE-57 (the recordin
 - **Tests.** Levels 1 to 4 for each source.
 - **Parallel.** With WP-HLG-6.
 
-### WP-HLG-8 Extraction into `v86-host-link`
+### WP-HLG-8 Extraction into `v86-host-link` (now the lead's seed)
 
-- **Finish line.** `packages/v86-host-link/` in this repository is the new repository's tree, complete: the specification, vectors, sessions, the TypeScript library, the two crates renamed, `helpers/win32` and `helpers/linux`, the README, licence files, headers, CI workflow, the hero banner's SVG master and its render script; Quill's page and helper build from it; a short note for the owner says what to create and push. SITE-89.
-- **Files owned.** New `packages/v86-host-link/**`, the paths that move into it, the build lines that point at it.
+- **Finish line.** Done by the Opus lead in its own repository at `~/source/liminal-hq-labs/v86-host-link` ([host-link-kit.md](host-link-kit.md#migration-from-quill)), not as a `packages/v86-host-link/` tree in Quill: the specification, vectors, sessions, the TypeScript library, the two crates renamed, `helpers/win32` and `helpers/linux`, the README, licence files, headers, CI workflow, the hero banner's SVG master and its render script; Quill vendors the built results back. SITE-89, SITE-129.
+- **Files owned.** The new repository; in Quill only the vendoring pull request's paths.
 - **Must not touch.** Anything outside the host link.
 - **Dependencies.** WP-HLG-3 merged; the AC'97 reuse plan's family decision.
 - **Tests.** Every existing gate, run from the new layout.
@@ -545,7 +545,7 @@ Each is taken with the default so no package waits; the last column is where to 
 | PostScript and PCL rendering in the page | No (Ghostscript for WebAssembly is 15.6 to 16.3 MB and AGPL-3.0); offered as a download | SITE-82 |
 | Raw printing to a real USB printer (WebUSB) | Later, optional, Chromium only, ESC/P text jobs only | SITE-82; a later package |
 | An emulated USB printer | After the USB controller of the AC'97 reuse plan's family exists | That plan; WP-HLG-7's successor |
-| The package name and repository | `v86-host-link`, beside `v86-ac97`; one family repository if the AC'97 plan prefers it | SITE-89; WP-HLG-8 |
+| The package name and repository | **Decided**: `v86-host-link`, its own repository, local until the owner's go (SITE-129) | SITE-89; WP-HLG-8 |
 | Who creates the repository and publishes | The owner; builders prepare the tree in `packages/` | WP-HLG-8 |
 | SITE-51 and SITE-52 used twice (the sound package on `main`, the helper on pull request 200) | Not renumbered here; flagged | The owner, before pull request 200 merges |
 | A Windows 3.x guest image | None shipped (Microsoft's licence); the owner's own tree in DOSBox-X for tests | WP-HLG-6 |
