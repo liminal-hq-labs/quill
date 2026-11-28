@@ -338,18 +338,94 @@ fn a_dialog_button_acts_on_release_over_it_and_shows_pressed_while_held() {
 }
 
 #[test]
-fn the_title_bar_and_the_space_round_the_controls_do_nothing() {
+fn the_space_round_the_controls_does_nothing() {
 	let mut r = Rig::doc("letter.rtf");
 	r.app.command(&mut r.s, &mut r.f, Command::Replace);
 	let o = r.overlay();
 	let before: Vec<_> = o.widgets().iter().map(|w| (w.on, w.focus, w.len)).collect();
-	let t = centre(dialog::title_rect(&o));
-	r.drag(t, (t.0 + 80, t.1 + 40));
 	r.click((2, 2));
+	let win = dialog::window_rect(&o);
+	r.click((win.left + 2, win.top + 2));
 	let o = r.overlay();
 	let after: Vec<_> = o.widgets().iter().map(|w| (w.on, w.focus, w.len)).collect();
 	assert_eq!(before, after);
-	assert_eq!(dialog::window_rect(&o), dialog::window_rect(&r.overlay()));
+	assert_eq!(dialog::window_rect(&o), win);
+}
+
+#[test]
+fn a_dialog_is_dragged_by_its_title_and_its_controls_go_with_it() {
+	let mut r = Rig::doc("letter.rtf");
+	r.app.command(&mut r.s, &mut r.f, Command::About);
+	let o = r.overlay();
+	let (win, ok) = (dialog::window_rect(&o), r.widget(b"OK").1);
+	let t = centre(dialog::title_rect(&o));
+	r.down(t.0, t.1);
+	assert!(r.g.holding());
+	r.mv(t.0 + 60, t.1 + 40);
+	let o = r.overlay();
+	let moved = dialog::window_rect(&o);
+	assert_eq!((moved.left - win.left, moved.top - win.top), (60, 40));
+	let ok2 = r.widget(b"OK").1;
+	assert_eq!(
+		(ok2.0 - ok.0, ok2.1 - ok.1),
+		(60, 40),
+		"the controls follow"
+	);
+	r.up(t.0 + 60, t.1 + 40);
+	assert!(!r.g.holding());
+	assert!(!r.app.editing(), "a drag is not a click on anything");
+	// A press on the moved title takes it again, and the old place is just the page's.
+	let t2 = centre(dialog::title_rect(&o));
+	r.drag(t2, (t2.0 - 60, t2.1 - 40));
+	assert_eq!(dialog::window_rect(&r.overlay()), win);
+	// The button works where it now stands, and closing the dialog puts the next one back in the middle.
+	r.drag(t, (t.0 + 30, t.1 + 30));
+	let ok3 = r.widget(b"OK").1;
+	r.click(ok3);
+	assert!(r.app.editing());
+	r.mv(5, 5);
+	r.app.command(&mut r.s, &mut r.f, Command::About);
+	r.mv(5, 6);
+	assert_eq!(dialog::window_rect(&r.overlay()), win);
+}
+
+#[test]
+fn a_dragged_dialog_keeps_sixteen_pixels_on_the_screen_and_its_title_bar_reachable() {
+	let mut r = Rig::doc("letter.rtf");
+	r.app.command(&mut r.s, &mut r.f, Command::About);
+	let o = r.overlay();
+	let t = centre(dialog::title_rect(&o));
+	r.drag(t, (t.0 - 2000, t.1 - 2000));
+	let w = dialog::window_rect(&r.overlay());
+	assert_eq!((w.right, w.top), (dialog::KEEP, 0));
+	let t = centre(dialog::title_rect(&r.overlay()));
+	r.drag(t, (4000, 4000));
+	let w = dialog::window_rect(&r.overlay());
+	assert_eq!((w.left, w.top), (640 - dialog::KEEP, 480 - dialog::KEEP));
+	let tr = dialog::title_rect(&r.overlay());
+	assert!(
+		tr.left < 640 && tr.top < 480,
+		"a strip of the title bar is still on the screen"
+	);
+}
+
+#[test]
+fn the_file_dialog_and_the_box_over_it_are_dragged_too() {
+	let mut r = Rig::file_dialog(true);
+	let o = r.overlay();
+	let win = dialog::window_rect(&o);
+	let t = centre(dialog::title_rect(&o));
+	r.drag(t, (t.0 + 20, t.1 + 10));
+	let o = r.overlay();
+	let moved = dialog::window_rect(&o);
+	assert_eq!((moved.left - win.left, moved.top - win.top), (20, 10));
+	// The parts answer where they are drawn now.
+	let types = r.find(Point::Drop(TYPES));
+	r.click(types);
+	assert!(r.app.file_view().unwrap().dlg.type_box().is_open());
+	let pick = r.find(Point::Pick(1));
+	r.click(pick);
+	assert_eq!(r.app.file_view().unwrap().dlg.type_index(), 1);
 }
 
 #[test]
@@ -1853,4 +1929,152 @@ proptest! {
 		r.ev(Ev::Up { x: 5, y: 300 });
 		prop_assert!(!r.g.holding());
 	}
+}
+
+#[test]
+fn a_held_scroll_bar_arrow_shows_sunk_while_the_pointer_is_on_it_and_the_thumb_while_it_is_dragged()
+{
+	let mut r = long_doc();
+	let p = bar(&r);
+	let on = centre(p.down);
+	assert_eq!(r.g.view().bar, None);
+	r.down(on.0, on.1);
+	assert_eq!(r.g.view().bar, Some((true, scroll::Part::LineDown)));
+	assert!(
+		r.mv(on.0, p.thumb.top + 2) || r.g.view().bar.is_none(),
+		"leaving the arrow raises it"
+	);
+	assert_eq!(r.g.view().bar, None);
+	r.mv(on.0, on.1);
+	assert_eq!(
+		r.g.view().bar,
+		Some((true, scroll::Part::LineDown)),
+		"and back on it sinks it again"
+	);
+	r.up(on.0, on.1);
+	assert_eq!(r.g.view().bar, None, "let go, it is raised");
+	// The thumb is grabbed for the whole drag, wherever the pointer goes.
+	let p = bar(&r);
+	let grab = (p.thumb.left + 4, p.thumb.top + 3);
+	r.down(grab.0, grab.1);
+	assert_eq!(r.g.view().bar, Some((true, scroll::Part::Thumb)));
+	r.mv(grab.0 + 200, grab.1 + 30);
+	assert_eq!(r.g.view().bar, Some((true, scroll::Part::Thumb)));
+	r.up(grab.0 + 200, grab.1 + 30);
+	assert_eq!(r.g.view().bar, None);
+	// The track is not a button: it shows nothing held.
+	let p = bar(&r);
+	r.down(p.thumb.left + 4, p.thumb.bottom + 6);
+	assert_eq!(r.g.view().bar, None);
+	r.up(p.thumb.left + 4, p.thumb.bottom + 6);
+}
+
+struct HeldJob<'a> {
+	r: &'a Rig,
+	bar: Option<(bool, scroll::Part)>,
+}
+
+impl Job for HeldJob<'_> {
+	fn run<Sf: quill_paint::Surface>(&mut self, sf: &mut Sf) {
+		let mut m = StrikeMeasure::new(strikes());
+		let mut window = Box::new([0u8; quill_picture::WINDOW]);
+		let view = quill_paint::pointer::View {
+			bar: self.bar,
+			..Default::default()
+		};
+		shell::paint_screen_view(sf, &self.r.app, &mut m, &self.r.s, &mut window, &view);
+	}
+}
+
+#[test]
+fn the_pressed_scroll_bar_is_drawn_differently_from_the_raised_one_in_both_modes() {
+	let r = long_doc();
+	let p = bar(&r);
+	for mode in [Mode::C16, Mode::C256] {
+		let shot = |bar| frame(mode, &mut HeldJob { r: &r, bar }).pixels;
+		let raised = shot(None);
+		let differs = |part: scroll::Part, at: Rect| {
+			let held = shot(Some((true, part)));
+			let (mut inside, mut outside) = (0, 0);
+			for (i, (a, b)) in raised.iter().zip(&held).enumerate() {
+				if a != b {
+					let (x, y) = ((i % 640) as i32, (i / 640) as i32);
+					if x >= at.left && x < at.right && y >= at.top && y < at.bottom {
+						inside += 1;
+					} else {
+						outside += 1;
+					}
+				}
+			}
+			assert!(inside > 0, "{part:?} looks the same held");
+			assert_eq!(
+				outside, 0,
+				"{part:?} changed pixels away from its own button"
+			);
+		};
+		differs(scroll::Part::LineUp, p.up);
+		differs(scroll::Part::LineDown, p.down);
+		differs(scroll::Part::Thumb, p.thumb);
+		assert_eq!(
+			raised,
+			shot(Some((true, scroll::Part::PageUp))),
+			"the track shows nothing held"
+		);
+	}
+}
+
+#[test]
+fn the_file_dialogs_drop_down_arrows_open_their_lists_and_the_choices_and_save_work_by_the_pointer()
+{
+	let mut r = Rig::file_dialog(true);
+	// The arrow button is the right two cells of each combo box: found as the pixels that press a drop-down.
+	let arrow = |r: &Rig, which: u8| {
+		let (mut right, mut cy) = (0, 0);
+		for y in 0..480 {
+			for x in 0..640 {
+				if r.hit(x, y) == Point::Drop(which) && x >= right {
+					(right, cy) = (x, y);
+				}
+			}
+		}
+		(right - 8, cy)
+	};
+	let look = arrow(&r, LOOK_IN);
+	r.click(look);
+	assert!(
+		r.app.file_view().unwrap().dlg.look_box().is_open(),
+		"the Look in arrow opens its list"
+	);
+	let first = r.find(Point::Pick(0));
+	r.click(first);
+	assert!(
+		!r.app.file_view().unwrap().dlg.look_box().is_open(),
+		"choosing closes it"
+	);
+	let types = arrow(&r, TYPES);
+	r.click(types);
+	assert!(
+		r.app.file_view().unwrap().dlg.type_box().is_open(),
+		"the Save as type arrow opens its list"
+	);
+	let again = types;
+	r.click(again);
+	assert!(
+		!r.app.file_view().unwrap().dlg.type_box().is_open(),
+		"the arrow again shuts it"
+	);
+	r.click(types);
+	let pick = r.find(Point::Pick(1));
+	r.click(pick);
+	assert_eq!(r.app.file_view().unwrap().dlg.type_index(), 1);
+	// Save is greyed until there is a name; a click on the name's field and a letter wake it, and the click then saves.
+	let name = r.find(Point::Name(0));
+	r.click(name);
+	r.key(Key::Char(b'n'));
+	let save = r.find(Point::Button(OK));
+	r.click(save);
+	assert!(
+		!r.app.file_dialog_open(),
+		"Save with a name ends the dialog"
+	);
 }

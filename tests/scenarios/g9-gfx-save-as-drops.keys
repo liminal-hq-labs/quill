@@ -1,0 +1,23 @@
+# G9 (graphics): the Save As drop-downs by their arrow buttons. The Look in arrow opens its list and an entry of it is chosen, the Save as type
+# arrow opens its list and a click on the arrow again shuts it, the arrow once more and Rich Text Format is chosen, the name is typed and Save
+# is clicked. Every frame's CRC-32 must equal the host's in both graphics modes.
+@dialog
+@dir QUILL
+@place Quill C:\QUILL
+@cwd C:\DOCS
+@copy letter.qld DOCS\
+@copy letter.rtf DOCS\
+@stamp DOCS\LETTER.QLD 2026-11-24 18:45
+@stamp DOCS\LETTER.RTF 2026-11-02 09:05
+@open C:\DOCS\LETTER.QLD
+f10 down down down enter      # File > Save As...
+@click 347 83                 # the Look in arrow: its list opens
+@click 150 118                # an entry of it
+@click 611 369                # the Save as type arrow: its list opens
+@click 611 369                # the arrow again: it shuts
+@click 611 369
+@click 500 334                # Rich Text Format
+@click 150 369                # the name field
+end bspace bspace bspace bspace bspace bspace bspace bspace bspace bspace
+n e w
+@click 490 391                # Save

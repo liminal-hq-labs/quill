@@ -627,3 +627,11 @@ last = 31
 owner = "Host Link Kit (WP-KIT)"
 status = "in use"
 source = "docs/plans/host-link-kit.md"
+
+[[block]]
+prefix = "DOS"
+first = 130
+last = 134
+owner = "DOS graphics mouse polish (pressed scroll bar, draggable dialogs, file dialog arrows)"
+status = "in use"
+source = "docs/decisions.md"

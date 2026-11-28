@@ -171,11 +171,25 @@ fn golden_of(mode: Mode, name: &str) -> Vec<Frame> {
 			&files.files["C:\\DOCS\\LETTER.RTF"],
 		);
 	}
+	if name == "g9-gfx-save-as-drops" {
+		// Save with RTF chosen and a typed name writes NEW.RTF beside the document.
+		compare_bytes(
+			"tests/golden/files/g9-gfx-save-as-drops.rtf",
+			&files.files["C:\\DOCS\\NEW.RTF"],
+		);
+	}
 	// The file dialog's scenarios keep the frames that show its parts as pictures, by frame number.
 	let shots: &[(&str, usize)] = match name {
 		"g9-gfx-open" => &[("dialog", 4), ("types", 6), ("sorted", 14)],
 		"g9-gfx-open-mouse" => &[("picked", 5), ("scrolled", 20), ("types", 31)],
 		"g9-gfx-save-as-mouse" => &[("new-folder", 7), ("read-only", 14), ("replace", 19)],
+		"g8-gfx-drag" => &[("about-mid-drag", 6), ("find-clamped", 13)],
+		"g9-gfx-save-as-drops" => &[
+			("look-in", 7),
+			("types", 9),
+			("rich-text", 12),
+			("typed", 27),
+		],
 		"g17-gfx-recover" => &[("question", 1), ("focus", 2), ("recovered", 3)],
 		"g9-gfx-save-as" => &[
 			("dialog", 6),
@@ -564,6 +578,26 @@ fn the_pointer_on_the_scroll_bar_at_16_colours() {
 #[test]
 fn the_pointer_on_the_scroll_bar_at_256_colours() {
 	golden_of(Mode::C256, "g8-gfx-scroll");
+}
+
+#[test]
+fn a_dialog_dragged_by_its_title_at_16_colours() {
+	golden_of(Mode::C16, "g8-gfx-drag");
+}
+
+#[test]
+fn a_dialog_dragged_by_its_title_at_256_colours() {
+	golden_of(Mode::C256, "g8-gfx-drag");
+}
+
+#[test]
+fn the_save_as_drop_downs_by_their_arrows_at_16_colours() {
+	golden_of(Mode::C16, "g9-gfx-save-as-drops");
+}
+
+#[test]
+fn the_save_as_drop_downs_by_their_arrows_at_256_colours() {
+	golden_of(Mode::C256, "g9-gfx-save-as-drops");
 }
 
 #[test]

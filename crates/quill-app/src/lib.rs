@@ -566,6 +566,8 @@ pub struct App<M: Measure + Clone = GridMeasure> {
 	pub(crate) view_h: i32,
 	/// How far the page is scrolled sideways past the text column at the left edge, in pixels (the shell clamps it; 0 on the text screen).
 	pub(crate) hpos: i32,
+	/// How far a dialog has been dragged from the middle of the screen (the graphics screen's pointer sets it; see `Overlay::off`).
+	pub(crate) dlg_off: (i16, i16),
 	/// The caret and the body revision the sideways scroll last followed.
 	pub(crate) hseen: (u32, u32),
 	pub(crate) doc: Doc,
@@ -663,6 +665,7 @@ impl<M: Measure + Clone> App<M> {
 			rows: paint::TEXT_ROWS,
 			view_h: 0,
 			hpos: 0,
+			dlg_off: (0, 0),
 			hseen: (0, 0),
 			doc: Doc::new(),
 			caret: 0,

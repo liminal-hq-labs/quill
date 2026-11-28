@@ -58,6 +58,9 @@ pub struct View {
 	pub kind: u8,
 	/// The zoom button held down, while the pointer is over it.
 	pub zoom: Option<ZoomPart>,
+	/// The scroll bar part held down, with whether its bar is the vertical one: an arrow while the pointer is over it, the thumb
+	/// while it is dragged.
+	pub bar: Option<(bool, Part)>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -79,12 +82,16 @@ enum Cap {
 	Zoom { part: ZoomPart, over: bool },
 	/// A drop-down list is being tracked.
 	Pop { opened: bool },
-	/// An arrow or the track of a scroll bar is held: it repeats every `REPEAT_STEP` ticks from tick `next`.
+	/// An arrow or the track of a scroll bar is held: it repeats every `REPEAT_STEP` ticks from tick `next`; `over` says the pointer
+	/// is still on the part.
 	Repeat {
 		vertical: bool,
 		part: Part,
 		next: u32,
+		over: bool,
 	},
+	/// A dialog's title bar is being dragged; `grab` is where in the window it was taken, as the pointer minus the window's offset.
+	Move { grab: (i32, i32) },
 	/// The thumb of a scroll bar is being dragged.
 	Thumb { grab: i32, parts: Parts, range: i32 },
 	/// A text field's selection is being dragged out; `skip` is how many characters the field had scrolled off when it was pressed.
@@ -178,6 +185,13 @@ impl Gfx {
 		}
 	}
 
+	/// A dialog that has closed takes its drag with it: the next one opens in the middle.
+	fn settle<M: Measure + Clone>(&self, app: &mut App<M>) {
+		if app.dialog_off() != (0, 0) && (app.editing() || app.menu_open().is_some()) {
+			app.set_dialog_off((0, 0));
+		}
+	}
+
 	/// Where the pointer was last.
 	pub fn at(&self) -> (i32, i32) {
 		self.at
@@ -208,6 +222,16 @@ impl Gfx {
 			kind: self.kind,
 			zoom: match self.cap {
 				Cap::Zoom { part, over: true } => Some(part),
+				_ => None,
+			},
+			bar: match self.cap {
+				Cap::Repeat {
+					vertical,
+					part: part @ (Part::LineUp | Part::LineDown),
+					over: true,
+					..
+				} => Some((vertical, part)),
+				Cap::Thumb { parts, .. } => Some((parts.vertical, Part::Thumb)),
 				_ => None,
 			},
 		}
@@ -244,6 +268,7 @@ impl Gfx {
 		ctx: Ctx,
 	) -> bool {
 		self.now = ctx.tick;
+		self.settle(app);
 		let before = (self.view(), app.menu_open());
 		let page_event = matches!(self.cap, Cap::Page);
 		let mut sure = !matches!(ev, Ev::Move { .. } | Ev::Tick);
@@ -294,6 +319,7 @@ impl Gfx {
 		s: &mut S,
 		k: Key,
 	) -> bool {
+		self.settle(app);
 		self.tip = None;
 		self.rest = self.rest.map(|(t, at, _)| (t, at, true));
 		if self.drop.is_none() && zoom_entry(app, k) {
@@ -362,7 +388,31 @@ impl Gfx {
 				self.ptr.handle(app, s, f, &space, Ev::Move { x, y }, ctx);
 				return true;
 			}
-			Cap::Spent | Cap::Repeat { .. } => {}
+			Cap::Spent => {}
+			Cap::Repeat {
+				vertical,
+				part,
+				next,
+				..
+			} => {
+				let lay = Layout::of(app);
+				let over = Self::bar_of(app, s, &lay, vertical)
+					.is_some_and(|b| scroll::hit(&b.parts, x, y) == Some(part));
+				self.cap = Cap::Repeat {
+					vertical,
+					part,
+					next,
+					over,
+				};
+			}
+			Cap::Move { grab } => {
+				let mut o = Overlay::default();
+				if app.overlay(&*s, &mut o) {
+					let off = dialog::clamp_off(&o, (x - grab.0, y - grab.1));
+					app.set_dialog_off(off);
+				}
+				return true;
+			}
 			Cap::Menu { .. } => self.menu_over(app, x, y),
 			Cap::Button { i, .. } => {
 				let over = button_at(&Layout::of(app), x, y) == Some(i);
@@ -620,11 +670,19 @@ impl Gfx {
 		if !app.overlay(s, &mut o) {
 			return;
 		}
+		// A press on the title bar takes the window by it, and it follows the pointer until the button is let go.
+		if inside(dialog::title_rect(&o), x, y) {
+			let (dx, dy) = (i32::from(o.off.0), i32::from(o.off.1));
+			self.cap = Cap::Move {
+				grab: (x - dx, y - dy),
+			};
+			return;
+		}
 		if Self::file_parts(app) {
 			self.file_down(app, s, f, (x, y), ctx);
 			return;
 		}
-		// The title bar, the border and the space between controls do nothing; the dialog is not dragged.
+		// The border and the space between controls do nothing.
 		let Some(idx) = dialog::hit(&o, x, y) else {
 			return;
 		};
@@ -871,6 +929,7 @@ impl Gfx {
 			vertical,
 			part,
 			next: ctx.tick.wrapping_add(REPEAT_DELAY),
+			over: true,
 		};
 	}
 
@@ -885,6 +944,7 @@ impl Gfx {
 			vertical,
 			part,
 			mut next,
+			over,
 		} = self.cap
 		else {
 			return false;
@@ -912,6 +972,7 @@ impl Gfx {
 			vertical,
 			part,
 			next,
+			over,
 		};
 		if moved {
 			shell::sync_view(app, &*s);
@@ -972,8 +1033,12 @@ impl Gfx {
 	) {
 		let cap = core::mem::replace(&mut self.cap, Cap::None);
 		match cap {
-			Cap::None | Cap::Spent | Cap::Thumb { .. } | Cap::Field { .. } | Cap::Repeat { .. } => {
-			}
+			Cap::None
+			| Cap::Spent
+			| Cap::Thumb { .. }
+			| Cap::Field { .. }
+			| Cap::Move { .. }
+			| Cap::Repeat { .. } => {}
 			Cap::Page => {
 				let space = Pixels::of(app);
 				self.ptr.handle(app, s, f, &space, Ev::Up { x, y }, ctx);

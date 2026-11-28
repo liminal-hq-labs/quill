@@ -44,8 +44,11 @@ const BLUE: Rgb = Rgb(0, 0, 255);
 const GREEN: Rgb = Rgb(0, 128, 0);
 
 /// The dialog's window as an overlay with a title and a size and no widgets, for [`crate::dialog::draw_dialog`].
-pub fn window(kind: Kind) -> Overlay {
-	let mut o = Overlay::default();
+pub fn window(kind: Kind, off: (i16, i16)) -> Overlay {
+	let mut o = Overlay {
+		off,
+		..Overlay::default()
+	};
 	let (w, h) = Layout::new(Screen::Graphics, kind).map_or((0, 0), |l| (l.dialog.w, l.dialog.h));
 	let t = title(kind);
 	for (d, s) in o.title.iter_mut().zip(t) {
@@ -123,7 +126,7 @@ pub fn draw<Sf: Surface + ?Sized, S: ReadStore + ?Sized>(
 	win: &Overlay,
 	v: &FileView<'_>,
 	s: &S,
-	held: Option<usize>,
+	(held, bar): (Option<usize>, Option<scroll::Part>),
 ) {
 	let dlg = v.dlg;
 	let Some(l) = Layout::new(Screen::Graphics, dlg.kind()) else {
@@ -139,7 +142,7 @@ pub fn draw<Sf: Surface + ?Sized, S: ReadStore + ?Sized>(
 	};
 	look_in(sf, ui, &geo, &l, dlg, (focus, held));
 	places(sf, ui, &geo, &l, dlg, s, focus);
-	list(sf, ui, &geo, &l, v, s, focus);
+	list(sf, ui, &geo, &l, v, s, (focus, bar));
 	preview(sf, ui, &geo, &l, v, s);
 	bottom(sf, ui, &geo, &l, dlg, (focus, held));
 	drops(sf, ui, &geo, &l, dlg);
@@ -174,7 +177,7 @@ fn combo<Sf: Surface + ?Sized>(
 	field: Rect,
 	arrow: Rect,
 	t: &[u8],
-	focused: bool,
+	(focused, open): (bool, bool),
 ) {
 	edit_face(sf, ui, field, t, (0, 0), false);
 	if focused {
@@ -190,7 +193,7 @@ fn combo<Sf: Surface + ?Sized>(
 		ui.text(sf, x, y, t, LIGHT);
 		sf.clip(None);
 	}
-	scroll::arrow(sf, arrow, 1, true);
+	scroll::arrow(sf, arrow, 1, (true, open));
 }
 
 #[inline(never)]
@@ -218,7 +221,7 @@ fn look_in<Sf: Surface + ?Sized>(
 		field,
 		drop,
 		shown.get(..n).unwrap_or(&[]),
-		focus == LOOK_IN,
+		(focus == LOOK_IN, dlg.look_box().is_open()),
 	);
 	if let Some(up) = l.rect(Part::Up) {
 		let r = geo.control(up);
@@ -329,7 +332,7 @@ fn list<Sf: Surface + ?Sized, S: ReadStore + ?Sized>(
 	l: &Layout,
 	v: &FileView<'_>,
 	s: &S,
-	focus: u8,
+	(focus, bar): (u8, Option<scroll::Part>),
 ) {
 	let dlg = v.dlg;
 	let sort = dlg.sort();
@@ -388,7 +391,7 @@ fn list<Sf: Surface + ?Sized, S: ReadStore + ?Sized>(
 		}
 	}
 	sf.clip(None);
-	scroll::draw(sf, &list_parts(geo, l, dlg), lst.overflows());
+	scroll::draw(sf, &list_parts(geo, l, dlg), lst.overflows(), bar);
 }
 
 fn list_parts(geo: &Geo, l: &Layout, dlg: &FileDlg) -> scroll::Parts {
@@ -494,7 +497,14 @@ fn bottom<Sf: Surface + ?Sized>(
 	let t = kinds
 		.get(dlg.type_index())
 		.map_or(&b""[..], |t| t.label.as_bytes());
-	combo(sf, ui, field, arrow, t, focus == TYPES);
+	combo(
+		sf,
+		ui,
+		field,
+		arrow,
+		t,
+		(focus == TYPES, dlg.type_box().is_open()),
+	);
 	// The line of counts, or the cap's hint.
 	let st = geo.control(rect_of(l, Part::Status));
 	let ty = st.top + (st.height() - ui.height) / 2;
