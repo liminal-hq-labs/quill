@@ -121,6 +121,12 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | SITE-60 to SITE-69 | DOS page bridge (WP-DOSWEB) | in use | [plans/dos-page-bridge.md](plans/dos-page-bridge.md) |
 | SITE-80 to SITE-89 | Host link guests (WP-HLG) | in use | [plans/host-link-guests.md](plans/host-link-guests.md) |
 
+## CI
+
+| Range | Owner | Status | Source |
+|---|---|---|---|
+| CI-2 to CI-3 | red-e2e-scripts | in use | [id-ranges.toml](id-ranges.toml) |
+
 ## Grandfathered ids
 
 Ids that `decisions.md` already used outside every block when the registry began. They stay as they are; a new id outside a block is an error.

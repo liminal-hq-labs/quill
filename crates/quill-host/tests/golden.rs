@@ -191,6 +191,35 @@ fn scenario(name: &str) -> (quill_host::script::MemFiles, String) {
 	(files, frames)
 }
 
+/// The same scenario with the one-line name box in place of the file dialog, which is what the Windows builds play (they never link
+/// the dialog: Open and Save As are the system's, and a `/PLAY` run answers with the box). `win9x/tools/wine-e2e.sh` compares
+/// QUILL32.EXE's screens under Wine with these.
+fn scenario_prompt(name: &str) -> (quill_host::script::MemFiles, String) {
+	let mut sc = quill_host::script::parse_script(
+		&std::fs::read_to_string(root().join(format!("tests/scenarios/{name}.keys"))).unwrap(),
+	);
+	sc.dialog = false;
+	let mut files = quill_host::script::MemFiles::default();
+	quill_host::script::stage(&mut files, &sc, &root().join("tests/docs"));
+	let mut frames = String::new();
+	quill_host::script::play(&mut files, &sc, &mut frames);
+	(files, frames)
+}
+
+#[test]
+fn the_scenarios_the_windows_builds_play_with_the_name_box_match_their_prompt_goldens() {
+	for name in ["m1-edit", "m2-letter", "m4-about", "m7-picture"] {
+		let (files, frames) = scenario_prompt(name);
+		compare(&format!("tests/golden/prompt/{name}.frames.txt"), &frames);
+		if name == "m4-about" {
+			compare_bytes(
+				"tests/golden/prompt/m4-quill.ini",
+				&files.files["QUILL.INI"],
+			);
+		}
+	}
+}
+
 /// A file the run saved: the file dialog hands the editor a full path, so the name is looked for in the root of `C:` too.
 fn saved<'a>(files: &'a quill_host::script::MemFiles, name: &str) -> &'a Vec<u8> {
 	files
