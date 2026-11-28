@@ -945,6 +945,14 @@ fn after_edit(hwnd: u32, before: u32) {
 	}
 }
 
+/// A key from a message: `held` when the system says the key was already down, which only the keys that repeat act on.
+fn press_held(hwnd: u32, k: Key, held: bool) {
+	if held && !app().key_repeats(k) {
+		return;
+	}
+	press(hwnd, k);
+}
+
 fn press(hwnd: u32, k: Key) {
 	blink_restart(hwnd);
 	let before = view::signature(app(), store());
@@ -1935,19 +1943,22 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 					preview::key(hwnd, wparam);
 					return 0;
 				}
+				// Bit 30 of lParam is set when the key was already down: the system's auto-repeat of a held key.
+				let held = lparam & 0x4000_0000 != 0;
 				let ctrl = GetKeyState(0x11) & 0x8000 != 0;
 				// Shift changes what only Ctrl shortcuts, the cursor keys (Home to Down), Insert and Delete mean, so a character
 				// key does not ask for it.
 				let shifts = ctrl || matches!(wparam, 0x21..=0x28 | 0x2D | 0x2E);
 				let shift = shifts && GetKeyState(0x10) & 0x8000 != 0;
 				if let Some(k) = map_vk(wparam, shift, ctrl) {
-					press(hwnd, k);
+					press_held(hwnd, k, held);
 				} else if let Some(a) = accel::from_vk(wparam as u16, ctrl, shift, false) {
 					// A shortcut is taken from the key and the shift state, not from the character Ctrl makes of it (Ctrl+I is
 					// Tab's code and Ctrl+H Backspace's); the character message that follows is dropped.
 					match a {
-						Accel::Key(k) => press(hwnd, k),
-						Accel::Command(c) => run_command(hwnd, c),
+						Accel::Key(k) => press_held(hwnd, k, held),
+						Accel::Command(c) if !held || c.repeats() => run_command(hwnd, c),
+						Accel::Command(_) => {}
 					}
 				}
 				0
@@ -1964,7 +1975,9 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 				match accel::from_vk(wparam as u16, ctrl, shift, true) {
 					Some(Accel::Command(c)) => {
 						tips::dismiss();
-						run_command(hwnd, c);
+						if lparam & 0x4000_0000 == 0 || c.repeats() {
+							run_command(hwnd, c);
+						}
 						0
 					}
 					_ => DefWindowProc(hwnd, msg, wparam, lparam),
@@ -1992,7 +2005,7 @@ extern "C" fn wnd_proc(hwnd: u32, msg: u32, wparam: u32, lparam: u32) -> u32 {
 					_ => None,
 				};
 				if let Some(k) = k {
-					press(hwnd, k);
+					press_held(hwnd, k, lparam & 0x4000_0000 != 0);
 				}
 				0
 			}

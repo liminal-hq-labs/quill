@@ -477,6 +477,8 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			0
 		}
 		WM_KEYDOWN => {
+			// Bit 30 of lParam is set when the key was already down: the system's auto-repeat of a held key.
+			let held = lparam & 0x4000_0000 != 0;
 			let shift = GetKeyState(VK_SHIFT) < 0;
 			let ctrl = GetKeyState(VK_CONTROL) < 0;
 			let alt = GetKeyState(VK_MENU) < 0;
@@ -493,13 +495,15 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			}
 			if let Some(a) = quill_app::accel::from_vk(wparam as u16, ctrl, shift, alt) {
 				match a {
-					quill_app::accel::Accel::Key(k) => press(hwnd, k),
-					quill_app::accel::Accel::Command(c) => run_command(hwnd, c),
+					quill_app::accel::Accel::Key(k) => press_held(hwnd, k, held),
+					// A held command runs again only if it steps through a history or a size (Undo, Redo, Zoom).
+					quill_app::accel::Accel::Command(c) if !held || c.repeats() => run_command(hwnd, c),
+					quill_app::accel::Accel::Command(_) => {}
 				}
 				return 0;
 			}
 			if let Some(k) = map_vk(wparam, shift, ctrl) {
-				press(hwnd, k);
+				press_held(hwnd, k, held);
 			}
 			0
 		}
@@ -508,7 +512,9 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 			if let Some(quill_app::accel::Accel::Command(c)) =
 				quill_app::accel::from_vk(wparam as u16, GetKeyState(VK_CONTROL) < 0, GetKeyState(VK_SHIFT) < 0, true)
 			{
-				run_command(hwnd, c);
+				if lparam & 0x4000_0000 == 0 || c.repeats() {
+					run_command(hwnd, c);
+				}
 				return 0;
 			}
 			DefWindowProcA(hwnd, msg, wparam, lparam)
@@ -532,7 +538,7 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 				_ => None,
 			};
 			if let Some(k) = k {
-				press(hwnd, k);
+				press_held(hwnd, k, lparam & 0x4000_0000 != 0);
 			}
 			0
 		}
@@ -1694,6 +1700,14 @@ unsafe fn retitle(hwnd: Handle, sh: &mut Shell) {
 		SetWindowTextA(hwnd, t.as_ptr());
 		sh.title = t;
 	}
+}
+
+/// A key from a message: `held` when the system says the key was already down, which only the keys that repeat act on.
+unsafe fn press_held(hwnd: Handle, k: Key, held: bool) {
+	if held && !shell().is_some_and(|sh| sh.app.key_repeats(k)) {
+		return;
+	}
+	press(hwnd, k);
 }
 
 unsafe fn press(hwnd: Handle, k: Key) {
