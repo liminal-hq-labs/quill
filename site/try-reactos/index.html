@@ -17,8 +17,8 @@
 		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
 		<link rel="stylesheet" href="../css/site.css?v=a4d3a119">
 		<link rel="stylesheet" href="../css/try.css?v=fc9dccd7">
-		<link rel="stylesheet" href="try-reactos.css?v=5bbb356b">
-		<script src="try-reactos.js?v=a8ddfb93" type="module"></script>
+		<link rel="stylesheet" href="try-reactos.css?v=a4f78261">
+		<script src="try-reactos.js?v=23ce93da" type="module"></script>
 	</head>
 	<body>
 		<main id="main">
@@ -39,6 +39,9 @@
 								<button class="button button--alt" type="button" data-sound aria-pressed="true">Sound on</button>
 								<input class="sound-volume" type="range" min="0" max="100" step="5" value="70" data-volume aria-label="Volume">
 							</span>
+							<!-- kit: begin -->
+							<span class="sound-badge" data-sound-badge role="status" hidden></span>
+							<!-- kit: end -->
 							<span class="mic" role="group" aria-label="Microphone">
 								<button class="button button--alt" type="button" data-mic aria-pressed="false" disabled title="Start the machine first. The microphone is off until you select this.">Microphone</button>
 								<span class="mic-live" data-mic-live role="status" hidden><span class="mic-dot" aria-hidden="true"></span>Microphone on</span>
@@ -103,6 +106,9 @@
 						<dl class="diag-readout" data-readout aria-live="off"></dl>
 						<dl class="diag-readout" data-link-readout aria-live="off"><dt>Link</dt><dd>off</dd></dl>
 						<dl class="diag-readout" data-sound-readout aria-live="off"><dt>Sound</dt><dd>off</dd></dl>
+						<!-- kit: begin -->
+						<dl class="diag-readout" data-audio-readout aria-live="off"><dt>Audio</dt><dd>off</dd></dl>
+						<!-- kit: end -->
 						<p class="diag-buttons">
 							<button class="button button--alt" type="button" data-shot>Screenshot (PNG)</button>
 							<button class="button button--alt" type="button" data-save-state>Save state</button>

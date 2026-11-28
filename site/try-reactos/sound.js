@@ -6,7 +6,10 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 // The ?v= is the first 8 hex of the module's SHA-256; tools/stamp-web.py keeps it current (SITE-14).
-import { attachAc97, isAc97State, micReason } from "./lib/ac97.js?v=36ae63e2";
+import { attachAc97, isAc97State, micReason } from "./lib/ac97.js?v=e45d5443";
+// kit: begin
+import * as kit from "./kit.js?v=1e9363ff";
+// kit: end
 
 const STORE = "quill-try-reactos-sound";
 const DEFAULTS = { volume: 0.7, muted: false };
@@ -84,7 +87,10 @@ export function attach(emulator, { restoring = false, audio = null } = {}) {
 		return;
 	}
 	availability = "ready";
-	handle = attachAc97(emulator, { state: saved, volume: prefs.volume, muted: prefs.muted, context: webAudio ? context : null, onChange: show });
+	handle = attachAc97(emulator, { state: saved, volume: prefs.volume, muted: prefs.muted, context: webAudio ? context : null, onChange: show, onCodec: kit.update });
+	// kit: begin
+	kit.attachCard(handle);
+	// kit: end
 	if (window.tryReactos) window.tryReactos.soundHandle = handle;
 	timer = setInterval(show, 1000);
 	show();
@@ -93,6 +99,9 @@ export function attach(emulator, { restoring = false, audio = null } = {}) {
 export function detach() {
 	if (timer !== null) clearInterval(timer);
 	timer = null;
+	// kit: begin
+	kit.detachCard();
+	// kit: end
 	if (handle) handle.detach();
 	handle = null;
 	if (window.tryReactos) window.tryReactos.soundHandle = null;
@@ -117,6 +126,9 @@ function audible() {
 }
 
 function show() {
+	// kit: begin
+	kit.update();
+	// kit: end
 	if (button) {
 		const usable = availability === "ready" && webAudio;
 		const blocked = Boolean(handle) && handle.outputState() !== "running" && handle.outputState() !== "none";
