@@ -29,6 +29,7 @@ macro_rules! span {
 #[cfg(feature = "bench")]
 mod bench;
 mod chrome;
+mod clip;
 mod dialogs;
 mod gdi;
 mod pdf;
@@ -535,6 +536,13 @@ unsafe extern "system" fn wnd_proc(hwnd: Handle, msg: u32, wparam: usize, lparam
 				press(hwnd, k);
 			}
 			0
+		}
+		// A menu is about to open: Paste is greyed when the clipboard offers nothing Quill reads.
+		0x0117 => {
+			if let Some(sh) = shell() {
+				clip::menu_opening(wparam as Handle, sh);
+			}
+			DefWindowProcA(hwnd, msg, wparam, lparam)
 		}
 		WM_TIMER => {
 			match wparam {
@@ -1287,7 +1295,10 @@ unsafe fn run_command(hwnd: Handle, c: Command) {
 			// The common dialog's setup page: choose the printer and paper.
 			print_dialog(hwnd, 0x0040);
 		}
-		_ => sh.app.command(&mut sh.store, &mut sh.files, c),
+		_ => {
+			sh.app.command(&mut sh.store, &mut sh.files, c);
+			clip::serve(hwnd, sh);
+		}
 	}
 	if !sh.grid {
 		handle_dialogs(hwnd);
@@ -1738,6 +1749,7 @@ unsafe fn press_key(hwnd: Handle, k: Key) {
 	{
 		span!(KApp);
 		sh.app.key(&mut sh.store, &mut sh.files, k);
+		clip::serve(hwnd, sh);
 	}
 	if !sh.grid {
 		span!(KDialogs);
@@ -2127,6 +2139,8 @@ pub extern "C" fn start() -> ! {
 	let _ = app.reset(&mut store);
 	// The windowed build never draws a dialog in text cells (D86); the text view that the golden runs use keeps them.
 	app.set_native_dialogs(!text_view);
+	// The windowed build uses the system clipboard; the text view that the golden runs use keeps the app's own.
+	app.serve_clipboard(!text_view);
 	let mut files = Win32Files;
 	if text_view {
 		app.load_settings(&mut files);

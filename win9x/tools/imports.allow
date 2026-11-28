@@ -135,3 +135,17 @@ user32.dll!GetCaretBlinkTime
 user32.dll!KillTimer
 kernel32.dll!GetDateFormatA
 kernel32.dll!GetTimeFormatA
+kernel32.dll!GlobalAlloc
+kernel32.dll!GlobalFree
+kernel32.dll!GlobalLock
+kernel32.dll!GlobalSize
+kernel32.dll!GlobalUnlock
+kernel32.dll!Sleep
+user32.dll!CloseClipboard
+user32.dll!EmptyClipboard
+user32.dll!EnableMenuItem
+user32.dll!GetClipboardData
+user32.dll!IsClipboardFormatAvailable
+user32.dll!OpenClipboard
+user32.dll!RegisterClipboardFormatA
+user32.dll!SetClipboardData

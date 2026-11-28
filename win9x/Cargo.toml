@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
 [workspace]
-members = ["quill-win9x"]
+members = ["quill-win9x", "clipcheck"]
+# `cargo build` builds Quill alone; the test helper is built by win9x/tools/wine-clipboard.sh.
+default-members = ["quill-win9x"]
 resolver = "2"
 
 [profile.dev]

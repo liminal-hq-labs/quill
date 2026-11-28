@@ -603,3 +603,11 @@ last = 28
 owner = "Optional modules on Windows 95 (WP-MOD)"
 status = "reserved"
 source = "docs/plans/modules.md"
+
+[[block]]
+prefix = "W9X"
+first = 140
+last = 143
+owner = "Clipboard (WP-ED-6)"
+status = "in use"
+source = "docs/work-packages.md"

@@ -1,0 +1,22 @@
+# CLIPCHECK.EXE: a test helper that puts files on the Windows clipboard and writes what is on it to files (win9x/tools/wine-clipboard.sh).
+#
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+[package]
+name = "clipcheck"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Test helper for the Windows clipboard"
+license = "Apache-2.0 OR MIT"
+
+[[bin]]
+name = "clipcheck"
+path = "src/main.rs"
+
+[package.metadata.quill]
+layer = "tool"
+no_std = true
+alloc = true
+float = false

@@ -546,6 +546,7 @@ CORE-101; SPEC Clipboard. PR: "Copy and paste with formatting through quill-clip
 - **Tests:** G-W16 with a play script that copies into Write; G-W32 with `wine-clipboard.sh` (text and RTF both ways); G-DISK.
 - **Evidence:** Write on `win16-311` holding pasted bold; WordPad on `win95` holding pasted bold; Quill on `win32-wine` holding RTF pasted from WordPad.
 - **Decisions:** W16-61, W9X-60.
+- **Built (Win32 half):** see [progress.md](progress.md). `win9x/quill-win9x/src/clip.rs` serves the request; `win9x/tools/wine-clipboard.sh` checks it under Wine with `win9x/clipcheck`; decisions W9X-140 to W9X-143 (the plan's W9X-60 was not used). The Win16 half (`win16/examples/quill/clip.rs`, W16-61) is still to do: the same `Clipboard` shape over `GlobalAlloc`, `GlobalLock`, `OpenClipboard` and the rest, with `__AHINCR` tiling for a DIB over 64 KB.
 
 ```text
 Package WP-ED-6: implement quill_clip::Clipboard on Windows 3.x and Windows 95 and serve App's clip
