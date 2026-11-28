@@ -129,6 +129,18 @@
 	background: #b3261e;
 }
 
+/* kit: begin */
+.sound-badge {
+	font-weight: 700;
+	color: #8a5a00;
+	cursor: help;
+}
+
+.sound-badge[hidden] {
+	display: none;
+}
+/* kit: end */
+
 .mic-note {
 	flex: 1 1 100%;
 	margin: 0;

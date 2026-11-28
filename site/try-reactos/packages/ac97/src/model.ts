@@ -149,6 +149,8 @@ export class Ac97 {
 	private playScratchR = new Float32Array(0);
 	private capture: CapturePath = newCapture();
 	counters: Ac97Counters = newCounters();
+	/** Called after the guest writes a codec register from the reset register (0x00) to the record gain (0x1E), and after a codec reset, with the register and the stored word. */
+	onCodecWrite: ((register: number, value: number) => void) | null = null;
 
 	constructor({ readMem, writeMem, raiseIrq = () => {}, lowerIrq = () => {}, trace = null }: Ac97Options) {
 		this.readMem = readMem;
@@ -169,7 +171,8 @@ export class Ac97 {
 		this.counters = newCounters();
 	}
 
-	private word(index: number): number {
+	/** The codec register at word `index` (byte offset divided by two), as the guest last wrote it, without the read-side overrides `namRead` applies. */
+	word(index: number): number {
 		return this.nam[index] ?? 0;
 	}
 
@@ -261,7 +264,7 @@ export class Ac97 {
 		switch (off) {
 			case 0x00:
 				this.resetCodec();
-				return;
+				break;
 			case 0x28:
 			case 0x7c:
 			case 0x7e:
@@ -276,6 +279,7 @@ export class Ac97 {
 			default:
 				this.nam[off >> 1] = value;
 		}
+		if (off < 0x20) this.onCodecWrite?.(off, this.word(off >> 1));
 	}
 
 	// --- the bus master BAR --------------------------------------------------------------------------------------------------

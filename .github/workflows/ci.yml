@@ -294,6 +294,10 @@ jobs:
         working-directory: site/try-reactos/packages/ac97
         run: bun run check:built
 
+      # The page's kit.js (the Audio row and the Muted in the PC badge) has no build; its rules are tested on fake handles.
+      - name: Test the page's kit
+        run: bun test site/try-reactos/kit.test.js
+
   dos-bridge:
     name: DOS bridge tests
     runs-on: ubuntu-24.04

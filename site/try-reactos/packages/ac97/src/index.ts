@@ -30,6 +30,12 @@ export interface AttachOptions {
 	context?: AudioContext | null;
 	/** Called when the output is ready, fails or changes state, and when the card is registered. */
 	onChange?: () => void;
+	/**
+	 * Called after the guest writes a codec mixer register (0x00 to 0x1E: the reset, master, PCM-out, record and microphone volumes and the record
+	 * select) with the register and the last word written. Writes are gathered for 50 ms, so a register is reported at most once per 50 ms, and a timer runs
+	 * only while a write is waiting. Read the whole mixer with `codec()`.
+	 */
+	onCodec?: (register: number, value: number) => void;
 	/** Called for each register access (for debugging; slow). */
 	trace?: Ac97Options["trace"];
 }
@@ -62,6 +68,39 @@ export interface Ac97Stats {
 	stateError: string;
 }
 
+/** One mixer line decoded from its register. `left` and `right` are percent of the line's range (the codec attenuates in 1.5 dB steps from the loudest). */
+export interface CodecLine {
+	raw: number;
+	left: number;
+	right: number;
+	muted: boolean;
+}
+
+/** The codec's mixer as the guest's driver left it. `recordSelect`'s `left` and `right` are the source numbers (0 microphone, 4 line in, 5 stereo mix and so on), and `muted` is a reserved bit a driver leaves clear. */
+export interface Ac97Codec {
+	master: CodecLine;
+	pcm: CodecLine;
+	record: CodecLine;
+	mic: CodecLine;
+	recordSelect: CodecLine;
+	/** The PCM-out rate in frames per second, and whether variable rate audio is on. */
+	rate: number;
+	vra: boolean;
+}
+
+// Master, PCM-out and microphone volumes are 5-bit attenuations (0 loudest, 31 quietest); the record gain is 4 bits of gain (15 loudest); the record select
+// holds two 3-bit source numbers. Percent is of the register's range.
+const pct = (v: number, top: number): number => Math.round((v * 100) / top);
+const att = (v: number): number => 100 - pct(v & 31, 31);
+const gain = (v: number): number => pct(v & 15, 15);
+const line = (raw: number, f: (v: number) => number, shift = 8): CodecLine => ({ raw, left: f(raw >> shift), right: f(raw), muted: raw > 0x7fff });
+
+/** Decodes `model`'s mixer registers the way the card applies them. */
+function decodeCodec(model: Ac97): Ac97Codec {
+	const word = (offset: number): number => model.word(offset >> 1);
+	return { master: line(word(2), att), pcm: line(word(0x18), att), record: line(word(0x1c), gain), mic: line(word(0xe), att, 0), recordSelect: line(word(0x1a), (v) => v & 7), rate: model.rate, vra: model.vra };
+}
+
 export interface Ac97Handle {
 	/** The card's registers, for saving beside a machine state; `null` before the card is registered. Save while no sound plays. */
 	getAc97State(): Ac97State | null;
@@ -74,6 +113,8 @@ export interface Ac97Handle {
 	/** The output's state now. */
 	outputState(): OutputState;
 	stats(): Ac97Stats;
+	/** The codec's mixer as the guest's driver set it (the power-on state is master and PCM out muted); `null` before the card is registered. */
+	codec(): Ac97Codec | null;
 	/**
 	 * Turns the microphone on: asks the browser for it (call this only from a click the visitor made for it) and feeds it to the card's recording channels,
 	 * resampled to the rate the guest records at. The audio goes into the emulated card's memory and nowhere else. Resolves with the microphone's state.
@@ -107,6 +148,7 @@ export function gainFor(volume: number, muted: boolean): number {
 const DRAIN_MS = 10;
 const DRAIN_MAX_FRAMES = 4800;
 const MIC_STALL_MS = 500;
+const CODEC_MS = 50;
 
 /**
  * Adds the card to `emulator`, a v86 `V86` that has been constructed and has not started yet. v86 builds its devices a moment after its constructor
@@ -199,6 +241,16 @@ export function attachAc97(emulator: V86Emulator, options: AttachOptions = {}): 
 		);
 	};
 
+	// The guest's driver can write a register many times in a row (a slider drag): the last word of each register is delivered once per 50 ms window. The
+	// timer exists only while a write is held.
+	const codecHeld = new Map<number, number>();
+	let codecTimer: ReturnType<typeof setTimeout> | null = null;
+	const sendCodec = (): void => {
+		codecTimer = null;
+		for (const [register, value] of codecHeld) options.onCodec?.(register, value);
+		codecHeld.clear();
+	};
+
 	const AudioContextClass = typeof AudioContext === "function" ? AudioContext : null;
 	if (options.context) {
 		context = options.context;
@@ -227,6 +279,12 @@ export function attachAc97(emulator: V86Emulator, options: AttachOptions = {}): 
 	const undoWrap = onceBeforeInit(emulator, (cpu) => {
 		if (detached) return;
 		reg = registerOn(cpu, options.trace ?? null);
+		if (options.onCodec) {
+			reg.model.onCodecWrite = (register, value) => {
+				codecHeld.set(register, value);
+				codecTimer ??= setTimeout(sendCodec, CODEC_MS);
+			};
+		}
 		if (options.state) {
 			if (isAc97State(options.state)) {
 				try {
@@ -267,6 +325,7 @@ export function attachAc97(emulator: V86Emulator, options: AttachOptions = {}): 
 			return outputState();
 		},
 		outputState,
+		codec: () => (reg ? decodeCodec(reg.model) : null),
 		stats() {
 			const model = reg ? reg.model : null;
 			return {
@@ -307,6 +366,7 @@ export function attachAc97(emulator: V86Emulator, options: AttachOptions = {}): 
 			if (detached) return;
 			detached = true;
 			clearInterval(drainTimer);
+			if (codecTimer) clearTimeout(codecTimer);
 			if (mic) mic.stop();
 			undoWrap();
 			if (reg) reg.retire();
