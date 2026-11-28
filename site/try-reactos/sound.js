@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 // The ?v= is the first 8 hex of the module's SHA-256; tools/stamp-web.py keeps it current (SITE-14).
-import { attachAc97, isAc97State } from "./lib/ac97.js?v=0acb0057";
+import { attachAc97, isAc97State } from "./lib/ac97.js?v=46e2be12";
 
 const STORE = "quill-try-reactos-sound";
 const DEFAULTS = { volume: 0.7, muted: false };
