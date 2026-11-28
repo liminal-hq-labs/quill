@@ -24,7 +24,7 @@ Two lanes edit `crates/quill-app/src`, each with at most one open branch there: 
 | Wave | ARCH lane | ED lane | Side | Waits for |
 |---|---|---|---|---|
 | 1 (now) | WP-ARCH-1 `quill-chrome` | WP-ED-1 Enter flags, then WP-ED-2 paste undo | (the DOS autosave builder) | — |
-| 2 | WP-ARCH-2 `quill-picture` | WP-ED-3 End affinity, WP-ED-4 Unicode U1a | WP-UNI-1 Unicode tables in `quill-text`, WP-UNI-2 Unicode test documents (both can start now) | DOS autosave merged, for WP-ED-3 |
+| 2 | WP-ARCH-2 `quill-picture` | WP-ED-3 End affinity, WP-ED-4 Unicode U1a | WP-UNI-1 Unicode tables in `quill-text`, WP-UNI-2 Unicode test documents (built; WP-UNI-1 can start now) | DOS autosave merged, for WP-ED-3 |
 | 3 | WP-ARCH-3 `quill-session` (or WP-ARCH-4 first, if autosave has not merged) | WP-ED-5 rich clipboard in the editor | — | DOS autosave merged, for WP-ARCH-3 |
 | 4 | WP-ARCH-4 `quill-input` | WP-ED-6 rich clipboard on Windows | — | — |
 | 5 | WP-ARCH-5 `quill-menu` | WP-ED-7 word keys | — | — |

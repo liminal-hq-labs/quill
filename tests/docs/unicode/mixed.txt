@@ -1,0 +1,2 @@
+Latin café, Greek καφές, Cyrillic кофе, Armenian սուրճ, Georgian ყავა, Chinese 咖啡, Japanese コーヒー, Korean 커피, Hebrew קפה, Arabic قهوة, Hindi कॉफ़ी.
+Numbers 1234 and ٣٤٥٦ and ४५६ and ３４５.

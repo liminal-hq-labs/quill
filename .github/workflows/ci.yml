@@ -95,6 +95,22 @@ jobs:
       - name: Check the decision-id registry
         run: python3 -I scripts/check-ids.py
 
+  unicode-docs:
+    name: Unicode test documents
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check the generated documents are what the script writes
+        run: python3 -I scripts/gen-unicode-docs.py --check
+
+      - name: Check the frozen .QLD 1.0 reader is unchanged
+        run: bash scripts/check-frozen-reader.sh
+
   size-gate:
     name: Size gate tests
     runs-on: ubuntu-24.04
