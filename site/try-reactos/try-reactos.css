@@ -146,3 +146,70 @@
 .diag-readout dd {
 	margin: 0;
 }
+
+/* The clipboard bar: a status chip, a progress meter and the buttons (host-link.js). */
+.clip-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+	margin: 0 0 0.75rem;
+	max-width: 64rem;
+}
+
+.clip-bar[hidden],
+.clip-dialog[hidden],
+.clip-bar [hidden] {
+	display: none;
+}
+
+.clip-chip {
+	display: inline-block;
+	border: 1px solid var(--border, currentColor);
+	border-radius: 999px;
+	padding: 0.2rem 0.8rem;
+	font-size: 0.85rem;
+	color: var(--text-muted);
+}
+
+.clip-chip[data-state="connected"] {
+	color: inherit;
+}
+
+.clip-chip[data-state="busy"],
+.clip-chip[data-state="note"] {
+	color: inherit;
+	font-weight: 600;
+}
+
+.clip-progress {
+	width: 8rem;
+}
+
+.clip-toggle {
+	font-size: 0.85rem;
+	color: var(--text-muted);
+	margin-left: auto;
+}
+
+.clip-dialog {
+	display: grid;
+	gap: 0.5rem;
+	max-width: 24rem;
+	margin: 0 0 0.75rem;
+}
+
+.clip-dialog textarea {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.help-copy {
+	max-width: 64rem;
+	margin-top: 1.5rem;
+}
+
+.help-copy h2 {
+	font-size: 1.15rem;
+	margin: 0 0 0.25rem;
+}

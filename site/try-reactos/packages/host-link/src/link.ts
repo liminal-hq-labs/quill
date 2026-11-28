@@ -44,6 +44,8 @@ export interface LinkStats {
 	credit: { window: number; outstanding: number; available: number };
 	/** Packets queued and not yet sent. */
 	queued: number;
+	/** How long the last `hello` waited for its answer, in milliseconds; null before one has been answered. */
+	helloMs: number | null;
 }
 
 export interface LinkOptions {
@@ -72,6 +74,7 @@ export interface LinkEvents {
 type Handler<K extends keyof LinkEvents> = (value: LinkEvents[K]) => void;
 
 interface Pending {
+	id: number;
 	packets: Uint8Array[];
 	next: number;
 }
@@ -99,6 +102,9 @@ export class Link {
 	#errors: Record<string, number> = {};
 	#peerErrors: Record<string, number> = {};
 	#versionReplied = false;
+	#holding = false;
+	#heard = false;
+	#helloMs: number | null = null;
 
 	constructor(options: LinkOptions) {
 		this.#write = options.write;
@@ -144,8 +150,22 @@ export class Link {
 		into[code] = (into[code] ?? 0) + 1;
 	}
 
-	/** Attaches to a machine (a cold boot or a restored state): forgets everything in flight and sends `hello`. */
-	start(): void {
+	/** True once a frame has come from the guest since `start` (a cold boot's guest speaks first: see `start({ hold })`). */
+	get heard(): boolean {
+		return this.#heard;
+	}
+
+	/**
+	 * Attaches to a machine (a cold boot or a restored state): forgets everything in flight and sends `hello`.
+	 *
+	 * With `hold` the `hello` is **not** sent yet: a byte the page queues in v86's serial port while ReactOS's `serial.sys` is still starting
+	 * leaves the guest deaf for good (docs/host-link.md, "Before the helper is up", SITE-91). The first frame from the guest (the helper's own
+	 * `hello`) ends the hold and is answered with the page's `hello`. A stray byte that is not a frame does not.
+	 */
+	start(options: { hold?: boolean } = {}): void {
+		this.#holding = options.hold === true;
+		this.#heard = false;
+		this.#helloMs = null;
 		this.#parser.reset();
 		this.#mux.reset();
 		this.#peer = null;
@@ -155,7 +175,7 @@ export class Link {
 		this.#stallSince = null;
 		this.#versionReplied = false;
 		this.#setState("waiting");
-		this.#sendHello();
+		if (!this.#holding) this.#sendHello();
 	}
 
 	/** Ends the link. Nothing more is sent or taken. */
@@ -197,6 +217,7 @@ export class Link {
 	tick(): void {
 		if (this.#state === "closed") return;
 		const now = this.#now();
+		if (this.#holding) return;
 		if (this.#awaiting && now - this.#helloSentAt >= this.#helloRetryMs) this.#sendHello();
 		if (this.#state === "ready" && this.#stallSince !== null && now - this.#stallSince >= this.#creditTimeoutMs) this.#setState("stalled");
 	}
@@ -215,10 +236,20 @@ export class Link {
 		}
 		if (!this.#peer) return null;
 		const id = this.#takeId();
-		this.#queues.get(channel)!.push({ packets: packetsOf(channel, id, body), next: 0 });
+		this.#queues.get(channel)!.push({ id, packets: packetsOf(channel, id, body), next: 0 });
 		this.#counts.messagesOut++;
 		this.#pump();
 		return id;
+	}
+
+	/**
+	 * Drops the messages with these ids that have not been written whole. One that is half written is abandoned: the rest of its packets are not sent,
+	 * and the peer drops it when the next message on its channel begins (docs/host-link.md, "Messages").
+	 */
+	cancel(ids: number[]): void {
+		for (const queue of this.#queues.values()) {
+			for (let k = queue.length - 1; k >= 0; k--) if (ids.includes(queue[k]!.id)) queue.splice(k, 1);
+		}
 	}
 
 	/** Sends packets in priority order, one at a time, while credit allows. A packet from a higher channel always goes before the next one from a lower. */
@@ -259,11 +290,17 @@ export class Link {
 		if (this.#state === "closed") return;
 		this.#counts.bytesIn += bytes.length;
 		for (const event of this.#parser.push(bytes)) this.#frameEvent(event);
+		// The guest has spoken in a frame: the hold ends, and a hello that was not itself the first message gets the page's own.
+		if (this.#holding && this.#heard) {
+			this.#holding = false;
+			if (!this.#awaiting && !this.#peer) this.#sendHello();
+		}
 	}
 
 	#frameEvent(event: FrameEvent): void {
 		switch (event.kind) {
 			case "packet":
+				this.#heard = true;
 				this.#counts.packetsIn++;
 				this.#muxOutput(this.#mux.push(event.channel, event.id, event.more, event.payload));
 				return;
@@ -272,6 +309,7 @@ export class Link {
 				if (event.error === "crc") this.#muxOutput(this.#mux.crcFailed(event.channel, event.id));
 				return;
 			default:
+				this.#heard = true;
 				this.#emit("file", event);
 		}
 	}
@@ -356,7 +394,9 @@ export class Link {
 			max: Math.max(MIN_MAX_MESSAGE, fieldNumber(message, "max") ?? DEFAULT_MAX_MESSAGE),
 		};
 		this.#mux.reset();
+		this.#holding = false;
 		const unsolicited = !this.#awaiting;
+		if (!unsolicited) this.#helloMs = Math.max(0, this.#now() - this.#helloSentAt);
 		this.#awaiting = false;
 		this.#peer = peer;
 		this.#credit.reset(peer.window);
@@ -396,6 +436,7 @@ export class Link {
 			dropped: this.#mux.dropped,
 			credit: { window: this.#credit.window, outstanding: this.#credit.outstanding, available: this.#credit.available },
 			queued,
+			helloMs: this.#helloMs,
 		};
 	}
 }

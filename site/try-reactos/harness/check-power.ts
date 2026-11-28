@@ -41,6 +41,10 @@ const ui = () =>
 			power: (document.querySelector("[data-stage]") as HTMLElement).dataset.power,
 			api: (window as any).tryReactos.powerState(),
 			link: !!(window as any).tryReactos.hostLink,
+			clipboard: !!(window as any).tryReactos.clipboard,
+			bar: !(document.querySelector("[data-clip-bar]") as HTMLElement).hidden,
+			chip: document.querySelector("[data-clip-chip]")!.textContent ?? "",
+			clipRow: document.querySelector("[data-clip-readout] dd")!.textContent ?? "",
 			machine: e ? (e.is_running() ? "running" : "stopped") : "none",
 			dim: getComputedStyle(document.querySelector(".screen-canvas")!).filter,
 		};
@@ -71,8 +75,25 @@ const matches = (state: string, u: Ui, why: string) => {
 	expect(u.power === state && u.api === state, `${why}: the power state is ${u.power}/${u.api}, wanted ${state}`);
 	// The host link attaches with the machine and detaches when it shuts down or stops (the seams' attach and detach across the cycle).
 	expect(u.link === (state === "on"), `${why}: the host link is ${u.link ? "attached" : "detached"} in the ${state} state`);
+	// The clipboard follows the link: its state machine and the chip exist while the machine is on, and neither is left behind otherwise.
+	expect(u.clipboard === (state === "on"), `${why}: the clipboard is ${u.clipboard ? "attached" : "detached"} in the ${state} state`);
+	expect(u.bar === (state === "on"), `${why}: the clipboard chip is ${u.bar ? "shown" : "hidden"} in the ${state} state`);
+	if (state !== "on") expect(u.clipRow === "off", `${why}: the Clipboard row says "${u.clipRow}" in the ${state} state`);
 	for (const [field, value] of Object.entries(want[state])) expect((u as any)[field] === value, `${why}: ${field} is ${(u as any)[field]}, wanted ${value} (${state})`);
 	expect(state === "shutdown" ? /brightness/.test(u.dim) : u.dim === "none", `${why}: the screen's filter is ${u.dim}`);
+};
+
+// POWER_PARAMS (a JSON object of address fields, for example {"disk":"/images/hl-e2e.img","state":"/images/hl-state.bin","boot":"hd"}) runs the cycle on
+// a state with the link helper in it, and then each reattach must also reach a connected helper with its hello answered at once.
+const params = process.env.POWER_PARAMS ? (JSON.parse(process.env.POWER_PARAMS) as Record<string, string>) : null;
+const helperUp = async (why: string) => {
+	if (!params) return;
+	const ready = await waitFor(page, "window.tryReactos.hostLink && window.tryReactos.hostLink.stats().state === 'ready'", 60000, 20);
+	const helloMs = ready === null ? null : await page.evaluate("window.tryReactos.hostLink.stats().helloMs");
+	expect(ready !== null && (helloMs as number) < 1000, `${why}: the helper's hello was answered in ${helloMs} ms`);
+	const chip = await page.textContent("[data-clip-chip]");
+	expect(/^Clipboard: connected/.test(chip ?? ""), `${why}: the chip says "${chip}"`);
+	(report.helloMs as Record<string, unknown>)[why] = helloMs;
 };
 
 const settled = () => page.waitForFunction("document.querySelector('[data-build]').textContent !== 'Build: loading'", null, { timeout: 15000 });
@@ -83,6 +104,13 @@ const toDesktop = async (why: string) => {
 // Shut Down from the guest's Start menu: the Windows key, Up (wraps to the last item), Enter (the Shut Down ReactOS dialog, with Shut Down
 // selected) and Enter again.
 const shutDown = async (why: string) => {
+	if (params) {
+		// The helper test state's Start menu is not the product's, so with POWER_PARAMS the guest is powered off the way the page sees any stop (step 8).
+		await page.evaluate("window.tryReactos.emulator.stop()");
+		const stopped = await waitFor(page, "window.tryReactos.powerState() === 'shutdown'", 10000, 100);
+		expect(stopped !== null, `${why}: the page never noticed the stop`);
+		return stopped;
+	}
 	await key(KEY.win);
 	await sleep(1500);
 	await key(KEY.up);
@@ -95,9 +123,9 @@ const shutDown = async (why: string) => {
 	return t;
 };
 
-const report: Record<string, unknown> = {};
+const report: Record<string, unknown> = { helloMs: {} };
 try {
-	await page.goto(pageUrl("", {}, { plain: true }));
+	await page.goto(params ? pageUrl("", params) : pageUrl("", {}, { plain: true }));
 	await settled();
 	matches("off", await ui(), "before Start");
 	await shoot("1-off");
@@ -109,6 +137,7 @@ try {
 	matches("on", await ui(), "Start");
 	await toDesktop("Start");
 	matches("on", await ui(), "Start, desktop");
+	await helperUp("Start");
 	await shoot("2-running");
 
 	// 2. Shut Down in the guest.
@@ -129,6 +158,7 @@ try {
 	await toDesktop("Turn on");
 	const on = await ui();
 	matches("on", on, "Turn on");
+	await helperUp("Turn on");
 	expect(await page.evaluate("window.tryReactos.emulator !== window.__first && !window.__first.is_running()"), "Turn on did not replace the stopped machine");
 	expect(/^Running\./.test(on.status), `the status after Turn on is "${on.status}"`);
 	await shoot("4-turned-on");
@@ -144,6 +174,7 @@ try {
 	await page.click("[data-start]");
 	await toDesktop("Start after Stop");
 	matches("on", await ui(), "Start after Stop");
+	await helperUp("Start after Stop");
 
 	// 6. Reset.
 	await page.evaluate("window.__first = window.tryReactos.emulator");
@@ -151,6 +182,7 @@ try {
 	expect((await ui()).power === "starting", "Reset did not show the starting state");
 	await toDesktop("Reset");
 	matches("on", await ui(), "Reset");
+	await helperUp("Reset");
 	expect(await page.evaluate("window.tryReactos.emulator !== window.__first"), "Reset kept the same machine");
 	await shoot("6-reset");
 
@@ -160,6 +192,7 @@ try {
 	await page.click("[data-reset]");
 	await toDesktop("Reset after Shut Down");
 	matches("on", await ui(), "Reset after Shut Down");
+	await helperUp("Reset after Shut Down");
 	await shutDown("third Shut Down");
 	await page.click("[data-stop]");
 	matches("off", await ui(), "Stop after Shut Down");
