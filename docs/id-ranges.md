@@ -22,7 +22,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | CORE-200 to CORE-209 | Status bar (WP-BAR) | in use | [PR #182](https://github.com/liminal-hq-labs/quill/pull/182) |
 | CORE-210 to CORE-229 | Unicode (WP-UNI) | reserved | [plans/unicode.md](plans/unicode.md) |
 | CORE-230 to CORE-231 | WP-ED-5 rich clipboard | in use | [decisions.md](decisions.md) |
-| CORE-232 | header-page-top | in use | [id-ranges.toml](id-ranges.toml) |
+| CORE-233 | header-page-top | in use | [id-ranges.toml](id-ranges.toml) |
 
 ## ARCH
 

@@ -574,8 +574,8 @@ source = "docs/decisions.md"
 
 [[block]]
 prefix = "CORE"
-first = 232
-last = 232
+first = 233
+last = 233
 owner = "header-page-top"
 status = "in use"
 source = "docs/id-ranges.toml"

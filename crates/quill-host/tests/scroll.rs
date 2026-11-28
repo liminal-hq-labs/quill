@@ -33,7 +33,7 @@ impl Measure for Fixed {
 
 /// A letter sheet is 11 inches, 1,056 pixels, high.
 const SHEET: i32 = 1056;
-/// The top margin, an inch, which shows above the first line at the scroll origin (CORE-232).
+/// The top margin, an inch, which shows above the first line at the scroll origin (CORE-233).
 const MARGIN: i32 = 96;
 
 fn doc(lines: u32, view_h: i32) -> (App<Fixed>, HostStore, MemFiles) {

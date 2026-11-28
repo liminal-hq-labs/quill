@@ -21,7 +21,7 @@ pub const SHEET_SHADOW: i32 = 5;
 pub const DPI: u16 = 96;
 
 /// The page view's vertical geometry: pages one under another with a grey gap. At the scroll origin the first sheet's top is `PAGE_TOP`
-/// below the area's top, with its top margin showing, as in Word's print layout (CORE-232).
+/// below the area's top, with its top margin showing, as in Word's print layout (CORE-233).
 #[derive(Copy, Clone, Debug)]
 pub struct PageGeom {
 	pub page_h: i32,
