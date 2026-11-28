@@ -304,6 +304,7 @@ fn main() -> i32 {
 	// A drive with no disk must fail the call, not stop the program on DOS's own "Abort, Retry, Fail?" prompt. The old handler goes
 	// back at exit.
 	let _ = rt::dos::install_critical_handler();
+	keys::watch_repeats();
 	let mut ini = [0u8; 512];
 	let n = File::open("QUILL.INI", Mode::Read)
 		.ok()

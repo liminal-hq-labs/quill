@@ -14,7 +14,7 @@
 # Graphics (`/G16` and `/G`): tests/scenarios/g18-held-keys.keys by hand. Ctrl+I, Ctrl+B and Ctrl+U are each held for KEYS_HOLD seconds (default
 # 1.5) and Left is held to the start of the line; the frame the program ends on (the question about saving) must be the host's
 # (tests/golden/gfx/g18-held-keys.{16,256}.final): every toggle acted once and the cursor key kept repeating, whatever the number of
-# frames in between. Text screen: Insert is held; the status line's OVR must have come on once and stayed on. KEYS_EXE names another
+# frames in between (KEYS_ONLY=g18-held-12h, -vbe or -text runs one). Text screen: Insert is held; the status line's OVR must have come on once and stayed on. KEYS_EXE names another
 # QUILLDOS.EXE to run (to show what an older build did: the script then reports its counts and does not fail on them).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -66,6 +66,7 @@ tap() { x xdotool key "$@"; sleep 1; }
 
 run() { # <label> <arguments> <16|256|text>
 	local label="$1" args="$2" depth="$3"
+	[ -z "${KEYS_ONLY:-}" ] || [ "$KEYS_ONLY" = "$label" ] || return 0
 	local disk="$WORK/disk-$label" keep="$WORK/keep-$label"
 	mkdir -p "$disk"
 	cp "$EXE" "$disk/QUILLDOS.EXE"

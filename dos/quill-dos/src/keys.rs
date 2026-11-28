@@ -9,9 +9,11 @@
 use core::arch::asm;
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
+use desk_hal::irq::{Chain, Irq, IrqHandler, IrqRegistry, SharedIrqService};
 use desk_hal::x86::RawPorts;
 use desk_hal::PortIo;
 use quill_app::{Dir, Key};
+use rt::irq::DosIrq;
 
 /// Pixels Ctrl+Left and Ctrl+Right scroll the page sideways.
 const SCROLL_STEP: i32 = 48;
@@ -19,16 +21,90 @@ const SCROLL_STEP: i32 = 48;
 /// Set when a key was typed while Alt was held, so that letting Alt go afterwards is the end of a chord and not a tap.
 static ALT_USED: AtomicBool = AtomicBool::new(false);
 
-/// The BIOS key (AH:AL) last handed out, and the BIOS tick it was handed out at; `NONE` before the first.
+/// The BIOS key (AH:AL) last handed out and the BIOS tick it was handed out at; `NONE` before the first.
 static LAST_KEY: AtomicU32 = AtomicU32::new(NONE);
 static LAST_TICK: AtomicU32 = AtomicU32::new(0);
-static LAST_POLL: AtomicU32 = AtomicU32::new(0);
-/// Set when the keyboard controller's last byte was a key being let go, seen while no key was waiting.
-static RELEASED: AtomicBool = AtomicBool::new(true);
 const NONE: u32 = u32::MAX;
 
 /// Ticks (18.2 a second) a key may be silent and still be taken as the same hold: a little over the longest typematic delay (1 s).
 const HOLD_TICKS: u32 = 22;
+
+/// What the keyboard's interrupt saw: one flag for each key press, in order, that says whether it was the keyboard repeating the key
+/// before (the same scan code again with no release between). `HEAD` counts the flags written and `TAIL` the ones read.
+struct Snoop {
+	flags: AtomicU32,
+	head: AtomicU32,
+	tail: AtomicU32,
+	last_make: AtomicU32,
+	broken: AtomicBool,
+}
+
+static SNOOP: Snoop = Snoop {
+	flags: AtomicU32::new(0),
+	head: AtomicU32::new(0),
+	tail: AtomicU32::new(0),
+	last_make: AtomicU32::new(0),
+	broken: AtomicBool::new(true),
+};
+
+impl SharedIrqService for Snoop {
+	/// Looks at the scan code the controller holds, before the BIOS handler takes it: reading the data port again is what the BIOS does
+	/// next, and the controller keeps the byte until the next one comes.
+	fn on_irq(&self) {
+		// SAFETY: a DPMI client may read the keyboard controller's data port; nothing else is touched.
+		let code = u32::from(unsafe { RawPorts::new() }.inb(0x60));
+		// The prefixes of the extended keys, a release (bit 7) and the keys that put nothing in the BIOS buffer: Ctrl, the Shifts, Alt
+		// and the three locks.
+		if code == 0xE0 || code == 0xE1 {
+			return;
+		}
+		if code & 0x80 != 0 {
+			self.broken.store(true, Ordering::Relaxed);
+			return;
+		}
+		if matches!(code, 0x1D | 0x2A | 0x36 | 0x38 | 0x3A | 0x45 | 0x46) {
+			return;
+		}
+		let repeat = code == self.last_make.load(Ordering::Relaxed) && !self.broken.load(Ordering::Relaxed);
+		self.last_make.store(code, Ordering::Relaxed);
+		self.broken.store(false, Ordering::Relaxed);
+		let head = self.head.load(Ordering::Relaxed);
+		let bit = 1u32 << (head % 32);
+		let flags = self.flags.load(Ordering::Relaxed);
+		self.flags
+			.store(if repeat { flags | bit } else { flags & !bit }, Ordering::Relaxed);
+		self.head.store(head.wrapping_add(1), Ordering::Release);
+	}
+}
+
+/// Starts watching the keyboard for repeats. If the interrupt cannot be taken nothing is watched and every key counts as a press, the
+/// way it did before.
+pub fn watch_repeats() {
+	let _ = DosIrq.register(Irq::KEYBOARD, IrqHandler::from_shared(&SNOOP), Chain::Previous);
+}
+
+/// Whether the key just taken from the BIOS buffer was the keyboard repeating one: the flag of the oldest press not yet taken.
+fn next_flag() -> bool {
+	let head = SNOOP.head.load(Ordering::Acquire);
+	let mut tail = SNOOP.tail.load(Ordering::Relaxed);
+	if head.wrapping_sub(tail) > 32 {
+		tail = head.wrapping_sub(32);
+	}
+	if tail == head {
+		return false;
+	}
+	SNOOP.tail.store(tail.wrapping_add(1), Ordering::Relaxed);
+	SNOOP.flags.load(Ordering::Relaxed) & (1u32 << (tail % 32)) != 0
+}
+
+/// With no key waiting, what the interrupt saw for keys that never reached the buffer is let go, so the flags and the keys line up. The
+/// count is read before the buffer is looked at, so a key that arrives between the two keeps its flag.
+fn resync() {
+	let head = SNOOP.head.load(Ordering::Acquire);
+	if !key_ready() {
+		SNOOP.tail.store(head, Ordering::Relaxed);
+	}
+}
 
 /// What `wait_until` came back with.
 pub enum Wait {
@@ -67,7 +143,7 @@ pub fn wait_until(check: &mut dyn FnMut() -> bool) -> Wait {
 		} else {
 			ALT_USED.store(false, Ordering::Relaxed);
 		}
-		watch_release();
+		resync();
 		idle();
 	}
 	if alt_flag() {
@@ -76,6 +152,7 @@ pub fn wait_until(check: &mut dyn FnMut() -> bool) -> Wait {
 	let ax: u32;
 	// SAFETY: INT 16h is a BIOS service with register arguments only.
 	unsafe { asm!("int 0x16", inout("eax") 0u32 => ax) };
+	let flagged = next_flag();
 	if ax as u8 == 0 && matches!((ax >> 8) as u8, 0x73 | 0x74) {
 		return Wait::Scroll(if (ax >> 8) as u8 == 0x73 { -SCROLL_STEP } else { SCROLL_STEP });
 	}
@@ -84,45 +161,23 @@ pub fn wait_until(check: &mut dyn FnMut() -> bool) -> Wait {
 	};
 	let key = with_shift(key);
 	match key {
-		Some(k) if is_repeat(ax) => Wait::Held(k),
+		Some(k) if is_repeat(ax, flagged) => Wait::Held(k),
 		_ => Wait::Key(key),
 	}
 }
 
-/// True when BIOS key `ax` is the same key as the last one, with no release seen since and no long pause: a typematic repeat. The BIOS
-/// buffer hands over each repeat as a new key, so this is the only way to tell one from a press. A release is read from the keyboard
-/// controller's data port (60h), which keeps the last scan code and has bit 7 set for a key let go; it is looked at only while the
-/// BIOS buffer is empty (so the byte is later than every key waiting) and the output buffer is clear (so the BIOS has taken it
-/// and nothing here steals a byte from the BIOS or the mouse). Where the port shows nothing useful the pause alone ends the hold: a key
-/// is never taken for a repeat after more than `HOLD_TICKS`, and a release never seen costs at most one dropped press of a toggle.
-fn is_repeat(ax: u32) -> bool {
+/// True when BIOS key `ax` is a repeat: the keyboard's interrupt saw the same scan code again with no release, and it is the key last
+/// handed out, not long ago. The BIOS buffer gives each typematic repeat as a new key and shows no releases, so this is the only
+/// way to tell one from a press. The last test is the safety: a release the interrupt never saw ends the hold after `HOLD_TICKS`, so a
+/// toggle is never stuck off.
+fn is_repeat(ax: u32, flagged: bool) -> bool {
 	let now = crate::mouse::ticks();
-	let same = LAST_KEY.load(Ordering::Relaxed) == (ax & 0xFFFF)
-		&& !RELEASED.load(Ordering::Relaxed)
+	let same = flagged
+		&& LAST_KEY.load(Ordering::Relaxed) == (ax & 0xFFFF)
 		&& now.wrapping_sub(LAST_TICK.load(Ordering::Relaxed)) <= HOLD_TICKS;
 	LAST_KEY.store(ax & 0xFFFF, Ordering::Relaxed);
 	LAST_TICK.store(now, Ordering::Relaxed);
-	if !same {
-		RELEASED.store(false, Ordering::Relaxed);
-	}
 	same
-}
-
-/// While a key is taken as held, looks once a tick at whether the keyboard has sent its release. The port is read only then and only
-/// while its output buffer is empty, which keeps the reads rare and off any byte the BIOS or the mouse is about to take.
-fn watch_release() {
-	if RELEASED.load(Ordering::Relaxed) || LAST_KEY.load(Ordering::Relaxed) == NONE {
-		return;
-	}
-	let now = crate::mouse::ticks();
-	if now == LAST_POLL.swap(now, Ordering::Relaxed) {
-		return;
-	}
-	// SAFETY: a DPMI client may read the keyboard controller's ports; the data port is read only while the output buffer is empty.
-	let ports = unsafe { RawPorts::new() };
-	if ports.inb(0x64) & 1 == 0 && ports.inb(0x60) & 0x80 != 0 {
-		RELEASED.store(true, Ordering::Relaxed);
-	}
 }
 
 /// The key as the shift keys make it: Shift with a movement key extends the selection.
