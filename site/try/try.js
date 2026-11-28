@@ -35,7 +35,7 @@
 	var MODE_KEYS = { gfx: 49, g16: 50, text: 51 };
 	var MODE_NAMES = { gfx: "graphics, 256 colours", g16: "graphics, 16 colours", text: "text mode" };
 	// js-dos key codes for the on-screen keys.
-	var KEYS = { esc: 256, enter: 257, tab: 258, up: 265, down: 264, left: 263, right: 262, pgup: 266, pgdn: 267, f10: 299, f7: 296 };
+	var KEYS = { esc: 256, enter: 257, tab: 258, up: 265, down: 264, left: 263, right: 262, pgup: 266, pgdn: 267, ctrl: 341, f10: 299, f7: 296 };
 	var STORE = "quill-try-";
 	// A key pressed before FreeDOS shows its menu waits in the keyboard buffer, so the delay only keeps the press from landing on the boot messages.
 	var MENU_DELAY_MS = 1000;
@@ -360,19 +360,16 @@
 		paceClosed = false;
 	}
 
-	// The wheel (SITE-111). js-dos 8.5.3 cannot send a wheel to DOSBox (its wasm exports mouseMove, mouseButton and mouseSync, nothing else),
+	// The wheel (SITE-110). js-dos 8.5.3 cannot send a wheel to DOSBox (its wasm exports mouseMove, mouseButton and mouseSync, nothing else),
 	// so the page turns it into keys. The module counts notches (one per WHEEL_PIXELS, so one Firefox click of three lines is one notch and a
-	// touchpad's small deltas add up); a notch is WHEEL_LINES Up or Down presses, Quill's own three lines. Lines owed are kept as one signed
-	// number and paid one key every WHEEL_KEY_MS: Page Up or Page Down while a screenful (WHEEL_PAGE_LINES) or more is owed, an arrow after.
-	// The pace is the guest's: measured, DOS Quill takes keys at about one in 40 ms (30 Right presses sent every 16 ms made 20 moves, every
-	// 40 ms 28, every 50 ms 29 and every 60 ms all 30, as the status line's column showed), the rest lost from the BIOS buffer.
-	// Quill has no key that scrolls the view without moving the caret (Ctrl+Up is a paragraph), so these move the caret and the view
-	// follows it. Never more than WHEEL_OWED_MAX lines are owed, and a turn the other way drops what was owed.
+	// touchpad's small deltas add up). A notch is one Ctrl+Page Down (down) or Ctrl+Page Up (up): DOS Quill scrolls the view three lines, the
+	// caret staying where it is (SITE-113; the program's side is the pull request that adds the keys, so the page must not ship before it).
+	// Notches owed are one signed number paid one key every WHEEL_KEY_MS and never more than WHEEL_OWED_MAX; a turn the other way drops
+	// what was owed. The pace is the guest's: measured, DOS Quill takes keys at about one in 40 ms (30 Right presses sent every 16 ms made 20
+	// moves, every 40 ms 28, every 50 ms 29 and every 60 ms all 30), the rest lost from the BIOS buffer.
 	var WHEEL_PIXELS = 48;
-	var WHEEL_LINES = 3;
-	var WHEEL_PAGE_LINES = 15;
 	var WHEEL_KEY_MS = 70;
-	var WHEEL_OWED_MAX = 60;
+	var WHEEL_OWED_MAX = 20;
 	var wheelOwed = 0;
 	var wheelTimer = 0;
 
@@ -382,17 +379,14 @@
 			wheelOwed = 0;
 			return;
 		}
-		var down = wheelOwed > 0;
-		var page = Math.abs(wheelOwed) >= WHEEL_PAGE_LINES;
-		ci.simulateKeyPress(page ? (down ? KEYS.pgdn : KEYS.pgup) : down ? KEYS.down : KEYS.up);
-		var paid = page ? WHEEL_PAGE_LINES : 1;
-		wheelOwed += down ? -paid : paid;
+		// Ctrl is held, the page key pressed and let go, and Ctrl let go, by the one call (as the Ctrl+Alt+Del of js-dos's own bar does).
+		ci.simulateKeyPress(KEYS.ctrl, wheelOwed > 0 ? KEYS.pgdn : KEYS.pgup);
+		wheelOwed += wheelOwed > 0 ? -1 : 1;
 		if (wheelOwed) wheelTimer = window.setTimeout(wheelSend, WHEEL_KEY_MS);
 	}
 
 	function wheelTurn(notches) {
-		var lines = notches * WHEEL_LINES;
-		wheelOwed = (wheelOwed > 0) === (lines > 0) ? wheelOwed + lines : lines;
+		wheelOwed = (wheelOwed > 0) === (notches > 0) ? wheelOwed + notches : notches;
 		wheelOwed = Math.max(-WHEEL_OWED_MAX, Math.min(WHEEL_OWED_MAX, wheelOwed));
 		if (!wheelTimer) wheelSend();
 	}

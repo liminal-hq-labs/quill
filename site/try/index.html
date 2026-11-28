@@ -32,7 +32,7 @@
 		<script src="../js/site.js?v=732915f9" defer></script>
 		<script src="../js/pointer.js?v=10b883d8" defer></script>
 		<script src="bridge.js?v=3bdc0994" data-module="lib/dos-bridge.js?v=b2e050c0" defer></script>
-		<script src="try.js?v=f0efec16" defer></script>
+		<script src="try.js?v=4afaddac" defer></script>
 	</head>
 	<body>
 		<a class="skip-link" href="#main">Skip to the content</a>
@@ -137,7 +137,7 @@
 					<p>In the graphics modes Quill has a pointer of its own: click the menus, the toolbar and the formatting bar, drag in the page to select, drag the scroll bars and the ruler's markers, and use the dialogs. Text mode takes the mouse too, a cell at a time.</p>
 					<ul class="plain-list">
 						<li><strong>With a mouse:</strong> Quill's pointer stays under yours. Your own pointer is hidden over the screen, and Quill's follows it to the pixel, so slow and diagonal movements stay smooth. This is <em>Follow</em>, the default. Choose <em>Capture</em> under the screen to have the browser lock the mouse to the screen instead (click the screen once; <kbd>Esc</kbd> gives your pointer back, and inside a Quill menu or dialog press it again to close that). The <em>Pointer speed</em> slider appears while the mouse is captured.</li>
-						<li><strong>The wheel:</strong> with your pointer over the screen the wheel scrolls Quill's document and not the page; move off the screen to scroll the page again. The emulator can't pass a wheel to the emulated PC, so the page sends Up and Down arrow presses (three a notch, Page Up and Page Down for a long spin), which move the caret and the view follows it. <kbd>Ctrl</kbd> with the wheel (or a pinch) still zooms the browser.</li>
+						<li><strong>The wheel:</strong> with your pointer over the screen the wheel scrolls Quill's document and not the page; move off the screen to scroll the page again. The emulator can't pass a wheel to the emulated PC, so the page sends Quill's own scroll keys, <kbd>Ctrl</kbd>+<kbd>Page Down</kbd> and <kbd>Ctrl</kbd>+<kbd>Page Up</kbd>, three lines a notch, and your caret stays where it is. <kbd>Ctrl</kbd> with the wheel (or a pinch) still zooms the browser.</li>
 						<li><strong>On a phone or tablet:</strong> the screen works like a laptop's trackpad. Drag a finger to move Quill's pointer, tap to click where the pointer is, tap with two fingers to right-click, and hold a finger still for a moment and then drag to hold the button down (to select text or drag a scroll bar). The row of keys under the screen stands in for the keyboard; turn the phone sideways, or use <strong>Full screen</strong>, for a bigger picture.</li>
 					</ul>
 					<p>The disk carries FreeDOS's <a href="https://freedos.org/">CuteMouse</a> driver, which Quill reads as it would on a real PC: a disk booted in DOSBox has no mouse driver of its own.</p>

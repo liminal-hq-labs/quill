@@ -10,7 +10,8 @@
 // What it checks, per browser and display mode (js-dos cannot send a wheel to DOSBox, so the page turns it into keys: SITE-111):
 //   - with the pointer over the screen a wheel turn does not scroll the page (window.scrollY is the same) and Quill's frame changes (its
 //     view scrolled), for a mouse's pixel steps, for Firefox's three-line steps and for a touchpad's small deltas;
-//   - a notch is three Down presses, and a long spin uses Page Down; a turn the other way sends Up and PgUp and the frame returns;
+//   - a notch is one Ctrl+Page Down (Ctrl+Page Up the other way), which DOS Quill answers by scrolling the view three lines and leaving the
+//     caret where it is (SITE-113: the status line's Pg, Ln and Col do not change); a long spin is capped at 20 notches;
 //   - with the pointer outside the screen the page scrolls and no key goes to the guest;
 //   - Ctrl+wheel (the browser's zoom) is not taken: the event is not cancelled and no key goes to the guest;
 //   - in Capture the wheel works the same.
@@ -48,10 +49,11 @@ function check(browser: string, mode: string, name: string, pass: boolean, detai
 }
 
 // js-dos key codes the page sends for the wheel.
-const UP = 265;
-const DOWN = 264;
+const CTRL = 341;
 const PGUP = 266;
 const PGDN = 267;
+// The keys come as pairs, Ctrl and then the page key, one pair a notch.
+const pairs = (keys: number[], page: number) => keys.length > 0 && keys.length % 2 === 0 && keys.every((k, i) => k === (i % 2 === 0 ? CTRL : page));
 
 // In the page: hand over the ci and log the keys the page sends through it; a stand-in for the pointer lock, which headless browsers refuse.
 const INIT = () => {
@@ -102,6 +104,8 @@ const INIT = () => {
 // The page area of Quill's frame (between the top bars and the status line). A caret blinks, so a view that scrolled is told from a
 // blink by how many pixels differ from a frame kept earlier: a scroll changes thousands, a caret dozens.
 const FRAME_ROWS: Record<string, [number, number]> = { gfx: [150, 440], g16: [150, 440], text: [48, 368] };
+// The status line, which says Pg, Ln and Col: the caret's place.
+const STATUS_ROWS: Record<string, [number, number]> = { gfx: [462, 480], g16: [462, 480], text: [384, 400] };
 const KEEP = (name: string) => `(async () => { (window).__kept = (window).__kept || {}; (window).__kept["${name}"] = await window.__ci.screenshot(); })()`;
 const DIFF = (name: string, rows: [number, number]) => `(async () => {
 	const a = (window).__kept["${name}"];
@@ -144,6 +148,7 @@ async function run(browserName: string, base: string) {
 			for (const capture of [false, true]) {
 				const label = capture ? key + " capture" : key;
 				const page = await open(base, browser, key, capture ? "mouse=capture&lockstub=1" : "mouse=follow");
+				const status = (name: string) => page.evaluate(DIFF(name, STATUS_ROWS[key]) as any) as Promise<number>;
 				const keep = (name: string) => page.evaluate(KEEP(name) as any);
 				const diff = (name: string) => page.evaluate(DIFF(name, FRAME_ROWS[key]) as any) as Promise<number>;
 				const keys = async () => (await page.evaluate(() => (window as any).__keys.splice(0))) as number[];
@@ -192,31 +197,33 @@ async function run(browserName: string, base: string) {
 				await sleep(3000);
 				check(browserName, label, "the driver's wheel over the screen does not scroll the page", (await scrollY()) === before, `scrollY ${before} to ${await scrollY()}`);
 				const sent = await keys();
-				check(browserName, label, "and goes to the guest as Down presses", sent.length >= 3 && sent.every((k) => k === DOWN || k === PGDN), `${sent.length} keys, first ${sent.slice(0, 6).join(",")}`);
+				check(browserName, label, "and goes to the guest as Ctrl+Page Down, six notches", pairs(sent, PGDN) && sent.length === 12, `${sent.length} codes, first ${sent.slice(0, 6).join(",")}`);
 
-				// Three lines (Firefox's click) is one notch, three Down presses.
+				// Three lines (Firefox's click) is one notch, one Ctrl+Page Down.
 				await wheelOver(3, 1, 1);
 				const one = await keys();
-				check(browserName, label, "one click of three lines is one notch: three Down presses", one.length === 3 && one.every((k) => k === DOWN), `${one.join(",")}`);
+				check(browserName, label, "one click of three lines is one notch: one Ctrl+Page Down", pairs(one, PGDN) && one.length === 2, `${one.join(",")}`);
 				check(browserName, label, "the event is cancelled", await page.evaluate(() => (window as any).__lastWheelPrevented));
 
 				// A touchpad: 40 small deltas of 3 pixels make 120 pixels, two notches and a bit.
 				await wheelOver(3, 0, 40);
 				const pad = await keys();
-				check(browserName, label, "a touchpad's small deltas add up to notches", pad.length === 6 && pad.every((k) => k === DOWN), `${pad.length} keys`);
+				check(browserName, label, "a touchpad's small deltas add up to notches", pairs(pad, PGDN) && pad.length === 4, `${pad.length} codes`);
 
-				// A long spin (events 4 ms apart): Page Down for every 15 lines owed.
+				// A long spin (events 4 ms apart): 24 notches asked, 20 owed at most.
 				await wheelOver(100, 0, 1);
 				await keys();
 				await wheelOver(100, 0, 12, 4);
 				const spin = await keys();
-				check(browserName, label, "a long spin uses Page Down", spin.includes(PGDN) && spin.length <= 40 && spin.length > 0, `${spin.length} keys, ${spin.filter((k) => k === PGDN).length} Page Down`);
+				check(browserName, label, "a long spin is capped (20 owed at most)", pairs(spin, PGDN) && spin.length < 48, `${spin.length / 2} notches of the 24 asked`);
 
 				// Quill's view moved, and the page did not.
 				await wheelOver(100, 0, 10);
 				await keys();
 				const moved = await settle(() => diff("top"), (n) => n > 1500);
 				check(browserName, label, "Quill's frame changed (its view scrolled)", moved > 1500, `${moved} pixels differ from the first frame`);
+				const caretMoved = await status("top");
+				check(browserName, label, "the caret did not move (the status line is the same)", caretMoved === 0, `${caretMoved} pixels of the status line differ`);
 				await keep("down");
 				check(browserName, label, "the page did not scroll through all of it", (await scrollY()) === before, `scrollY ${await scrollY()}, was ${before}`);
 				await page.locator("[data-stage]").screenshot({ path: path.join(outDir, "shots", `after-down-${browserName}-${label.replace(" ", "-")}.png`) });
@@ -224,7 +231,7 @@ async function run(browserName: string, base: string) {
 				// The other way: Up keys, and the frame comes back toward where it was.
 				await wheelOver(-100, 0, 3);
 				const up = await keys();
-				check(browserName, label, "the other way sends Up and Page Up", up.length > 0 && up.every((k) => k === UP || k === PGUP), `${up.length} keys`);
+				check(browserName, label, "the other way sends Ctrl+Page Up", pairs(up, PGUP), `${up.length / 2} notches`);
 				await wheelOver(-100, 0, 30);
 				const upKeys = await keys();
 				await page.locator("[data-stage]").screenshot({ path: path.join(outDir, "shots", `after-up-${browserName}-${label.replace(" ", "-")}.png`) });
@@ -233,7 +240,7 @@ async function run(browserName: string, base: string) {
 				if (back <= 1500) {
 					// Seen in two of twelve variants of one long run (and in none of five shorter ones): the first spin up changed nothing. One more spin tells
 					// whether the guest still takes keys; both results are reported.
-					console.log(`     the first spin up changed ${back} pixels (${upKeys.length} keys sent, ${upKeys.filter((k) => k === PGUP).length} Page Up); spinning again`);
+					console.log(`     the first spin up changed ${back} pixels (${upKeys.length / 2} notches sent); spinning again`);
 					await wheelOver(-100, 0, 12, 4);
 					await keys();
 					back = await settle(() => diff("down"), (n) => n > 1500);
