@@ -236,6 +236,18 @@ impl<M: Measure + Clone> App<M> {
 		self.set_vscroll_pos(s, at.saturating_add(delta))
 	}
 
+	/// Scrolls the view `n` notches of three lines (negative up) without moving the caret: by pixels in a page view, by lines on the
+	/// text screen. The wheel does it, and so do Ctrl+Page Up and Ctrl+Page Down on DOS.
+	pub fn scroll_notches<S: ReadStore + ?Sized>(&mut self, s: &S, n: i32) {
+		if self.pixel_view() {
+			self.vscroll_by(s, n.saturating_mul(crate::mouse::WHEEL_LINES * SCROLL_LINE));
+		} else {
+			let top =
+				i64::from(self.top_line()) + i64::from(n) * i64::from(crate::mouse::WHEEL_LINES);
+			self.scroll_to(s, top.clamp(0, i64::from(u32::MAX)) as u32);
+		}
+	}
+
 	/// The line under the window's `y` in a page area whose top is `area_top`, as its index: the line `y` is in, the nearer of the two
 	/// lines around a gap (space before or after a paragraph, a page break), the first line shown above the text and the last below it.
 	pub fn line_at_y<S: ReadStore + ?Sized>(&self, s: &S, area_top: i32, y: i32) -> Option<u32> {

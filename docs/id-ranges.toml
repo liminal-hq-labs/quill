@@ -659,3 +659,19 @@ last = 116
 owner = "Zoom keys (WP-BAR-1K)"
 status = "in use"
 source = "docs/decisions.md"
+
+[[block]]
+prefix = "DOS"
+first = 134
+last = 134
+owner = "DOS scroll keys (fix/dos-scroll-keys; inside the DOS-130 to DOS-134 block of fix/dos-mouse-polish)"
+status = "in use"
+source = "docs/decisions.md"
+
+[[block]]
+prefix = "DOS"
+first = 143
+last = 143
+owner = "DOS Last used path (fix/dos-scroll-keys; inside the DOS-140 to DOS-144 block of fix/dos-text-mouse)"
+status = "in use"
+source = "docs/decisions.md"

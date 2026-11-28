@@ -1152,13 +1152,27 @@ impl FileDlg {
 			PlaceKind::Drive(letter, _) => self.change_drive(letter, fs, store),
 			PlaceKind::Folder => self.go_outcome(p.path, fs, store),
 			PlaceKind::Recent => {
+				// A recent file kept as `SAMPLES\DEMO.QLD` is relative to the folder the program runs in: made a full path first.
+				let mut here = self.folder;
+				if let Some(d) = self.folder.drive() {
+					let _ = fs.current_dir(d, &mut here);
+				}
+				let Ok(full) = resolve(&here, p.path.as_bytes(), |_| None) else {
+					return Outcome::Error(DlgError::NotFound);
+				};
+				let p = Place {
+					path: full.path,
+					..p
+				};
 				if self.kind == Kind::SaveAs {
 					let Some(folder) = p.path.parent() else {
 						return Outcome::None;
 					};
 					let out = self.go_outcome(folder, fs, store);
-					self.name.set(p.path.file_name());
-					self.select_name_in_list(&*store);
+					if out == Outcome::None {
+						self.name.set(p.path.file_name());
+						self.select_name_in_list(&*store);
+					}
 					out
 				} else {
 					self.chosen = p.path;

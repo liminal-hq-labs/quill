@@ -1,0 +1,16 @@
+# G12 (graphics): Ctrl+Page Up and Ctrl+Page Down scroll the page three lines without moving the caret, on a document of sixty lines (INT 16h scan
+# codes 98h and A0h; the web page's wheel sends them). Four down, one up, then End: the caret was on the first line all along, so End
+# brings the view back to it. Every frame's CRC-32 must equal the host's in both graphics modes.
+@copy scroll.rtf
+@open SCROLL.RTF
+ctrlpagedown
+ctrlpagedown
+ctrlpagedown
+ctrlpagedown
+ctrlpageup
+ctrlpageup
+ctrlpageup
+ctrlpageup
+ctrlpageup                 # past the top: nothing moves
+ctrlpagedown ctrlpagedown
+end                   # the caret was still on the first line: the view goes back to it

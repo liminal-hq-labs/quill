@@ -48,18 +48,18 @@ x() { DISPLAY=":$N" "$@"; }
 
 # The pace of the emulated program is its own, so each action is given time to be seen, drawn and dumped.
 SETTLE="${MOUSE_SETTLE:-7}"
-run() { # <label> <arguments> <16|256>
-	local label="$1" args="$2" depth="$3"
+run() { # <label> <arguments> <16|256> [document, default letter.rtf] [golden, default g11-real-keys] [keys, default the zoom keys]
+	local label="$1" args="$2" depth="$3" doc="${4:-letter.rtf}" golden="${5:-g11-real-keys}" keys="${6:-alt+equal alt+minus alt+minus alt+equal alt+equal alt+0 alt+equal}"
 	local disk="$WORK/disk-$label" keep="$WORK/keep-$label"
 	mkdir -p "$disk"
 	cp "$HERE/dist/QUILLDOS.EXE" "$disk/"
 	cp "$ROOT/tests/fonts/QUILLTST.FNT" "$disk/QUILL.FNT"
-	cp "$ROOT/tests/docs/letter.rtf" "$disk/LETTER.RTF"
+	cp "$ROOT/tests/docs/$doc" "$disk/$(echo "$doc" | tr '[:lower:]' '[:upper:]')"
 	(
 		export DISPLAY=":$N" DOS_X11=1 DOS_KEEP="$keep" DOS_TIMEOUT=300 DOS_VENDOR="$VENDOR"
 		export DOS_ENV=$'QUILL_DUMP=D:\\DUMP.TXT'
 		export DOS_CONF=$'[sdl]\nwindowresolution = 640x480'
-		"$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE $args LETTER.RTF" > "$WORK/$label.out" 2>&1
+		"$HERE/tools/dosrun.sh" "$disk" "QUILLDOS.EXE $args $(echo "$doc" | tr '[:lower:]' '[:upper:]')" > "$WORK/$label.out" 2>&1
 	) &
 	local pid=$! win="" i
 	for i in $(seq 1 60); do
@@ -77,7 +77,7 @@ run() { # <label> <arguments> <16|256>
 	# Each key is given time to be read, drawn and dumped. DOSBox's BIOS gives the program no key at all for Alt with the keypad's plus or minus
 	# (the real BIOS gives AH 4Eh and 4Ah, RBIL), so the plus is typed as Alt+= (AH 83h), which Quill reads as the same key.
 	local n=0 k
-	for k in ${KEYS:-alt+equal alt+minus alt+minus alt+equal alt+equal alt+0 alt+equal}; do
+	for k in $keys; do
 		n=$((n + 1))
 		x xdotool key "$k"; sleep "$SETTLE"
 		shot "$label-$n-${k//+/-}.png"
@@ -92,11 +92,14 @@ run() { # <label> <arguments> <16|256>
 	total="$(grep -c '^frame' "$WORK/$label-frames.txt")"
 	# The keys that exit (F10, End, Enter) change nothing on the page, so the last frame is the page as the zoom keys left it.
 	last="$(grep '^frame' "$WORK/$label-frames.txt" | tail -1 | awk '{print "crc32 " $4}')"
-	want="$(cat "$ROOT/tests/golden/gfx/g11-real-keys.$depth.final")"
+	want="$(cat "$ROOT/tests/golden/gfx/$golden.$depth.final")"
 	[ "$last" = "$want" ] || { grep '^frame' "$WORK/$label-frames.txt" | awk '{print $1, $2, $4}' >&2; fail "$label: the last frame before the exit is '$last' and the host's is '$want' ($total frames)"; }
-	echo "keys-x11: $label: the zoom keys through INT 16h end on the host's frame ($total frames drawn)"
+	echo "keys-x11: $label: the keys through INT 16h end on the host's frame ($total frames drawn)"
 }
 
 run g11-real-keys-12h /G16 16
 run g11-real-keys-vbe /G 256
+# Ctrl+Page Down three times, Ctrl+Page Up once (scan codes 76h and 84h): the scroll keys, from tests/scenarios/g12-real-keys.keys.
+run g12-real-keys-12h /G16 16 scroll.rtf g12-real-keys "ctrl+Next ctrl+Next ctrl+Next ctrl+Prior"
+run g12-real-keys-vbe /G 256 scroll.rtf g12-real-keys "ctrl+Next ctrl+Next ctrl+Next ctrl+Prior"
 echo "keys-x11: ok"

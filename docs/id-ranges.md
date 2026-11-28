@@ -49,6 +49,8 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | DOS-115 | WP-ED-5 rich clipboard | in use | [decisions.md](decisions.md) |
 | DOS-116 | Zoom keys (WP-BAR-1K) | in use | [decisions.md](decisions.md) |
 | DOS-120 to DOS-123 | DOS page bridge (WP-DOSWEB) | reserved | [plans/dos-page-bridge.md](plans/dos-page-bridge.md) |
+| DOS-134 | DOS scroll keys (fix/dos-scroll-keys; inside the DOS-130 to DOS-134 block of fix/dos-mouse-polish) | in use | [decisions.md](decisions.md) |
+| DOS-143 | DOS Last used path (fix/dos-scroll-keys; inside the DOS-140 to DOS-144 block of fix/dos-text-mouse) | in use | [decisions.md](decisions.md) |
 
 ## W16
 

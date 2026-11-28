@@ -176,6 +176,7 @@ fn golden_of(mode: Mode, name: &str) -> Vec<Frame> {
 		"g9-gfx-open" => &[("dialog", 4), ("types", 6), ("sorted", 14)],
 		"g9-gfx-open-mouse" => &[("picked", 5), ("scrolled", 20), ("types", 31)],
 		"g9-gfx-save-as-mouse" => &[("new-folder", 7), ("read-only", 14), ("replace", 19)],
+		"g13-gfx-last-used" => &[("save-as", 6), ("last-used", 12)],
 		"g17-gfx-recover" => &[("question", 1), ("focus", 2), ("recovered", 3)],
 		"g9-gfx-save-as" => &[
 			("dialog", 6),
@@ -214,6 +215,7 @@ fn golden_of(mode: Mode, name: &str) -> Vec<Frame> {
 	}
 	if !name.starts_with("g7-")
 		&& !name.starts_with("g9-")
+		&& !name.starts_with("g13-")
 		&& !name.starts_with("g17-")
 		&& name != "g10-gfx-spell"
 	{
@@ -260,23 +262,33 @@ fn real_driver_final(mode: Mode) {
 }
 
 /// The frame `dos/tools/keys-x11.sh` compares with: the last one of the scenario whose zoom keys a real keyboard is made to type.
-fn real_keys_final(mode: Mode) {
-	let (frames, _) = play_file(mode, "g11-real-keys");
+fn real_keys_final(mode: Mode, name: &str) {
+	let (frames, _) = play_file(mode, name);
 	let last = frames.last().unwrap();
 	compare_bytes(
-		&format!("tests/golden/gfx/g11-real-keys.{}.final", mode.name()),
+		&format!("tests/golden/gfx/{name}.{}.final", mode.name()),
 		format!("crc32 {:08x}\n", crc32(&last.native)).as_bytes(),
 	);
 }
 
 #[test]
 fn the_real_keyboard_zoom_scenario_ends_on_the_same_frame_at_16_colours() {
-	real_keys_final(Mode::C16);
+	real_keys_final(Mode::C16, "g11-real-keys");
+}
+
+#[test]
+fn the_real_keyboard_scroll_scenario_ends_on_the_same_frame_at_16_colours() {
+	real_keys_final(Mode::C16, "g12-real-keys");
 }
 
 #[test]
 fn the_real_keyboard_zoom_scenario_ends_on_the_same_frame_at_256_colours() {
-	real_keys_final(Mode::C256);
+	real_keys_final(Mode::C256, "g11-real-keys");
+}
+
+#[test]
+fn the_real_keyboard_scroll_scenario_ends_on_the_same_frame_at_256_colours() {
+	real_keys_final(Mode::C256, "g12-real-keys");
 }
 
 #[test]
@@ -584,6 +596,26 @@ fn the_pointer_on_the_scroll_bar_at_16_colours() {
 #[test]
 fn the_pointer_on_the_scroll_bar_at_256_colours() {
 	golden_of(Mode::C256, "g8-gfx-scroll");
+}
+
+#[test]
+fn the_scroll_keys_at_16_colours() {
+	golden_of(Mode::C16, "g12-gfx-scroll-keys");
+}
+
+#[test]
+fn the_scroll_keys_at_256_colours() {
+	golden_of(Mode::C256, "g12-gfx-scroll-keys");
+}
+
+#[test]
+fn a_last_used_file_in_save_as_at_16_colours() {
+	golden_of(Mode::C16, "g13-gfx-last-used");
+}
+
+#[test]
+fn a_last_used_file_in_save_as_at_256_colours() {
+	golden_of(Mode::C256, "g13-gfx-last-used");
 }
 
 #[test]

@@ -47,6 +47,10 @@ pub fn decode(ascii: u8, scan: u8) -> Option<Key> {
 		(0, 0x85) => Key::F(11),
 		(0, 0x86) => Key::F(12),
 		(0, 0x0E) => Key::Alt(8),
+		// Ctrl+Page Up and Ctrl+Page Down (scan codes 84h and 76h) scroll the view without the caret: `Key::Ctrl` of the CP437 arrows
+		// 18h and 19h. DOSBox's BIOS gives no key for Alt+Up, Alt+Down, Ctrl+Up or Ctrl+Down.
+		(0 | 0xE0, 0x84) => Key::Ctrl(0x18),
+		(0 | 0xE0, 0x76) => Key::Ctrl(0x19),
 		(0, 0x0F) => Key::BackTab,
 		(0, s) if alt_letter(s).is_some() => Key::Alt(alt_letter(s)?),
 		// The keys with a code of their own: the scan code says whether it was the key or Ctrl with a letter.
