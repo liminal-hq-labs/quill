@@ -110,6 +110,7 @@ Ranges reserved for this track, above every id on `main`, in the autosave branch
 | CORE, DOS, W16, W9X, LNX, WUI | CORE-200 to CORE-209, DOS-100 to DOS-109, W16-110 to W16-114, W9X-120 to W9X-124, LNX-90 to LNX-94, WUI-80 to WUI-84 | The status bar, [plans/status-bar.md](plans/status-bar.md) |
 | CORE, DOS, W16, W9X, LNX, WUI | CORE-210 to CORE-229, DOS-110 to DOS-114, W16-115 to W16-119, W9X-125 to W9X-129, LNX-95 to LNX-99, WUI-95 to WUI-97 | Unicode, [plans/unicode.md](plans/unicode.md) (WP-UNI-1 to WP-UNI-15). The Unicode ids of the editor track's own block are CORE-100 (U1a, U1b), CORE-103 and CORE-104 (U2); CORE-211 (positions) is written by WP-ED-4 |
 | SITE, DOS | SITE-60 to SITE-69, DOS-120 to DOS-123 | The DOS page bridge, [plans/dos-page-bridge.md](plans/dos-page-bridge.md) (WP-DOSWEB-1 to WP-DOSWEB-8). WP-DOSWEB-3 (`QUILLDOS.EXE /W`, at most 1,536 bytes) edits only `dos/quill-dos`, after WP-ED-5 and before WP-ED-10 opens the freeze; the other packages are page-side |
+| SITE | SITE-80 to SITE-89 | Host link guests, [plans/host-link-guests.md](plans/host-link-guests.md) (WP-HLG-1 to WP-HLG-9 and WP-HOST-8). Reserved by hand above the open branches' SITE-54 to SITE-57 and SITE-70 to SITE-73. Until WP-WEB-8 has merged, these packages touch the ReactOS page only in marked blocks; WP-HLG-1 (a Linux spike in its own folder) can start now |
 
 ## Gates and evidence
 
