@@ -25,3 +25,15 @@ target="${CARGO_TARGET_DIR:-$PWD/target}"
 mkdir -p dist
 cp "$target/win9x/release/quill32.exe" "$out"
 echo "build: $out ($(wc -c < "$out") bytes)"
+if [ "${1:-}" != "--bench" ]; then
+	# HOSTLINK.EXE, the ReactOS demo's guest helper: the same target and link line as QUILL32.EXE, without its resource file (the env
+	# variable replaces the config's rustflags, which name quill.res). A budget guard keeps it tiny: 24 KiB.
+	flags=(-C link-arg=/NODEFAULTLIB -C link-arg=/ENTRY:start -C link-arg=/SUBSYSTEM:WINDOWS,4.0 -C link-arg=/FIXED -C link-arg=/DYNAMICBASE:NO -C llvm-args=-min-jump-table-entries=1000)
+	CARGO_ENCODED_RUSTFLAGS=$(IFS=$'\x1f'; echo "${flags[*]}") cargo build --release --locked -p quill-hostlink-exe
+	cp "$target/win9x/release/hostlink.exe" dist/HOSTLINK.EXE
+	# HLCLIP.EXE is the same package's test-only program (the end-to-end check's RTF copy); it is never put on a product disk.
+	cp "$target/win9x/release/hlclip.exe" dist/HLCLIP.EXE
+	size=$(wc -c < dist/HOSTLINK.EXE)
+	echo "build: dist/HOSTLINK.EXE ($size bytes)"
+	[ "$size" -le 24576 ] || { echo "build: HOSTLINK.EXE is over its 24 KiB budget" >&2; exit 1; }
+fi

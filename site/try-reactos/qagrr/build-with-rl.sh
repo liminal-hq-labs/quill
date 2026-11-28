@@ -6,7 +6,7 @@
 #
 # Usage: build-with-rl.sh [--work DIR] [--quill-dir DIR | --build-quill] [--allow-stale-quill] [--out DIR] [--dry-run] [--check-trim]
 #   --work DIR       where rl keeps downloads, disks and scratch (default ~/.cache/reactos-liminal); never inside the repository
-#   --quill-dir DIR  folder with QUILL.EXE and QUILL32.EXE (the Quill builds); needed unless --dry-run
+#   --quill-dir DIR  folder with QUILL.EXE, QUILL32.EXE and HOSTLINK.EXE (the Quill builds and the link helper); needed unless --dry-run
 #   --build-quill    build QUILL.EXE (win16/build.sh) and QUILL32.EXE (win9x/build.sh) from this checkout into WORK/quill-dir and use them, so the disk never
 #                    carries a program older than the source (needs the Rust toolchain the repository pins; CARGO_BUILD_JOBS applies)
 #   --allow-stale-quill  accept a --quill-dir whose programs are older than the last commit that touched the Win16, Win32, core or asset sources
@@ -108,13 +108,16 @@ if [ "$build_quill" = 1 ]; then
 	# win9x/build.sh writes win9x/dist/QUILL32.EXE; the Win16 build's other programs and map files stay out of the payload.
 	bash "$repo/win9x/build.sh"
 	cp "$repo/win9x/dist/QUILL32.EXE" "$quill_dir/QUILL32.EXE"
+	# The same build makes the link helper (HOSTLINK.EXE, SITE-32); `HLCLIP.EXE` beside it is a test program and stays out.
+	cp "$repo/win9x/dist/HOSTLINK.EXE" "$quill_dir/HOSTLINK.EXE"
 fi
 
 # A program older than its sources is the mistake this guards against: a folder cached from an earlier build made a disk whose Windows 3.x
 # Quill crashed on a bug that main had since fixed.
 if [ "$allow_stale" = 0 ] && [ -f "$quill_dir/QUILL.EXE" ] && [ -f "$quill_dir/QUILL32.EXE" ]; then
 	newest=$(git -C "$repo" log -1 --format=%ct -- win16 win9x crates assets Cargo.lock 2>/dev/null || echo 0)
-	for name in QUILL.EXE QUILL32.EXE; do
+	for name in QUILL.EXE QUILL32.EXE HOSTLINK.EXE; do
+		[ -f "$quill_dir/$name" ] || continue
 		if [ "$(stat -c %Y "$quill_dir/$name")" -lt "${newest:-0}" ]; then
 			echo "$quill_dir/$name is older than the last commit that touched the sources; rebuild it (--build-quill) or pass --allow-stale-quill" >&2
 			exit 1
@@ -123,9 +126,9 @@ if [ "$allow_stale" = 0 ] && [ -f "$quill_dir/QUILL.EXE" ] && [ -f "$quill_dir/Q
 fi
 
 # The payload the recipe's [[files]] name: the programs, the desktop icon and the wallpaper.
-if [ ! -f "$quill_dir/QUILL.EXE" ] || [ ! -f "$quill_dir/QUILL32.EXE" ]; then echo "--quill-dir needs QUILL.EXE and QUILL32.EXE" >&2; exit 1; fi
+if [ ! -f "$quill_dir/QUILL.EXE" ] || [ ! -f "$quill_dir/QUILL32.EXE" ] || [ ! -f "$quill_dir/HOSTLINK.EXE" ]; then echo "--quill-dir needs QUILL.EXE, QUILL32.EXE and HOSTLINK.EXE (win9x/build.sh makes the last two)" >&2; exit 1; fi
 mkdir -p "$payload"
-cp "$quill_dir/QUILL.EXE" "$quill_dir/QUILL32.EXE" "$payload/"
+cp "$quill_dir/QUILL.EXE" "$quill_dir/QUILL32.EXE" "$quill_dir/HOSTLINK.EXE" "$payload/"
 python3 -I "$here/../guest/make_desk_icon.py" "$payload/QUILLDESK.ICO"
 python3 -I "$here/../guest/make_desk_icon.py" --win31 "$payload/QUILL31DESK.ICO"
 
@@ -147,7 +150,7 @@ rl parts "$recipe" "$image" --out "$out/parts" --work "$work"
 
 echo "== rl manifest"
 inputs=()
-for name in QUILL.EXE QUILL32.EXE; do inputs+=(--input "$name=$(sha256sum "$payload/$name" | cut -d' ' -f1)"); done
+for name in QUILL.EXE QUILL32.EXE HOSTLINK.EXE; do inputs+=(--input "$name=$(sha256sum "$payload/$name" | cut -d' ' -f1)"); done
 rl manifest "$recipe" "$out" "${inputs[@]}" \
 	--extra "quill_commit=${QUILL_COMMIT:-unknown}" --extra "reactos_liminal_commit=$pin"
 echo "done: $out"

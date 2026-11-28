@@ -1,5 +1,5 @@
 // The runtime pieces a program with no C library has to supply: the panic handler, the stack probe and the 64-bit division helpers
-// (copied from QUILL32.EXE's rt.rs, without its allocator: the spike takes memory from HeapAlloc directly).
+// (the same as QUILL32.EXE's rt.rs, without its allocator: the helper allocates nothing, its buffers are VirtualAlloc'd once).
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -10,6 +10,7 @@ use crate::sys::ExitProcess;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
+	// A panic ends the process quietly: no dialog, no crash report, and the window goes with it, which takes it out of the viewer chain.
 	// SAFETY: ends the process.
 	unsafe { ExitProcess(3) }
 }

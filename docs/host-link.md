@@ -85,7 +85,7 @@ A receiver keeps the bytes of the open message for each channel. When the messag
 
 | Channel | `op` | dir | Keys and data |
 |---|---|---|---|
-| `ctl` | `hello` | both | `proto` u32 (`1`), `role` (`guest` or `page`), `app` (`HOSTLINK/0.1.0` or `host-link/0.1.0`), `caps` (comma list of `clip`, `file`, `time`, `display`), [`window` u32: the bytes the page may have in flight, guest only, default 16384, never less than 4352], [`max` u32: the largest message the sender accepts] |
+| `ctl` | `hello` | both | `proto` u32 (`1`), `role` (`guest` or `page`), `app` (`HOSTLINK/0.1.0` or `host-link/0.1.0`), `caps` (comma list of `clip`, `file`, `time`, `display`), [`window` u32: the bytes the page may have in flight, guest only; the helper names 4352 (one packet); default 16384 when none is named, never less than 4352], [`max` u32: the largest message the sender accepts] |
 | `ctl` | `credit` | g>p | `n` u32: bytes the guest has taken off the port |
 | `ctl` | `pause`, `resume` | both | `channel`: the channel to hold or release |
 | `ctl` | `error` | both | `code` (see [Errors](#errors)), `id` u32 (the message at fault, when known), [`text`: a sentence for the log] |
@@ -123,28 +123,44 @@ The `hello` exchange says who is on the line and starts a session. It is always 
 - **The page** sends `hello` when it attaches to a machine (a cold boot, or a restored state) and, until it hears one back, again every **5 s** at most. It answers a `hello` it did not ask for (the helper started after the page) with its own, once; a `hello` that arrives while its own is unanswered is the answer and is not answered, so two sides cannot ping-pong.
 - A `hello` clears the receiver's reassembly state and, on the page, the credit account (see [Credits](#credits)); bytes the page queued before the save are gone with v86's input array, which a `hello` resets. The page sends its `time set` after every `hello` exchange.
 - The helper must work with the defaults if the page's `hello` never reaches it.
+- **The page does not speak first on a cold boot.** See [Before the helper is up](#before-the-helper-is-up): a byte the page sends while the guest's serial driver is still starting can leave the guest deaf for good.
 - A `hello` is outside the credit account: the page does not know the window until the helper has told it.
 
 ## Credits
 
 The page-to-guest direction is paced by **credits**, so that a 30 MB file cannot fill the guest's input buffer faster than the helper empties it. The guest-to-page direction needs none: the page drains every byte as v86 delivers it, and the helper writes at most one packet at a time per channel.
 
-- The helper's `hello` names a `window` (16,384 bytes by default, within the input buffer it asked for with `SetupComm`; never less than 4,352, the longest frame with room to spare). The page **never has more frame bytes outstanding than the window**, counting every byte of every frame it sends (header lines and payloads) except `hello`.
-- The helper sends `ctl op=credit n=<bytes>` when it has taken **4,096 bytes or more** off the port since its last credit; `n` is the number it has taken. The page subtracts `n` from its outstanding bytes, never below zero, so a repeated or oversize credit cannot raise the window.
-- A frame is sent only if it fits in what remains. If the page has frames to send and no credit has arrived for **5 s**, it stops with a status line (state `stalled`) rather than flooding the guest; the next credit clears it.
-- **Priority.** Each side queues messages per channel and sends packets in the order `ctl`, `clip`, `time`, `display`, `file`: whenever a packet can be sent, the highest channel with one waiting goes first, and a channel's own messages go in order. A 30 MB file therefore never holds a paste up for more than one packet (about 14 ms at the measured rate). `pause` stops the sender serving a channel until `resume`.
+**One packet in flight.** v86's serial port stops delivering to the guest when it holds more than one packet while the guest also transmits (WP-HOST-1 measured 8 of 8 transfers of 1 MiB at one 4,096-byte packet in flight, against 0 of 3 at two packets and 2 of 11 at four), so the window the helper names is one packet and the credit is per packet, not per 4,096 bytes.
 
-A timeline with the default window (every number is frame bytes; a full packet is 4,142):
+- The helper's `hello` names `window=4352`: one longest packet (4,142 bytes with its header) with room to spare, within the 64 KiB input buffer it asked for with `SetupComm`. The page **never has more frame bytes outstanding than the window**, counting every byte of every frame it sends (header lines and payloads) except `hello`; so a second full packet waits for the credit, and a few small ones may go together.
+- The helper sends `ctl op=credit n=<bytes>` **after each packet** it has taken off the port: `n` is every byte it has taken since its last credit (the packet's frame, and any noise before it). A packet that arrives in several reads is credited once, when it is whole; a `hello` is outside the account and is not credited. The page subtracts `n` from its outstanding bytes, never below zero, so a repeated or oversize credit cannot raise the window.
+- A frame is sent only if it fits in what remains. If the page has frames to send and no credit has arrived for **5 s**, it stops with a status line (state `stalled`) rather than flooding the guest; the next credit clears it. Nothing the page can do to the UART brings a stalled guest back: the diagnostics row says so.
+- **Half duplex for bulk data.** The helper does not start a large message of its own while it is taking a page message, and the page does not start a paste while a download from the guest is arriving; a 4 KiB-each-way echo stalled in 2 of 5 runs.
+- **Priority.** Each side queues messages per channel and sends packets in the order `ctl`, `clip`, `time`, `display`, `file`: whenever a packet can be sent, the highest channel with one waiting goes first, and a channel's own messages go in order. A 30 MB file therefore never holds a paste up for more than one packet (about 5 ms at the measured rate). `pause` stops the sender serving a channel until `resume`.
+
+A timeline with the helper's window (every number is frame bytes; a full packet is 4,142):
 
 | Time | Event | Outstanding | Available |
 |---|---|---|---|
-| 0 s | helper `hello window=16384` | 0 | 16384 |
-| 0.0 s | page sends three full file packets | 12426 | 3958 |
-| 0.0 s | a 62-byte `time set` is sent ahead of the next file packet | 12488 | 3896 |
-| 0.1 s | helper `credit n=4096` | 8392 | 7992 |
-| 0.1 s | page sends one more full packet | 12534 | 3850 |
-| 5.2 s | no credit has come: the page is `stalled` and sends nothing | 12534 | 3850 |
-| 6.0 s | helper `credit n=12534` (the guest was busy) | 0 | 16384 |
+| 0 s | helper `hello window=4352` | 0 | 4352 |
+| 0.0 s | page sends one full file packet | 4142 | 210 |
+| 0.0 s | a 62-byte `time set` is sent ahead of the next file packet | 4204 | 148 |
+| 0.0 s | the next full packet waits | 4204 | 148 |
+| 0.005 s | helper `credit n=4204` | 0 | 4352 |
+| 0.005 s | page sends the next full packet | 4142 | 210 |
+| 5.1 s | no credit has come: the page is `stalled` and sends nothing | 4142 | 210 |
+| 6.0 s | helper `credit n=4142` (the guest was busy) | 0 | 4352 |
+
+## Before the helper is up
+
+v86's serial port and ReactOS's `serial.sys` (an interrupt handler that reads the interrupt identification register once and queues a DPC to drain the port) lose the interrupt that makes the guest read, when bytes are waiting in the port at the moment the guest's driver enables its interrupts. WP-HOST-3 measured it on a cold boot and in a state saved afterwards (the port's `ints` 4100, `iir` 12, `lsr` 97; 357 bytes waiting; the driver's one read of the 'junk' byte when a program sets the line control, then nothing; a fresh edge from the page, modem-line toggles and a second `hello` did not help, and clearing the port's pending bits from inside the emulator at once restored it). The cause is the port's own: its transmit-empty interrupt is pending from power-on, bytes arrive before the driver has taken it, the receive interrupt takes priority and the line is never low again, and the driver's single-shot handler is only run by an edge.
+
+So, for the guest to be reachable:
+
+- **A cold boot must not receive anything before the guest has spoken.** The page holds its first `hello` until the helper's own `hello` (or any byte) has come from the guest, and the state builder does the same, then sends `hello`; the helper answers within 0.1 s (measured). A `hello` the page sends before the emulator's serial device exists is dropped by v86; the next retry (5 s) is the first that arrives.
+- **A saved state must be taken with the port idle**: no bytes queued, the port's pending bits clear (`ints` 0 in `uart0`). The harness's state builder checks it and refuses to save otherwise.
+- **The helper keeps what is waiting.** It purges only its own old output when it opens the port, so a `hello` the driver took in before the helper started is read and answered at once.
+- The helper cannot repair the port from the guest (nothing in the driver's interface writes the interrupt enable register or reads the interrupt identification register outside its handler).
 
 ## Errors
 

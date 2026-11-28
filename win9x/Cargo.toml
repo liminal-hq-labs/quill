@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
 [workspace]
-members = ["quill-win9x"]
+members = ["quill-win9x", "hostlink"]
+# `cargo build` in this folder builds QUILL32.EXE only; HOSTLINK.EXE is built by build.sh with its own link line (no resource file).
+default-members = ["quill-win9x"]
 resolver = "2"
 
 [profile.dev]

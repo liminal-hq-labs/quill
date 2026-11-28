@@ -110,6 +110,7 @@ Status: **reserved** (no rows in `decisions.md` yet), **in use** (some rows are 
 | SITE-30 to SITE-39 | Host integration (WP-HOST) | in use | [plans/host-integration.md](plans/host-integration.md) |
 | SITE-40 | Web demo power state (fix/power-state) | in use | [PR #183](https://github.com/liminal-hq-labs/quill/pull/183) |
 | SITE-41 to SITE-50 | First demo launch (WP-LAUNCH) | reserved | [plans/first-demo-launch.md](plans/first-demo-launch.md) |
+| SITE-90 to SITE-91 | Host integration: guest helper (WP-HOST-3) | in use | [plans/host-integration.md](plans/host-integration.md) |
 
 ## Grandfathered ids
 

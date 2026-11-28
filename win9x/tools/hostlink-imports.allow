@@ -1,0 +1,50 @@
+# The functions HOSTLINK.EXE may import, as dll!Function: ANSI entry points that Windows 95 and ReactOS 0.4.16 both export (the ReactOS side checked against
+# the export lists in docs/plans/host-integration.md). GetClipboardSequenceNumber is looked up with GetProcAddress, since Windows 95 has none.
+# (c) Copyright 2026 Liminal HQ, Scott Morris
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+kernel32.dll!CloseHandle
+kernel32.dll!CreateEventA
+kernel32.dll!CreateFileA
+kernel32.dll!CreateMutexA
+kernel32.dll!ExitProcess
+kernel32.dll!GetCommandLineA
+kernel32.dll!GetCommState
+kernel32.dll!GetLastError
+kernel32.dll!GetModuleHandleA
+kernel32.dll!GetOverlappedResult
+kernel32.dll!GetProcAddress
+kernel32.dll!GetTickCount
+kernel32.dll!GlobalAlloc
+kernel32.dll!GlobalFree
+kernel32.dll!GlobalLock
+kernel32.dll!GlobalSize
+kernel32.dll!GlobalUnlock
+kernel32.dll!PurgeComm
+kernel32.dll!ReadFile
+kernel32.dll!SetCommState
+kernel32.dll!SetCommTimeouts
+kernel32.dll!SetupComm
+kernel32.dll!Sleep
+kernel32.dll!VirtualAlloc
+kernel32.dll!WaitForSingleObject
+kernel32.dll!WriteFile
+user32.dll!ChangeClipboardChain
+user32.dll!CloseClipboard
+user32.dll!CreateWindowExA
+user32.dll!DefWindowProcA
+user32.dll!DestroyWindow
+user32.dll!DispatchMessageA
+user32.dll!EmptyClipboard
+user32.dll!FindWindowA
+user32.dll!GetClipboardData
+user32.dll!IsClipboardFormatAvailable
+user32.dll!MsgWaitForMultipleObjects
+user32.dll!OpenClipboard
+user32.dll!PeekMessageA
+user32.dll!PostMessageA
+user32.dll!PostQuitMessage
+user32.dll!RegisterClassA
+user32.dll!RegisterClipboardFormatA
+user32.dll!SendMessageA
+user32.dll!SetClipboardData
+user32.dll!SetClipboardViewer

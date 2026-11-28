@@ -563,6 +563,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "quill-hostlink-guest"
+version = "0.0.0"
+dependencies = [
+ "quill-hostlink",
+]
+
+[[package]]
 name = "quill-image"
 version = "0.0.0"
 dependencies = [

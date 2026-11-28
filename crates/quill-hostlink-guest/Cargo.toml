@@ -1,0 +1,16 @@
+[package]
+name = "quill-hostlink-guest"
+version = "0.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+publish = false
+description = "The ReactOS demo's link helper, minus the Win32 calls: the clipboard bridge's state machine over the host link, with no allocation, no unsafe and no panics"
+
+[dependencies]
+quill-hostlink = { path = "../quill-hostlink" }
+
+[package.metadata.quill]
+layer = "base"
+no_std = true
+alloc = false
+float = false
