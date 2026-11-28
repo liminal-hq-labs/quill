@@ -5,11 +5,14 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 import { Ac97, isAc97State, type Ac97Counters, type Ac97Options, type Ac97State } from "./model.ts";
+import { Microphone, type MicState } from "./capture.ts";
 import { createSink, type Sink, type SinkStats } from "./sink.ts";
 import { onceBeforeInit, registerOn, type Registered, type V86Emulator } from "./v86.ts";
 
 export * from "./model.ts";
 export * from "./sink.ts";
+export * from "./capture.ts";
+export * from "./resample.ts";
 export { onceBeforeInit, pciSpace, registerOn, V86_VERSION } from "./v86.ts";
 export type { Registered, V86Cpu, V86Emulator, V86Io, V86Machine, V86Pci } from "./v86.ts";
 
@@ -47,6 +50,9 @@ export interface Ac97Stats {
 	/** Frames taken at real-time rate and thrown away because no output was asking (a suspended or missing context). */
 	drainedFrames: number;
 	output: OutputState;
+	/** Where the microphone stands (`off` unless the visitor turned it on), and whether the guest is recording now. */
+	mic: MicState;
+	recording: boolean;
 	sink: "worklet" | "script" | null;
 	volume: number;
 	muted: boolean;
@@ -68,6 +74,16 @@ export interface Ac97Handle {
 	/** The output's state now. */
 	outputState(): OutputState;
 	stats(): Ac97Stats;
+	/**
+	 * Turns the microphone on: asks the browser for it (call this only from a click the visitor made for it) and feeds it to the card's recording channels,
+	 * resampled to the rate the guest records at. The audio goes into the emulated card's memory and nowhere else. Resolves with the microphone's state.
+	 */
+	startMicrophone(): Promise<MicState>;
+	/** Turns the microphone off and lets every track go. The guest then records silence. Safe in any state. */
+	stopMicrophone(): void;
+	micState(): MicState;
+	/** The microphone, for tests (`liveTracks`). */
+	readonly microphone: Microphone | null;
 	/** What the output has played, counted where the samples leave the worklet (before the volume). `null` without an output. */
 	sinkStats(): Promise<SinkStats | null>;
 	/** The output, for tests that need to listen to it (`record`, `take`, the gain node). `null` before it is built. */
@@ -90,6 +106,7 @@ export function gainFor(volume: number, muted: boolean): number {
 
 const DRAIN_MS = 10;
 const DRAIN_MAX_FRAMES = 4800;
+const MIC_STALL_MS = 500;
 
 /**
  * Adds the card to `emulator`, a v86 `V86` that has been constructed and has not started yet. v86 builds its devices a moment after its constructor
@@ -131,8 +148,26 @@ export function attachAc97(emulator: V86Emulator, options: AttachOptions = {}): 
 		model.render(frames, rate, scratchLeft, scratchRight, true);
 		drainedFrames += frames;
 	};
-	const drainTimer = setInterval(drain, DRAIN_MS);
+	let lastRecord = performance.now();
+	// The guest records silence in real time when no microphone is feeding the card, so a recording application finds an input that works.
+	const recordSilence = (): void => {
+		const now = performance.now();
+		const elapsed = now - lastRecord;
+		lastRecord = now;
+		const model = reg ? reg.model : null;
+		if (!model || !model.recording) return;
+		// A microphone that is on feeds the card from its own clock; only a long silence from it (a suspended context) lets the card's own clock take over, so a
+		// busy page that delivers a block late never has silence put in front of it.
+		if (mic && mic.state === "on" && now - mic.lastBlockAt < MIC_STALL_MS) return;
+		const frames = Math.min(DRAIN_MAX_FRAMES, Math.round((elapsed * model.adcRate) / 1000));
+		if (frames > 0) model.feedSilence(frames);
+	};
+	const drainTimer = setInterval(() => {
+		drain();
+		recordSilence();
+	}, DRAIN_MS);
 
+	let mic: Microphone | null = null;
 	const applyGain = (): void => {
 		if (sink) sink.setGain(gainFor(volume, muted));
 	};
@@ -178,6 +213,15 @@ export function attachAc97(emulator: V86Emulator, options: AttachOptions = {}): 
 	if (context) {
 		context.addEventListener("statechange", onStateChange);
 		buildSink(context);
+	}
+
+	if (context) {
+		mic = new Microphone(context, {
+			onBlock: (samples, rate) => {
+				if (reg && !detached) reg.model.feedCapture(samples, samples.length, rate);
+			},
+			onChange: changed,
+		});
 	}
 
 	const undoWrap = onceBeforeInit(emulator, (cpu) => {
@@ -234,12 +278,22 @@ export function attachAc97(emulator: V86Emulator, options: AttachOptions = {}): 
 				counters: model ? { ...model.counters } : null,
 				drainedFrames,
 				output: outputState(),
+				mic: mic ? mic.state : "off",
+				recording: model ? model.recording : false,
 				sink: sink ? sink.kind : null,
 				volume,
 				muted,
 				gain: gainFor(volume, muted),
 				stateError,
 			};
+		},
+		startMicrophone: async () => (mic && !detached ? mic.start() : "unavailable"),
+		stopMicrophone() {
+			if (mic) mic.stop();
+		},
+		micState: () => (mic ? mic.state : "off"),
+		get microphone() {
+			return mic;
 		},
 		sinkStats: async () => (sink ? sink.stats() : null),
 		get sink() {
@@ -253,6 +307,7 @@ export function attachAc97(emulator: V86Emulator, options: AttachOptions = {}): 
 			if (detached) return;
 			detached = true;
 			clearInterval(drainTimer);
+			if (mic) mic.stop();
 			undoWrap();
 			if (reg) reg.retire();
 			if (sink) {

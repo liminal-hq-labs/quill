@@ -579,3 +579,11 @@ last = 233
 owner = "header-page-top"
 status = "in use"
 source = "docs/id-ranges.toml"
+
+[[block]]
+prefix = "SITE"
+first = 54
+last = 57
+owner = "Web demo recording and resampler (WP-WEB-5b)"
+status = "in use"
+source = "docs/plans/web-demo.md"

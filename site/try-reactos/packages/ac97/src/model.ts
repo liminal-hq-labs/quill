@@ -1,10 +1,12 @@
 // A minimal Intel ICH AC'97 audio controller with a plain AC'97 2.3 codec, as a pure register model: no emulator, no browser.
-// Only the PCM-out channel plays; PCM-in and mic-in answer their registers and never run.
+// The PCM-out channel plays; the PCM-in and mic-in channels record whatever the page feeds them (`feedCapture`, or silence), so a recording application finds a working input.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 // Written from the register tables in Intel's AC'97 2.3 and 82801AA (ICH) audio documents.
+
+import { Resampler, clampRate } from "./resample.ts";
 
 /** The mixer's I/O BAR: the codec's registers, 16 bits at even offsets. */
 export const NAM_SIZE = 256;
@@ -20,7 +22,9 @@ export const GS = { CODEC_READY: 0x100, PIINT: 0x20, POINT: 0x40, MINT: 0x80 } a
 
 /** Channel base offsets in the bus master BAR: PCM in, PCM out, mic in. */
 const CHANNEL_BASE = [0x00, 0x10, 0x20] as const;
+const PI = 0;
 const PO = 1;
+const MC = 2;
 const CHANNELS = 3;
 const NAM_WORDS = NAM_SIZE / 2;
 const SAVED_VERSION = 1;
@@ -63,31 +67,32 @@ export interface Ac97Counters {
 	starvedFrames: number;
 	irqRaised: number;
 	bdlReads: number;
+	/** Stereo (or mono, for the mic channel) frames the device wrote into guest memory while recording. */
+	capFrames: number;
+	/** Of those, frames of silence (no microphone was feeding the card). */
+	capSilentFrames: number;
+	/** Recorded frames thrown away because the guest did not take its buffers for a second. */
+	capDropped: number;
+	capBuffers: number;
 }
 
 export interface Ac97Options {
 	/** Returns `length` bytes of guest physical memory at `address`. */
 	readMem(address: number, length: number): Uint8Array;
+	/** Writes `bytes` into guest physical memory at `address` (the recording channels need it; playback does not). */
+	writeMem?: (address: number, bytes: Uint8Array) => void;
 	raiseIrq?: () => void;
 	lowerIrq?: () => void;
 	/** Called for each register access: `kind` is "nam-r", "nam-w", "nabm-r1", "nabm-w4" and so on. */
 	trace?: ((kind: string, offset: number, value: number) => void) | null;
 }
 
-interface Carry {
-	l: Float32Array;
-	r: Float32Array;
-	frac: number;
-}
-
-const emptyCarry = (): Carry => ({ l: new Float32Array(0), r: new Float32Array(0), frac: 0 });
-
 function newChannel(): Channel {
 	return { bdbar: 0, civ: 0, lvi: 0, sr: SR.DCH, picb: 0, piv: 0, cr: 0, addr: 0, len: 0, pos: 0, loaded: false, haltedAtLast: false, ioc: false, bup: false };
 }
 
 function newCounters(): Ac97Counters {
-	return { dmaFrames: 0, peakRaw: 0, buffersDone: 0, lastValidHalts: 0, iocs: 0, starvedFrames: 0, irqRaised: 0, bdlReads: 0 };
+	return { dmaFrames: 0, peakRaw: 0, buffersDone: 0, lastValidHalts: 0, iocs: 0, starvedFrames: 0, irqRaised: 0, bdlReads: 0, capFrames: 0, capSilentFrames: 0, capDropped: 0, capBuffers: 0 };
 }
 
 /** Whether `value` has the shape `getState` writes. A state that fails this must not reach `setState`. */
@@ -101,20 +106,53 @@ export function isAc97State(value: unknown): value is Ac97State {
 	return s.ch.every((c) => typeof c === "object" && c !== null && Number.isInteger((c as Channel).bdbar) && Number.isInteger((c as Channel).civ) && Number.isInteger((c as Channel).lvi) && Number.isInteger((c as Channel).sr) && Number.isInteger((c as Channel).cr));
 }
 
+interface PlayPath {
+	inRate: number;
+	outRate: number;
+	l: Resampler;
+	r: Resampler;
+	/** Guest samples are in the resamplers that have not come out yet. */
+	tail: boolean;
+	live: boolean;
+}
+
+/** The recording side: mic samples are resampled to the guest's record rate and queued until the guest's buffers can take them. */
+interface CapturePath {
+	queue: Float32Array;
+	len: number;
+	resampler: Resampler | null;
+	micRate: number;
+	adcRate: number;
+	scratch: Float32Array;
+	pcm: Int16Array;
+}
+
+/** A second of 48 kHz frames: the most a recording queues before it drops. */
+const CAPTURE_QUEUE = 48000;
+
+function newCapture(): CapturePath {
+	return { queue: new Float32Array(CAPTURE_QUEUE), len: 0, resampler: null, micRate: 0, adcRate: 0, scratch: new Float32Array(0), pcm: new Int16Array(0) };
+}
+
 export class Ac97 {
 	private readonly readMem: (address: number, length: number) => Uint8Array;
 	private readonly raiseIrq: () => void;
 	private readonly lowerIrq: () => void;
+	private readonly writeMem: ((address: number, bytes: Uint8Array) => void) | null;
 	private readonly trace: ((kind: string, offset: number, value: number) => void) | null;
 	private nam = new Uint16Array(NAM_WORDS);
 	private ch: Channel[] = [];
 	private globCnt = 0;
 	private irqAsserted = false;
-	private carry: Carry = emptyCarry();
+	private play: PlayPath | null = null;
+	private playScratchL = new Float32Array(0);
+	private playScratchR = new Float32Array(0);
+	private capture: CapturePath = newCapture();
 	counters: Ac97Counters = newCounters();
 
-	constructor({ readMem, raiseIrq = () => {}, lowerIrq = () => {}, trace = null }: Ac97Options) {
+	constructor({ readMem, writeMem, raiseIrq = () => {}, lowerIrq = () => {}, trace = null }: Ac97Options) {
 		this.readMem = readMem;
+		this.writeMem = writeMem ?? null;
 		this.raiseIrq = raiseIrq;
 		this.lowerIrq = lowerIrq;
 		this.trace = trace;
@@ -126,7 +164,8 @@ export class Ac97 {
 		this.ch = Array.from({ length: CHANNELS }, newChannel);
 		this.globCnt = 0;
 		this.irqAsserted = false;
-		this.carry = emptyCarry();
+		this.play = null;
+		this.capture = newCapture();
 		this.counters = newCounters();
 	}
 
@@ -232,7 +271,7 @@ export class Ac97 {
 				return;
 			case 0x2c:
 			case 0x32:
-				if (this.vra) this.nam[off >> 1] = value;
+				if (this.vra) this.nam[off >> 1] = clampRate(value);
 				return;
 			default:
 				this.nam[off >> 1] = value;
@@ -315,7 +354,7 @@ export class Ac97 {
 			case 5:
 				c.lvi = value & 0x1f;
 				// Halted at the last valid buffer with the run bit still set: a new last valid index resumes at the next buffer.
-				if (idx === PO && c.haltedAtLast && c.cr & CR.RPBM) {
+				if (c.haltedAtLast && c.cr & CR.RPBM) {
 					c.haltedAtLast = false;
 					c.sr &= ~(SR.DCH | SR.CELV);
 					c.civ = (c.civ + 1) & 31;
@@ -335,7 +374,8 @@ export class Ac97 {
 		const c = this.channel(idx);
 		if (value & CR.RR) {
 			this.ch[idx] = newChannel();
-			if (idx === PO) this.carry = emptyCarry();
+			if (idx === PO) this.play = null;
+			else this.capture = newCapture();
 			return;
 		}
 		const wasRunning = (c.cr & CR.RPBM) !== 0;
@@ -391,8 +431,36 @@ export class Ac97 {
 
 	/** Whether the PCM-out channel is running (run bit set and not halted). */
 	get running(): boolean {
-		const c = this.channel(PO);
+		return this.channelRunning(PO);
+	}
+
+	private channelRunning(index: number): boolean {
+		const c = this.channel(index);
 		return (c.cr & CR.RPBM) !== 0 && (c.sr & SR.DCH) === 0;
+	}
+
+	/** Whether the guest is recording (the PCM-in or the mic-in channel is running). */
+	get recording(): boolean {
+		return this.channelRunning(PI) || this.channelRunning(MC);
+	}
+
+	/** The rate the guest records at: the codec's ADC rate when variable rate is on, otherwise 48 kHz. */
+	get adcRate(): number {
+		return this.vra ? clampRate(this.word(0x32 >> 1) || 48000) : 48000;
+	}
+
+	/** Linear record gains per side from the record gain register (0 to 22.5 dB in 1.5 dB steps; bit 15 mutes). */
+	recordGains(): { l: number; r: number } {
+		const v = this.word(0x1c >> 1);
+		if (v & 0x8000) return { l: 0, r: 0 };
+		const side = (step: number): number => Math.pow(10, (step * 1.5) / 20);
+		return { l: side((v >> 8) & 0xf), r: side(v & 0xf) };
+	}
+
+	/** Whether the record select register chooses the microphone for each side (the other sources, line in and the mixes, are silent here). */
+	private recordSources(): { l: boolean; r: boolean } {
+		const v = this.word(0x1a >> 1);
+		return { l: ((v >> 8) & 7) === 0, r: (v & 7) === 0 };
 	}
 
 	/**
@@ -481,47 +549,157 @@ export class Ac97 {
 	 * when the guest is not playing. Returns the number of frames that came from the guest (the rest is silence). `hold` is `readFrames`'s.
 	 */
 	render(n: number, outRate: number, outL: Float32Array, outR: Float32Array, hold = false): number {
-		const cr = this.carry;
-		const step = this.rate / outRate;
+		const inRate = this.rate;
+		let path = this.play;
+		if (!path || path.inRate !== inRate || path.outRate !== outRate) {
+			path = this.play = { inRate, outRate, l: new Resampler(inRate, outRate), r: new Resampler(inRate, outRate), tail: false, live: false };
+		}
+		const need = path.l.inputNeeded(n);
+		if (need > 0) {
+			if (this.running) {
+				if (this.playScratchL.length < need) {
+					this.playScratchL = new Float32Array(need);
+					this.playScratchR = new Float32Array(need);
+				}
+				const got = this.readFrames(need, this.playScratchL, this.playScratchR, 0, hold);
+				if (got > 0) {
+					path.l.write(this.playScratchL, 0, got);
+					path.r.write(this.playScratchR, 0, got);
+					path.tail = true;
+					path.live = true;
+				}
+			} else if (path.tail) {
+				// The guest has stopped: let the filter's last samples out with silence behind them.
+				path.l.writeSilence(need);
+				path.r.writeSilence(need);
+				path.tail = false;
+			}
+		}
+		const made = path.l.read(outL, n);
+		path.r.read(outR, n);
 		const g = this.gains();
-		let real = 0;
-		const need = Math.ceil(cr.frac + (n - 1) * step) + 2;
-		if (cr.l.length < need && this.running) {
-			const extra = need - cr.l.length;
-			const l = new Float32Array(extra);
-			const r = new Float32Array(extra);
-			const got = this.readFrames(extra, l, r, 0, hold);
-			if (got > 0) {
-				const nl = new Float32Array(cr.l.length + got);
-				const nr = new Float32Array(cr.l.length + got);
-				nl.set(cr.l);
-				nr.set(cr.r);
-				nl.set(l.subarray(0, got), cr.l.length);
-				nr.set(r.subarray(0, got), cr.l.length);
-				cr.l = nl;
-				cr.r = nr;
-			}
+		for (let i = 0; i < made; i++) {
+			outL[i] = (outL[i] as number) * g.l;
+			outR[i] = (outR[i] as number) * g.r;
 		}
-		let pos = cr.frac;
-		for (let i = 0; i < n; i++) {
-			const k = Math.floor(pos);
-			if (k + 1 < cr.l.length) {
-				const f = pos - k;
-				outL[i] = ((cr.l[k] ?? 0) * (1 - f) + (cr.l[k + 1] ?? 0) * f) * g.l;
-				outR[i] = ((cr.r[k] ?? 0) * (1 - f) + (cr.r[k + 1] ?? 0) * f) * g.r;
-				real++;
-				pos += step;
-			} else {
-				outL[i] = 0;
-				outR[i] = 0;
-				if (this.running && !hold) this.counters.starvedFrames++;
-			}
+		for (let i = made; i < n; i++) {
+			outL[i] = 0;
+			outR[i] = 0;
 		}
-		const used = Math.min(Math.floor(pos), cr.l.length);
-		cr.l = cr.l.slice(used);
-		cr.r = cr.r.slice(used);
-		cr.frac = pos - used;
+		if (this.running && made < n && !hold) this.counters.starvedFrames += n - made;
+		const real = path.live ? made : 0;
+		if (!this.running && !path.tail) path.live = false;
 		return real;
+	}
+
+	// --- recording ---------------------------------------------------------------------------------------------------------
+
+	/**
+	 * Feeds the microphone: `count` mono samples at `micRate` (floats in [-1, 1]). They are resampled to the guest's record rate and written into the
+	 * guest's buffers as they have room. Dropped when the guest is not recording, so nothing is kept that nobody asked for.
+	 */
+	feedCapture(samples: Float32Array, count: number, micRate: number): void {
+		const cap = this.capture;
+		if (!this.recording) {
+			if (cap.resampler) cap.resampler.reset();
+			cap.len = 0;
+			return;
+		}
+		const adc = this.adcRate;
+		if (!cap.resampler || cap.micRate !== micRate || cap.adcRate !== adc) {
+			cap.resampler = new Resampler(micRate, adc);
+			cap.micRate = micRate;
+			cap.adcRate = adc;
+		}
+		cap.resampler.write(samples, 0, count);
+		const ready = cap.resampler.available();
+		if (ready > 0) {
+			if (cap.scratch.length < ready) cap.scratch = new Float32Array(ready);
+			const made = cap.resampler.read(cap.scratch, ready);
+			this.queueCapture(cap.scratch, made, false);
+		}
+		this.drainCapture();
+	}
+
+	/** Feeds `frames` of silence at the guest's record rate: what the guest records when no microphone is on. */
+	feedSilence(frames: number): void {
+		if (!this.recording || frames <= 0) return;
+		const cap = this.capture;
+		if (cap.scratch.length < frames) cap.scratch = new Float32Array(frames);
+		cap.scratch.fill(0, 0, frames);
+		this.queueCapture(cap.scratch, frames, true);
+		this.drainCapture();
+	}
+
+	private queueCapture(src: Float32Array, count: number, silent: boolean): void {
+		const cap = this.capture;
+		let take = count;
+		let from = 0;
+		if (take > CAPTURE_QUEUE) {
+			from = take - CAPTURE_QUEUE;
+			this.counters.capDropped += from;
+			take = CAPTURE_QUEUE;
+		}
+		const over = cap.len + take - CAPTURE_QUEUE;
+		if (over > 0) {
+			cap.queue.copyWithin(0, over, cap.len);
+			cap.len -= over;
+			this.counters.capDropped += over;
+		}
+		cap.queue.set(src.subarray(from, from + take), cap.len);
+		cap.len += take;
+		if (silent) this.counters.capSilentFrames += take;
+	}
+
+	/** Writes queued frames into the guest's current record buffer, a buffer at a time, waiting for the guest to take each buffer's interrupt. */
+	private drainCapture(): void {
+		const cap = this.capture;
+		const index = this.channelRunning(PI) ? PI : this.channelRunning(MC) ? MC : -1;
+		if (index < 0 || !this.writeMem) return;
+		const c = this.channel(index);
+		const mono = index === MC;
+		const per = mono ? 1 : 2;
+		const gain = this.recordGains();
+		const source = this.recordSources();
+		let head = 0;
+		let guard = 64;
+		while (head < cap.len && this.channelRunning(index) && guard-- > 0) {
+			if (!c.loaded) {
+				// The same wait as the playback path's hold: two buffers completing before one interrupt is taken merge into one.
+				if (c.sr & SR.BCIS && c.cr & CR.IOCE) break;
+				this.loadBuffer(c);
+			}
+			const frames = Math.min(Math.floor((c.len - c.pos) / per), cap.len - head);
+			if (frames > 0) {
+				if (cap.pcm.length < frames * per) cap.pcm = new Int16Array(frames * per);
+				for (let i = 0; i < frames; i++) {
+					const x = cap.queue[head + i] as number;
+					const l = source.l ? Math.max(-1, Math.min(1, x * gain.l)) : 0;
+					const r = source.r ? Math.max(-1, Math.min(1, x * gain.r)) : 0;
+					if (mono) cap.pcm[i] = Math.round(l * 32767);
+					else {
+						cap.pcm[2 * i] = Math.round(l * 32767);
+						cap.pcm[2 * i + 1] = Math.round(r * 32767);
+					}
+				}
+				const bytes = new Uint8Array(cap.pcm.buffer, 0, frames * per * 2);
+				this.writeMem((c.addr + c.pos * 2) >>> 0, bytes);
+				c.pos += frames * per;
+				c.picb = c.len - c.pos;
+				head += frames;
+				this.counters.capFrames += frames;
+			}
+			if (c.len - c.pos < per) {
+				c.picb = 0;
+				this.counters.capBuffers++;
+				this.finishBuffer(c);
+			}
+		}
+		if (head > 0) {
+			cap.queue.copyWithin(0, head, cap.len);
+			cap.len -= head;
+		}
+		this.updateIrq();
 	}
 
 	// --- diagnostics and the saved state ----------------------------------------------------------------------------------------
@@ -541,7 +719,8 @@ export class Ac97 {
 		this.nam = Uint16Array.from(state.nam);
 		this.globCnt = state.globCnt;
 		this.ch = state.ch.map((c) => ({ ...newChannel(), ...c }));
-		this.carry = emptyCarry();
+		this.play = null;
+		this.capture = newCapture();
 		this.irqAsserted = false;
 		this.updateIrq();
 	}

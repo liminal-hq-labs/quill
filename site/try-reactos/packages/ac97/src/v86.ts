@@ -34,6 +34,7 @@ export interface V86Cpu {
 	devices: { pci: V86Pci };
 	io: V86Io;
 	read_blob(address: number, length: number): Uint8Array;
+	write_blob(blob: Uint8Array, address: number): void;
 }
 
 /** The machine object v86 builds after its constructor returns (`emulator.v86`). */
@@ -89,6 +90,7 @@ export function registerOn(cpu: V86Cpu, trace: Ac97Options["trace"] = null): Reg
 	let live = true;
 	const model = new Ac97({
 		readMem: (address, length) => cpu.read_blob(address, length),
+		writeMem: (address, bytes) => cpu.write_blob(bytes, address),
 		raiseIrq: () => live && pci.raise_irq(pciId),
 		lowerIrq: () => pci.lower_irq(pciId),
 		trace,

@@ -141,7 +141,7 @@ describe("the register model", () => {
 		const r = new Float32Array(4800);
 		const real = dev.render(4800, 48000, l, r);
 		expect(real).toBeGreaterThanOrEqual(4790); // 4800 output frames take about 4410 input frames
-		expect(Math.abs(dev.counters.dmaFrames - 4410)).toBeLessThan(8);
+		expect(Math.abs(dev.counters.dmaFrames - 4410)).toBeLessThan(24); // the filter reads 16 frames ahead
 		expect(Math.abs((l[100] ?? 0) - 0.5)).toBeLessThan(1e-6);
 		dev.namWrite(0x02, 2, 0x8000);
 		dev.render(100, 48000, l, r);

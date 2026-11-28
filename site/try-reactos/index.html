@@ -17,8 +17,8 @@
 		<link rel="icon" href="../img/quill-small.svg" type="image/svg+xml">
 		<link rel="stylesheet" href="../css/site.css?v=a4d3a119">
 		<link rel="stylesheet" href="../css/try.css?v=fc9dccd7">
-		<link rel="stylesheet" href="try-reactos.css?v=d0ccd692">
-		<script src="try-reactos.js?v=b8cb8668" type="module"></script>
+		<link rel="stylesheet" href="try-reactos.css?v=5bbb356b">
+		<script src="try-reactos.js?v=8235e29a" type="module"></script>
 	</head>
 	<body>
 		<main id="main">
@@ -39,7 +39,12 @@
 								<button class="button button--alt" type="button" data-sound aria-pressed="true">Sound on</button>
 								<input class="sound-volume" type="range" min="0" max="100" step="5" value="70" data-volume aria-label="Volume">
 							</span>
+							<span class="mic" role="group" aria-label="Microphone">
+								<button class="button button--alt" type="button" data-mic aria-pressed="false" disabled title="Start the machine first. The microphone is off until you select this.">Microphone</button>
+								<span class="mic-live" data-mic-live role="status" hidden><span class="mic-dot" aria-hidden="true"></span>Microphone on</span>
+							</span>
 							<p class="player-status" id="player-status" role="status" aria-live="polite" data-status>Not started. The first start downloads about 16 MB, then the desktop is up in a second or two.</p>
+							<p class="mic-note" data-mic-note aria-live="polite" hidden></p>
 						</div>
 						<div class="stage stage--reactos" data-stage tabindex="0" aria-label="ReactOS running in an emulated PC">
 							<div class="screen" data-screen>
@@ -53,6 +58,7 @@
 							<li><strong>Full screen</strong> gives the biggest picture. Add <code>?scale=int</code> (whole-number sizes), <code>?scale=crisp</code> (sharp pixels) or <code>?scale=smooth</code> (smoothed) to the address to choose how the screen is scaled.</li>
 							<li>The <strong>Windows 3.x, slow</strong> icon runs inside WineVDM: that is emulation inside emulation, so it takes a few seconds to appear and types more slowly. The 32-bit build is the fast one.</li>
 							<li><strong>Sound</strong> starts on at 70 percent when you select <strong>Start</strong>. The button mutes and unmutes it, the slider sets the level, and the page remembers both in this browser. A browser that holds the sound back leaves the machine running silently: select the button to turn it on.</li>
+							<li><strong>Microphone</strong> is off, and the page never asks your browser for it, until you select the button (and only then; select it again to turn it off). Turned on, what it hears goes only into the emulated sound card's memory in this tab, so a recording program in ReactOS can use it: nothing is uploaded, stored or sent anywhere. It switches off on Stop, Reset and Shut Down and when you leave the page, and it starts off on every visit. With it off, a recording program hears silence.</li>
 							<li><strong>Reset</strong> loads the saved desktop again. Nothing you type is kept.</li>
 							<li>If you choose <strong>Shut Down</strong> in ReactOS, the screen dims and the page says so: <strong>Turn on</strong> brings the saved desktop back. A full boot of the disk, without the saved desktop, is in the builder and diagnostics.</li>
 						</ul>

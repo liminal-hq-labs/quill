@@ -103,6 +103,39 @@
 	accent-color: var(--button-bg);
 }
 
+.mic {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.mic-live {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-weight: 700;
+	color: #b3261e;
+}
+
+.mic-live[hidden],
+.mic-note[hidden] {
+	display: none;
+}
+
+.mic-dot {
+	width: 0.7rem;
+	height: 0.7rem;
+	border-radius: 50%;
+	background: #b3261e;
+}
+
+.mic-note {
+	flex: 1 1 100%;
+	margin: 0;
+	color: var(--text-muted);
+	font-size: 0.9rem;
+}
+
 .sound-volume:disabled,
 .sound .button:disabled {
 	opacity: 0.6;
@@ -114,7 +147,8 @@
 		padding-inline: 0.75rem;
 	}
 
-	.sound {
+	.sound,
+	.mic {
 		flex: 1 1 100%;
 	}
 

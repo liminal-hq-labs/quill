@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 // The ?v= is the first 8 hex of the module's SHA-256; tools/stamp-web.py keeps it current (SITE-14).
-import { attachAc97, isAc97State } from "./lib/ac97.js?v=0acb0057";
+import { attachAc97, isAc97State, micReason } from "./lib/ac97.js?v=7e091c2f";
 
 const STORE = "quill-try-reactos-sound";
 const DEFAULTS = { volume: 0.7, muted: false };
@@ -16,6 +16,9 @@ const SUSPEND_AFTER_MS = 1500;
 const button = document.querySelector("[data-sound]");
 const slider = document.querySelector("[data-volume]");
 const readout = document.querySelector("[data-sound-readout]");
+const micButton = document.querySelector("[data-mic]");
+const micLive = document.querySelector("[data-mic-live]");
+const micNote = document.querySelector("[data-mic-note]");
 
 let prefs = loadPrefs();
 let context = null;
@@ -136,12 +139,30 @@ function show() {
 		slider.value = String(Math.round(prefs.volume * 100));
 		slider.setAttribute("aria-valuetext", Math.round(prefs.volume * 100) + " percent" + (prefs.muted ? ", muted" : ""));
 	}
+	showMic();
 	if (readout) {
 		const dt = document.createElement("dt");
 		dt.textContent = "Sound";
 		const dd = document.createElement("dd");
 		dd.textContent = describe();
 		readout.replaceChildren(dt, dd);
+	}
+}
+
+// The microphone is never remembered: it starts off on every visit, and it is off again whenever the machine goes. Its button is enabled only while a card
+// is attached, and the only thing that asks the browser for it is a press of that button.
+function showMic() {
+	if (!micButton) return;
+	const state = handle ? handle.micState() : "off";
+	const on = state === "on";
+	micButton.disabled = !handle;
+	micButton.setAttribute("aria-pressed", String(on));
+	micButton.title = !handle ? "Start the machine first. The microphone is off until you select this." : on ? "Select to turn the microphone off." : state === "asking" ? micReason(state) : "Select to turn the microphone on. Nothing it hears leaves this tab.";
+	if (micLive) micLive.hidden = !on;
+	if (micNote) {
+		const reason = !on && state !== "off" ? micReason(state) : "";
+		micNote.textContent = reason;
+		micNote.hidden = reason === "";
 	}
 }
 
@@ -152,6 +173,7 @@ function describe() {
 	const parts = [webAudio ? "" : "this browser has no Web Audio", "AC'97 card " + (s.registered ? "in PCI slot " + (s.pciId >> 3) : "waiting for the machine"), "output " + s.output + (s.sink ? " (" + s.sink + ")" : "")];
 	parts.push(Math.round(s.volume * 100) + " percent" + (s.muted ? ", muted" : ""));
 	if (s.counters) parts.push("guest " + (s.playing ? "playing at " + s.guestRate + " Hz" : "idle") + ", " + s.counters.dmaFrames + " frames taken, " + s.drainedFrames + " dropped unheard");
+	parts.push("microphone " + s.mic + (s.recording ? ", the guest is recording" : ""));
 	if (s.stateError) parts.push("saved registers refused: " + s.stateError);
 	return parts.filter(Boolean).join(", ");
 }
@@ -179,6 +201,24 @@ if (button) {
 		show();
 	});
 }
+
+if (micButton) {
+	micButton.addEventListener("click", () => {
+		if (!handle) return;
+		const state = handle.micState();
+		if (state === "on" || state === "asking") handle.stopMicrophone();
+		else handle.startMicrophone();
+		showMic();
+	});
+}
+
+// Leaving the page lets the microphone go.
+window.addEventListener("pagehide", () => {
+	if (handle) handle.stopMicrophone();
+});
+window.addEventListener("beforeunload", () => {
+	if (handle) handle.stopMicrophone();
+});
 
 if (slider) {
 	slider.addEventListener("input", async () => {

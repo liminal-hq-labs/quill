@@ -39,6 +39,7 @@ function fakeV86(taken: number[] = []) {
 			},
 		},
 		read_blob: (address, length) => memory.subarray(address, address + length),
+		write_blob: (blob, address) => memory.set(blob, address),
 	};
 	const calls = { init: 0 };
 	class Machine implements V86Machine {
